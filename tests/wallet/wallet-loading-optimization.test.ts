@@ -3,6 +3,11 @@ import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
 import { WalletSnapshotCache } from '../../features/wallet/services/walletSnapshotCache';
 import { signWalletImagePaths } from '../../features/wallet/services/walletImageSigning';
+import {
+  clearWalletLoadingMetrics,
+  getWalletLoadingSummary,
+  recordWalletLoadSample,
+} from '../../features/wallet/services/walletLoadingMetrics';
 
 test('route changes within TTL reuse one user-scoped snapshot', async () => {
   const cache = new WalletSnapshotCache<{ balance: number }>(25_000);
@@ -80,4 +85,26 @@ test('overview has no redundant heading; initial page load uses short cache and 
   assert(service.includes('createSignedUrls(paths, 3600)'));
   assert(!service.includes('createSignedUrl(card.image_path, 3600)'));
   assert(!service.includes('createSignedUrl(account.image_path, 3600)'));
+  assert(repository.includes('recordWalletLoadSample'));
+});
+
+test('walletLoadingMetrics records latency, cache hit rate and caps sample history', () => {
+  clearWalletLoadingMetrics();
+  assert.equal(getWalletLoadingSummary(), null);
+  recordWalletLoadSample({ target: 'overview', source: 'network', durationMs: 240 });
+  recordWalletLoadSample({ target: 'overview', source: 'memory', durationMs: 4 });
+  recordWalletLoadSample({ target: 'snapshot', source: 'offline', durationMs: 16 });
+  const summary = getWalletLoadingSummary();
+  assert.ok(summary);
+  assert.equal(summary.count, 3);
+  assert.equal(summary.maxMs, 240);
+  assert.equal(summary.lastMs, 16);
+  assert.equal(summary.lastSource, 'offline');
+  assert.equal(summary.cacheHitRatePercent, 67);
+  for (let i = 0; i < 40; i += 1) {
+    recordWalletLoadSample({ target: 'overview', source: 'memory', durationMs: 2 });
+  }
+  assert.equal(getWalletLoadingSummary()?.count, 30);
+  clearWalletLoadingMetrics();
+  assert.equal(getWalletLoadingSummary(), null);
 });

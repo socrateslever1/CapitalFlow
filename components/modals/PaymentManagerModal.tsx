@@ -18,6 +18,7 @@ import type { PersonalWalletAccount } from '../../services/personalWallet.servic
 import { walletRepository } from '../../features/wallet/services/walletRepository';
 import { platformAdminService } from '../../services/platformAdmin.service';
 import { filterOperationalSources } from '../../utils/testSource';
+import { ReceiptAccountDestinationList, ReceiptSourceDestinationList } from '../wallet/ReceiptDestinationSelector';
 
 interface PaymentManagerModalProps {
     data: {loan: Loan, inst: Installment, calculations: any} | null;
@@ -304,35 +305,24 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
                                     </select>
                                 </div>
 
-                                {destinationSources.length > 0 && (
-                                    <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-800">
-                                        <label htmlFor="receipt-destination-source" className="mb-2 block text-sm font-semibold text-slate-100">Fonte de destino para recebimento (opcional)</label>
-                                        <select id="receipt-destination-source" value={receiptDestinationSourceId}
-                                            onChange={event => setReceiptDestinationSourceId(event.target.value)}
-                                            disabled={isProcessing}
-                                            aria-describedby="receipt-source-help"
-                                            className="min-h-12 w-full rounded-xl border border-slate-600 bg-slate-950 px-3 py-2.5 text-sm font-semibold text-white outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-60">
-                                            <option value="">Padrão · retorno às fontes originais</option>
-                                            {destinationSources.map(source => <option key={source.id} value={source.id}>Reinvestir em: {source.name} · {formatMoney(source.balance)}{source.id === loan.sourceId ? ' (fonte do contrato)' : ''}</option>)}
-                                        </select>
-                                        <p id="receipt-source-help" className="mt-2 text-xs leading-relaxed text-slate-300">Sem escolha, mantém o padrão (capital na fonte do contrato e lucro separado). Ao escolher uma fonte, Capital + Lucro/Encargos vão juntos para reinvestimento, preservando a auditoria separada.</p>
-                                    </div>
-                                )}
+                                <ReceiptSourceDestinationList
+                                    label="Fonte de destino para recebimento (opcional)"
+                                    value={receiptDestinationSourceId}
+                                    onChange={setReceiptDestinationSourceId}
+                                    sources={destinationSources}
+                                    contractSourceId={loan.sourceId}
+                                    disabled={isProcessing}
+                                />
 
                                 {isWalletReceiptAdmin && (
-                                    <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-800">
-                                        <label htmlFor="receipt-wallet-account" className="mb-2 block text-sm font-semibold text-slate-100">Conta que recebeu o pagamento (opcional)</label>
-                                        <select id="receipt-wallet-account" value={receiptDestinationAccountId}
-                                            onChange={event => setReceiptDestinationAccountId(event.target.value)}
-                                            disabled={!walletAccountsLoaded || isProcessing}
-                                            aria-describedby="receipt-wallet-help"
-                                            className="min-h-12 w-full rounded-xl border border-slate-600 bg-slate-950 px-3 py-2.5 text-sm font-semibold text-white outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-60">
-                                            <option value="">Padrão · devolver às fontes originais</option>
-                                            {walletAccounts.map(account => <option key={account.id} value={account.id}>{account.nickname} · {formatMoney(account.balance)}{account.capital_source_id ? ' · vinculada ao Capital' : ''}</option>)}
-                                        </select>
-                                        <p id="receipt-wallet-help" className="mt-2 text-xs leading-relaxed text-slate-300">Com conta escolhida, o valor integral entra nela. Capital, juros e encargos ficam separados na auditoria. Sem escolha, permanece a distribuição original.</p>
-                                        {walletAccountLoadError && <p role="status" className="mt-2 text-xs text-amber-300">{walletAccountLoadError}</p>}
-                                    </div>
+                                    <ReceiptAccountDestinationList
+                                        label="Conta que recebeu o pagamento (opcional)"
+                                        value={receiptDestinationAccountId}
+                                        onChange={setReceiptDestinationAccountId}
+                                        accounts={walletAccounts}
+                                        disabled={!walletAccountsLoaded || isProcessing}
+                                        errorMessage={walletAccountLoadError}
+                                    />
                                 )}
 
                                 <InstallmentPixCopyBox

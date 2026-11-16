@@ -41,7 +41,7 @@ test('the editor changes the SAME invoice via one transactional RPC, never a sec
   assert.match(component,/Competência \(fechamento\)/);
   assert.match(component,/hasExistingConsolidation/);
   assert.match(page,/personalWalletService\.correctInvoiceOverride/);
-  assert.match(page,/previousDueMonth:selectedCycle\?\.hasOverride/);
+  assert.match(page,/previousDueMonth:\s*selectedCycle\?\.hasOverride/);
   assert.match(service,/supabase\.rpc\('personal_wallet_correct_invoice_override'/);
   assert.match(sql,/pg_advisory_xact_lock/);
   assert.match(sql,/v_target\.amount<>v_previous\.amount/);
@@ -71,7 +71,7 @@ test('primeira fatura permite mês manual sem fatura preexistente nem limite dis
   assert.equal(resolveManualInvoiceMonth('2026-13', null), null);
   assert.equal(resolveManualInvoiceMonth('2026-12-05', null), null);
   assert.match(page, /setInvoiceFactsModalMonth\(resolveManualInvoiceMonth\(statementMonth, suggestedNewInvoiceMonth\)\)/);
-  assert.match(page, /dueMonth:confirmedDueMonth/);
+  assert.match(page, /dueMonth:\s*confirmedDueMonth/);
   assert.match(page, /availableLimit: editedInvoiceFacts\?\.available_limit \?\? null/);
   assert.match(page, /type="month" required/);
   assert.match(page, /form="wallet-manual-invoice-form"/);

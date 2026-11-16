@@ -36,6 +36,7 @@ export const BankStack: React.FC<Props> = ({ accounts, cards, onCard, onEditCard
   const drag = useRef<{ x: number; delta: number } | null>(null);
   const [dragOffset, setDragOffset] = useState(0);
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
+  const [showHint, setShowHint] = useState(false);
 
   // Apenas campos efetivamente disponíveis; nunca copiar um resumo ou fingir número/CVC completos.
   const handleCopyField = async (field: 'number' | 'holder' | 'expiry', event: React.MouseEvent) => {
@@ -83,20 +84,30 @@ export const BankStack: React.FC<Props> = ({ accounts, cards, onCard, onEditCard
     : '—';
 
   return <section aria-label="Carteira de cartões" className="w-full min-w-0">
-    <header className="mb-3 flex flex-wrap items-center justify-between gap-2">
-      <h2 className="text-sm font-semibold text-white sm:text-base">Cartões de crédito</h2>
+    <header className="mb-2 flex flex-wrap items-center justify-between gap-1.5">
+      <div className="min-w-0">
+        <button
+          type="button"
+          aria-pressed={showHint}
+          onClick={() => setShowHint(current => !current)}
+          className="text-left text-sm font-bold text-white transition-colors hover:text-blue-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded sm:text-base"
+        >
+          Cartões de crédito
+        </button>
+        {showHint && <p className="mt-0.5 text-xs text-slate-300">Acompanhe o limite, confira cada ciclo e organize seus pagamentos.</p>}
+      </div>
       <div className="flex flex-wrap items-center gap-1.5">
         {onImportStatement && <button onClick={onImportStatement} type="button" disabled={!selected}
-          className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-slate-700 px-2.5 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-800 disabled:opacity-40">
-          <FileUp size={14}/> Importar fatura
+          className="inline-flex min-h-8 items-center gap-1 rounded-lg border border-slate-700 px-2 py-1 text-[11px] font-semibold text-slate-200 hover:bg-slate-800 disabled:opacity-40">
+          <FileUp size={13}/> Importar fatura
         </button>}
-        {onCreateCard && <button onClick={onCreateCard} type="button" className="min-h-9 rounded-lg border border-blue-500/50 px-2.5 py-1.5 text-xs font-semibold text-blue-300 hover:bg-blue-950/30">+ Cartão</button>}
+        {onCreateCard && <button onClick={onCreateCard} type="button" className="min-h-8 rounded-lg border border-blue-500/50 px-2 py-1 text-[11px] font-semibold text-blue-300 hover:bg-blue-950/30">+ Cartão</button>}
       </div>
     </header>
-    {!selected ? <div className="rounded-2xl border border-dashed border-slate-700 p-6 text-center text-sm text-slate-400">Nenhum cartão cadastrado.</div> : <>
-      <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1 sm:gap-3">
-        <button type="button" disabled={availableCards.length < 2} onClick={() => cycle(-1)} aria-label="Cartão anterior" className="flex min-h-11 min-w-11 items-center justify-center rounded-full p-2 text-slate-200 transition-colors hover:bg-slate-800/70 disabled:opacity-30"><ArrowLeft size={19}/></button>
-        <div className="mx-auto w-full min-w-0 max-w-[285px] sm:max-w-[370px]">
+    {!selected ? <div className="rounded-2xl border border-dashed border-slate-700 p-5 text-center text-sm text-slate-400">Nenhum cartão cadastrado.</div> : <>
+      <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-0.5 sm:gap-2">
+        <button type="button" disabled={availableCards.length < 2} onClick={() => cycle(-1)} aria-label="Cartão anterior" className="flex min-h-9 min-w-9 items-center justify-center rounded-full p-1 text-slate-200 transition-colors hover:bg-slate-800/70 disabled:opacity-30"><ArrowLeft size={17}/></button>
+        <div className="mx-auto w-full min-w-0 max-w-[265px] sm:max-w-[340px]">
           <div className="relative w-full" style={{ paddingTop: rear.length * 14 }}>
             {rear.map((card, rearIndex) => {
               const cardIdentity = identity(card);
@@ -192,15 +203,15 @@ export const BankStack: React.FC<Props> = ({ accounts, cards, onCard, onEditCard
             </div>
           </div>
         </div>
-        <button type="button" disabled={availableCards.length < 2} onClick={() => cycle(1)} aria-label="Próximo cartão" className="flex min-h-11 min-w-11 items-center justify-center rounded-full p-2 text-slate-200 transition-colors hover:bg-slate-800/70 disabled:opacity-30"><ArrowRight size={19}/></button>
+        <button type="button" disabled={availableCards.length < 2} onClick={() => cycle(1)} aria-label="Próximo cartão" className="flex min-h-9 min-w-9 items-center justify-center rounded-full p-1 text-slate-200 transition-colors hover:bg-slate-800/70 disabled:opacity-30"><ArrowRight size={17}/></button>
       </div>
-      <div className="mt-3 grid grid-cols-3 gap-2">
-        <button type="button" onClick={() => onNewExpense?.(selected)} className="flex min-h-10 min-w-0 items-center justify-center gap-1 rounded-xl bg-blue-600 px-2 py-2.5 text-[10px] font-bold text-white sm:text-xs"><Plus size={14} className="shrink-0"/><span className="truncate">Despesa</span></button>
-        <button type="button" onClick={() => onPayInvoice?.(selected)} className="flex min-h-10 min-w-0 items-center justify-center gap-1 rounded-xl border border-amber-500/30 bg-amber-500/10 px-2 py-2.5 text-[10px] font-bold text-amber-200 sm:text-xs"><CreditCard size={14} className="shrink-0"/><span className="truncate">Pagar fatura</span></button>
-        <button type="button" onClick={() => onEditCard(selected)} className="flex min-h-10 min-w-0 items-center justify-center gap-1 rounded-xl border border-slate-700 px-2 py-2.5 text-[10px] font-bold text-slate-200 sm:text-xs"><Pencil size={14} className="shrink-0"/><span className="truncate">Editar cartão</span></button>
+      <div className="mt-2 grid grid-cols-3 gap-1.5">
+        <button type="button" onClick={() => onNewExpense?.(selected)} className="flex min-h-8 min-w-0 items-center justify-center gap-1 rounded-lg bg-blue-600 px-1.5 py-1.5 text-[10px] font-bold text-white sm:text-xs"><Plus size={13} className="shrink-0"/><span className="truncate">Despesa</span></button>
+        <button type="button" onClick={() => onPayInvoice?.(selected)} className="flex min-h-8 min-w-0 items-center justify-center gap-1 rounded-lg border border-amber-500/30 bg-amber-500/10 px-1.5 py-1.5 text-[10px] font-bold text-amber-200 sm:text-xs"><CreditCard size={13} className="shrink-0"/><span className="truncate">Pagar fatura</span></button>
+        <button type="button" onClick={() => onEditCard(selected)} className="flex min-h-8 min-w-0 items-center justify-center gap-1 rounded-lg border border-slate-700 px-1.5 py-1.5 text-[10px] font-bold text-slate-200 sm:text-xs"><Pencil size={13} className="shrink-0"/><span className="truncate">Editar cartão</span></button>
       </div>
-      {copyFeedback && <p role="status" className="mt-2 flex items-center justify-center gap-1 text-center text-[10px] text-emerald-300"><Check size={12}/>{copyFeedback}</p>}
-      <p className="mt-2 flex items-center justify-center gap-1 text-center text-[10px] text-slate-400"><RotateCcw size={11}/>{index + 1} de {availableCards.length} · Toque para virar · Deslize para trocar</p>
+      {copyFeedback && <p role="status" className="mt-1.5 flex items-center justify-center gap-1 text-center text-[10px] text-emerald-300"><Check size={12}/>{copyFeedback}</p>}
+      <p className="mt-1.5 flex items-center justify-center gap-1 text-center text-[10px] text-slate-400"><RotateCcw size={11}/>{index + 1} de {availableCards.length} · Toque para virar · Deslize para trocar</p>
     </>}
   </section>;
 };

@@ -27,19 +27,20 @@ test('RPC de capital é idempotente, transacional, autorizada e exclui crédito 
 
 test('frontend abre modal em Fontes e Contas somente com autorização real de master', () => {
   const accounts=read('features/wallet/pages/WalletAccountsPage.tsx');
+  const accountDetail=read('components/wallet/AccountDetailsPage.tsx');
   const sources=read('pages/SourcesPage.tsx');
   const card=read('components/cards/SourceCard.tsx');
   const modal=read('features/wallet/components/CapitalSourceTransferModal.tsx');
   const service=read('services/personalWallet.service.ts');
   assert.match(accounts, /platformAdminService\.isSuperAdmin\(\)/);
   assert.match(sources, /platformAdminService\.isSuperAdmin\(\)/);
-  assert.match(accounts, /CapitalSourceTransferModal/);
+  assert.match(accountDetail, /CapitalSourceTransferModal/);
   assert.match(sources, /onTransferToAccount=/);
   assert.match(card, /Transferir para conta/);
   assert.match(modal, /não envia Pix nem transfere dinheiro no banco/);
   assert.match(modal, /requestId\.current/);
   assert.match(service, /supabase\.rpc\('capital_source_transfer_to_wallet'/);
-  assert.match(accounts, /getMovableCapitalTotal/);
+  assert.match(accountDetail, /getMovableCapitalTotal/);
   assert.doesNotMatch(accounts, /Adicionar carteira física/);
 });
 

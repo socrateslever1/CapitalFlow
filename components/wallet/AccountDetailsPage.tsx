@@ -1,6 +1,6 @@
 import { PrivateMoney } from '../../contexts/FinancialPrivacyContext';
 import React, { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, Archive, ArrowLeftRight, CheckCircle2, Copy, QrCode, ReceiptText, ImagePlus, Landmark, Link2, Pencil, Save, Trash2, MoreHorizontal } from 'lucide-react';
+import { AlertCircle, Archive, ArrowLeftRight, CheckCircle2, Copy, QrCode, ReceiptText, ImagePlus, Landmark, Link2, Pencil, Plus, Save, Trash2, MoreHorizontal } from 'lucide-react';
 import {
   PersonalWalletAccount,
   PersonalWalletExpense,
@@ -34,6 +34,8 @@ import { describeWalletBalanceFact, buildWalletBalanceFacts } from './walletBala
 import { RecurringIncomePanel } from './RecurringIncomePanel';
 import { RecurringObligationsPanel } from './RecurringObligationsPanel';
 import { businessDateInManaus } from '../../utils/businessDate';
+import { CapitalSourceTransferModal } from '../../features/wallet/components/CapitalSourceTransferModal';
+import { getMovableCapitalTotal } from '../../features/wallet/domain/capitalSourceTransfer';
 
 type Props = {
   account: PersonalWalletAccount;
@@ -52,6 +54,9 @@ type Props = {
   ownerName?: string;
   ownerCity?: string;
   capitalSources: CapitalSource[];
+  canTransferCapital?: boolean;
+  profileId?: string;
+  onCreateAccount?: () => void;
 };
 
 const typeLabels: Record<string, string> = {
@@ -64,9 +69,10 @@ const typeLabels: Record<string, string> = {
 const inputClass = 'w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none focus:border-emerald-500';
 const labelClass = 'block space-y-1 text-xs font-semibold text-slate-300';
 
-export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, expenses, installments, invoicePayments, accountOperations, statementRows, recurringIncomes, recurringReceipts, recurringObligations, onBack, onSaved, ownerName, ownerCity, capitalSources }) => {
+export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, expenses, installments, invoicePayments, accountOperations, statementRows, recurringIncomes, recurringReceipts, recurringObligations, onBack, onSaved, ownerName, ownerCity, capitalSources, canTransferCapital = false, profileId, onCreateAccount }) => {
   const [editing, setEditing] = useState(false);
   const [showMoreActions, setShowMoreActions] = useState(false);
+  const [capitalTransferOpen, setCapitalTransferOpen] = useState(false);
   const [bankDetails,setBankDetails]=useState(()=>bankDetailsDraft(account.bank_details));
   const [pixChargeOpen, setPixChargeOpen] = useState(false);
   const [pixCopied, setPixCopied] = useState(false);
@@ -101,6 +107,10 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
   const eligibleSources = useMemo(
     () => getEligibleAccountCapitalSources(account, accounts, capitalSources),
     [account, accounts, capitalSources],
+  );
+  const capitalMovable = useMemo(
+    () => getMovableCapitalTotal(capitalSources, accounts),
+    [capitalSources, accounts],
   );
   const loanLimitAvailable = account.bank_details?.has_loans && account.bank_details?.loan_balance !== undefined
     ? Number(account.bank_details.loan_balance)
@@ -283,6 +293,18 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
             className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-rose-500/30 bg-rose-950/20 px-2.5 py-1.5 text-xs font-bold text-rose-300 hover:bg-rose-900/30">
             <Trash2 size={14} /> Excluir conta
           </button>
+          {canTransferCapital && profileId && (
+            <button type="button" onClick={() => setCapitalTransferOpen(true)} disabled={capitalMovable <= 0}
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-blue-500/30 bg-blue-950/25 px-2.5 py-1.5 text-xs font-bold text-blue-200 hover:bg-blue-900/35 disabled:opacity-40">
+              <ArrowLeftRight size={14} /> Transferir do Capital
+            </button>
+          )}
+          {onCreateAccount && (
+            <button type="button" onClick={onCreateAccount}
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-blue-500/30 bg-blue-950/25 px-2.5 py-1.5 text-xs font-bold text-blue-200 hover:bg-blue-900/35">
+              <Plus size={14} /> Nova conta
+            </button>
+          )}
           </div>
         </div>
       </div>
@@ -347,6 +369,13 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
         initialAccountId={account.id} onClose={()=>setMovementOpen(false)} onSaved={onSaved}/>}
       {expenseOpen && <QuickExpenseModal accounts={accounts} cards={cards} initialMode="ACCOUNT" initialAccountId={account.id}
         onClose={() => setExpenseOpen(false)} onSaved={onSaved}/>}
+      {capitalTransferOpen && profileId && <CapitalSourceTransferModal
+        profileId={profileId}
+        sources={capitalSources}
+        accounts={accounts}
+        onClose={() => setCapitalTransferOpen(false)}
+        onSaved={onSaved}
+      />}
       {adjustBalanceOpen && (
         <Modal
           variant="wallet"

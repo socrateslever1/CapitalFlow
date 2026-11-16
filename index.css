@@ -377,6 +377,21 @@ body[data-capacitor-android="true"] .cf-auth-viewport {
   animation: cf-overdue-card-pulse 2.8s ease-in-out infinite;
 }
 
+@keyframes cf-due-soon-card-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(251, 191, 36, 0);
+    border-color: rgb(30 41 59);
+  }
+  50% {
+    box-shadow: 0 0 12px -8px rgba(251, 191, 36, 0.65);
+    border-color: rgba(251, 191, 36, 0.4);
+  }
+}
+
+.cf-due-soon-card-pulse {
+  animation: cf-due-soon-card-pulse 3.2s ease-in-out infinite;
+}
+
 @keyframes cf-overdue-container-pulse {
   0%, 100% {
     outline: 1px solid rgba(244, 63, 94, 0);

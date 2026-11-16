@@ -391,7 +391,9 @@ export const Header: React.FC<HeaderProps> = ({
               isOverdueByDays
                 ? 'text-rose-500/80'
                 : isDueSoon
-                  ? 'text-amber-400'
+                  ? daysUntilDue <= 1
+                    ? 'font-black text-amber-300 drop-shadow-[0_0_5px_rgba(251,191,36,0.35)]'
+                    : 'text-amber-400'
                   : 'text-slate-400'
             }`}>
               {dueHeadline}

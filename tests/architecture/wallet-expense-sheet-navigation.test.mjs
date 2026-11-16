@@ -17,16 +17,12 @@ test('card expense sheet is detached from clipped wallet panels and keeps its ow
   assert.match(sheet, /onSubmit=\{handleSubmit\}/);
 });
 
-test('accounts list exposes direct expense action on phone and desktop with explicit account destination', () => {
+test('accounts list keeps only account list outside while account detail and FAB expose expense actions', () => {
   const accounts = read('features/wallet/pages/WalletAccountsPage.tsx');
-  assert.match(accounts, /const \[expenseOpen, setExpenseOpen\] = useState\(false\)/);
-  assert.equal((accounts.match(/Registrar despesa/g) || []).length, 1, 'only one direct account expense action');
-  assert.match(accounts, /expenseOpen && <QuickExpenseModal/);
-  assert.match(accounts, /initialMode="ACCOUNT"/);
-  assert.match(accounts, /initialAccountId=\{data\.accounts\.length === 1 \? data\.accounts\[0\]\.id : null\}/);
-  assert.match(accounts, /requireExplicitDestination=\{data\.accounts\.length !== 1\}/);
-  assert.match(accounts, /disabled=\{!data\.accounts\.length\}/);
-  assert.match(accounts, /onSaved=\{async \(\) => \{ await refresh\(\); \}\}/);
+  assert.doesNotMatch(accounts, /Transferir \/ Movimentar/);
+  assert.doesNotMatch(accounts, /Gerar cobrança PIX/);
+  assert.match(accounts, /<AccountCardStack/);
+  assert.match(accounts, /<AccountDetailsPage/);
 });
 
 test('existing account detail and card expense buttons share canonical expense form', () => {

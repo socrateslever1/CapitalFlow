@@ -177,46 +177,46 @@ export const CardInvoiceStatement: React.FC<CardInvoiceStatementProps> = ({
   };
 
   return (
-    <section aria-labelledby="invoice-statement-title" className={`mx-4 mb-3 rounded-xl border border-slate-800 bg-slate-950/60 p-4 ${className}`}>
-      <header className="flex flex-wrap items-center justify-between gap-3">
+    <section aria-labelledby="invoice-statement-title" className={`mx-2 mb-2 rounded-xl border border-slate-800 bg-slate-950/60 p-2.5 sm:p-3 ${className}`}>
+      <header className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h3 id="invoice-statement-title" className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-slate-200"><ReceiptText size={15} className="text-cyan-400" /> Extrato da Fatura</h3>
-          <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] text-slate-400">
+          <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[10px] text-slate-400">
             {dueMonth ? <span>{cycleDates ? `Fecha em ${cycleDates.closingDate.split('-').reverse().join('/')} • Vence em ${cycleDates.dueDate.split('-').reverse().join('/')}` : `Ciclo ${dueMonth.slice(0, 7).split('-').reverse().join('/')}`}</span> : <span>Nenhuma fatura em aberto</span>}
             {invoiceState && <span className={`rounded-full border px-2 py-0.5 font-bold ${invoiceState === 'OPEN' ? 'border-sky-500/20 bg-sky-500/10 text-sky-400' : invoiceState === 'CLOSED' ? 'border-amber-500/20 bg-amber-500/10 text-amber-400' : invoiceState === 'OVERDUE' ? 'border-rose-500/20 bg-rose-500/10 text-rose-400' : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400'}`}>{invoiceState === 'OPEN' ? 'Aberta' : invoiceState === 'CLOSED' ? 'Fechada' : invoiceState === 'OVERDUE' ? 'Vencida' : 'Paga'}</span>}
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">{headerAction}<span className="rounded-full bg-slate-800 px-2 py-1 text-[10px] font-bold text-slate-300">{entries.length}</span></div>
+        <div className="flex flex-wrap items-center gap-1.5">{headerAction}<span className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] font-bold text-slate-300">{entries.length}</span></div>
       </header>
 
-      {hasOverride && <p className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-[10px] text-amber-100">A fatura inicial já inclui os gastos informados antes dela. Novos gastos entram conforme o ciclo do cartão.</p>}
-      {openingBalance > 0 && <article className="mt-3 flex items-center justify-between gap-3 rounded-lg bg-slate-900 p-3 text-xs"><div><p className="font-semibold text-slate-200">Demais gastos da carga inicial</p><p className="mt-1 text-[10px] text-slate-400">Ainda sem detalhamento · fora da fatura deste ciclo</p></div><strong className="shrink-0 text-amber-200"><PrivateMoney value={formatMoney(openingBalance)} /></strong></article>}
+      {hasOverride && <p className="mt-2 rounded-lg border border-amber-500/20 bg-amber-500/5 px-2.5 py-1.5 text-[10px] text-amber-100">A fatura inicial já inclui os gastos informados antes dela. Novos gastos entram conforme o ciclo do cartão.</p>}
+      {openingBalance > 0 && <article className="mt-2 flex items-center justify-between gap-2 rounded-lg bg-slate-900 p-2.5 text-xs"><div><p className="font-semibold text-slate-200">Demais gastos da carga inicial</p><p className="mt-0.5 text-[10px] text-slate-400">Ainda sem detalhamento · fora da fatura deste ciclo</p></div><strong className="shrink-0 text-amber-200"><PrivateMoney value={formatMoney(openingBalance)} /></strong></article>}
 
-      {!entries.length ? <p className="mt-3 rounded-lg border border-dashed border-slate-800 px-3 py-4 text-center text-xs text-slate-400">Nenhum lançamento ativo nesta fatura.</p> : (
-        <div className="mt-3 max-h-56 divide-y divide-slate-800 overflow-y-auto pr-1 overscroll-contain lg:max-h-none">
+      {!entries.length ? <p className="mt-2 rounded-lg border border-dashed border-slate-800 px-3 py-3 text-center text-xs text-slate-400">Nenhum lançamento ativo nesta fatura.</p> : (
+        <div className="mt-2 max-h-56 divide-y divide-slate-800 overflow-y-auto pr-0.5 overscroll-contain lg:max-h-none">
           {entries.map(({ expense, installment }) => {
             const installmentBadge = formatInstallmentBadgeLabel(expense, installment);
             const futurePending = futureInstallmentsByExpenseId.get(expense.id) || [];
             const canAdvance = Boolean(onAdvanceInstallments && futurePending.length > 0 && expense.entry_type !== 'INVOICE_OVERRIDE');
+            const isOverride = expense.entry_type === 'INVOICE_OVERRIDE';
             return (
-              <article key={installment.id} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 py-3">
-                <span className={`grid h-9 w-9 place-items-center rounded-xl ${expense.entry_type === 'INVOICE_OVERRIDE' ? 'bg-amber-500/10 text-amber-300' : 'bg-cyan-500/10 text-cyan-300'}`}><ShoppingBag size={16} /></span>
+              <article key={installment.id} className={`grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 ${isOverride ? 'my-1 rounded-lg border border-amber-500/30 bg-amber-950/20 px-2.5 py-2' : 'py-2'}`}>
+                <span className={`grid h-8 w-8 place-items-center rounded-lg ${isOverride ? 'bg-amber-500/15 text-amber-300' : 'bg-cyan-500/10 text-cyan-300'}`}><ShoppingBag size={15} /></span>
                 <div className="min-w-0">
-                  <p className="flex min-w-0 flex-wrap items-center gap-1.5 text-xs font-bold text-slate-100">
-                    <span className="truncate">{expense.description}</span>
+                  <p className={`flex min-w-0 flex-wrap items-center gap-1.5 text-xs font-bold ${isOverride ? 'text-amber-200' : 'text-slate-100'}`}>
+                    <span className="truncate">{isOverride ? 'Fatura consolidada' : expense.description}</span>
                     {installmentBadge && (
                       <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-[10px] font-bold text-cyan-200">
                         Parcela {installmentBadge}
                       </span>
                     )}
-                    {expense.entry_type === 'INVOICE_OVERRIDE' && <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-amber-200">Valor consolidado</span>}
                   </p>
                   <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[10px] text-slate-400"><CalendarDays size={11} />{expense.expense_date.split('-').reverse().join('/')}<span>·</span><Tag size={11} />{expense.category}</p>
                 </div>
                 <div className="text-right">
-                  <strong className="block text-xs font-extrabold text-rose-300"><PrivateMoney value={formatMoney(Number(installment.amount) - Number(installment.paid_amount || 0))} /></strong>
-                  {expense.entry_type === 'INVOICE_OVERRIDE' && onCancelConsolidation && <button type="button" onClick={() => setConfirmingConsolidation(expense)} disabled={cancelingConsolidation} className="mt-1 rounded-md border border-rose-500/30 px-2 py-1 text-[10px] text-rose-300 disabled:opacity-40">Cancelar consolidação</button>}
-                  {expense.entry_type !== 'INVOICE_OVERRIDE' && <div className="mt-1 flex flex-wrap justify-end gap-1">
+                  <strong className={`block text-xs font-extrabold ${isOverride ? 'text-amber-200' : 'text-rose-300'}`}><PrivateMoney value={formatMoney(Number(installment.amount) - Number(installment.paid_amount || 0))} /></strong>
+                  {isOverride && onCancelConsolidation && <button type="button" onClick={() => setConfirmingConsolidation(expense)} disabled={cancelingConsolidation} className="mt-1 rounded-md border border-amber-500/40 bg-amber-950/40 px-2 py-0.5 text-[10px] font-semibold text-amber-200 hover:bg-amber-900/40 disabled:opacity-40">Cancelar consolidação</button>}
+                  {!isOverride && <div className="mt-0.5 flex flex-wrap justify-end gap-1">
                     {canAdvance && (
                       <button
                         type="button"
@@ -226,13 +226,13 @@ export const CardInvoiceStatement: React.FC<CardInvoiceStatementProps> = ({
                           setAdvanceDiscount('');
                         }}
                         aria-label={`Antecipar parcelas de ${expense.description}`}
-                        className="inline-flex min-h-10 items-center justify-center gap-1 rounded-md px-2 text-[11px] font-semibold text-emerald-300 transition hover:bg-emerald-500/10"
+                        className="inline-flex min-h-8 items-center justify-center gap-1 rounded-md px-1.5 text-[11px] font-semibold text-emerald-300 transition hover:bg-emerald-500/10"
                       >
-                        <FastForward size={13} /> Antecipar ({futurePending.length})
+                        <FastForward size={12} /> Antecipar ({futurePending.length})
                       </button>
                     )}
-                    <button type="button" onClick={() => setEditing(expense)} aria-label={`Editar ${expense.description}`} className="inline-flex min-h-10 min-w-10 items-center justify-center gap-1 rounded-md px-2 text-[11px] text-blue-300 transition hover:bg-blue-500/10"><Pencil size={14} /> Editar</button>
-                    <button type="button" disabled={deletingId === expense.id} onClick={() => { setConfirmingDelete(expense); setConfirmingDeleteInstallment(installment); setDeleteScope('ALL'); }} aria-label={`Excluir ${expense.description}`} className="inline-flex min-h-10 min-w-10 items-center justify-center gap-1 rounded-md px-2 text-[11px] text-rose-300 transition hover:bg-rose-500/10 disabled:opacity-40"><Trash2 size={14} /> Excluir</button>
+                    <button type="button" onClick={() => setEditing(expense)} aria-label={`Editar ${expense.description}`} className="inline-flex min-h-8 items-center justify-center gap-1 rounded-md px-1.5 text-[11px] text-blue-300 transition hover:bg-blue-500/10"><Pencil size={13} /> Editar</button>
+                    <button type="button" disabled={deletingId === expense.id} onClick={() => { setConfirmingDelete(expense); setConfirmingDeleteInstallment(installment); setDeleteScope('ALL'); }} aria-label={`Excluir ${expense.description}`} className="inline-flex min-h-8 items-center justify-center gap-1 rounded-md px-1.5 text-[11px] text-rose-300 transition hover:bg-rose-500/10 disabled:opacity-40"><Trash2 size={13} /> Excluir</button>
                   </div>}
                 </div>
               </article>

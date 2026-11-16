@@ -95,14 +95,14 @@ test('contract receipts provide an optional destination without changing the def
   const engine=readFileSync('services/payments/paymentEngineV4.ts','utf8');
   const migration=readFileSync('supabase/migrations/20261105230000_wallet_receipt_destination_sync.sql','utf8');
   const statement=readFileSync('components/wallet/accountStatementDomain.ts','utf8');
+  const selector=readFileSync('components/wallet/ReceiptDestinationSelector.tsx','utf8');
   assert.match(modal,/Conta que recebeu o pagamento/);
-  assert.match(modal,/Padrão · devolver às fontes originais/);
+  assert.match(selector,/Padrão \(fontes originais\)/);
   assert.match(modal,/Conta que recebeu o pagamento \(opcional\)/);
   assert.match(modal,/Fonte de destino para recebimento \(opcional\)/);
-  assert.match(modal,/Padrão · retorno às fontes originais/);
   assert.doesNotMatch(modal,/select required value=\{receiptDestinationAccountId\}/);
   assert.doesNotMatch(modal,/select required value=\{receiptDestinationSourceId\}/);
-  assert.match(modal,/walletAccounts\.map\(account/);
+  assert.match(modal,/accounts=\{walletAccounts\}/);
   assert.match(modal,/platformAdminService\.isSuperAdmin\(\)/);
   assert.match(modal,/isWalletReceiptAdmin/);
   assert.match(modal,/animateClose/);

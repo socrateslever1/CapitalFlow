@@ -78,8 +78,8 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
   const [issuerCommitFeedback, setIssuerCommitFeedback] = useState('');
   const issuerCommitRequest = useRef({ signature: '', id: generateUUID() });
   const [notice, setNotice] = useState('');
-  const [createError,setCreateError]=useState('');
-  const [vaultCard,setVaultCard]=useState<PersonalWalletCard|null>(null);
+  const [createError, setCreateError] = useState('');
+  const [vaultCard, setVaultCard] = useState<PersonalWalletCard | null>(null);
   const requestId = useRef(generateUUID());
   const cardRegistrationAttempt = useRef(new CardRegistrationAttempt());
   const [opening, setOpening] = useState(freshCardOpening);
@@ -91,7 +91,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
   const [existingOpening, setExistingOpening] = useState(freshCardOpening);
   const [cardForm, setCardForm] = useState({
     nickname: '', issuer: '', brand: 'Mastercard', last_four: '', credit_limit: '', due_day: '',
-    closing_day: '', account_id: '', cardholder_name:'', expiry_month:'', expiry_year:'',
+    closing_day: '', account_id: '', cardholder_name: '', expiry_month: '', expiry_year: '',
   });
   const [newLinkedAccountNickname, setNewLinkedAccountNickname] = useState('');
   const availableCards = useMemo(() => (data?.cards || []).filter(card => card.status !== 'CANCELED'), [data]);
@@ -108,7 +108,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
     walletRepository.loadCardInvoiceFacts(cardId).then(items => {
       if (active) setInvoiceFacts(items);
     }).catch(error => {
-      if (active) {setInvoiceFacts([]);setInvoiceFactsError(error instanceof Error ? error.message : 'Não foi possível consultar os dados bancários.');}
+      if (active) { setInvoiceFacts([]); setInvoiceFactsError(error instanceof Error ? error.message : 'Não foi possível consultar os dados bancários.'); }
     });
     return () => { active = false; };
   }, [selected?.id]);
@@ -216,13 +216,13 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
   useEffect(() => {
     setStatementMonth(null);
   }, [selected?.id]);
-  const savedInvoiceFacts = invoiceFacts.find(item => item.due_month.slice(0,7) === statementMonth?.slice(0,7)) || null;
+  const savedInvoiceFacts = invoiceFacts.find(item => item.due_month.slice(0, 7) === statementMonth?.slice(0, 7)) || null;
   // A conferência manual pode registrar o primeiro mês mesmo sem qualquer ciclo financeiro.
   const editInvoiceMonth = invoiceFactsModalMonth || statementMonth;
   const editedInvoiceFacts = invoiceFacts.find(item => item.card_id === selected?.id && item.due_month.slice(0, 7) === editInvoiceMonth?.slice(0, 7)) || null;
   const isCurrentCreditCycle = Boolean(editInvoiceMonth && creditPosition?.dueMonth && editInvoiceMonth.slice(0, 7) === creditPosition.dueMonth.slice(0, 7));
   const editableInvoiceSummary: CardInvoiceSummary = {
-    institution: (['Nubank','Mercado Pago','Itaú','C6 Bank','RecargaPay'] as const).find(
+    institution: (['Nubank', 'Mercado Pago', 'Itaú', 'C6 Bank', 'RecargaPay'] as const).find(
       name => name === (editedInvoiceFacts?.issuer || selected?.issuer)) || null,
     cardLastFour: selected?.last_four || null,
     multipleCards: false,
@@ -241,15 +241,15 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
     if (!selected || !confirmedDueMonth)
       throw new Error('Selecione um cartão e um mês de vencimento válido.');
     const confirmed = await personalWalletService.saveCardInvoiceFacts({
-      cardId:selected.id,
-      dueMonth:confirmedDueMonth,
-      dueDate:summary.dueDate, issuer:summary.institution || selected.issuer,
-      invoiceTotal:summary.invoiceTotal, minimumPayment:summary.minimumPayment,
-      creditLimit:summary.creditLimit, usedLimit:summary.usedLimit,
-      availableLimit:summary.availableLimit, futureInstallments:summary.futureInstallments,
-      sourceHash:null, sourceType:'MANUAL',
+      cardId: selected.id,
+      dueMonth: confirmedDueMonth,
+      dueDate: summary.dueDate, issuer: summary.institution || selected.issuer,
+      invoiceTotal: summary.invoiceTotal, minimumPayment: summary.minimumPayment,
+      creditLimit: summary.creditLimit, usedLimit: summary.usedLimit,
+      availableLimit: summary.availableLimit, futureInstallments: summary.futureInstallments,
+      sourceHash: null, sourceType: 'MANUAL',
     });
-    await Promise.all([refreshInvoiceFacts(),refresh()]);
+    await Promise.all([refreshInvoiceFacts(), refresh()]);
     setStatementMonth(confirmed.due_month);
     setInvoiceFactsModalMonth(confirmed.due_month);
     return confirmed;
@@ -261,7 +261,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
     selected && savedInvoiceFacts && (selectedCycle?.amount || 0) === 0 &&
     Number(selected.current_bill || 0) === 0 &&
     Math.round(Number(selected.used_limit || 0) * 100) ===
-      Math.round(Number(selected.initial_future_installments_balance || 0) * 100) &&
+    Math.round(Number(selected.initial_future_installments_balance || 0) * 100) &&
     savedInvoiceFacts.invoice_total != null && Number(savedInvoiceFacts.invoice_total) > 0 &&
     savedInvoiceFacts.used_limit != null && savedInvoiceFacts.credit_limit != null &&
     (!data || !data.expenses.some(expense => expense.card_id === selected.id && expense.status !== 'CANCELED'))
@@ -305,13 +305,13 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
   ));
   const selectedInvoiceState = selected && statementMonth
     ? resolveInvoiceCycleState({
-        dueMonth: statementMonth,
-        closingDay: selected.closing_day,
-        dueDay: selected.due_day,
-        outstanding: selectedCycle?.amount || 0,
-        hasCycle: Boolean(selectedCycle?.amount),
-        exactDueDate: savedInvoiceFacts?.due_date,
-      })
+      dueMonth: statementMonth,
+      closingDay: selected.closing_day,
+      dueDay: selected.due_day,
+      outstanding: selectedCycle?.amount || 0,
+      hasCycle: Boolean(selectedCycle?.amount),
+      exactDueDate: savedInvoiceFacts?.due_date,
+    })
     : undefined;
   const handleScopedInstallmentDelete = async (
     expense: PersonalWalletExpense,
@@ -538,7 +538,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
       }
       const creditLimit = parseWalletMoney(cardForm.credit_limit.trim() || '0', 'limite de crédito');
       const position = validateCardOpening(opening, creditLimit);
-      if(Boolean(cardForm.expiry_month)!==Boolean(cardForm.expiry_year))throw new Error('Informe mês e ano da validade juntos.');
+      if (Boolean(cardForm.expiry_month) !== Boolean(cardForm.expiry_year)) throw new Error('Informe mês e ano da validade juntos.');
       const lastFour = cardForm.last_four.trim() || null;
       if (lastFour && !/^\d{4}$/.test(lastFour)) throw new Error('Informe apenas os quatro últimos dígitos.');
       const candidate = {
@@ -552,10 +552,10 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
         existingAccountId: cardForm.account_id || null,
         opening: position,
         requestId: requestId.current,
-        identity:{cardholder_name:cardForm.cardholder_name.trim()||null,expiry_month:cardForm.expiry_month?Number(cardForm.expiry_month):null,expiry_year:cardForm.expiry_year?Number(cardForm.expiry_year):null},
+        identity: { cardholder_name: cardForm.cardholder_name.trim() || null, expiry_month: cardForm.expiry_month ? Number(cardForm.expiry_month) : null, expiry_year: cardForm.expiry_year ? Number(cardForm.expiry_year) : null },
         envelope: null,
       };
-      let createdCardId:string|null=null;
+      let createdCardId: string | null = null;
       const createNewAccount = cardForm.account_id === '__create__';
       if (createNewAccount && !newLinkedAccountNickname.trim()) {
         throw new Error('Informe o nome da nova conta vinculada.');
@@ -571,7 +571,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
             },
           })
           : await personalWalletService.createCompleteCard(cardRegistrationAttempt.current.begin(candidate));
-        createdCardId=saved.card_id;
+        createdCardId = saved.card_id;
         cardRegistrationAttempt.current.confirmed();
       } catch (cause) {
         cardRegistrationAttempt.current.failed(cause);
@@ -583,19 +583,19 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
       try { await refresh(); }
       catch { setNotice('Cartão salvo no banco, mas a lista não foi atualizada. Toque em atualizar.'); }
       setCreating(false); setThirdPartyCard(false); setOpening(freshCardOpening());
-      if(addProtectedAfterCreate && createdCardId) {
+      if (addProtectedAfterCreate && createdCardId) {
         setVaultCard({
-          id:createdCardId,nickname:candidate.card.nickname,issuer:candidate.card.issuer,
-          brand:candidate.card.brand,last_four:candidate.card.last_four,
-          credit_limit:candidate.card.credit_limit,used_limit:position.used_limit,
-          current_bill:position.invoice_amount,closing_day:candidate.card.closing_day,
-          due_day:candidate.card.due_day,status:'ACTIVE',
+          id: createdCardId, nickname: candidate.card.nickname, issuer: candidate.card.issuer,
+          brand: candidate.card.brand, last_four: candidate.card.last_four,
+          credit_limit: candidate.card.credit_limit, used_limit: position.used_limit,
+          current_bill: position.invoice_amount, closing_day: candidate.card.closing_day,
+          due_day: candidate.card.due_day, status: 'ACTIVE',
         });
       }
       requestId.current = generateUUID();
       setCardForm({
         nickname: '', issuer: '', brand: 'Mastercard', last_four: '', credit_limit: '',
-        due_day: '', closing_day: '', account_id: '', cardholder_name:'', expiry_month:'', expiry_year:'',
+        due_day: '', closing_day: '', account_id: '', cardholder_name: '', expiry_month: '', expiry_year: '',
       });
       setNewLinkedAccountNickname('');
     } catch (cause) { setCreateError(cause instanceof Error ? cause.message : 'Falha ao cadastrar cartão.'); }
@@ -620,7 +620,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
   };
 
   return <WalletPageFrame
-    error={error} notice={notice} noticeTone={notice.includes('reconhecido com sucesso') ? 'info' : 'error'} loading={loading} onRefresh={() => { void refresh().catch(() => {}); }}>
+    error={error} notice={notice} noticeTone={notice.includes('reconhecido com sucesso') ? 'info' : 'error'} loading={loading} onRefresh={() => { void refresh().catch(() => { }); }}>
     {requestedCardId && <button type="button" onClick={() => {
       if (Number(window.history.state?.idx ?? 0) > 0) navigate(-1);
       else {
@@ -630,28 +630,28 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
       }
     }}
       className="mb-3 inline-flex min-h-11 items-center rounded-lg px-2 text-sm font-semibold text-slate-200 hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
-      <ArrowLeft size={18} className="mr-2"/> Voltar
+      <ArrowLeft size={18} className="mr-2" /> Voltar
     </button>}
     {data && <>
-      <div className="grid gap-4 lg:grid-cols-12">
-        <div className="min-w-0 self-start rounded-xl border border-slate-800 bg-slate-900 p-3 sm:p-4 lg:sticky lg:top-6 lg:col-span-5">
+      <div className="grid gap-3 lg:grid-cols-12">
+        <div className="min-w-0 self-start rounded-xl border border-slate-800 bg-slate-900 p-2.5 sm:p-3.5 lg:sticky lg:top-6 lg:col-span-5">
           <BankStack key={requestedCardId || 'all'} accounts={data.accounts} cards={displayedCards}
-            onAccount={() => {}} onCard={card => setSelectedId(card.id)}
+            onAccount={() => { }} onCard={card => setSelectedId(card.id)}
             onEditCard={card => setEditing(card)}
             onSelectionChange={card => setSelectedId(current => current === card?.id ? current : card?.id || null)}
             onCreateCard={() => setCreating(true)}
             onImportStatement={openReader}
             onNewExpense={card => { setSelectedId(card.id); setQuickExpenseOpen(true); }}
-            onPayInvoice={card => { setSelectedId(card.id); setPaying(card); }}/>
+            onPayInvoice={card => { setSelectedId(card.id); setPaying(card); }} />
         </div>
-        <div className="min-w-0 space-y-4 lg:col-span-7">
-          {selected && <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-800 bg-slate-900 px-3 py-2.5">
+        <div className="min-w-0 space-y-2.5 sm:space-y-3 lg:col-span-7">
+          {selected && <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-800 bg-slate-900 px-2.5 py-2">
             <div className="min-w-0">
               <strong className="block text-xs text-white">Valores informados pelo banco</strong>
               <p className="mt-1 text-[11px] text-slate-400">
                 {hideFinancialValues ? 'Valores ocultos' : savedInvoiceFacts ? 'Fatura ' + formatMoney(Number(savedInvoiceFacts.invoice_total ?? 0)) +
-                    ' · Mínimo ' + (savedInvoiceFacts.minimum_payment === null ? 'não informado' : formatMoney(Number(savedInvoiceFacts.minimum_payment))) +
-                    ' · Disponível ' + (savedInvoiceFacts.available_limit === null ? 'não informado' : formatMoney(Number(savedInvoiceFacts.available_limit)))
+                  ' · Mínimo ' + (savedInvoiceFacts.minimum_payment === null ? 'não informado' : formatMoney(Number(savedInvoiceFacts.minimum_payment))) +
+                  ' · Disponível ' + (savedInvoiceFacts.available_limit === null ? 'não informado' : formatMoney(Number(savedInvoiceFacts.available_limit)))
                   : 'Ainda não conferidos neste ciclo'}
               </p>
               {invoiceFactsError && <p className="mt-1 text-[11px] text-amber-300">Dados bancários indisponíveis: {invoiceFactsError}</p>}
@@ -661,7 +661,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
               setInvoiceFactsModalOpen(true);
             }}
               className="shrink-0 rounded-lg border border-blue-500/40 px-3 py-2 text-xs font-semibold text-blue-200">
-              {savedInvoiceFacts?'Corrigir vencimento e valores':'Definir vencimento e valores'}
+              {savedInvoiceFacts ? 'Corrigir vencimento e valores' : 'Definir vencimento e valores'}
             </button>
           </div>}
           {mayApplySavedIssuerFacts && <p className="text-xs text-amber-200">
@@ -678,12 +678,12 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
             { label: 'Saldo de fatura registrado', value: formatMoney(selectedCycle?.amount || 0) },
             { label: 'Faturas posteriores', value: formatMoney(selectedFutureCommitments) },
             { label: savedInvoiceFacts?.available_limit == null ? 'Disponível estimado' : 'Disponível informado pelo banco', value: formatMoney(savedInvoiceFacts?.available_limit == null ? (creditPosition?.freeLimit || 0) : Number(savedInvoiceFacts.available_limit)), tone: 'positive' },
-          ]}/>
+          ]} />
           {selected && selectedIsOpeningCycle && (Number(selected.initial_future_installments_balance || 0) > 0 || Number(selected.opening_unallocated_amount || 0) > 0) && <p className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-amber-100">
             <PrivateMoney value={formatMoney(Math.max(Number(selected.initial_future_installments_balance || 0), Number(selected.opening_unallocated_amount || 0)))} /> em gastos iniciais ainda sem detalhamento. Esse valor já está incluído no limite usado.
           </p>}
-          <div className="min-w-0 rounded-2xl border border-slate-800 bg-slate-900 p-4">
-            <div className="mb-4 flex min-w-0 flex-col gap-3">
+          <div className="min-w-0 rounded-2xl border border-slate-800 bg-slate-900 p-2.5 sm:p-3.5">
+            <div className="mb-2.5 flex min-w-0 flex-col gap-2">
               <div className="min-w-0">
                 <div className="flex min-w-0 items-center justify-between gap-2">
                   <h3 className="min-w-0 break-words text-sm font-bold text-white">Faturas {selected?.nickname || ''}</h3>
@@ -712,13 +712,13 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
                       });
                       const label = status === 'REFERENCIA' ? 'Sem lançamentos'
                         : status === 'OPEN' ? 'Aberta'
-                        : status === 'CLOSED' ? 'Fechada'
-                        : status === 'OVERDUE' ? 'Vencida' : 'Paga';
+                          : status === 'CLOSED' ? 'Fechada'
+                            : status === 'OVERDUE' ? 'Vencida' : 'Paga';
                       const active = statementMonth === cycle.dueMonth;
                       return (
                         <button key={cycle.dueMonth} type="button" aria-pressed={active}
                           onClick={() => { setStatementMonth(cycle.dueMonth); setActionMenuOpen(false); }}
-                          className={`grid min-h-14 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-xl border px-3 py-2 text-left transition-colors ${active ? 'border-blue-500/70 bg-blue-500/10' : 'border-slate-800 bg-slate-950/40 hover:bg-slate-800/70'}`}>
+                          className={`grid min-h-12 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-xl border px-2.5 py-1.5 text-left transition-colors ${active ? 'border-blue-500/70 bg-blue-500/10' : 'border-slate-800 bg-slate-950/40 hover:bg-slate-800/70'}`}>
                           <span className="min-w-0">
                             <span className={`block text-xs font-bold ${active ? 'text-white' : 'text-slate-200'}`}>Fatura {competence}</span>
                             <span className="mt-1 block text-[11px] text-slate-400">{hideFinancialValues ? 'Vencimento protegido' : 'Vence ' + due}</span>
@@ -726,8 +726,8 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
                           <span className="text-right">
                             <span className="block whitespace-nowrap text-sm font-bold tabular-nums text-white"><PrivateMoney value={formatMoney(cycle.amount)} /></span>
                             <span className={`mt-1 block text-[10px] ${hideFinancialValues ? 'text-slate-400' : status === 'OVERDUE' ? 'text-rose-300' : active ? 'text-blue-300' : 'text-slate-400'}`}>
-   {hideFinancialValues ? 'Situação protegida' : label}
- </span>
+                              {hideFinancialValues ? 'Situação protegida' : label}
+                            </span>
                           </span>
                         </button>
                       );
@@ -807,7 +807,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
               onScopedInstallmentDelete={handleScopedInstallmentDelete}
               onAdvanceInstallments={handleAdvanceInstallments}
               onCancelConsolidation={async (dueMonth, mutationRequestId) => { await personalWalletService.cancelInvoiceConsolidation(selected.id, dueMonth, mutationRequestId); await refresh(); }}
-              className="m-0 border-0 bg-transparent p-0"/> :
+              className="m-0 border-0 bg-transparent p-0" /> :
               <p className="text-xs text-slate-400">Cadastre um cartão para visualizar o extrato.</p>}
           </div>
         </div>
@@ -830,7 +830,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
         </div>
         <div className="mt-3 max-h-80 divide-y divide-slate-800 overflow-y-auto">{importedStatementRows.map(row => <article key={row.id} className="flex items-center justify-between gap-3 py-3"><div className="flex min-w-0 items-start gap-2"><input type="checkbox" aria-label={`Selecionar ${row.description}`} className="mt-0.5 h-4 w-4 accent-blue-600" checked={selectedStatementRows.has(row.id)} onChange={() => setSelectedStatementRows(current => { const next = new Set(current); if (next.has(row.id)) next.delete(row.id); else next.add(row.id); return next; })} /><div className="min-w-0"><p className="truncate text-xs font-semibold text-slate-200">{row.description}</p><p className="mt-1 text-[10px] text-slate-400">{row.entry_date.split('-').reverse().join('/')} · {row.category} · {row.expense_id ? 'Vinculado à fatura' : 'Somente importado'}</p></div></div><div className="flex shrink-0 items-center gap-2"><strong className="text-xs text-slate-200"><PrivateMoney value={formatMoney(row.amount)} /></strong><button type="button" onClick={() => setPendingStatementDeletion({ ids: [row.id], count: 1 })} className="min-h-8 rounded border border-rose-500/30 px-2.5 py-1.5 text-[10px] font-semibold text-rose-300 hover:bg-rose-500/10">Excluir</button></div></article>)}</div>
       </section>}
-      {pendingStatementDeletion && <Modal compact title="Excluir item importado?" subtitle="Esta linha será removida apenas do extrato importado." icon={<AlertTriangle size={17}/>} onClose={() => { if (!deletingStatement) setPendingStatementDeletion(null); }}>
+      {pendingStatementDeletion && <Modal compact title="Excluir item importado?" subtitle="Esta linha será removida apenas do extrato importado." icon={<AlertTriangle size={17} />} onClose={() => { if (!deletingStatement) setPendingStatementDeletion(null); }}>
         <div className="space-y-4">
           <p className="text-sm leading-relaxed text-slate-300">Excluir {pendingStatementDeletion.count} item(ns) selecionado(s) do extrato?</p>
           <div className="flex flex-col gap-2 sm:flex-row-reverse">
@@ -839,154 +839,154 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
           </div>
         </div>
       </Modal>}
-      {creating && <Modal title="Novo cartão" subtitle="Identificação e valores opcionais" icon={<CreditCard size={17}/>} onClose={() => {
-          setCreating(false);
-          setThirdPartyCard(false);
-          setCreateError('');
-        }} busy={saving}
+      {creating && <Modal title="Novo cartão" subtitle="Identificação e valores opcionais" icon={<CreditCard size={17} />} onClose={() => {
+        setCreating(false);
+        setThirdPartyCard(false);
+        setCreateError('');
+      }} busy={saving}
         footer={<button type="submit" form="new-wallet-card-form" disabled={saving} className={modalPrimaryActionClass}>{saving ? 'Salvando...' : 'Salvar cartão'}</button>}>
-       <form id="new-wallet-card-form" onSubmit={event => { void createCard(event); }} className="grid gap-3 sm:grid-cols-2">
+        <form id="new-wallet-card-form" onSubmit={event => { void createCard(event); }} className="grid gap-3 sm:grid-cols-2">
 
-        <div className="sm:col-span-2 flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
-          <div>
-            <h3 className="text-sm font-bold text-white">Identificação do cartão</h3>
-            <p className="text-[11px] text-slate-400">Preencha os dados ou aponte a câmera para o cartão físico</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setScannerOpen(true)}
-            className="flex items-center gap-1.5 rounded-xl border border-cyan-500/50 bg-cyan-950/40 px-3.5 py-2 text-xs font-bold text-cyan-200 hover:bg-cyan-900/50 hover:border-cyan-400 transition shadow-lg shadow-cyan-950/30"
-          >
-            <Camera size={15} className="text-cyan-400" />
-            Escanear com a câmera (IA)
-          </button>
-        </div>
-        <WalletBankCombobox value={cardForm.issuer} disabled={saving}
-          onChange={value=>{requestId.current=generateUUID();setCardForm(v=>({...v,issuer:value}));}}/>
-        <label className="space-y-1 text-xs text-slate-300">
-          Apelido (opcional)
-          <input name="wallet-card-nickname" type="text" autoComplete="off" maxLength={120} placeholder="Ex.: Cartão principal" value={cardForm.nickname}
-            onChange={e=>{requestId.current=generateUUID();setCardForm(v=>({...v,nickname:e.target.value}));}}
-            className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"/>
-        </label>
-        <label className="space-y-1 text-xs text-slate-300">
-          Final do cartão (opcional)
-          <input name="wallet-card-last-four" autoComplete="off" inputMode="numeric" maxLength={4} pattern="[0-9]{4}" placeholder="Ex.: 1234"
-            value={cardForm.last_four}
-            onChange={e=>{requestId.current=generateUUID();setCardForm(v=>({...v,last_four:e.target.value.replace(/\D/g,'').slice(0,4)}));}}
-            className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"/>
-        </label>
-        <label className="space-y-1 text-xs text-slate-300 sm:col-span-2">
-          Limite total (R$, opcional)
-          <input name="wallet-card-credit-limit" autoComplete="off" inputMode="decimal" placeholder="Pode informar ou importar pela fatura depois"
-            value={cardForm.credit_limit}
-            onChange={e=>{
-              const input=e.currentTarget;
-              const next=resolveLiveBrazilianCentsChange(input.value,cardForm.credit_limit,(e.nativeEvent as InputEvent).inputType);
-              if(!next)return;
-              input.setCustomValidity('');
-              requestId.current=generateUUID();
-              setCardForm(v=>({...v,credit_limit:next.value}));
-              requestAnimationFrame(()=>{
-                if(document.activeElement===input)input.setSelectionRange(next.caret,next.caret);
-              });
-            }}
-            onPaste={e=>{
-              e.preventDefault();
-              try {
-                const next=formatPastedBrazilianMoney(e.clipboardData.getData('text'));
-                e.currentTarget.setCustomValidity('');
-                requestId.current=generateUUID();
-                setCardForm(v=>({...v,credit_limit:next}));
-                const input=e.currentTarget;
-                requestAnimationFrame(()=>{if(document.activeElement===input)input.setSelectionRange(next.length,next.length);});
-              } catch {
-                // Falha na colagem nunca substitui um valor válido anterior.
-                e.currentTarget.setCustomValidity('Limite colado inválido.');
-              }
-            }}
-            className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"/>
-        </label>
-        <p className="sm:col-span-2 text-xs leading-relaxed text-slate-400">
-          Apenas o banco é obrigatório. Sem senha extra, número completo ou CVC.
-          Os valores podem ser ajustados depois pela fatura.
-        </p>
-        <details className="sm:col-span-2 rounded-xl border border-slate-800 bg-slate-950/50">
-          <summary className="cursor-pointer px-3 py-3 text-xs font-semibold text-blue-200">
-            Mais informações (opcional): datas, bandeira, titular e vínculo
-          </summary>
-          <div className="grid gap-3 border-t border-slate-800 p-3 sm:grid-cols-2">
-            <label className="space-y-1 text-xs text-slate-300">Bandeira
-              <select name="wallet-card-brand" autoComplete="off" value={cardForm.brand} onChange={e=>{requestId.current=generateUUID();setCardForm(v=>({...v,brand:e.target.value}));}}
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white">
-                {['Mastercard','Visa','Elo','American Express','Hipercard'].map(brand=><option key={brand} value={brand}>{brand}</option>)}
-              </select>
-            </label>
-            {(['closing_day','due_day'] as const).map(field=>
-              <label key={field} className="space-y-1 text-xs text-slate-300">
-                {field==='closing_day'?'Dia do fechamento':'Dia do vencimento'}
-                <input type="number" min={1} max={31} inputMode="numeric" placeholder="Não informado"
-                  value={cardForm[field]} onChange={e=>{requestId.current=generateUUID();setCardForm(v=>({...v,[field]:e.target.value}));}}
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"/>
-              </label>
-            )}
-            <label className="space-y-1 text-xs text-slate-300 sm:col-span-2">Conta vinculada (opcional)
-              <select name="wallet-card-linked-account" value={cardForm.account_id} onChange={e=>{
-                requestId.current=generateUUID();
-                setCardForm(v=>({...v,account_id:e.target.value}));
-              }} className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white">
-                <option value="">Sem vínculo bancário</option>
-                {data.accounts.map(account=><option key={account.id} value={account.id}>{account.nickname}</option>)}
-                <option value="__create__">+ Criar conta vinculada agora</option>
-              </select>
-              {cardForm.account_id === '__create__' && <input type="text" required maxLength={120}
-                value={newLinkedAccountNickname} onChange={e=>setNewLinkedAccountNickname(e.target.value)}
-                placeholder={`Ex.: ${cardForm.issuer || 'Minha conta'} principal`}
-                className="mt-2 w-full rounded-xl border border-blue-500/60 bg-slate-950 p-3 text-white" />}
-              <span className="mt-1 block text-[11px] text-slate-400">A nova conta e o cartão serão criados e vinculados na mesma operação segura.</span>
-            </label>
-            <label className="flex items-center gap-2 text-xs text-slate-200 sm:col-span-2">
-              <input type="checkbox" checked={thirdPartyCard} className="h-4 w-4 accent-blue-600"
-                onChange={e=>{setThirdPartyCard(e.target.checked);requestId.current=generateUUID();}}/>Cartão de outra pessoa
-            </label>
-            <div className="sm:col-span-2 flex flex-wrap items-center justify-between gap-2">
-              <span className="text-xs text-slate-300">O nome impresso é independente do perfil</span>
-              {!thirdPartyCard && ownerDefaults.name && <button type="button"
-                onClick={()=>{requestId.current=generateUUID();setCardForm(v=>({...v,cardholder_name:ownerDefaults.name}));}}
-                className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-blue-200">
-                Usar nome do perfil
-              </button>}
+          <div className="sm:col-span-2 flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+            <div>
+              <h3 className="text-sm font-bold text-white">Identificação do cartão</h3>
+              <p className="text-[11px] text-slate-400">Preencha os dados ou aponte a câmera para o cartão físico</p>
             </div>
-            <label className="space-y-1 text-xs text-slate-300 sm:col-span-2">Nome impresso (opcional)
-              <input type="text" maxLength={120} autoComplete="off" name="wallet-card-printed-name" placeholder="Nome do titular"
-                value={cardForm.cardholder_name}
-                onChange={e=>{requestId.current=generateUUID();setCardForm(v=>({...v,cardholder_name:e.target.value}));}}
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"/>
-            </label>
-            <label className="space-y-1 text-xs text-slate-300">Validade — mês
-              <input type="number" min={1} max={12} placeholder="MM" value={cardForm.expiry_month}
-                onChange={e=>{requestId.current=generateUUID();setCardForm(v=>({...v,expiry_month:e.target.value}));}}
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"/>
-            </label>
-            <label className="space-y-1 text-xs text-slate-300">Validade — ano
-              <input type="number" min={2000} max={2200} placeholder="AAAA" value={cardForm.expiry_year}
-                onChange={e=>{requestId.current=generateUUID();setCardForm(v=>({...v,expiry_year:e.target.value}));}}
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"/>
-            </label>
+            <button
+              type="button"
+              onClick={() => setScannerOpen(true)}
+              className="flex items-center gap-1.5 rounded-xl border border-cyan-500/50 bg-cyan-950/40 px-3.5 py-2 text-xs font-bold text-cyan-200 hover:bg-cyan-900/50 hover:border-cyan-400 transition shadow-lg shadow-cyan-950/30"
+            >
+              <Camera size={15} className="text-cyan-400" />
+              Escanear com a câmera (IA)
+            </button>
           </div>
-        </details>
-        <label className="flex items-center gap-2 text-xs text-slate-200 sm:col-span-2">
-          <input type="checkbox" checked={addProtectedAfterCreate}
-            onChange={e=>setAddProtectedAfterCreate(e.target.checked)}
-            className="h-4 w-4 accent-blue-600"/>
-          Depois de salvar, adicionar o número completo para acesso rápido (opcional)
-        </label>
-        {createError&&<p role="alert" className="text-sm text-rose-300 sm:col-span-2">{createError}</p>}
-        <div className="sm:col-span-2">
-          <CardOpeningFields collapsible value={opening} creditLimit={(() => { try { return parseWalletMoney(cardForm.credit_limit || '0'); } catch { return 0; } })()}
-            onChange={value => { requestId.current = generateUUID(); setOpening(value); }}/>
-        </div>
-       </form>
+          <WalletBankCombobox value={cardForm.issuer} disabled={saving}
+            onChange={value => { requestId.current = generateUUID(); setCardForm(v => ({ ...v, issuer: value })); }} />
+          <label className="space-y-1 text-xs text-slate-300">
+            Apelido (opcional)
+            <input name="wallet-card-nickname" type="text" autoComplete="off" maxLength={120} placeholder="Ex.: Cartão principal" value={cardForm.nickname}
+              onChange={e => { requestId.current = generateUUID(); setCardForm(v => ({ ...v, nickname: e.target.value })); }}
+              className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white" />
+          </label>
+          <label className="space-y-1 text-xs text-slate-300">
+            Final do cartão (opcional)
+            <input name="wallet-card-last-four" autoComplete="off" inputMode="numeric" maxLength={4} pattern="[0-9]{4}" placeholder="Ex.: 1234"
+              value={cardForm.last_four}
+              onChange={e => { requestId.current = generateUUID(); setCardForm(v => ({ ...v, last_four: e.target.value.replace(/\D/g, '').slice(0, 4) })); }}
+              className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white" />
+          </label>
+          <label className="space-y-1 text-xs text-slate-300 sm:col-span-2">
+            Limite total (R$, opcional)
+            <input name="wallet-card-credit-limit" autoComplete="off" inputMode="decimal" placeholder="Pode informar ou importar pela fatura depois"
+              value={cardForm.credit_limit}
+              onChange={e => {
+                const input = e.currentTarget;
+                const next = resolveLiveBrazilianCentsChange(input.value, cardForm.credit_limit, (e.nativeEvent as InputEvent).inputType);
+                if (!next) return;
+                input.setCustomValidity('');
+                requestId.current = generateUUID();
+                setCardForm(v => ({ ...v, credit_limit: next.value }));
+                requestAnimationFrame(() => {
+                  if (document.activeElement === input) input.setSelectionRange(next.caret, next.caret);
+                });
+              }}
+              onPaste={e => {
+                e.preventDefault();
+                try {
+                  const next = formatPastedBrazilianMoney(e.clipboardData.getData('text'));
+                  e.currentTarget.setCustomValidity('');
+                  requestId.current = generateUUID();
+                  setCardForm(v => ({ ...v, credit_limit: next }));
+                  const input = e.currentTarget;
+                  requestAnimationFrame(() => { if (document.activeElement === input) input.setSelectionRange(next.length, next.length); });
+                } catch {
+                  // Falha na colagem nunca substitui um valor válido anterior.
+                  e.currentTarget.setCustomValidity('Limite colado inválido.');
+                }
+              }}
+              className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white" />
+          </label>
+          <p className="sm:col-span-2 text-xs leading-relaxed text-slate-400">
+            Apenas o banco é obrigatório. Sem senha extra, número completo ou CVC.
+            Os valores podem ser ajustados depois pela fatura.
+          </p>
+          <details className="sm:col-span-2 rounded-xl border border-slate-800 bg-slate-950/50">
+            <summary className="cursor-pointer px-3 py-3 text-xs font-semibold text-blue-200">
+              Mais informações (opcional): datas, bandeira, titular e vínculo
+            </summary>
+            <div className="grid gap-3 border-t border-slate-800 p-3 sm:grid-cols-2">
+              <label className="space-y-1 text-xs text-slate-300">Bandeira
+                <select name="wallet-card-brand" autoComplete="off" value={cardForm.brand} onChange={e => { requestId.current = generateUUID(); setCardForm(v => ({ ...v, brand: e.target.value })); }}
+                  className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white">
+                  {['Mastercard', 'Visa', 'Elo', 'American Express', 'Hipercard'].map(brand => <option key={brand} value={brand}>{brand}</option>)}
+                </select>
+              </label>
+              {(['closing_day', 'due_day'] as const).map(field =>
+                <label key={field} className="space-y-1 text-xs text-slate-300">
+                  {field === 'closing_day' ? 'Dia do fechamento' : 'Dia do vencimento'}
+                  <input type="number" min={1} max={31} inputMode="numeric" placeholder="Não informado"
+                    value={cardForm[field]} onChange={e => { requestId.current = generateUUID(); setCardForm(v => ({ ...v, [field]: e.target.value })); }}
+                    className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white" />
+                </label>
+              )}
+              <label className="space-y-1 text-xs text-slate-300 sm:col-span-2">Conta vinculada (opcional)
+                <select name="wallet-card-linked-account" value={cardForm.account_id} onChange={e => {
+                  requestId.current = generateUUID();
+                  setCardForm(v => ({ ...v, account_id: e.target.value }));
+                }} className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white">
+                  <option value="">Sem vínculo bancário</option>
+                  {data.accounts.map(account => <option key={account.id} value={account.id}>{account.nickname}</option>)}
+                  <option value="__create__">+ Criar conta vinculada agora</option>
+                </select>
+                {cardForm.account_id === '__create__' && <input type="text" required maxLength={120}
+                  value={newLinkedAccountNickname} onChange={e => setNewLinkedAccountNickname(e.target.value)}
+                  placeholder={`Ex.: ${cardForm.issuer || 'Minha conta'} principal`}
+                  className="mt-2 w-full rounded-xl border border-blue-500/60 bg-slate-950 p-3 text-white" />}
+                <span className="mt-1 block text-[11px] text-slate-400">A nova conta e o cartão serão criados e vinculados na mesma operação segura.</span>
+              </label>
+              <label className="flex items-center gap-2 text-xs text-slate-200 sm:col-span-2">
+                <input type="checkbox" checked={thirdPartyCard} className="h-4 w-4 accent-blue-600"
+                  onChange={e => { setThirdPartyCard(e.target.checked); requestId.current = generateUUID(); }} />Cartão de outra pessoa
+              </label>
+              <div className="sm:col-span-2 flex flex-wrap items-center justify-between gap-2">
+                <span className="text-xs text-slate-300">O nome impresso é independente do perfil</span>
+                {!thirdPartyCard && ownerDefaults.name && <button type="button"
+                  onClick={() => { requestId.current = generateUUID(); setCardForm(v => ({ ...v, cardholder_name: ownerDefaults.name })); }}
+                  className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-blue-200">
+                  Usar nome do perfil
+                </button>}
+              </div>
+              <label className="space-y-1 text-xs text-slate-300 sm:col-span-2">Nome impresso (opcional)
+                <input type="text" maxLength={120} autoComplete="off" name="wallet-card-printed-name" placeholder="Nome do titular"
+                  value={cardForm.cardholder_name}
+                  onChange={e => { requestId.current = generateUUID(); setCardForm(v => ({ ...v, cardholder_name: e.target.value })); }}
+                  className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white" />
+              </label>
+              <label className="space-y-1 text-xs text-slate-300">Validade — mês
+                <input type="number" min={1} max={12} placeholder="MM" value={cardForm.expiry_month}
+                  onChange={e => { requestId.current = generateUUID(); setCardForm(v => ({ ...v, expiry_month: e.target.value })); }}
+                  className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white" />
+              </label>
+              <label className="space-y-1 text-xs text-slate-300">Validade — ano
+                <input type="number" min={2000} max={2200} placeholder="AAAA" value={cardForm.expiry_year}
+                  onChange={e => { requestId.current = generateUUID(); setCardForm(v => ({ ...v, expiry_year: e.target.value })); }}
+                  className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white" />
+              </label>
+            </div>
+          </details>
+          <label className="flex items-center gap-2 text-xs text-slate-200 sm:col-span-2">
+            <input type="checkbox" checked={addProtectedAfterCreate}
+              onChange={e => setAddProtectedAfterCreate(e.target.checked)}
+              className="h-4 w-4 accent-blue-600" />
+            Depois de salvar, adicionar o número completo para acesso rápido (opcional)
+          </label>
+          {createError && <p role="alert" className="text-sm text-rose-300 sm:col-span-2">{createError}</p>}
+          <div className="sm:col-span-2">
+            <CardOpeningFields collapsible value={opening} creditLimit={(() => { try { return parseWalletMoney(cardForm.credit_limit || '0'); } catch { return 0; } })()}
+              onChange={value => { requestId.current = generateUUID(); setOpening(value); }} />
+          </div>
+        </form>
       </Modal>}
       {mayInitializeExisting && !creating && selected && <section className="rounded-2xl border border-amber-700/25 bg-slate-900 p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1000,7 +1000,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
           </button>
         </div>
         {initializing && <form onSubmit={event => { void initializeExisting(event); }} className="mt-4 space-y-3">
-          <CardOpeningFields creditLimit={Number(selected.credit_limit)} value={existingOpening} onChange={setExistingOpening}/>
+          <CardOpeningFields creditLimit={Number(selected.credit_limit)} value={existingOpening} onChange={setExistingOpening} />
           <button type="submit" disabled={saving}
             className="w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">
             {saving ? 'Salvando...' : 'Registrar situação inicial'}
@@ -1031,22 +1031,22 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
         {invoiceFactsModalMonth && <CardInvoiceSummaryPreview
           key={selected.id + ':' + invoiceFactsModalMonth}
           formId="wallet-manual-invoice-form" inlineSave={false} onSavingChange={setInvoiceFactsSaving}
-          summary={editableInvoiceSummary} onSave={saveManualInvoiceFacts}/>}
+          summary={editableInvoiceSummary} onSave={saveManualInvoiceFacts} />}
       </Modal>}
       {clearInvoiceConfirm && <Modal title="Excluir fatura não paga?" subtitle={clearInvoiceConfirm.nickname + ' · ' + clearInvoiceConfirm.month.slice(0, 7)} busy={clearingInvoice} onClose={() => !clearingInvoice && setClearInvoiceConfirm(null)}
-        footer={<button type="button" disabled={clearingInvoice} onClick={() => {void clearUnpaidInvoice();}} className={modalPrimaryActionClass}>Confirmar exclusão da fatura</button>}>
+        footer={<button type="button" disabled={clearingInvoice} onClick={() => { void clearUnpaidInvoice(); }} className={modalPrimaryActionClass}>Confirmar exclusão da fatura</button>}>
         <p className="text-xs leading-relaxed text-slate-300">Os lançamentos financeiros não pagos que pertencem exclusivamente a esta fatura serão cancelados e mantidos no histórico. A operação será bloqueada se houver pagamento ou parcelas de outros meses. Não há estorno automático.</p>
         {clearInvoiceError && <p role="alert" className="mt-3 text-xs text-rose-300">{clearInvoiceError}</p>}
       </Modal>}
-      {editing && <CardEditModal card={editing} accounts={data.accounts} onClose={() => setEditing(null)} onSaved={async () => { await refresh(); }}/>}
-      {vaultCard && <CardVaultModal card={vaultCard} onClose={()=>setVaultCard(null)} onSaved={async()=>{await refresh();}}/>}
+      {editing && <CardEditModal card={editing} accounts={data.accounts} onClose={() => setEditing(null)} onSaved={async () => { await refresh(); }} />}
+      {vaultCard && <CardVaultModal card={vaultCard} onClose={() => setVaultCard(null)} onSaved={async () => { await refresh(); }} />}
       {importing && selected && <WalletStatementImport kind="CARD" targetId={selected.id}
         initialDueMonth={statementMonth} hasOpening={Boolean(selected.initial_balance_occurred_at)}
         targetName={selected.nickname} targetIssuer={selected.issuer} targetLastFour={selected.last_four} existingRows={data.statementRows} onSummarySaved={async month => {
-                    await Promise.all([refreshInvoiceFacts(), refresh()]);
-                    setStatementMonth(month);
-                  }} onClose={() => setImporting(false)}
-        onImported={async () => { await refresh(); }}/>}
+          await Promise.all([refreshInvoiceFacts(), refresh()]);
+          setStatementMonth(month);
+        }} onClose={() => setImporting(false)}
+        onImported={async () => { await refresh(); }} />}
       {paying && <PayInvoiceModal card={paying} accounts={data.accounts}
         invoiceAmount={paying.id === selected?.id ? selectedCycle?.amount || 0 : 0}
         minimumPayment={savedInvoiceFacts?.minimum_payment ?? null}
@@ -1055,7 +1055,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
           await personalWalletService.payInvoicePartial(cardId, month, accountId, amount, requestId);
           await refresh();
         }}
-        onHandleRemainder={handleInvoiceRemainder}/>}
+        onHandleRemainder={handleInvoiceRemainder} />}
       {(overriding || creatingInvoice) && selected && <InvoiceOverrideModal card={selected}
         isNew={creatingInvoice}
         existingDueMonths={invoiceCycles.map(cycle => cycle.dueMonth)}
@@ -1081,14 +1081,14 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
         }}
         onSave={async (dueMonth, amount, dueDate, overrideRequestId) => {
           await personalWalletService.correctInvoiceOverride({
-            cardId:selected.id,
-            previousDueMonth:selectedCycle?.hasOverride && !creatingInvoice ? statementMonth : null,
-            dueMonth,dueDate,amount,requestId:overrideRequestId,
+            cardId: selected.id,
+            previousDueMonth: selectedCycle?.hasOverride && !creatingInvoice ? statementMonth : null,
+            dueMonth, dueDate, amount, requestId: overrideRequestId,
           });
           await refresh();
           await refreshInvoiceFacts();
           setStatementMonth(dueMonth);
-        }}/>}
+        }} />}
       {cardOpeningModalOpen && selected && <CardInitialBalancesModal
         card={selected}
         initialDueMonth={statementMonth || creditPosition?.dueMonth}
@@ -1096,10 +1096,10 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
         nativeFutureCommitments={Math.max(
           0,
           (creditPosition?.futureCommitments || 0) -
-            Math.max(Number(selected.initial_future_installments_balance || 0), Number(selected.opening_unallocated_amount || 0)),
+          Math.max(Number(selected.initial_future_installments_balance || 0), Number(selected.opening_unallocated_amount || 0)),
         )}
         onClose={() => setCardOpeningModalOpen(false)}
-        onSaved={async () => { await refresh(); }}/>
+        onSaved={async () => { await refresh(); }} />
       }
       {scannerOpen && (
         <CardCameraScannerModal
@@ -1127,7 +1127,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
         defaultCardId={selected?.id || null}
         initialDueMonth={statementMonth}
         onClose={() => setQuickExpenseOpen(false)}
-        onSaved={async () => { await refresh(); }}/>}
+        onSaved={async () => { await refresh(); }} />}
     </>}
   </WalletPageFrame>;
 };

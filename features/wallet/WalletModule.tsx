@@ -72,7 +72,7 @@ const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUse
   if (access.status === 'inactive') return <StateCard kind="inactive" message="Ative a Carteira no seu plano para acessar contas, cartões, dívidas e cobranças PIX."/>;
   if (access.status === 'error') return <StateCard kind="error" message={access.message} onRetry={access.retry}/>;
 
-  return <main className="w-full pb-28">
+  return <main className="w-full pb-4">
     <div className="mb-3 w-full">
       <PageHeader className="border-b-0 pb-0" icon={<CreditCard size={22}/>}
         iconClassName="border-blue-500/30 bg-blue-600 text-white shadow-blue-950/30"
@@ -80,7 +80,7 @@ const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUse
         subtitle="Contas, cartões e compromissos"/>
     </div>
     <nav aria-label="Navegação da Carteira"
-      className="mb-2 grid w-full min-w-0 grid-cols-4 items-center gap-1 rounded-xl border border-slate-800 bg-slate-900/70 p-1 sm:flex sm:flex-wrap sm:gap-1.5">
+      className="mb-1.5 grid w-full min-w-0 grid-cols-4 items-center gap-0.5 rounded-xl border border-slate-800 bg-slate-900/70 p-0.5 sm:flex sm:flex-wrap sm:gap-1.5 sm:p-1">
       {WALLET_ROUTES.filter(item => item.key !== 'cobranca' && item.key !== 'receitas').map(item => {
         const Icon = navigationIcons[item.key];
         const active = route === item.key;
@@ -92,12 +92,12 @@ const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUse
           <button key={item.key} type="button"
             aria-current={active ? 'page' : undefined}
             onClick={() => go(item.key)} aria-label={item.label}
-            className={`group flex min-h-11 min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg px-0.5 py-1 text-center transition-colors duration-150 active:scale-[0.98] sm:flex-row sm:gap-2 sm:px-4 sm:py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-400 ${
+            className={`group flex min-h-9 sm:min-h-11 min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg px-0.5 py-1 text-center transition-colors duration-150 active:scale-[0.98] sm:flex-row sm:gap-2 sm:px-4 sm:py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-400 ${
               active
                 ? 'bg-blue-600/20 text-blue-100 ring-1 ring-inset ring-blue-500/50'
                 : 'text-slate-300 hover:bg-slate-800 hover:text-white'
             }`}>
-            <Icon size={18} strokeWidth={active ? 2.2 : 1.9} aria-hidden="true"
+            <Icon size={15} strokeWidth={active ? 2.2 : 1.9} aria-hidden="true"
               className={active ? 'text-blue-300' : 'text-slate-400 group-hover:text-slate-200'}/>
             <span className="whitespace-nowrap text-[10px] font-semibold leading-tight sm:hidden">{mobileLabel}</span>
             <span className="hidden whitespace-nowrap text-sm font-semibold sm:inline">{item.label}</span>

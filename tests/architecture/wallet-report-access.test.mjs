@@ -15,7 +15,7 @@ test('relatório da Carteira é acessível sem ampliar as abas ou duplicar o FAB
   assert.match(report, /walletRepository\.loadOverview/);
   assert.match(report, /deriveOverview\(snapshot, today\)/);
   assert.match(report, /Despesas por categoria/);
-  assert.match(report, /Projeção após compromissos cadastrados/);
+  assert.match(report, /Sobra prevista após os compromissos cadastrados/);
   assert.match(report, /<PrivateMoney /);
   assert.match(wallet, /<WalletExpenseFab \/>/);
   assert.match(wallet, /grid-cols-4/);

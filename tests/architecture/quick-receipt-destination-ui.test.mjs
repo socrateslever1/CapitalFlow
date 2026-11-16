@@ -6,12 +6,14 @@ const read = path => readFileSync(path, 'utf8');
 
 test('quick receipt offers optional destination and confirms actual account before submission', () => {
   const grid = read('components/cards/components/InstallmentGrid.tsx');
+  const selector = read('components/wallet/ReceiptDestinationSelector.tsx');
   assert.match(grid, /platformAdminService\.isSuperAdmin\(\)/);
   assert.match(grid, /walletRepository\.loadOverview\(\)/);
   assert.match(grid, /Conta que recebeu o pagamento \(opcional\)/);
   assert.match(grid, /Fonte de destino para recebimento \(opcional\)/);
-  assert.match(grid, /Padrão · retorno às fontes originais/);
-  assert.match(grid, /Padrão · devolver às fontes originais/);
+  assert.match(selector, /Padrão \(fontes originais\)/);
+  assert.match(selector, /role="radiogroup"/);
+  assert.match(selector, /BankLogo/);
   assert.match(grid, /receiptDestinationAccountId: walletReceiptAllowed/);
   assert.match(grid, /walletReceiptAccounts\.some\(account => account\.id === receiptDestinationAccountId\)/);
   assert.match(grid, /Destino do recebimento/);

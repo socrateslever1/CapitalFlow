@@ -135,7 +135,7 @@ test('calculator UI has one unobtrusive operator control per field and no duplic
   assert(!expense.includes('>fx</span>'));
   assert.equal((expense.match(/<FinancialCalculatorInput/g) || []).length, 1);
   const cards = readFileSync('features/wallet/pages/WalletCardsPage.tsx', 'utf8');
-  assert(cards.includes('resolveLiveBrazilianCentsChange(input.value,cardForm.credit_limit'));
+  assert.match(cards, /resolveLiveBrazilianCentsChange\(input\.value,\s*cardForm\.credit_limit/);
 });
 
 test('financial fields start blank and can be cleared without trapping the decimal separator', () => {
@@ -271,8 +271,8 @@ test('colagem de numerais preserva reais e centavos sem deslocamento oculto', ()
 
 test('revisão monetária preserva importação e competências locais', () => {
   const cards=readFileSync('features/wallet/pages/WalletCardsPage.tsx','utf8');
-  assert.match(cards, /resolveLiveBrazilianCentsChange\(input.value,cardForm.credit_limit/);
-  assert.match(cards, /onPaste=\{e=>/);
+  assert.match(cards, /resolveLiveBrazilianCentsChange\(input\.value,\s*cardForm\.credit_limit/);
+  assert.match(cards, /onPaste=\{e\s*=>/);
   const recurring=readFileSync('components/wallet/RecurringObligationsPanel.tsx','utf8');
   const income=readFileSync('components/wallet/RecurringIncomePanel.tsx','utf8');
   assert.match(recurring, /businessDateInManaus\(\)/);

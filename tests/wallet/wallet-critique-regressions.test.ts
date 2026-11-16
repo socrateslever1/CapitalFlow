@@ -3,16 +3,15 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 const overview = readFileSync('features/wallet/pages/WalletOverviewPage.tsx', 'utf8');
+const report = readFileSync('features/wallet/pages/WalletReportPage.tsx', 'utf8');
 const payables = readFileSync('components/wallet/WalletPayablesPanel.tsx', 'utf8');
 const obligations = readFileSync('components/wallet/RecurringObligationsPanel.tsx', 'utf8');
 
-test('visão geral explica o balanço em português sem números duplicados', () => {
-  assert.ok(overview.includes('Como chegamos à projeção'));
-  assert.ok(overview.includes('Saldo disponível em contas hoje'));
-  assert.ok(overview.includes('Receitas recorrentes ainda não recebidas'));
-  assert.ok(overview.includes('Faturas com vencimento neste mês'));
-  assert.ok(overview.includes('Dívidas e contas pendentes do mês'));
-  assert.ok(overview.includes('!privacyHidden && <section'));
+test('visão geral e relatório explicam o balanço em português sem números duplicados', () => {
+  assert.ok(overview.includes('Sobra prevista após compromissos'));
+  assert.ok(report.includes('Como calculamos a sobra prevista'));
+  assert.ok(overview.includes('Recursos do mês'));
+  assert.ok(overview.includes('Compromissos do mês'));
   assert.ok(overview.includes('PrivateMoney value={money(balance.projectedBalance)}'));
   assert.ok(!overview.includes('<details className="group mt-3'));
   assert.ok(!overview.includes('describeWalletBalanceFact(balance.facts.'));

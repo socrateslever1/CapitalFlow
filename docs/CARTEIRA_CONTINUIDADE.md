@@ -1126,3 +1126,14 @@ O ícone do olho já acionava o `FinancialPrivacyProvider`, mas os elementos aba
 - Em `AccountDetailsPage.tsx`: compactados os botões superiores (**Registrar despesa**, **Movimentar**, **Mais opções** e ações secundárias) e protegido o bloco **SALDO** contra corte horizontal (`shrink-0`).
 - Em `BankStack.tsx`: compactados os botões **Importar fatura** e **+ Cartão** para não estourarem no celular e removido o rótulo recortado do cartão de trás na pilha.
 - Testes executados: `npm run test:wallet-pages` (9/9), `npm run test:wallet-visual-simplification` (11/11), `tests/wallet/wallet-floating-dialogs.test.ts` + `tests/wallet/wallet-payable-split.test.ts` (6/6) e `npm run test:quality` completo (`exit code 0`). Sem alteração de RPCs, migrations, ledger ou RLS. Sem validação em aparelho físico ou publicação de APK nesta etapa.
+
+## 16/11/2026 — Quality Gate completo, compactação da Carteira, Extrato geral e medição de carregamento
+
+- **Cartões, Contas e Visão geral:**
+  - Removidos `"Cartões e faturas"` e o subtítulo introdutório em `WalletCardsPage.tsx`; `"Cartões de crédito"` em `BankStack.tsx` passou a abrir/fechar o subtítulo ao toque. Compactados barra de navegação (`WalletModule.tsx`), faixa de saldo (`WalletBalanceDock.tsx`), controles do cartão (`BankStack.tsx`) e espaçamento do extrato.
+  - Em `CardInvoiceStatement.tsx`, `INVOICE_OVERRIDE` agora exibe um único rótulo (`Fatura consolidada`) em destaque âmbar separado das compras comuns.
+  - Em `WalletAccountsPage.tsx`, removidos os 5 atalhos externos abaixo da lista (mantendo o FAB e botão de criação apenas no estado vazio), movidos `Transferir do Capital` e `Nova conta` para **Mais opções** em `AccountDetailsPage.tsx`, e adicionado o **Extrato geral das contas** (busca, privacidade e navegação para a conta ao tocar).
+  - Em `WalletOverviewPage.tsx`, removida a frase `"Até 8 obrigações..."`, compactada a lista de **Compromissos próximos** e removido o `pb-28` duplicado em `WalletModule.tsx`.
+- **Recebimentos (destino opcional):** `PaymentManagerModal.tsx` e `InstallmentGrid.tsx` passaram a usar `components/wallet/ReceiptDestinationSelector.tsx` (lista selecionável compacta com ícones, sem parágrafos longos).
+- **Medição de carregamento:** criado `features/wallet/services/walletLoadingMetrics.ts` (amostragem em memória limitada a 30 leituras, latência média/pico e taxa de cache `memory`/`offline`), instrumentado em `walletRepository.ts` (`load` e `loadOverview`) e exibido em `AdminDiagnostics.tsx`.
+- **Validação final:** `npm run test:wallet-money-apk` (30/30), `npm run test:wallet-loading` (6/6), `npm run test:wallet-visual-next` (39/39), `npm run test:wallet-pages` (9/9), `npm run test:wallet-receipts` (31/31), `npm run test:wallet-settlement` (20/20), `npm run build`, `npm run lint` e `npm run test:quality` completo aprovados (`exit code 0`). Sem alteração em RPCs, migrations, ledger ou RLS. Sem validação em aparelho físico ou publicação de APK nesta etapa.

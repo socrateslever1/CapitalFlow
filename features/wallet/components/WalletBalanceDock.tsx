@@ -14,8 +14,8 @@ export const WalletBalanceDock: React.FC = () => {
   if (route === 'visao-geral' || !data) return null;
   const accountBalance = data.accounts.reduce((sum, account) => sum + Number(account.balance || 0), 0);
   const cardAvailable = data.cards.reduce((sum, card) => sum + Math.max(0, Number(card.credit_limit || 0) - Number(card.used_limit || 0)), 0);
-  return <aside aria-label="Saldo em contas" className="mb-3 flex w-full min-w-0 flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-800/90 bg-slate-950/85 px-3 py-2">
-    <div className="flex min-w-0 items-center gap-2"><WalletCards size={15} className="shrink-0 text-blue-300"/><span className="truncate text-[11px] font-semibold uppercase tracking-wide text-slate-400">Saldo em contas</span></div>
-    <div className="flex min-w-0 items-baseline gap-3"><strong className="truncate text-sm font-bold tabular-nums text-emerald-300 sm:text-base"><PrivateMoney value={formatMoney(accountBalance)} /></strong><span className="hidden text-[11px] text-slate-400 sm:inline">Cartões disponíveis <PrivateMoney value={formatMoney(cardAvailable)} /></span></div>
+  return <aside aria-label="Saldo em contas" className="mb-2 flex w-full min-w-0 flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-800/80 bg-slate-950/80 px-2.5 py-1">
+    <div className="flex min-w-0 items-center gap-1.5"><WalletCards size={13} className="shrink-0 text-blue-300" /><span className="truncate text-[10px] font-semibold uppercase tracking-wide text-slate-400">Saldo em contas</span></div>
+    <div className="flex min-w-0 items-baseline gap-2.5"><strong className="truncate text-xs font-bold tabular-nums text-emerald-300 sm:text-sm"><PrivateMoney value={formatMoney(accountBalance)} /></strong><span className="hidden text-[11px] text-slate-400 sm:inline">Cartões disponíveis <PrivateMoney value={formatMoney(cardAvailable)} /></span></div>
   </aside>;
 };

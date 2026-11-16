@@ -276,7 +276,7 @@ export const WalletOverviewPage: React.FC<Props> = ({ activeUser, onNavigate }) 
           (privacyHidden ? 'border-slate-700 bg-slate-950/50 text-slate-300' :
            deficit ? 'border-rose-500/30 bg-rose-500/10 text-rose-300' :
              'border-emerald-500/30 bg-emerald-500/10 text-emerald-300')}>
-          {privacyHidden ? 'Indicador oculto' : deficit ? 'Déficit no mês' : 'Superávit no mês'}
+          {privacyHidden ? 'Indicador oculto' : deficit ? 'Falta prevista' : 'Sobra prevista'}
         </span>
       </div>
 
@@ -291,97 +291,58 @@ export const WalletOverviewPage: React.FC<Props> = ({ activeUser, onNavigate }) 
           <dd className="mt-1 break-words text-base font-bold tabular-nums text-rose-300 sm:text-lg"><PrivateMoney value={money(balance.totalLiabilities)} /></dd>
         </div>
         <div className={`col-span-2 min-w-0 border-t border-slate-800 p-3 sm:col-span-1 sm:border-t-0 sm:p-4 ${privacyHidden ? 'bg-slate-950/30' : deficit ? 'bg-rose-950/15' : 'bg-emerald-950/10'}`}>
-          <dt className="text-xs font-semibold text-white">Projeção após compromissos</dt>
+          <dt className="text-xs font-semibold text-white">Sobra prevista após compromissos</dt>
           <dd className={`mt-1 break-words text-lg font-bold tabular-nums ${privacyHidden ? 'text-slate-300' : deficit ? 'text-rose-300' : 'text-emerald-300'}`}><PrivateMoney value={money(balance.projectedBalance)} /></dd>
         </div>
       </dl>
-      {!privacyHidden && <section aria-label="Composição explicada do balanço"
-        className="mt-4 space-y-3 border-t border-slate-700 pt-4">
-        <h4 className="text-sm font-semibold text-white">Como chegamos à projeção</h4>
-        <p className="text-xs leading-relaxed text-slate-300">
-          Somente o saldo das contas já está disponível. As receitas futuras são previsões;
-          faturas e dívidas entram como compromissos apenas uma vez.
-        </p>
-        <div className="grid gap-4 lg:grid-cols-12">
-          <div className="min-w-0 lg:col-span-6">
-            <h5 className="mb-2 text-xs font-semibold text-emerald-300">Saldo e entradas</h5>
-            <dl className="space-y-2 text-sm tabular-nums">
-              <div className="flex justify-between gap-2"><dt className="text-slate-200">Saldo disponível em contas hoje</dt>
-                <dd className="font-semibold text-white"><PrivateMoney value={money(balance.accountBalance)}/></dd></div>
-              <div className="flex justify-between gap-2"><dt className="text-slate-300">+ Receitas recorrentes ainda não recebidas</dt>
-                <dd className="font-semibold text-white"><PrivateMoney value={money(balance.pendingRecurringIncome)}/></dd></div>
-            </dl>
-          </div>
-          <div className="min-w-0 lg:col-span-6">
-            <h5 className="mb-2 text-xs font-semibold text-rose-300">Saídas previstas</h5>
-            <dl className="space-y-2 text-sm tabular-nums">
-              <div className="flex justify-between gap-2"><dt className="text-slate-300">− Faturas com vencimento neste mês</dt>
-                <dd className="font-semibold text-white"><PrivateMoney value={money(balance.openCardInvoices)}/></dd></div>
-              <div className="flex justify-between gap-2"><dt className="text-slate-300">− Dívidas e contas pendentes do mês</dt>
-                <dd className="font-semibold text-white"><PrivateMoney value={money(balance.monthPayables)}/></dd></div>
-            </dl>
-          </div>
-        </div>
-        <p className="text-xs leading-relaxed text-slate-300">
-          Resultado: <strong className="text-white"><PrivateMoney value={money(balance.projectedBalance)}/></strong>
-          {' '}de saldo projetado após esses compromissos. Não é lucro de empréstimos, crédito do cartão nem confirmação de recebimento.
-          Compras já incluídas nas faturas não são subtraídas novamente.
-        </p>
-      </section>}
-      {privacyHidden && <p className="mt-3 text-xs text-slate-400">
-        Composição do balanço oculta pelo controle de privacidade.
-      </p>}
     </article>
 
     {/* 2. SEÇÃO COMPROMISSOS PRÓXIMOS */}
-    <article className="rounded-xl border border-slate-800 bg-slate-900 p-4 sm:p-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="flex items-center gap-2 text-base sm:text-lg font-bold text-white"><CalendarClock size={18} className="text-blue-400"/> Compromissos próximos</h2>
-          <p className="mt-1 text-xs sm:text-sm text-slate-300">Até 8 obrigações vencidas ou com vencimento nos próximos 45 dias</p>
-        </div>
-        <button type="button" onClick={() => go('dividas')} className="flex min-h-10 items-center gap-1.5 text-sm font-semibold text-blue-300 transition-colors hover:text-blue-200">
-          <span>Ver contas a pagar</span> <ArrowRight size={16}/>
+    <article className="rounded-xl border border-slate-800 bg-slate-900 p-3 sm:p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="flex items-center gap-2 text-sm sm:text-base font-bold text-white"><CalendarClock size={16} className="text-blue-400"/> Compromissos próximos</h2>
+        <button type="button" onClick={() => go('dividas')} className="flex min-h-9 items-center gap-1 text-xs font-semibold text-blue-300 transition-colors hover:text-blue-200">
+          <span>Ver contas a pagar</span> <ArrowRight size={14}/>
         </button>
       </div>
-      {privacyHidden ? <p className="mt-4 rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-sm text-slate-300">
+      {privacyHidden ? <p className="mt-2.5 rounded-lg border border-slate-800 bg-slate-950/40 p-2.5 text-xs text-slate-300">
         Detalhes e vencimentos ocultos pelo controle de privacidade.
-      </p> : <div className="mt-4 divide-y divide-slate-800">
+      </p> : <div className="mt-2 divide-y divide-slate-800">
         {upcoming.length ? upcoming.map(item => {
           const overdue = item.dueDate < today;
+          const subtitle = item.accountLabel && item.accountLabel !== item.institution
+            ? `${item.institution} · ${item.accountLabel}`
+            : item.institution;
           return (
             <div
               key={item.id}
-              className="flex flex-col gap-2 rounded-lg px-1 py-3 sm:flex-row sm:items-center sm:justify-between"
+              className="flex items-center justify-between gap-2.5 py-2"
             >
-              {/* Lado Esquerdo */}
-              <div className="flex min-w-0 items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-700/80 bg-slate-950 text-slate-200">
+              <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-700/80 bg-slate-950 text-slate-200">
                   <BankLogo name={item.institution} alternateName={item.title} size="sm" />
                 </div>
                 <div className="min-w-0">
-                  <p className="truncate text-sm sm:text-base font-semibold text-white">{item.title}</p>
-                  <p className="mt-0.5 truncate text-xs sm:text-sm text-slate-300">{item.institution} · {item.accountLabel}</p>
+                  <p className="truncate text-xs sm:text-sm font-semibold text-white">{item.title}</p>
+                  <p className="truncate text-[11px] text-slate-400">{subtitle}</p>
                 </div>
               </div>
-
-              {/* Centro & Lado Direito */}
-              <div className="flex items-center justify-between gap-3 sm:justify-end shrink-0">
-                <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
+              <div className="shrink-0 text-right">
+                <strong className="block text-xs sm:text-sm font-bold text-white tracking-tight tabular-nums">
+                  <PrivateMoney value={money(item.amount)} />
+                </strong>
+                <span className={`mt-0.5 inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
                   overdue
                     ? 'border-rose-500/30 bg-rose-500/10 text-rose-300'
-                    : 'border-slate-700 bg-slate-950 text-slate-200'
+                    : 'border-slate-700 bg-slate-950 text-slate-300'
                 }`}>
                   {overdue ? 'Vencido · ' : ''}{dateLabel(item.dueDate)}
                 </span>
-                <strong className="text-right text-base sm:text-lg font-bold text-white tracking-tight tabular-nums">
-                  <PrivateMoney value={money(item.amount)} />
-                </strong>
               </div>
             </div>
           );
-        }) : <p className="rounded-xl border border-dashed border-slate-700 p-6 text-center text-sm text-slate-300">
-          Nenhum compromisso com vencimento informado nos próximos 45 dias.
+        }) : <p className="rounded-xl border border-dashed border-slate-700 p-4 text-center text-xs text-slate-300">
+          Nenhum compromisso previsto nos próximos 45 dias.
         </p>}
       </div>}
     </article>

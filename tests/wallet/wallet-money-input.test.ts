@@ -3,7 +3,24 @@ import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
 import { parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
 import { displayBrazilianCents, resolveBrazilianCentsEdit, resolveBrazilianCentsPaste } from '../../components/forms/BrazilianCentsInput';
-import { formatLiveBrazilianMoney, formatLiveBrazilianCents, backspaceLiveBrazilianCents, resolveLiveBrazilianCentsChange, formatPastedBrazilianMoney, formatLiveBrazilianSignedCents, backspaceLiveBrazilianSignedCents, formatMoneyExpressionOperand, backspaceMoneyExpressionOperand, normalizePastedMoneyExpression } from '../../features/wallet/utils/liveBrazilianMoneyInput';
+import { formatLiveBrazilianMoney, formatLiveBrazilianCents, backspaceLiveBrazilianCents, resolveLiveBrazilianCentsChange, formatPastedBrazilianMoney, formatLiveBrazilianSignedCents, backspaceLiveBrazilianSignedCents, formatMoneyExpressionOperand, insertMoneyExpressionOperator, backspaceMoneyExpressionOperand, normalizePastedMoneyExpression } from '../../features/wallet/utils/liveBrazilianMoneyInput';
+
+test('operador no meio de um valor separa quantias completas sem quebrar a vírgula', () => {
+  assert.deepEqual(insertMoneyExpressionOperator('15,00', '+', 1), { value: '1,00+5,00', caret: 5 });
+  assert.deepEqual(insertMoneyExpressionOperator('15,00', '+', 2), { value: '15,00+0,00', caret: 6 });
+  assert.deepEqual(insertMoneyExpressionOperator('15,00', '+', 0, 5), { value: '15,00+', caret: 6 });
+  assert.deepEqual(insertMoneyExpressionOperator('1.234,56', '+', 1), { value: '1,00+234,56', caret: 5 });
+  assert.deepEqual(insertMoneyExpressionOperator('15,00+10,00', '+', 7), { value: '15,00+1,00+0,00', caret: 11 });
+  for (const operator of ['+', '-', '×', '÷', '*', '/']) {
+    const result = insertMoneyExpressionOperator('15,00', operator, 1);
+    assert.equal(result?.value, `1,00${operator}5,00`);
+  }
+  assert.equal(parseWalletMoney(insertMoneyExpressionOperator('15,00', '+', 1)!.value), 6);
+  assert.equal(insertMoneyExpressionOperator('15,00+', '+', 6), null);
+  const input = readFileSync('components/forms/FinancialCalculatorInput.tsx', 'utf8');
+  assert.match(input, /insertMoneyExpressionOperator\(draft, operator, start, end\)/);
+  assert.match(input, /insertMoneyExpressionOperator\(draft, operator, caret - 1\)/);
+});
 
 test('cada operando da conta recebe milhar e centavos, inclusive terceiro valor', () => {
   let value = '15,00+';
@@ -34,6 +51,8 @@ test('todos os operadores mantêm a digitação por centavos e o modo de reais p
 
 test('colagem com R$ preserva expressão financeira sem aceitar texto arbitrário', () => {
   assert.equal(formatPastedBrazilianMoney('R$ 1.199,00'), '1.199,00');
+  assert.equal(normalizePastedMoneyExpression('1+5,00'), '1,00+5,00');
+  assert.equal(normalizePastedMoneyExpression('R$ 1 + R$ 5,00'), '1,00 + 5,00');
   assert.equal(normalizePastedMoneyExpression('R$ 547,36 + R$ 1.199,00'), '547,36 + 1.199,00');
   assert.equal(parseWalletMoney(normalizePastedMoneyExpression('R$ 547,36 + R$ 1.199,00')), 1746.36);
   assert.throws(() => normalizePastedMoneyExpression('R$ 10 cliente'));

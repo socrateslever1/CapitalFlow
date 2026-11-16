@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { parseWalletMoney, parseWalletRate, parseWalletSignedMoney } from '../../features/wallet/utils/parseWalletMoney';
-import { formatLiveBrazilianMoney, formatLiveBrazilianCents, backspaceLiveBrazilianCents, formatPastedBrazilianMoney, formatLiveBrazilianSignedCents, backspaceLiveBrazilianSignedCents, formatMoneyExpressionOperand, backspaceMoneyExpressionOperand, normalizePastedMoneyExpression } from '../../features/wallet/utils/liveBrazilianMoneyInput';
+import { formatLiveBrazilianMoney, formatLiveBrazilianCents, backspaceLiveBrazilianCents, formatPastedBrazilianMoney, formatLiveBrazilianSignedCents, backspaceLiveBrazilianSignedCents, formatMoneyExpressionOperand, insertMoneyExpressionOperator, backspaceMoneyExpressionOperand, normalizePastedMoneyExpression } from '../../features/wallet/utils/liveBrazilianMoneyInput';
 
 type Props = Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'onBlur' | 'type'> & {
   value: string | number | null | undefined;
@@ -77,12 +77,15 @@ export const FinancialCalculatorInput: React.FC<Props> = ({
     const input = ref.current;
     const start = input?.selectionStart ?? draft.length;
     const end = input?.selectionEnd ?? start;
-    const next = draft.slice(0, start) + operator + draft.slice(end);
+    const inserted = /[+\-×÷*/]/.test(operator) ? insertMoneyExpressionOperator(draft, operator, start, end) : null;
+    if (/[+\-×÷*/]/.test(operator) && !inserted) return;
+    const next = inserted?.value ?? draft.slice(0, start) + operator + draft.slice(end);
+    const caret = inserted?.caret ?? start + operator.length;
     setDraft(next);
     setError('');
     requestAnimationFrame(() => {
       input?.focus();
-      input?.setSelectionRange(start + operator.length, start + operator.length);
+      input?.setSelectionRange(caret, caret);
     });
   };
   return (
@@ -101,6 +104,20 @@ export const FinancialCalculatorInput: React.FC<Props> = ({
             // O Android dispara input sem keydown. Trate Backspace antes de
             // distinguir número simples de expressão para preservar centavos.
             const inputType = (e.nativeEvent as InputEvent).inputType;
+            const caret = input.selectionStart ?? raw.length;
+            const operator = raw[caret - 1];
+            if (!signed && !rate && raw.length === draft.length + 1 && /[+\-×÷*/]/.test(operator ?? '')
+              && raw === draft.slice(0, caret - 1) + operator + draft.slice(caret - 1)) {
+              const next = insertMoneyExpressionOperator(draft, operator, caret - 1);
+              if (!next) return;
+              setDraft(next.value);
+              setError('');
+              input.setCustomValidity('');
+              requestAnimationFrame(() => {
+                if (document.activeElement === input) input.setSelectionRange(next.caret, next.caret);
+              });
+              return;
+            }
             if (centsEntry && inputType === 'deleteContentBackward' && raw.length < draft.length
               && input.selectionStart === raw.length && input.selectionEnd === raw.length) {
               const next = raw === '' ? { value: '', caret: 0 } : signed ? backspaceLiveBrazilianSignedCents(draft)

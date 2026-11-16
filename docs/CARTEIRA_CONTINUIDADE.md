@@ -1088,3 +1088,9 @@ O ícone do olho já acionava o `FinancialPrivacyProvider`, mas os elementos aba
 - Cada operando digitado no `FinancialCalculatorInput` com `centsEntry` agora desloca os algarismos da direita para a esquerda: `15,00 + 1 → 15,00 + 0,01`, `+10 → +0,10`, `+1015 → +10,15`. O mesmo vale para operadores seguintes e parênteses; a colagem de `R$` continua representando o valor declarado.
 - Backspace no final da expressão remove um algarismo do último operando, inclusive pelo teclado Android sem `keydown`. Campos configurados para digitação em reais preservam o modo anterior. O parser financeiro, saldos, faturas, RPCs e dados persistidos não foram alterados.
 - Testes: `npm run test:wallet-money-apk` (29/29), `npm run test:wallet-visual-next` (39/39) e `npm run test:quality` concluídos sem falhas. Commit: correção registrada neste commit da `main`. Não houve validação em celular físico nem build release do APK.
+
+## 15/11/2026 — Operadores inseridos dentro de valores monetários
+
+- No `FinancialCalculatorInput` compartilhado, digitar ou tocar um operador dentro de `15,00` após o primeiro algarismo produz `1,00+5,00`. Cada lado do sinal é normalizado como quantia completa, inclusive quando há separador de milhar. O operador no fim preserva a quantia anterior; selecionar o valor inteiro e tocar no operador acrescenta o sinal em vez de apagar o valor.
+- A mudança cobre os campos monetários que usam o componente compartilhado. Expressões coladas também exibem cada quantia completa (`1+5,00 → 1,00+5,00`); a digitação por centavos após o sinal, o parser financeiro e a persistência preservam seus contratos.
+- Testes: `test:wallet-money-apk` (30/30), `loan-financial-calculator.test.ts` (5/5), `test:wallet-visual-next` (39/39) e `test:quality` concluídos sem falhas. Commit: este registro da `main`. Sem teste em aparelho físico ou novo APK release.

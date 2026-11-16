@@ -73,6 +73,35 @@ export function formatMoneyExpressionOperand(raw: string, caret: number, centsEn
   return { value: raw.slice(0, start) + formatted.value + raw.slice(stop), caret: start + formatted.caret };
 }
 
+/** Um operador divide uma quantia já exibida em duas quantias declaradas. */
+export function insertMoneyExpressionOperator(current: string, operator: string, selectionStart: number, selectionEnd = selectionStart): LiveBrazilianMoney | null {
+  if (!/^[+\-×÷*/]$/.test(operator)) return null;
+  if (!/^[\d.,+\-×÷*/%()]*$/.test(current)) return null;
+  const selectedAll = current.length > 0 && selectionStart === 0 && selectionEnd === current.length;
+  const start = selectedAll ? current.length : selectionStart;
+  const end = selectedAll ? current.length : selectionEnd;
+  if (start < 0 || end < start || end > current.length) return null;
+  const leftBoundary = Math.max(0, ...[...current.slice(0, start).matchAll(/[+\-×÷*/%()]/g)].map(match => (match.index ?? 0) + 1));
+  const rightOffset = current.slice(end).search(/[+\-×÷*/%()]/);
+  const rightBoundary = rightOffset < 0 ? current.length : end + rightOffset;
+  const prefix = current.slice(0, leftBoundary);
+  const suffix = current.slice(rightBoundary);
+  const formatFragment = (fragment: string): string => {
+    if (!fragment) return '';
+    const amount = fragment.replace(/[.,]$/, '').replace(/^\./, '').replace(/^,/, '0,');
+    return formatPastedBrazilianMoney(amount);
+  };
+  try {
+    const left = formatFragment(current.slice(leftBoundary, start));
+    const right = formatFragment(current.slice(end, rightBoundary));
+    if (!left && !right) return null;
+    const value = prefix + left + operator + right + suffix;
+    return { value, caret: (prefix + left + operator).length };
+  } catch {
+    return null;
+  }
+}
+
 /** Backspace atua apenas no último operando, sem consumir a expressão anterior. */
 export function backspaceMoneyExpressionOperand(raw: string): LiveBrazilianMoney {
   if (/[+\-×÷*/%()]$/.test(raw)) {
@@ -89,7 +118,7 @@ export function backspaceMoneyExpressionOperand(raw: string): LiveBrazilianMoney
 export function normalizePastedMoneyExpression(raw: string): string {
   const cleaned = raw.replace(/R\$\s*/gi, '').trim();
   if (!cleaned || /[^\d.,+\-×÷*/%()\s]/.test(cleaned)) throw new Error('Valor colado inválido.');
-  return cleaned;
+  return cleaned.replace(/\d[\d.,]*/g, amount => formatPastedBrazilianMoney(amount));
 }
 
 /**

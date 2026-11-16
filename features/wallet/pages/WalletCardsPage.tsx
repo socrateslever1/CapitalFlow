@@ -51,13 +51,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
   const [paying, setPaying] = useState<PersonalWalletCard | null>(null);
   const [importing, setImporting] = useState(false);
   const [flatReaderOpen, setFlatReaderOpen] = useState(false);
-  const readerRef = useRef<HTMLDivElement | null>(null);
-  const openReader = () => {
-    setFlatReaderOpen(true);
-    window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(() => readerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
-    });
-  };
+  const openReader = () => setFlatReaderOpen(true);
   const [creating, setCreating] = useState(false);
   const [addProtectedAfterCreate, setAddProtectedAfterCreate] = useState(true);
   const [thirdPartyCard, setThirdPartyCard] = useState(false);
@@ -757,9 +751,9 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
                     className="block w-full rounded-lg px-3 py-2.5 text-left text-xs text-slate-200 hover:bg-slate-800">Dados do cartão</button>
                   <button type="button" onClick={() => { setActionMenuOpen(false); setCardOpeningModalOpen(true); }}
                     className="block w-full rounded-lg px-3 py-2.5 text-left text-xs text-slate-200 hover:bg-slate-800">Situação inicial</button>
-                  <button type="button" onClick={() => { setActionMenuOpen(false); setFlatReaderOpen(value => !value); }}
+                  <button type="button" onClick={() => { setActionMenuOpen(false); setFlatReaderOpen(true); }}
                     className="block w-full rounded-lg px-3 py-2.5 text-left text-xs text-slate-200 hover:bg-slate-800">
-                    {flatReaderOpen ? 'Fechar importação' : 'Importar extrato ou fatura'}
+                    Importar extrato ou fatura
                   </button>
                   {statementMonth && (selectedCycle?.amount || 0) > 0 && (
                     <button type="button" onClick={() => {
@@ -774,7 +768,14 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
               </div>}
             </div>
             {flatReaderOpen && selected && (
-              <div ref={readerRef} className="mb-4 scroll-mt-24">
+              <Modal
+                variant="wallet"
+                size="xl"
+                title="Importar extrato ou fatura"
+                subtitle={selected.nickname}
+                footerMode="custom"
+                onClose={() => setFlatReaderOpen(false)}
+              >
                 <FlatSmartStatementReader
                   kind="CARD"
                   targetId={selected.id}
@@ -794,7 +795,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
                     setFlatReaderOpen(false);
                   }}
                 />
-              </div>
+              </Modal>
             )}
             {selected ? <CardInvoiceStatement cardId={selected.id} dueMonth={statementMonth}
               openingBalance={selectedIsOpeningCycle ? Number(selected.initial_future_installments_balance || 0) : 0}

@@ -22,3 +22,16 @@ test('ocupado bloqueia edição e cancelamento sem remover dados', () => {
   assert.match(html, /value="125,00"/);
   assert.match(html, /button type="button" disabled=""/);
 });
+
+test('variante wallet aplica janela suspensa com margem, safe-area e rolagem interna sem alterar modais padrão', () => {
+  const defaultHtml = renderToStaticMarkup(<Modal onClose={() => {}} title="Padrão"><div>Conteúdo</div></Modal>);
+  const walletHtml = renderToStaticMarkup(<Modal variant="wallet" onClose={() => {}} title="Carteira" footer={<button type="submit">Confirmar</button>}><div>Conteúdo</div></Modal>);
+  assert.match(defaultHtml, /data-modal-variant="default"/);
+  assert.match(walletHtml, /data-modal-variant="wallet"/);
+  assert.match(walletHtml, /p-3/);
+  assert.match(walletHtml, /safe-area-inset-top/);
+  assert.match(walletHtml, /safe-area-inset-bottom/);
+  assert.match(walletHtml, /data-dialog-body/);
+  assert.match(walletHtml, /Confirmar/);
+  assert.match(walletHtml, /Cancelar/);
+});

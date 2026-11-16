@@ -1,6 +1,6 @@
 import { PrivateMoney } from '../../contexts/FinancialPrivacyContext';
 import React, { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, Archive, ArrowLeft, ArrowLeftRight, CheckCircle2, Copy, QrCode, ReceiptText, ImagePlus, Landmark, Link2, Pencil, Save, Trash2, X, MoreHorizontal } from 'lucide-react';
+import { AlertCircle, Archive, ArrowLeft, ArrowLeftRight, CheckCircle2, Copy, QrCode, ReceiptText, ImagePlus, Landmark, Link2, Pencil, Save, Trash2, MoreHorizontal } from 'lucide-react';
 import {
   PersonalWalletAccount,
   PersonalWalletExpense,
@@ -172,13 +172,13 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
     setError('');
     try {
       await personalWalletService.deleteAccount(account.id);
+      setDeleteConfirm(false);
       await onSaved();
       onBack();
     } catch (err: any) {
       setError(err?.message || 'Não foi possível excluir a conta.');
     } finally {
       setDeleting(false);
-      setDeleteConfirm(false);
     }
   };
 
@@ -188,13 +188,13 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
     setError('');
     try {
       await personalWalletService.archiveAccount(account.id);
+      setArchiveConfirm(false);
       await onSaved();
       onBack();
     } catch (err: any) {
       setError(err?.message || 'Não foi possível arquivar a conta.');
     } finally {
       setArchiving(false);
-      setArchiveConfirm(false);
     }
   };
 
@@ -253,7 +253,7 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
           className="inline-flex min-h-11 items-center gap-2 rounded-lg px-2 text-sm font-semibold text-slate-200 hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 sm:border sm:border-slate-700 sm:bg-slate-900 sm:px-3">
           <ArrowLeft size={18} /> <span className="sm:hidden">Voltar</span><span className="hidden sm:inline">Voltar às contas</span>
         </button>
-        {!editing && <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
           <button type="button" onClick={() => setExpenseOpen(true)}
             className="inline-flex min-h-11 min-w-0 items-center justify-center gap-2 rounded-lg bg-rose-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-rose-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300">
             <ReceiptText size={16}/> Registrar despesa
@@ -279,16 +279,16 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
             className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-xs font-bold text-slate-200 hover:bg-slate-800">
             <Pencil size={15} /> Editar conta
           </button>
-          <button type="button" onClick={() => { setArchiveConfirm(true); setDeleteConfirm(false); }}
+          <button type="button" onClick={() => { setArchiveConfirm(true); setDeleteConfirm(false); setError(''); }}
             className="inline-flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-950/20 px-3 py-2.5 text-xs font-bold text-amber-200 hover:bg-amber-900/30">
             <Archive size={15} /> Arquivar conta
           </button>
-          <button type="button" onClick={() => { setDeleteConfirm(true); setArchiveConfirm(false); }}
+          <button type="button" onClick={() => { setDeleteConfirm(true); setArchiveConfirm(false); setError(''); }}
             className="inline-flex items-center gap-2 rounded-lg border border-rose-500/30 bg-rose-950/20 px-3 py-2.5 text-xs font-bold text-rose-300 hover:bg-rose-900/30">
             <Trash2 size={15} /> Excluir conta
           </button>
           </div>
-        </div>}
+        </div>
       </div>
 
       <div className="rounded-2xl border border-slate-800 bg-slate-900 p-3 sm:p-4">
@@ -304,7 +304,7 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
             <p className="whitespace-nowrap text-lg font-extrabold tabular-nums text-emerald-400"><PrivateMoney value={formatMoney(Number(account.balance))} /></p>
           </div>
         </div>
-        {!editing && (capitalLinkState.status !== 'unlinked' || loanLimitAvailable !== null) && (
+        {(capitalLinkState.status !== 'unlinked' || loanLimitAvailable !== null) && (
           <div className="mt-2.5 flex flex-wrap items-center gap-2">
             {capitalLinkState.status === 'linked' && capitalLinkState.source && (
               <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-500/30 bg-blue-950/30 px-2.5 py-0.5 text-[11px] font-semibold text-blue-200">
@@ -326,7 +326,7 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
             </span>
           </div>
         )}
-        {!editing && <div className="mt-3 flex flex-col gap-2 border-t border-slate-800 pt-3">
+        <div className="mt-3 flex flex-col gap-2 border-t border-slate-800 pt-3">
           <div className="flex min-w-0 items-center gap-2">
             <span className="shrink-0 text-[10px] font-bold text-slate-400">PIX {pixKeyTypeLabel(account.pix_key_type)}</span>
             <span className="min-w-0 flex-1 truncate text-xs text-slate-200">{account.pix_key || 'Chave não cadastrada'}</span>
@@ -344,7 +344,7 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
             </button>
           </div>
           {account.notes && <p className="truncate text-[11px] text-slate-400" title={account.notes}>{account.notes}</p>}
-        </div>}
+        </div>
       </div>
       {pixChargeOpen && account.pix_key && <WalletPixCharge accounts={accounts} initialAccountId={account.id} recipient={ownerName || account.nickname} city={ownerCity} onClose={()=>setPixChargeOpen(false)} onSaved={onSaved} />}
       {movementOpen && <AccountMovementModal accounts={accounts} cards={cards} expenses={expenses} installments={installments}
@@ -353,6 +353,7 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
         onClose={() => setExpenseOpen(false)} onSaved={onSaved}/>}
       {adjustBalanceOpen && (
         <Modal
+          variant="wallet"
           compact
           title="Reajustar saldo da conta"
           subtitle={account.nickname}
@@ -429,29 +430,84 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
       )}
 
       {success && <div role="status" className="flex items-center gap-2 rounded-lg border border-emerald-800 bg-emerald-950/30 p-3 text-xs text-emerald-200"><CheckCircle2 size={16} />{success}</div>}
-      {error && <div role="alert" className="rounded-lg border border-rose-700 bg-rose-950/30 p-3 text-xs text-rose-200">{error}</div>}
-      {archiveConfirm && <div role="alertdialog" aria-label="Confirmar arquivamento da conta" className="rounded-xl border border-amber-500/30 bg-amber-950/20 p-4 text-sm text-amber-100">
-        <strong>Arquivar {account.nickname}?</strong>
-        <p className="mt-1 text-xs text-amber-200/80">A conta sairá da carteira ativa, mas seu histórico será preservado. O saldo precisa estar zerado.</p>
-        <div className="mt-3 flex gap-2">
-          <button type="button" onClick={() => setArchiveConfirm(false)} disabled={archiving} className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-200">Cancelar</button>
-          <button type="button" onClick={() => { void archive(); }} disabled={archiving} className="rounded-lg bg-amber-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-50">{archiving ? 'Arquivando...' : 'Arquivar conta'}</button>
-        </div>
-      </div>}
+      {error && !editing && !archiveConfirm && !deleteConfirm && !adjustBalanceOpen && <div role="alert" className="rounded-lg border border-rose-700 bg-rose-950/30 p-3 text-xs text-rose-200">{error}</div>}
+      {archiveConfirm && (
+        <Modal
+          variant="wallet"
+          compact
+          title={`Arquivar ${account.nickname}?`}
+          subtitle="Histórico preservado"
+          icon={<Archive size={17} />}
+          busy={archiving}
+          onClose={() => { if (!archiving) { setArchiveConfirm(false); setError(''); } }}
+          footer={
+            <button
+              type="button"
+              onClick={() => { void archive(); }}
+              disabled={archiving}
+              className="flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-xs font-black uppercase text-white hover:bg-amber-500 focus-visible:outline-2 focus-visible:outline-amber-400 disabled:opacity-50"
+            >
+              {archiving ? 'Arquivando...' : 'Arquivar conta'}
+            </button>
+          }
+        >
+          <div role="alertdialog" aria-label="Confirmar arquivamento da conta" className="space-y-3 text-xs text-amber-100">
+            <p className="leading-relaxed text-amber-200/90">A conta sairá da carteira ativa, mas seu histórico será preservado. O saldo precisa estar zerado.</p>
+            {error && <div role="alert" className="rounded-lg border border-rose-700 bg-rose-950/30 p-3 text-xs text-rose-200">{error}</div>}
+          </div>
+        </Modal>
+      )}
 
-      {deleteConfirm && <div role="alertdialog" aria-label="Confirmar exclusão da conta" className="rounded-xl border border-rose-500/30 bg-rose-950/20 p-4 text-sm text-rose-100">
-        <p className="font-semibold">Excluir esta conta?</p>
-        <p className="mt-1 text-xs text-rose-200/80">A exclusão é permanente e só será permitida se a conta estiver zerada e sem movimentações ou vínculos.</p>
-        <div className="mt-3 flex gap-2">
-          <button type="button" onClick={() => setDeleteConfirm(false)} disabled={deleting} className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-200">Cancelar</button>
-          <button type="button" onClick={() => { void remove(); }} disabled={deleting} className="rounded-lg bg-rose-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-50">{deleting ? 'Excluindo...' : 'Excluir definitivamente'}</button>
-        </div>
-      </div>}
+      {deleteConfirm && (
+        <Modal
+          variant="wallet"
+          compact
+          title="Excluir esta conta?"
+          subtitle={account.nickname}
+          icon={<Trash2 size={17} />}
+          busy={deleting}
+          onClose={() => { if (!deleting) { setDeleteConfirm(false); setError(''); } }}
+          footer={
+            <button
+              type="button"
+              onClick={() => { void remove(); }}
+              disabled={deleting}
+              className="flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-rose-600 px-4 py-2 text-xs font-black uppercase text-white hover:bg-rose-500 focus-visible:outline-2 focus-visible:outline-rose-400 disabled:opacity-50"
+            >
+              {deleting ? 'Excluindo...' : 'Excluir definitivamente'}
+            </button>
+          }
+        >
+          <div role="alertdialog" aria-label="Confirmar exclusão da conta" className="space-y-3 text-xs text-rose-100">
+            <p className="leading-relaxed text-rose-200/90">A exclusão é permanente e só será permitida se a conta estiver zerada e sem movimentações ou vínculos.</p>
+            {error && <div role="alert" className="rounded-lg border border-rose-700 bg-rose-950/30 p-3 text-xs text-rose-200">{error}</div>}
+          </div>
+        </Modal>
+      )}
 
-      {!editing&&account.account_type!=='CASH'&&<BankAccountDetailsSummary details={account.bank_details||{}} linkedCards={cards.filter(card=>card.account_id===account.id&&card.status!=='CANCELED').length}/>}
+      {account.account_type!=='CASH'&&<BankAccountDetailsSummary details={account.bank_details||{}} linkedCards={cards.filter(card=>card.account_id===account.id&&card.status!=='CANCELED').length}/>}
       {editing && (
-        <form onSubmit={submit} className="space-y-4 rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:p-6">
-          <h2 className="text-sm font-bold text-white">Editar dados da conta</h2>
+        <Modal
+          variant="wallet"
+          size="lg"
+          title="Editar dados da conta"
+          subtitle={account.nickname}
+          icon={<Pencil size={17} />}
+          busy={saving}
+          onClose={reset}
+          footer={
+            <button
+              type="submit"
+              form="account-edit-form"
+              disabled={saving}
+              className={modalPrimaryActionClass}
+            >
+              <Save size={14} /> {saving ? 'Salvando...' : 'Salvar alterações'}
+            </button>
+          }
+        >
+        <form id="account-edit-form" onSubmit={submit} className="space-y-4">
+          {error && <div role="alert" className="rounded-lg border border-rose-700 bg-rose-950/30 p-3 text-xs text-rose-200">{error}</div>}
           <datalist id="account-bank-catalog">{BANK_CATALOG.map(bank => <option key={bank.id} value={bank.name}/>)}</datalist>
           <div className="flex items-center gap-2 rounded-lg border border-slate-800 p-2 text-xs text-slate-400">
             <BankLogo name={form.bank_name} alternateName={form.nickname} size="sm"/>
@@ -519,11 +575,8 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
             </label>
           </div>
           {form.account_type!=='CASH'&&<BankAccountDetailsFields value={bankDetails} onChange={setBankDetails}/>}
-          <div className="flex justify-end gap-2">
-            <button type="button" disabled={saving} onClick={reset} className="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-4 py-2.5 text-xs text-slate-200"><X size={14} /> Cancelar</button>
-            <button type="submit" disabled={saving} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white disabled:opacity-50"><Save size={14} />{saving ? 'Salvando...' : 'Salvar alterações'}</button>
-          </div>
         </form>
+        </Modal>
       )}
 
       <AccountActivityPanel account={account} accounts={accounts}

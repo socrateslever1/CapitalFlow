@@ -7,6 +7,7 @@ import { FinancialCalculatorInput } from '../forms/FinancialCalculatorInput';
 import { parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
 import { WalletStatementImport } from './WalletStatementImport';
 import { buildAccountStatementEntries } from './accountStatementDomain';
+import { Modal, modalPrimaryActionClass } from '../ui/Modal';
 
 type Props = {
   account: PersonalWalletAccount;
@@ -50,6 +51,8 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
   const [openingAmount,setOpeningAmount]=useState('');
   const [openingDate,setOpeningDate]=useState(localToday());
   const [openingSaving,setOpeningSaving]=useState(false);
+  const [openingModalOpen,setOpeningModalOpen]=useState(false);
+  const [voidTarget,setVoidTarget]=useState<WalletAccountOperation|null>(null);
   const transactionRef=useRef({signature:'',id:generateUUID()});
   const openingRef=useRef({signature:'',id:generateUUID()});
   const parsedAmount=(() => { try { return parseWalletMoney(amount); } catch { return NaN; } })();
@@ -98,23 +101,19 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
     try{
       await personalWalletService.initializeAccountOpening({accountId:account.id,amount:value,occurredAt,requestId:openingRef.current.id});
       await onSaved();
-      openingRef.current={signature:'',id:generateUUID()};setOpeningAmount('');
+      openingRef.current={signature:'',id:generateUUID()};setOpeningAmount('');setOpeningModalOpen(false);
       setSuccess('Saldo inicial registrado de forma auditável.');
     }catch(err:any){setError(err?.message||'Não foi possível registrar o saldo inicial.');}
     finally{setOpeningSaving(false);}
   };
-  const voidManual = async (operation: WalletAccountOperation) => {
+  const confirmVoidManual = async (operation: WalletAccountOperation) => {
     if (saving || voidingId) return;
-    const confirmation = window.confirm(
-      'Excluir o lançamento "' + operation.description + '" (' + formatMoney(Number(operation.amount)) +
-      ')? O valor será devolvido ou debitado da conta automaticamente. A trilha de auditoria será preservada.',
-    );
-    if (!confirmation) return;
     setVoidingId(operation.id);
     setError(''); setSuccess('');
     try {
       await personalWalletService.voidManualAccountOperation(operation.id);
       await onSaved();
+      setVoidTarget(null);
       setSuccess('Lançamento excluído do extrato e saldo corrigido. Histórico de auditoria preservado.');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Não foi possível excluir o lançamento.');
@@ -145,12 +144,15 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
           <FileUp size={15}/> Importar PDF
         </button>
       </div>
-      {canInitializeOpening&&<form onSubmit={submitOpening} className="mb-4 grid gap-3 rounded-xl border border-cyan-800/50 bg-cyan-950/20 p-4 sm:grid-cols-3">
-        <div className="sm:col-span-3"><h3 className="text-sm font-bold text-cyan-100">Saldo inicial auditável</h3><p className="text-xs text-cyan-300/80">Disponível somente antes da primeira movimentação e sem alterar saldos existentes automaticamente.</p></div>
-        <label className="text-xs text-slate-300">Valor (R$)<FinancialCalculatorInput required className={input} value={openingAmount} onCommit={setOpeningAmount} fieldLabel="saldo inicial" placeholder="0,00"/></label>
-        <label className="text-xs text-slate-300">Data<input required type="date" max={localToday()} className={input} value={openingDate} onChange={e=>setOpeningDate(e.target.value)}/></label>
-        <button type="submit" disabled={openingSaving} className="self-end rounded-lg bg-cyan-700 px-4 py-3 text-xs font-bold text-white disabled:opacity-50">{openingSaving?'Registrando...':'Registrar saldo inicial'}</button>
-      </form>}
+      {canInitializeOpening&&<div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-cyan-800/50 bg-cyan-950/20 p-4">
+        <div className="min-w-0 flex-1">
+          <h3 className="text-sm font-bold text-cyan-100">Saldo inicial auditável</h3>
+          <p className="text-xs text-cyan-300/80">Disponível somente antes da primeira movimentação e sem alterar saldos existentes automaticamente.</p>
+        </div>
+        <button type="button" onClick={()=>{setError('');setSuccess('');setOpeningModalOpen(true);}} className="min-h-10 rounded-lg bg-cyan-700 px-4 py-2 text-xs font-bold text-white hover:bg-cyan-600">
+          Saldo inicial
+        </button>
+      </div>}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
         {([
           ['INCOME',ArrowDownLeft,'Receita'],
@@ -159,43 +161,13 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
           ['PAYMENT',CreditCard,'Pagar'],
           ['TRANSFER',ArrowLeftRight,'Transferir'],
         ] as const).map(([value,Icon,label])=>(
-          <button type="button" key={value} onClick={()=>{setAction(action===value?null:value);setError('');setSuccess('');}}
+          <button type="button" key={value} onClick={()=>{setAction(value);setError('');setSuccess('');}}
             className={`flex flex-col items-center justify-center gap-2 rounded-xl border px-2 py-4 text-xs font-semibold transition-colors ${action===value?'border-emerald-400 bg-emerald-900/30 text-white':'border-slate-700 bg-slate-950 text-slate-300 hover:border-emerald-500'}`}>
             <Icon size={20} className={value==='EXPENSE'||value==='PAYMENT'?'text-rose-400':'text-emerald-400'}/>{label}
           </button>
         ))}
       </div>
-      {action && <form onSubmit={submit} className="mt-4 space-y-3 rounded-xl border border-slate-700 bg-slate-950/70 p-4">
-        <div className="flex items-center justify-between"><h3 className="text-sm font-bold text-white">{labels[action]}</h3>
-          <button type="button" onClick={clear} className="text-xs text-slate-400">Cancelar</button></div>
-        {action==='TRANSFER' && <p className="text-xs text-amber-300">Transferência contábil entre suas contas cadastradas. Não envia PIX nem transfere valores no banco.</p>}
-        {action==='PAYMENT' && <p className="text-xs text-amber-300">Para quitar fatura de cartão, utilize a opção Faturas. Registrar aqui também causaria débito em duplicidade.</p>}
-        {action==='RECEIPT' && <p className="text-xs text-slate-400">Registra o recebimento informado. Não solicita dinheiro nem gera cobrança PIX.</p>}
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className="text-xs text-slate-300">Valor (R$)
-            <FinancialCalculatorInput required className={input} value={amount} onCommit={setAmount} fieldLabel="valor do lançamento" placeholder="0,00"/>
-          </label>
-          <label className="text-xs text-slate-300">Data
-            <input required className={input} type="date" max={localToday()} value={date} onChange={e=>setDate(e.target.value)}/>
-          </label>
-          {action==='TRANSFER' && <label className="text-xs text-slate-300 sm:col-span-2">Conta de destino
-            <select required className={input} value={destination} onChange={e=>setDestination(e.target.value)}>
-              <option value="">Selecione outra conta</option>
-              {others.map(x=><option key={x.id} value={x.id}>{x.nickname} — {formatMoney(x.balance)}</option>)}
-            </select>
-          </label>}
-          <label className="text-xs text-slate-300 sm:col-span-2">Descrição
-            <input required maxLength={240} className={input} value={description} onChange={e=>setDescription(e.target.value)} placeholder={action==='TRANSFER'?'Transferência entre contas':'Descreva a movimentação'}/>
-          </label>
-          <label className="text-xs text-slate-300 sm:col-span-2">Categoria
-            <input maxLength={100} className={input} value={category} onChange={e=>setCategory(e.target.value)}/>
-          </label>
-        </div>
-        <button type="submit" disabled={saving} className="rounded-lg bg-emerald-600 px-5 py-3 text-xs font-bold text-white disabled:opacity-50">
-          {saving?'Registrando...':'Confirmar lançamento'}
-        </button>
-      </form>}
-      {error && <p role="alert" className="mt-3 rounded-lg border border-rose-700/50 p-3 text-xs text-rose-300">{error}</p>}
+      {error && !action && !openingModalOpen && !voidTarget && <p role="alert" className="mt-3 rounded-lg border border-rose-700/50 p-3 text-xs text-rose-300">{error}</p>}
       {success && <p role="status" className="mt-3 rounded-lg border border-emerald-700/50 p-3 text-xs text-emerald-300">{success}</p>}
     </div>
 
@@ -219,7 +191,7 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
           <div className="flex shrink-0 flex-col items-end gap-1">
             <strong className={`text-sm ${m.amount>=0?'text-emerald-300':'text-rose-300'}`}>{m.amount>=0?'+':'−'}{formatMoney(Math.abs(m.amount))}</strong>
             {canVoid(m.id) && <button type="button" disabled={!!voidingId || saving}
-              onClick={() => { const operation=canVoid(m.id); if(operation) void voidManual(operation); }}
+              onClick={() => { const operation=canVoid(m.id); if(operation){ setError(''); setSuccess(''); setVoidTarget(operation); } }}
               aria-label={'Excluir lançamento ' + m.label}
               className="inline-flex min-h-8 items-center gap-1 rounded-md px-2 text-[11px] text-rose-300 hover:bg-rose-950/40 disabled:opacity-40">
               <Trash2 size={13}/>{voidingId===m.id?'Excluindo...':'Excluir'}
@@ -228,6 +200,112 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
         </div>
       ))}</div>}
     </div>
+    {action && (
+      <Modal
+        variant="wallet"
+        size="md"
+        title={labels[action]}
+        subtitle={account.nickname}
+        busy={saving}
+        onClose={clear}
+        footer={
+          <button
+            type="submit"
+            form="account-activity-form"
+            disabled={saving}
+            className={modalPrimaryActionClass}
+          >
+            {saving ? 'Registrando...' : 'Confirmar lançamento'}
+          </button>
+        }
+      >
+        <form id="account-activity-form" onSubmit={submit} className="space-y-3">
+          {action==='TRANSFER' && <p className="text-xs text-amber-300">Transferência contábil entre suas contas cadastradas. Não envia PIX nem transfere valores no banco.</p>}
+          {action==='PAYMENT' && <p className="text-xs text-amber-300">Para quitar fatura de cartão, utilize a opção Faturas. Registrar aqui também causaria débito em duplicidade.</p>}
+          {action==='RECEIPT' && <p className="text-xs text-slate-400">Registra o recebimento informado. Não solicita dinheiro nem gera cobrança PIX.</p>}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="text-xs text-slate-300">Valor (R$)
+              <FinancialCalculatorInput required className={input} value={amount} onCommit={setAmount} fieldLabel="valor do lançamento" placeholder="0,00"/>
+            </label>
+            <label className="text-xs text-slate-300">Data
+              <input required className={input} type="date" max={localToday()} value={date} onChange={e=>setDate(e.target.value)}/>
+            </label>
+            {action==='TRANSFER' && <label className="text-xs text-slate-300 sm:col-span-2">Conta de destino
+              <select required className={input} value={destination} onChange={e=>setDestination(e.target.value)}>
+                <option value="">Selecione outra conta</option>
+                {others.map(x=><option key={x.id} value={x.id}>{x.nickname} — {formatMoney(x.balance)}</option>)}
+              </select>
+            </label>}
+            <label className="text-xs text-slate-300 sm:col-span-2">Descrição
+              <input required maxLength={240} className={input} value={description} onChange={e=>setDescription(e.target.value)} placeholder={action==='TRANSFER'?'Transferência entre contas':'Descreva a movimentação'}/>
+            </label>
+            <label className="text-xs text-slate-300 sm:col-span-2">Categoria
+              <input maxLength={100} className={input} value={category} onChange={e=>setCategory(e.target.value)}/>
+            </label>
+          </div>
+          {error && <p role="alert" className="rounded-lg border border-rose-700/50 p-3 text-xs text-rose-300">{error}</p>}
+        </form>
+      </Modal>
+    )}
+    {openingModalOpen && canInitializeOpening && (
+      <Modal
+        variant="wallet"
+        compact
+        title="Saldo inicial auditável"
+        subtitle={account.nickname}
+        busy={openingSaving}
+        onClose={() => { if (!openingSaving) { setOpeningModalOpen(false); setError(''); } }}
+        footer={
+          <button
+            type="submit"
+            form="account-opening-form"
+            disabled={openingSaving}
+            className={modalPrimaryActionClass}
+          >
+            {openingSaving ? 'Registrando...' : 'Registrar saldo inicial'}
+          </button>
+        }
+      >
+        <form id="account-opening-form" onSubmit={submitOpening} className="space-y-3">
+          <p className="text-xs text-cyan-200/80">Disponível somente antes da primeira movimentação e sem alterar saldos existentes automaticamente.</p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="text-xs text-slate-300">Valor (R$)<FinancialCalculatorInput required className={input} value={openingAmount} onCommit={setOpeningAmount} fieldLabel="saldo inicial" placeholder="0,00"/></label>
+            <label className="text-xs text-slate-300">Data<input required type="date" max={localToday()} className={input} value={openingDate} onChange={e=>setOpeningDate(e.target.value)}/></label>
+          </div>
+          {error && <p role="alert" className="rounded-lg border border-rose-700/50 p-3 text-xs text-rose-300">{error}</p>}
+        </form>
+      </Modal>
+    )}
+    {voidTarget && (
+      <Modal
+        variant="wallet"
+        compact
+        title="Excluir lançamento"
+        subtitle={account.nickname}
+        busy={Boolean(voidingId)}
+        onClose={() => { if (!voidingId) { setVoidTarget(null); setError(''); } }}
+        footer={
+          <button
+            type="button"
+            disabled={Boolean(voidingId)}
+            onClick={() => { void confirmVoidManual(voidTarget); }}
+            className="flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-rose-600 px-4 py-2 text-xs font-black uppercase text-white hover:bg-rose-500 focus-visible:outline-2 focus-visible:outline-rose-400 disabled:opacity-50"
+          >
+            {voidingId ? 'Excluindo...' : 'Excluir lançamento'}
+          </button>
+        }
+      >
+        <div className="space-y-3 text-xs text-slate-200">
+          <p>
+            Excluir o lançamento <strong className="text-white">{voidTarget.description}</strong> ({formatMoney(Number(voidTarget.amount))})?
+          </p>
+          <p className="rounded-lg border border-slate-800 bg-slate-950 p-3 text-slate-400">
+            O valor será devolvido ou debitado da conta automaticamente. A trilha de auditoria será preservada.
+          </p>
+          {error && <p role="alert" className="rounded-lg border border-rose-700/50 p-3 text-xs text-rose-300">{error}</p>}
+        </div>
+      </Modal>
+    )}
     {importOpen && <WalletStatementImport kind="ACCOUNT" targetId={account.id} targetName={account.nickname}
       onClose={()=>setImportOpen(false)} onImported={onSaved}/>}
   </section>);

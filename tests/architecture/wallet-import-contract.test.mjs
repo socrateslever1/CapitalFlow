@@ -25,7 +25,7 @@ test('wallet cards keeps a visible FAB above the navigation while preserving imp
   assert(frame.includes('grid-cols-[minmax(0,1fr)_auto]'));
   assert(stack.includes('onImportStatement'));
   assert(cards.includes('onImportStatement={openReader}'));
-  assert(cards.includes('readerRef.current?.scrollIntoView'));
+  assert.match(cards, /<Modal[\s\S]*variant="wallet"[\s\S]*<FlatSmartStatementReader/);
 });
 
 test('document reader keeps local PDF and OFX parsing and explicit cloud opt-in', () => {

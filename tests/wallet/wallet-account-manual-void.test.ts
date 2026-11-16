@@ -56,7 +56,8 @@ test('exclusão é estorno atômico apenas de lançamentos manuais, sem delete f
   assert.match(sql,/voids_operation_id=p_operation_id/);
   assert.doesNotMatch(sql,/delete from public\.personal_wallet_account_operations/i);
   assert.match(panel,/Excluir lançamento/);
-  assert.match(panel,/window\.confirm/);
+  assert.doesNotMatch(panel,/window\.confirm/);
+  assert.match(panel,/<Modal[\s\S]*variant="wallet"[\s\S]*title="Excluir lançamento"/);
   assert.match(panel,/voidManualAccountOperation/);
   assert.match(panel,/<FinancialCalculatorInput required className=\{input\} value=\{amount\}/);
   assert.match(panel,/<FinancialCalculatorInput required className=\{input\} value=\{openingAmount\}/);

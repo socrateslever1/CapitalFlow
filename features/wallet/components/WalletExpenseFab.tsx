@@ -60,7 +60,7 @@ export const WalletExpenseFab: React.FC = () => {
 
   return <>
     {menuOpen && <button type="button" aria-label="Fechar ações rápidas" onClick={() => setMenuOpen(false)} className="fixed inset-0 z-30 cursor-default bg-slate-950/20 backdrop-blur-[1px]"/>}
-    <div className={`fixed md:bottom-8 right-6 z-[var(--z-fab)] flex flex-col-reverse items-end gap-2 mb-safe ${onCards ? 'bottom-28' : 'bottom-20'}`}>
+    <div className={`fab-action-container fixed md:bottom-8 right-6 z-[var(--z-fab)] flex flex-col-reverse items-end gap-2 mb-safe ${onCards ? 'bottom-28' : 'bottom-20'}`}>
       <button
         type="button"
         aria-label={menuOpen ? 'Fechar ações rápidas' : 'Abrir ações rápidas'}

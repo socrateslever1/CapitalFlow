@@ -619,7 +619,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
     } finally { setSaving(false); }
   };
 
-  return <WalletPageFrame title="Cartões e faturas" description="Acompanhe o limite, confira cada ciclo e organize seus pagamentos."
+  return <WalletPageFrame
     error={error} notice={notice} noticeTone={notice.includes('reconhecido com sucesso') ? 'info' : 'error'} loading={loading} onRefresh={() => { void refresh().catch(() => {}); }}>
     {requestedCardId && <button type="button" onClick={() => {
       if (Number(window.history.state?.idx ?? 0) > 0) navigate(-1);

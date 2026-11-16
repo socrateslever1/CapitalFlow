@@ -10,11 +10,12 @@ type Props = {
   accounts: PersonalWalletAccount[];
   onOpen: (account: PersonalWalletAccount) => void;
   compact?: boolean;
+  showTotal?: boolean;
   headerActions?: React.ReactNode;
 };
 
 /** Uma superfície consistente por instituição, sem simular cartões de crédito. */
-export const AccountCardStack: React.FC<Props> = ({ accounts, onOpen, compact = false, headerActions }) => {
+export const AccountCardStack: React.FC<Props> = ({ accounts, onOpen, compact = false, showTotal = true, headerActions }) => {
   const privacyHidden = useFinancialPrivacy();
   const total = useMemo(() => accounts.reduce((sum, account) => sum + Number(account.balance || 0), 0), [accounts]);
 
@@ -78,7 +79,7 @@ export const AccountCardStack: React.FC<Props> = ({ accounts, onOpen, compact = 
           })}
         </div>
       )}
-      {!compact && accounts.length > 0 && <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-800/80 bg-slate-950/60 px-4 py-3">
+      {!compact && showTotal && accounts.length > 0 && <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-800/80 bg-slate-950/60 px-4 py-3">
         <span className="text-xs font-semibold uppercase tracking-wide text-slate-300">Saldo consolidado</span>
         <strong className={`text-right text-base sm:text-lg font-extrabold tabular-nums ${privacyHidden ? 'text-slate-300' : total < 0 ? 'text-rose-300' : 'text-emerald-300'}`}><PrivateMoney value={formatMoney(total)} /></strong>
       </div>}

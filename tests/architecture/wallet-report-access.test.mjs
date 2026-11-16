@@ -25,11 +25,13 @@ test('relatório da Carteira é acessível sem ampliar as abas ou duplicar o FAB
 test('a interface permite consultar todas as fontes e traduz os códigos internos', () => {
   const links=read('features/wallet/components/WalletCapitalLinks.tsx');
   const accounts=read('features/wallet/pages/WalletAccountsPage.tsx');
+  const dock=read('features/wallet/components/WalletBalanceDock.tsx');
   const detail=read('components/wallet/AccountDetailsPage.tsx');
   assert.match(links, /getAccountCapitalSourceChoices/);
   assert.match(links, /disabled=\{!selectable\}/);
   assert.match(links, /!choice\?\.selectable/);
-  assert.match(accounts, /describeWalletBalanceFact\(balanceFacts\.effective\)/);
+  assert.match(dock, /aria-label="Saldo em contas"/);
+  assert.match(accounts, /showTotal=\{false\}/);
   assert.match(detail, /describeWalletBalanceFact\(accountBalanceFacts\.effective\)/);
   assert.doesNotMatch(accounts, /\{balanceFacts\.effective\.state\}/);
 });

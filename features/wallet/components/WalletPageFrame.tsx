@@ -2,13 +2,13 @@ import React from 'react';
 import { AlertTriangle, CheckCircle2, RefreshCw } from 'lucide-react';
 
 export const WalletPageFrame: React.FC<{
-  title: string; description: string; error?: string; notice?: string; noticeTone?: 'info' | 'error'; loading?: boolean;
+  title?: string; description?: string; error?: string; notice?: string; noticeTone?: 'info' | 'error'; loading?: boolean;
   onRefresh?: () => void; actions?: React.ReactNode; children: React.ReactNode;
 }> = ({ title, description, error, notice, noticeTone = 'error', loading, onRefresh, actions, children }) => (
   <section className="w-full min-w-0 space-y-4 pb-24 sm:space-y-5 lg:pb-10">
-    <header className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-2 gap-y-2 pb-1 sm:items-center">
+    {(title || description || actions || onRefresh) && <header className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-2 gap-y-2 pb-1 sm:items-center">
       <div className="min-w-0">
-        <h2 className="text-lg font-bold tracking-tight text-white sm:text-xl">{title}</h2>
+        {title && <h2 className="text-lg font-bold tracking-tight text-white sm:text-xl">{title}</h2>}
         {description && <p className="mt-1 max-w-[62ch] text-xs leading-snug text-slate-400 sm:text-sm">{description}</p>}
       </div>
       <div className="flex items-center justify-end gap-2 self-start sm:self-center">
@@ -18,7 +18,7 @@ export const WalletPageFrame: React.FC<{
           <RefreshCw size={17}/>
         </button>}
       </div>
-    </header>
+    </header>}
     {error && <div role="alert" className="flex items-center gap-2 rounded-xl border border-rose-700/40 bg-rose-950/20 p-4 text-xs text-rose-200">
       <AlertTriangle size={16} className="shrink-0"/>{error}
     </div>}

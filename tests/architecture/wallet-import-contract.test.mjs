@@ -21,7 +21,7 @@ test('wallet cards keeps a visible FAB above the navigation while preserving imp
   assert(!module.includes("route !== 'cartoes' && <WalletExpenseFab />"));
   const fab=read('features/wallet/components/WalletExpenseFab.tsx');
   assert.match(fab, /onCards \? 'bottom-28' : 'bottom-20'/);
-  assert(module.includes('grid-cols-5'));
+  assert(module.includes('grid-cols-4'));
   assert(frame.includes('grid-cols-[minmax(0,1fr)_auto]'));
   assert(stack.includes('onImportStatement'));
   assert(cards.includes('onImportStatement={openReader}'));

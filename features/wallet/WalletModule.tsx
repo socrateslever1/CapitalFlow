@@ -80,7 +80,7 @@ const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUse
         subtitle="Contas, cartões e compromissos"/>
     </div>
     <nav aria-label="Navegação da Carteira"
-      className="mb-4 grid w-full min-w-0 grid-cols-5 gap-1 rounded-xl border border-slate-800 bg-slate-900/70 p-1 sm:flex sm:flex-wrap sm:gap-1.5">
+      className="mb-3 grid w-full min-w-0 grid-cols-4 gap-1 rounded-xl border border-slate-800 bg-slate-900/70 p-1 sm:flex sm:flex-wrap sm:items-center sm:gap-1.5">
       {WALLET_ROUTES.filter(item => item.key !== 'cobranca' && item.key !== 'receitas').map(item => {
         const Icon = navigationIcons[item.key];
         const active = route === item.key;
@@ -92,7 +92,7 @@ const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUse
           <button key={item.key} type="button"
             aria-current={active ? 'page' : undefined}
             onClick={() => go(item.key)} aria-label={item.label}
-            className={`group flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-0.5 py-2 text-center transition-colors duration-150 active:scale-[0.98] sm:min-h-11 sm:flex-row sm:gap-2 sm:px-4 sm:py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-400 ${
+            className={`group flex min-h-11 min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg px-0.5 py-1 text-center transition-colors duration-150 active:scale-[0.98] sm:flex-row sm:gap-2 sm:px-4 sm:py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-400 ${
               active
                 ? 'bg-blue-600/20 text-blue-100 ring-1 ring-inset ring-blue-500/50'
                 : 'text-slate-300 hover:bg-slate-800 hover:text-white'
@@ -104,8 +104,8 @@ const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUse
           </button>
         );
       })}
+      <WalletBalanceDock />
     </nav>
-    <WalletBalanceDock />
     {offline && (
       <div role="status" className="mb-3 flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-950/25 px-3.5 py-2.5 text-xs text-amber-200">
         <WifiOff size={15} className="shrink-0 text-amber-300" />

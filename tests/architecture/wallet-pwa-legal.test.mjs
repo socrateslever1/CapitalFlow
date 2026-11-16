@@ -99,8 +99,8 @@ test('legal hub displays documents and legal tools but no second contract dashbo
 test('wallet navigation has consistent tappable buttons and no clipped mobile labels', () => {
   const wallet = read('features/wallet/WalletModule.tsx');
   const fab = read('features/wallet/components/WalletExpenseFab.tsx');
-  assert.match(wallet, /grid-cols-5/);
-  assert.match(wallet, /min-h-14/);
+  assert.match(wallet, /grid-cols-4/);
+  assert.match(wallet, /min-h-11/);
   assert.match(wallet, /whitespace-nowrap/);
   assert.match(wallet, /item\.key === 'dividas' \? 'Pagar'/);
   assert.match(wallet, /focus-visible:ring-2/);

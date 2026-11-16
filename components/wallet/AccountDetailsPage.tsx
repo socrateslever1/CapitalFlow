@@ -1,6 +1,6 @@
 import { PrivateMoney } from '../../contexts/FinancialPrivacyContext';
 import React, { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, Archive, ArrowLeft, ArrowLeftRight, CheckCircle2, Copy, QrCode, ReceiptText, ImagePlus, Landmark, Link2, Pencil, Save, Trash2, MoreHorizontal } from 'lucide-react';
+import { AlertCircle, Archive, ArrowLeftRight, CheckCircle2, Copy, QrCode, ReceiptText, ImagePlus, Landmark, Link2, Pencil, Save, Trash2, MoreHorizontal } from 'lucide-react';
 import {
   PersonalWalletAccount,
   PersonalWalletExpense,
@@ -249,10 +249,6 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
   return (
     <section className="mx-auto max-w-4xl space-y-4 pb-32 sm:pb-16 animate-in fade-in">
       <div className="space-y-2.5">
-        <button type="button" onClick={onBack} disabled={saving}
-          className="inline-flex min-h-11 items-center gap-2 rounded-lg px-2 text-sm font-semibold text-slate-200 hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 sm:border sm:border-slate-700 sm:bg-slate-900 sm:px-3">
-          <ArrowLeft size={18} /> <span className="sm:hidden">Voltar</span><span className="hidden sm:inline">Voltar às contas</span>
-        </button>
         <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
           <button type="button" onClick={() => setExpenseOpen(true)}
             className="inline-flex min-h-11 min-w-0 items-center justify-center gap-2 rounded-lg bg-rose-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-rose-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300">

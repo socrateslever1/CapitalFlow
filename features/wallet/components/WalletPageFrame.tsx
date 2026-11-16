@@ -9,7 +9,7 @@ export const WalletPageFrame: React.FC<{
     <header className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-2 gap-y-2 pb-1 sm:items-center">
       <div className="min-w-0">
         <h2 className="text-lg font-bold tracking-tight text-white sm:text-xl">{title}</h2>
-        <p className="mt-1 max-w-[62ch] text-xs leading-snug text-slate-400 sm:text-sm">{description}</p>
+        {description && <p className="mt-1 max-w-[62ch] text-xs leading-snug text-slate-400 sm:text-sm">{description}</p>}
       </div>
       <div className="flex items-center justify-end gap-2 self-start sm:self-center">
         {actions}

@@ -26,5 +26,6 @@ test('saldo rápido acompanha todas as rotas da Carteira', () => {
   assert.match(module, /<WalletBalanceDock \/>/);
   assert.match(dock, /Saldo em contas/);
   assert.match(dock, /Cartões disponíveis/);
-  assert.match(dock, /sticky/);
+  assert.match(module, /<WalletBalanceDock \/>[\s\S]*<\/nav>/);
+  assert.match(dock, /col-span-4/);
 });

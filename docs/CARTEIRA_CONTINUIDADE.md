@@ -1103,3 +1103,9 @@ O ícone do olho já acionava o `FinancialPrivacyProvider`, mas os elementos aba
 - Em `features/wallet/pages/WalletCardsPage.tsx`: preservados os fluxos que já usam janelas e movida a importação de extrato/fatura (`FlatSmartStatementReader`) para `Modal variant="wallet"`, mantendo navegação, seleção de fatura, cópia e exportação com ação direta.
 - Testes executados após a implementação: `npx tsx --test components/ui/Modal.test.tsx tests/wallet/wallet-floating-dialogs.test.ts tests/wallet/wallet-account-manual-void.test.ts utils/dialogNavigation.test.ts tests/wallet/wallet-asset-deletion.test.ts` (16/16), `npm run test:wallet-visual-next` (39/39), `npm run test:financial`, `npm run test:wallet-import-contract` (3/3) e `npm run test:quality` (exit code 0, incluindo `build` e `test:wallet-pages`). Nenhuma RPC, migration, ledger ou RLS foi alterada.
 - Limitações: sem validação visual/tátil em aparelho físico e sem compilação/publicação de APK release nesta etapa.
+
+## 16/11/2026 — Cabeçalho compacto da Carteira e conta
+
+- A navegação da Carteira passou a usar quatro opções compactas com toque mínimo de 44 px; o saldo rápido entrou no mesmo bloco, ocupando uma linha própria em telas estreitas e o espaço lateral no desktop. O valor continua vindo do snapshot canônico e respeita a ocultação financeira.
+- Em Contas e PIX, o botão Atualizar foi preservado, a descrição redundante foi removida e o detalhe deixou de mostrar o botão Voltar. A URL da conta e o retorno pelo histórico/nativo permanecem ativos, inclusive após arquivar ou excluir.
+- Testes direcionados de arquitetura e navegação (28/28), saldo rápido (2/2), `test:wallet-visual-next` (39/39), `test:quality` completo sem falhas e detector de layout Impeccable sem achados. O teste antigo de posição sticky foi atualizado para a nova posição dentro da navegação. Sem validação visual/tátil em aparelho físico ou novo APK release. Commit: este registro da `main`.

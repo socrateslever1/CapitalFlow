@@ -92,7 +92,7 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
     });
   }, [data]);
 
-  return <WalletPageFrame title="Contas e PIX" description="Consulte os saldos e organize os movimentos de cada instituição."
+  return <WalletPageFrame title="Contas e PIX" description=""
     error={error} loading={loading} onRefresh={() => { void refresh().catch(() => {}); }}>
     {data && (selected ? <AccountDetailsPage account={selected} accounts={data.accounts} cards={data.cards} capitalSources={data.capitalSources}
       expenses={data.expenses} installments={data.installments} invoicePayments={data.invoicePayments} accountOperations={data.accountOperations}

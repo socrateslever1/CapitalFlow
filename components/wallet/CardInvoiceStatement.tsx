@@ -1,6 +1,6 @@
 import { PrivateMoney } from '../../contexts/FinancialPrivacyContext';
 import React, { useMemo, useRef, useState } from 'react';
-import { AlertTriangle, CalendarDays, FastForward, Pencil, ReceiptText, ShoppingBag, Tag, Trash2 } from 'lucide-react';
+import { AlertTriangle, CalendarDays, FastForward, Pencil, ReceiptText, Tag, Trash2 } from 'lucide-react';
 import type { PersonalWalletExpense, PersonalWalletExpenseInstallment, UpdatePersonalWalletExpense } from '../../services/personalWallet.service';
 import { formatMoney } from '../../utils/formatters';
 import { generateUUID } from '../../utils/generators';
@@ -200,8 +200,7 @@ export const CardInvoiceStatement: React.FC<CardInvoiceStatementProps> = ({
             const canAdvance = Boolean(onAdvanceInstallments && futurePending.length > 0 && expense.entry_type !== 'INVOICE_OVERRIDE');
             const isOverride = expense.entry_type === 'INVOICE_OVERRIDE';
             return (
-              <article key={installment.id} className={`grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 ${isOverride ? 'my-1 rounded-lg border border-amber-500/30 bg-amber-950/20 px-2.5 py-2' : 'py-2'}`}>
-                <span className={`grid h-8 w-8 place-items-center rounded-lg ${isOverride ? 'bg-amber-500/15 text-amber-300' : 'bg-cyan-500/10 text-cyan-300'}`}><ShoppingBag size={15} /></span>
+              <article key={installment.id} className={`grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2 ${isOverride ? 'my-1 rounded-lg border border-amber-500/30 bg-amber-950/20 px-2.5 py-2' : 'py-2'}`}>
                 <div className="min-w-0">
                   <p className={`flex min-w-0 flex-wrap items-center gap-1.5 text-xs font-bold ${isOverride ? 'text-amber-200' : 'text-slate-100'}`}>
                     <span className="truncate">{isOverride ? 'Fatura consolidada' : expense.description}</span>

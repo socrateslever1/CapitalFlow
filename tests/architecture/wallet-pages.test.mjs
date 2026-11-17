@@ -92,3 +92,20 @@ test('navegação de faturas apresenta linhas compactas e meses efetivamente reg
   assert.match(page, /dueMonth: statementMonth,/);
   assert.match(page, /getInvoiceCycleDates\(/);
 });
+
+test('a tela do cartão exibe uma fatura e consulta as demais por Ver mais', () => {
+  const page = read('features/wallet/pages/WalletCardsPage.tsx');
+  const statement = read('components/wallet/CardInvoiceStatement.tsx');
+  assert.match(page, /invoiceCycles\.filter\(cycle => cycle\.dueMonth === statementMonth\)/);
+  assert.match(page, /invoiceCycles\.length > 1 && <button/);
+  assert.match(page, /Ver mais \(\{invoiceCycles\.length - 1\}\)/);
+  assert.match(page, /setInvoiceHistoryOpen\(true\)/);
+  assert.match(page, /aria-label="Consultar outras faturas"/);
+  assert.match(page, /setStatementMonth\(cycle\.dueMonth\)/);
+  assert.match(page, /setInvoiceHistoryOpen\(false\)/);
+  assert.match(page, /<CardInvoiceStatement cardId=\{selected\.id\} dueMonth=\{statementMonth\}/);
+  assert.match(statement, /grid-cols-\[minmax\(0,1fr\)_auto\]/);
+  assert.doesNotMatch(statement, /<ShoppingBag/);
+  assert.match(statement, /onSave=\{onEdit\}/);
+  assert.match(statement, /onDelete\(expense\.id,\s*requestId\)/);
+});

@@ -61,6 +61,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
   const hideFinancialValues = useFinancialPrivacy();
   const [overriding, setOverriding] = useState(false);
   const [creatingInvoice, setCreatingInvoice] = useState(false);
+  const [invoiceHistoryOpen, setInvoiceHistoryOpen] = useState(false);
   const [actionMenuOpen, setActionMenuOpen] = useState(false);
   const [cardOpeningModalOpen, setCardOpeningModalOpen] = useState(false);
   const [clearingInvoice, setClearingInvoice] = useState(false);
@@ -215,6 +216,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
   );
   useEffect(() => {
     setStatementMonth(null);
+    setInvoiceHistoryOpen(false);
   }, [selected?.id]);
   const savedInvoiceFacts = invoiceFacts.find(item => item.due_month.slice(0, 7) === statementMonth?.slice(0, 7)) || null;
   // A conferência manual pode registrar o primeiro mês mesmo sem qualquer ciclo financeiro.
@@ -686,20 +688,27 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
             <div className="mb-2.5 flex min-w-0 flex-col gap-2">
               <div className="min-w-0">
                 <div className="flex min-w-0 items-center justify-between gap-2">
-                  <h3 className="min-w-0 break-words text-sm font-bold text-white">Faturas {selected?.nickname || ''}</h3>
-                  <button type="button" onClick={() => setCreatingInvoice(true)}
-                    className="shrink-0 rounded-lg border border-slate-700 px-2.5 py-1.5 text-[11px] font-semibold text-slate-200 hover:border-blue-500 hover:text-white">
-                    + Adicionar fatura
-                  </button>
+                  <h3 className="min-w-0 break-words text-sm font-bold text-white">Fatura {selected?.nickname || ''}</h3>
+                  <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+                    {invoiceCycles.length > 1 && <button type="button" onClick={() => setInvoiceHistoryOpen(true)}
+                      aria-haspopup="dialog"
+                      className="rounded-lg border border-slate-700 px-2.5 py-1.5 text-[11px] font-semibold text-slate-200 hover:border-blue-500 hover:text-white">
+                      Ver mais ({invoiceCycles.length - 1})
+                    </button>}
+                    <button type="button" onClick={() => setCreatingInvoice(true)}
+                      className="rounded-lg border border-slate-700 px-2.5 py-1.5 text-[11px] font-semibold text-slate-200 hover:border-blue-500 hover:text-white">
+                      + Adicionar fatura
+                    </button>
+                  </div>
                 </div>
                 {selected && (
-                  <div className="mt-3 max-h-56 space-y-1.5 overflow-y-auto pr-1" role="group" aria-label="Faturas registradas">
+                  <div className="mt-2 space-y-1.5" role="group" aria-label="Faturas registradas">
                     {invoiceCycles.length === 0 && (
                       <p className="rounded-xl border border-dashed border-slate-700 p-4 text-xs text-slate-400">
                         Nenhuma fatura registrada. Adicione uma fatura ou lance uma compra no cartão.
                       </p>
                     )}
-                    {[...invoiceCycles].reverse().map(cycle => {
+                    {invoiceCycles.filter(cycle => cycle.dueMonth === statementMonth).map(cycle => {
                       const fact = invoiceFacts.find(item =>
                         item.card_id === selected.id && item.due_month.slice(0, 7) === cycle.dueMonth.slice(0, 7));
                       const dates = getInvoiceCycleDates(cycle.dueMonth, selected.closing_day, selected.due_day, fact?.due_date);
@@ -767,6 +776,45 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
                 </div>}
               </div>}
             </div>
+            {invoiceHistoryOpen && selected && <Modal compact title={`Consultar faturas · ${selected.nickname}`}
+              subtitle="Selecione o mês para consultar o extrato correspondente."
+              onClose={() => setInvoiceHistoryOpen(false)}>
+              <div className="max-h-[60vh] space-y-1.5 overflow-y-auto pr-1" role="group" aria-label="Consultar outras faturas">
+                {[...invoiceCycles].reverse().map(cycle => {
+                  const fact = invoiceFacts.find(item =>
+                    item.card_id === selected.id && item.due_month.slice(0, 7) === cycle.dueMonth.slice(0, 7));
+                  const dates = getInvoiceCycleDates(cycle.dueMonth, selected.closing_day, selected.due_day, fact?.due_date);
+                  const competence = dates.closingDate.slice(5, 7) + '/' + dates.closingDate.slice(0, 4);
+                  const due = dates.dueDate.split('-').reverse().join('/');
+                  const state = cycle.amount <= 0 ? 'REFERENCIA' : resolveInvoiceCycleState({
+                    dueMonth: cycle.dueMonth, closingDay: selected.closing_day,
+                    dueDay: selected.due_day, outstanding: cycle.amount,
+                    hasCycle: true, exactDueDate: fact?.due_date,
+                  });
+                  const label = state === 'REFERENCIA' ? 'Sem lançamentos'
+                    : state === 'OPEN' ? 'Aberta'
+                      : state === 'CLOSED' ? 'Fechada'
+                        : state === 'OVERDUE' ? 'Vencida' : 'Paga';
+                  const active = statementMonth === cycle.dueMonth;
+                  return <button key={cycle.dueMonth} type="button" aria-current={active ? 'true' : undefined}
+                    onClick={() => {
+                      setStatementMonth(cycle.dueMonth);
+                      setInvoiceHistoryOpen(false);
+                      setActionMenuOpen(false);
+                    }}
+                    className={`grid min-h-12 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg border px-3 py-2 text-left ${active ? 'border-blue-500/70 bg-blue-500/10' : 'border-slate-800 bg-slate-950/40 hover:bg-slate-800/70'}`}>
+                    <span className="min-w-0">
+                      <strong className="block text-xs text-slate-100">Fatura {competence}</strong>
+                      <span className="mt-0.5 block text-[11px] text-slate-400">{hideFinancialValues ? 'Vencimento protegido' : 'Vence ' + due}</span>
+                    </span>
+                    <span className="text-right">
+                      <strong className="block whitespace-nowrap text-xs tabular-nums text-white"><PrivateMoney value={formatMoney(cycle.amount)} /></strong>
+                      <span className="mt-0.5 block text-[10px] text-slate-400">{hideFinancialValues ? 'Situação protegida' : label}</span>
+                    </span>
+                  </button>;
+                })}
+              </div>
+            </Modal>}
             {flatReaderOpen && selected && (
               <Modal
                 variant="wallet"

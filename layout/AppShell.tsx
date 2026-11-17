@@ -16,6 +16,8 @@ import { notificationService } from '../services/notification.service';
 import { InAppNotification } from '../hooks/useAppNotifications';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TermsAcceptanceModal } from '../features/auth/TermsAcceptanceModal';
+import { usePullToRefresh } from '../hooks/usePullToRefresh';
+import { PullToRefreshIndicator } from '../components/system/PullToRefreshIndicator';
 import { hasUserAcceptedCurrentTerms, recordTermsAcceptance } from '../services/terms.service';
 import {
   useReminders,
@@ -54,10 +56,11 @@ interface AppShellProps {
   activeModal?: any;
   onCloseSupport?: () => void;
   clients?: Client[];
+  onRefresh?: () => Promise<void> | void;
 }
 
 export const AppShell: React.FC<AppShellProps> = ({
-  children, toast, clearToast, activeTab, setActiveTab, activeUser, isLoadingData, onOpenNav, onNewLoan, isStealthMode, toggleStealthMode, onOpenSupport, navOrder, desktopNavOrder, mobileNavOrder, saveMobileNavOrder, onGoBack, isInHub, title, subtitle, notifications, removeNotification, clearAllNotifications, onNavigate, activeModal, addNotification, onCloseSupport, clients
+  children, toast, clearToast, activeTab, setActiveTab, activeUser, isLoadingData, onOpenNav, onNewLoan, isStealthMode, toggleStealthMode, onOpenSupport, navOrder, desktopNavOrder, mobileNavOrder, saveMobileNavOrder, onGoBack, isInHub, title, subtitle, notifications, removeNotification, clearAllNotifications, onNavigate, activeModal, addNotification, onCloseSupport, clients, onRefresh
 }) => {
   const remindersState = useReminders(activeUser?.id);
   const [termsPending, setTermsPending] = useState(false);
@@ -91,6 +94,11 @@ export const AppShell: React.FC<AppShellProps> = ({
   const walletModuleRoute = activeTab === 'MY_WALLET' || location.pathname === '/carteira' || location.pathname.startsWith('/carteira/');
   const totalUnread = unreadSupport;
   const isSupportOpen = activeModal?.type === 'SUPPORT_CHAT';
+  const { pullDistance, isRefreshing, isReady } = usePullToRefresh({
+    scrollContainerRef: mainRef,
+    onRefresh,
+    enabled: Boolean(onRefresh) && !activeModal && !isSupportOpen,
+  });
 
   useEffect(() => {
     if (!activeUser || activeUser.id === 'DEMO') return;
@@ -242,6 +250,7 @@ export const AppShell: React.FC<AppShellProps> = ({
 
       <ApplePageBackBar onBack={onGoBack} isHome={activeTab === 'DASHBOARD'} />
       <main ref={mainRef} className="flex-1 overflow-y-auto touch-pan-y overflow-x-hidden [-webkit-overflow-scrolling:touch] overscroll-y-contain pb-36 md:pb-12">
+        <PullToRefreshIndicator pullDistance={pullDistance} isRefreshing={isRefreshing} isReady={isReady} />
         <div className="w-full max-w-[1500px] mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-5">
           {children}
         </div>

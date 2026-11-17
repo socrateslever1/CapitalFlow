@@ -290,6 +290,26 @@ const { notifications, removeNotification, clearAllNotifications, addNotificatio
   disabled: isPublicView,
 });
 
+const handlePullRefresh = useCallback(async () => {
+  if (!activeProfileId) return;
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    showToast('Sem conexão com a internet para atualizar.', 'warning');
+    return;
+  }
+
+  try {
+    await fetchFullData(activeProfileId);
+    if (activeTab === 'MY_WALLET' || isWalletPath) {
+      const { walletRepository } = await import('./features/wallet/services/walletRepository');
+      await walletRepository.prefetchFull({ force: true });
+      window.dispatchEvent(new Event('capitalflow:wallet-updated'));
+    }
+    showToast('Informações atualizadas.', 'success');
+  } catch {
+    showToast('Não foi possível atualizar agora.', 'error');
+  }
+}, [activeProfileId, activeTab, fetchFullData, isWalletPath, showToast]);
+
 const handleOperatorFileUpload = useCallback(async (
   file: File | undefined,
   kind: 'PROMISSORIA' | 'CONFISSAO',
@@ -495,6 +515,7 @@ return (
             activeModal={ui.activeModal}
             onCloseSupport={ui.closeModal}
             clients={clients}
+            onRefresh={handlePullRefresh}
           >
             <Suspense fallback={<div role="status" className="p-6 text-sm text-slate-400">Carregando página…</div>}>
               {/* Dashboard - Persistente para manter scroll ao voltar de detalhes */}

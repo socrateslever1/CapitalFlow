@@ -1,3 +1,10 @@
+## 17/11/2026 — Atualização por gesto no aplicativo
+
+- Adicionado o gesto de puxar para atualizar no contêiner principal autenticado, com indicador discreto para os estados de puxar, soltar e atualizar. O gesto só inicia no topo, com um toque, e é bloqueado em campos editáveis, áreas marcadas, modais, suporte aberto e regiões internas já roladas.
+- A atualização reutiliza `fetchFullData`; na Carteira também força a leitura canônica pelo `walletRepository` e emite `capitalflow:wallet-updated`. Sem conexão ou falha, exibe mensagem compreensível e não altera dados financeiros diretamente.
+- Arquivos: `App.tsx`, `layout/AppShell.tsx`, `components/system/PullToRefreshIndicator.tsx`, `hooks/usePullToRefresh.ts`, `utils/pullToRefreshGuard.ts` e `tests/architecture/pull-to-refresh.test.ts`.
+- Verificação automatizada: teste direcionado do gesto, build TypeScript/Vite e suítes de qualidade executados no mesmo working tree. A interação tátil, o rubber-banding e a convivência com o navegador ainda precisam de validação em aparelho Android físico; não foi gerado nem publicado novo APK nesta etapa.
+
 ## 17/11/2026 — Separação estrita de origem (Conta, Cartão e Composição), compra à vista no cartão, encoding UTF-8 e correção do contrato da Deyse
 
 - **Causa raiz:**

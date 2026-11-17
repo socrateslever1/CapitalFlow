@@ -71,6 +71,8 @@ export const useLoanForm = ({ onAdd, initialData, clients, sources, userProfile 
         fundingCalculationMode: fundingMode,
         fundingOperatorAbsorbsInterest: (initialData as any).fundingOperatorAbsorbsInterest === true,
         fundingPaymentMethod: (initialData as any).fundingPaymentMethod || 'CREDIT_CARD',
+        cardOriginInstallmentMode: Number((initialData as any).cardPurchaseInstallmentsCount || (initialData as any).policiesSnapshot?.cardPurchaseInstallmentsCount || 1) > 1 ? 'INSTALLMENTS' : 'SINGLE',
+        cardPurchaseInstallmentsCount: String((initialData as any).cardPurchaseInstallmentsCount || (initialData as any).policiesSnapshot?.cardPurchaseInstallmentsCount || '1'),
         fundingFeePercent: String((initialData as any).fundingFeePercent ?? ''),
         fundingProvider: String((initialData as any).fundingProvider ?? ''),
         collectionDaysMode: initialData.collectionDaysMode || (initialData.skipWeekends ? 'SKIP_WEEKEND' : 'ALL_DAYS'),
@@ -87,9 +89,9 @@ export const useLoanForm = ({ onAdd, initialData, clients, sources, userProfile 
         clientId: '', debtorName: '', debtorPhone: '', debtorDocument: '', debtorAddress: '',
         sourceId: sources[0]?.id || '', principal: '', interestRate: '', finePercent: '2', dailyInterestPercent: '1',
         fundingAllocations: [{ sourceId: sources[0]?.id || '', amount: '' }],
-        startDate: today, billingCycle: 'MONTHLY', fundingTotalPayable: '', fundingInstallmentsCount: '10',
+        startDate: today, billingCycle: 'MONTHLY', fundingTotalPayable: '', fundingInstallmentsCount: '1',
         fundingMonthlyRate: '', fundingInstallmentValue: '', customerMarginPercent: '30', fundingCalculationMode: 'TOTAL', fundingOperatorAbsorbsInterest: false,
-        fundingFeePercent: '', fundingProvider: '', fundingPaymentMethod: 'CREDIT_CARD', collectionDaysMode: 'ALL_DAYS', interestFreeInstallment: false
+        fundingFeePercent: '', fundingProvider: '', fundingPaymentMethod: 'CREDIT_CARD', cardOriginInstallmentMode: 'SINGLE', cardPurchaseInstallmentsCount: '1', collectionDaysMode: 'ALL_DAYS', interestFreeInstallment: false
       });
       setManualFirstDueDate(toISODateOnlyUTC(addDaysUTC(today, 30)));
     }

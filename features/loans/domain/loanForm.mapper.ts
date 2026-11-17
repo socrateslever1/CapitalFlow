@@ -110,6 +110,8 @@ export interface LoanFormState {
   customerMarginPercent?: string;
   fundingOperatorAbsorbsInterest?: boolean;
   fundingPaymentMethod?: 'CREDIT_CARD' | 'BANK_ACCOUNT_DEBIT';
+  cardOriginInstallmentMode?: 'SINGLE' | 'INSTALLMENTS';
+  cardPurchaseInstallmentsCount?: string;
 }
 
 function calculateFundingTotalFromRate(principal: number, monthlyRatePercent: number, installmentsCount: number): number {
@@ -143,6 +145,10 @@ export const mapFormToLoan = (
   const fundingInstallmentValue = parseCurrency(form.fundingInstallmentValue || '');
   const customerMarginPercent = interestFreeInstallment ? 0 : parseCurrency(form.customerMarginPercent || '');
   const fundingPaymentMethod = form.fundingPaymentMethod || 'CREDIT_CARD';
+  const rawCardInstallments = Math.floor(parseCurrency(form.cardPurchaseInstallmentsCount || '1'));
+  const cardPurchaseInstallmentsCount = form.cardOriginInstallmentMode === 'INSTALLMENTS' && rawCardInstallments > 1
+    ? Math.min(120, rawCardInstallments)
+    : 1;
   const fundingCalculationMode = form.fundingCalculationMode || (form.fundingTotalPayable ? 'TOTAL' : 'RATE');
 
   if (form.fundingTotalPayable) {
@@ -263,6 +269,7 @@ export const mapFormToLoan = (
     customerTotalPayable: form.billingCycle === 'INSTALLMENT_FIXED' ? totalToReceive : undefined,
     fundingOperatorAbsorbsInterest: form.billingCycle === 'INSTALLMENT_FIXED' ? (interestFreeInstallment ? true : form.fundingOperatorAbsorbsInterest) : undefined,
     fundingPaymentMethod: initialData ? initialData.fundingPaymentMethod : form.billingCycle === 'INSTALLMENT_FIXED' || fundingTotalPayable > 0 ? fundingPaymentMethod : undefined,
+    cardPurchaseInstallmentsCount,
 
     billingCycle: form.billingCycle,
     amortizationType: 'JUROS',
@@ -272,8 +279,9 @@ export const mapFormToLoan = (
       dailyInterestPercent,
       collectionDaysMode,
       interestFreeInstallment,
-      fundingPaymentMethod
-    },
+      fundingPaymentMethod,
+      cardPurchaseInstallmentsCount,
+    } as any,
 
     startDate: form.startDate,
 

@@ -309,14 +309,14 @@ export type UpdatePersonalWalletExpense = {
 const getActiveWalletReset = async (): Promise<WalletResetArchive | null> => {
   const { data, error } = await supabase.from('personal_wallet_reset_archives')
     .select('archived_at,hidden_ids,restored_at').is('restored_at', null).maybeSingle();
-  if (error) throw new Error('NÃ£o foi possÃ­vel confirmar o marco de reinÃ­cio da Minha Carteira.');
+  if (error) throw new Error('Não foi possível confirmar o marco de reinício da Minha Carteira.');
   return (data as WalletResetArchive | null) ?? null;
 };
 
 const personalWalletServiceImpl = {
   /**
-   * VÃ­nculo opcional: RPC existente valida proprietÃ¡rio, saldo idÃªntico,
-   * exclusividade da fonte e serializaÃ§Ã£o. NÃ£o altera registros histÃ³ricos.
+   * Vínculo opcional: RPC existente valida proprietário, saldo idêntico,
+   * exclusividade da fonte e serialização. Não altera registros históricos.
    */
   async transferCapitalSourceToAccount(input: {
     profileId: string; sourceId: string; accountId: string;
@@ -325,12 +325,12 @@ const personalWalletServiceImpl = {
     const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
     if (!uuid.test(input.profileId) || !uuid.test(input.sourceId)
       || !uuid.test(input.accountId) || !uuid.test(input.requestId)) {
-      throw new Error('Perfil, origem ou destino invÃ¡lidos.');
+      throw new Error('Perfil, origem ou destino inválidos.');
     }
     if (!Number.isFinite(input.amount) || input.amount <= 0
       || input.amount > 999999999.99
       || Math.abs(input.amount * 100 - Math.round(input.amount * 100)) > 0.000001) {
-      throw new Error('Informe uma quantia vÃ¡lida em reais e centavos.');
+      throw new Error('Informe uma quantia válida em reais e centavos.');
     }
     assertWalletOnlineForWrite();
     const { data, error } = await supabase.rpc('capital_source_transfer_to_wallet', {
@@ -342,17 +342,17 @@ const personalWalletServiceImpl = {
     });
     if (error) throw new Error(error.message);
     if (!data || typeof data !== 'object' || typeof (data as any).operation_id !== 'string') {
-      throw new Error('MovimentaÃ§Ã£o nÃ£o confirmada pelo banco de dados.');
+      throw new Error('Movimentação não confirmada pelo banco de dados.');
     }
     return data as { operation_id: string; amount: number; idempotent_replay: boolean };
   },
 
   async linkAccountCapitalSource(accountId: string, sourceId: string | null): Promise<void> {
     if (!/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(accountId)) {
-      throw new Error('Selecione uma conta vÃ¡lida.');
+      throw new Error('Selecione uma conta válida.');
     }
     if (sourceId !== null && !/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(sourceId)) {
-      throw new Error('Selecione uma fonte vÃ¡lida.');
+      throw new Error('Selecione uma fonte válida.');
     }
     const { data, error } = await supabase.rpc('personal_wallet_link_capital_source', {
       p_account_id: accountId,
@@ -360,14 +360,14 @@ const personalWalletServiceImpl = {
     });
     if (error) {
       console.error('[Carteira] Falha ao vincular fonte de capital:', error);
-      throw new Error('NÃ£o foi possÃ­vel vincular. Confira a propriedade e a igualdade dos saldos.');
+      throw new Error('Não foi possível vincular. Confira a propriedade e a igualdade dos saldos.');
     }
-    if (data !== true) throw new Error('O vÃ­nculo nÃ£o foi confirmado pelo servidor.');
+    if (data !== true) throw new Error('O vínculo não foi confirmado pelo servidor.');
   },
 
   async ownerId() {
     const { data, error } = await supabase.auth.getUser();
-    if (error || !data.user?.id) throw new Error('SessÃ£o nÃ£o encontrada.');
+    if (error || !data.user?.id) throw new Error('Sessão não encontrada.');
     return data.user.id;
   },
 
@@ -375,7 +375,7 @@ const personalWalletServiceImpl = {
     kind: 'ACCOUNT' | 'CARD', targetId: string, dates: readonly string[],
   ): Promise<WalletStatementRow[]> {
     if (!targetId || !dates.length || dates.some(date => !/^\d{4}-\d{2}-\d{2}$/.test(date)))
-      throw new Error('Destino ou datas da importaÃ§Ã£o invÃ¡lidos.');
+      throw new Error('Destino ou datas da importação inválidos.');
     const orderedDates = [...dates].sort();
     const result = await loadAllWalletRows<WalletStatementRow>((from, to) => supabase
       .from('personal_wallet_statement_rows').select('*')
@@ -532,17 +532,17 @@ const personalWalletServiceImpl = {
 
   async restartMyWallet(): Promise<void> {
     const { data, error } = await supabase.rpc('personal_wallet_archive_for_restart');
-    if (error || !data) throw new Error(error?.message || 'NÃ£o foi possÃ­vel reiniciar a Minha Carteira.');
+    if (error || !data) throw new Error(error?.message || 'Não foi possível reiniciar a Minha Carteira.');
   },
 
   async restoreMyWallet(): Promise<void> {
     const { data, error } = await supabase.rpc('personal_wallet_restore_restart');
-    if (error || data !== true) throw new Error(error?.message || 'NÃ£o foi possÃ­vel restaurar a carteira anterior.');
+    if (error || data !== true) throw new Error(error?.message || 'Não foi possível restaurar a carteira anterior.');
   },
 
   async recordAccountOperation(input: RecordWalletOperation) {
     if (!Number.isFinite(input.amount) || input.amount <= 0 || Math.abs(input.amount * 100 - Math.round(input.amount * 100)) > 0.000001) {
-      throw new Error('Valor invÃ¡lido.');
+      throw new Error('Valor inválido.');
     }
     const { data, error } = await supabase.rpc('personal_wallet_record_account_operation', {
       p_type: input.type,
@@ -560,13 +560,13 @@ const personalWalletServiceImpl = {
 
   async voidManualAccountOperation(operationId: string): Promise<string> {
     if (!/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(operationId)) {
-      throw new Error('Selecione um lanÃ§amento vÃ¡lido.');
+      throw new Error('Selecione um lançamento válido.');
     }
     const { data, error } = await supabase.rpc('personal_wallet_void_manual_operation', {
       p_operation_id: operationId,
     });
     if (error) throw new Error(error.message);
-    if (!data) throw new Error('O banco nÃ£o confirmou o estorno.');
+    if (!data) throw new Error('O banco não confirmou o estorno.');
     return String(data);
   },
 
@@ -581,7 +581,7 @@ const personalWalletServiceImpl = {
     requestId: string;
   }) {
     if (!Number.isFinite(input.amount) || input.amount <= 0 || Math.abs(input.amount * 100 - Math.round(input.amount * 100)) > 0.000001) {
-      throw new Error('Informe um valor positivo com atÃ© duas casas decimais.');
+      throw new Error('Informe um valor positivo com até duas casas decimais.');
     }
     const { data, error } = await supabase.rpc('personal_wallet_record_external_transfer', {
       p_account_id: input.accountId,
@@ -613,7 +613,7 @@ const personalWalletServiceImpl = {
     requestId: string;
   }) {
     if (!Number.isFinite(input.amount) || input.amount <= 0 || Math.abs(input.amount * 100 - Math.round(input.amount * 100)) > 0.000001) {
-      throw new Error('Informe um saldo inicial positivo com atÃ© duas casas decimais.');
+      throw new Error('Informe um saldo inicial positivo com até duas casas decimais.');
     }
     const { data, error } = await supabase.rpc('personal_wallet_initialize_account_opening', {
       p_account_id: input.accountId,
@@ -632,10 +632,10 @@ const personalWalletServiceImpl = {
     requestId: string;
   }) {
     if (!Number.isFinite(input.amount) || input.amount <= 0 || Math.abs(input.amount * 100 - Math.round(input.amount * 100)) > 0.000001) {
-      throw new Error('Informe um valor positivo com atÃ© duas casas decimais.');
+      throw new Error('Informe um valor positivo com até duas casas decimais.');
     }
     const description = input.description.trim();
-    if (!description || description.length > 240) throw new Error('Informe uma descriÃ§Ã£o de atÃ© 240 caracteres.');
+    if (!description || description.length > 240) throw new Error('Informe uma descrição de até 240 caracteres.');
     const { data, error } = await supabase.rpc('personal_wallet_create_charge', {
       p_account_id: input.accountId,
       p_amount: input.amount,
@@ -654,7 +654,7 @@ const personalWalletServiceImpl = {
     requestId: string;
   }) {
     if (!Number.isFinite(input.amount) || input.amount <= 0 || Math.abs(input.amount * 100 - Math.round(input.amount * 100)) > 0.000001) {
-      throw new Error('Valor de liquidaÃ§Ã£o invÃ¡lido.');
+      throw new Error('Valor de liquidação inválido.');
     }
     const { data, error } = await supabase.rpc('personal_wallet_settle_charge', {
       p_charge_id: input.chargeId,
@@ -674,7 +674,7 @@ const personalWalletServiceImpl = {
   }): Promise<string> {
     if (!Number.isFinite(input.amount) || input.amount <= 0 ||
         Math.abs(input.amount * 100 - Math.round(input.amount * 100)) > 0.000001)
-      throw new Error('Valor da compra invÃ¡lido. Confira os centavos.');
+      throw new Error('Valor da compra inválido. Confira os centavos.');
     const { data, error } = await supabase.rpc('personal_wallet_record_card_purchase_atomic', {
       p_card_id: input.cardId, p_document_hash: input.documentHash,
       p_row_key: input.rowKey, p_entry_date: input.date,
@@ -684,8 +684,8 @@ const personalWalletServiceImpl = {
       p_allow_duplicates: input.allowDuplicates === true,
     });
     if (error) throw new Error(error.code === 'PGRST202'
-      ? 'AtualizaÃ§Ã£o de seguranÃ§a da importaÃ§Ã£o ainda nÃ£o aplicada no banco.' : error.message);
-    if (!data || typeof data !== 'string') throw new Error('O banco nÃ£o confirmou a gravaÃ§Ã£o atÃ´mica da compra.');
+      ? 'Atualização de segurança da importação ainda não aplicada no banco.' : error.message);
+    if (!data || typeof data !== 'string') throw new Error('O banco não confirmou a gravação atômica da compra.');
     return data;
   },
 
@@ -812,7 +812,7 @@ const personalWalletServiceImpl = {
     });
     if (error) {
       const definitive = error.code === 'PGRST202' || (/^[0-9A-Z]{5}$/.test(error.code || '') && !error.code.startsWith('08') && error.code !== '40003');
-      throw new CardRegistrationError(error.code === 'PGRST202' ? 'O cadastro completo precisa da atualizaÃ§Ã£o do banco. Nenhum cartÃ£o foi criado.' : error.message, definitive);
+      throw new CardRegistrationError(error.code === 'PGRST202' ? 'O cadastro completo precisa da atualização do banco. Nenhum cartão foi criado.' : error.message, definitive);
     }
     return data as { card_id: string; account_id: string | null; replayed: boolean };
   },
@@ -832,7 +832,7 @@ const personalWalletServiceImpl = {
     });
     if (error) {
       const definitive = error.code === 'PGRST202' || (/^[0-9A-Z]{5}$/.test(error.code || '') && !error.code.startsWith('08') && error.code !== '40003');
-      throw new CardRegistrationError(error.code === 'PGRST202' ? 'O cadastro vinculado precisa da atualizaÃ§Ã£o do banco. Nenhum cartÃ£o foi criado.' : error.message, definitive);
+      throw new CardRegistrationError(error.code === 'PGRST202' ? 'O cadastro vinculado precisa da atualização do banco. Nenhum cartão foi criado.' : error.message, definitive);
     }
     return data as { card_id: string; account_id: string; replayed: boolean; account_created: boolean };
   },
@@ -854,26 +854,26 @@ const personalWalletServiceImpl = {
   /** Only store facts after a human has reviewed the issuer PDF; no settlement RPC. */
   async saveCardInvoiceFacts(input: SaveWalletCardInvoiceFacts, requestId = generateUUID()): Promise<WalletIssuerInvoiceCommit> {
     if (!/^\d{4}-(0[1-9]|1[0-2])-01$/.test(input.dueMonth))
-      throw new Error('MÃªs de vencimento invÃ¡lido.');
+      throw new Error('Mês de vencimento inválido.');
     if (input.dueDate) {
       const parsedDate = new Date(input.dueDate + 'T00:00:00Z');
       if (!/^\d{4}-\d{2}-\d{2}$/.test(input.dueDate) ||
         Number.isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== input.dueDate ||
         input.dueDate.slice(0, 7) !== input.dueMonth.slice(0, 7))
-        throw new Error('Data de vencimento fora do mÃªs selecionado.');
+        throw new Error('Data de vencimento fora do mês selecionado.');
     }
-    if (!input.cardId) throw new Error('CartÃ£o obrigatÃ³rio.');
-    if (input.issuer !== null && input.issuer.length > 80) throw new Error('Nome do emissor invÃ¡lido.');
+    if (!input.cardId) throw new Error('Cartão obrigatório.');
+    if (input.issuer !== null && input.issuer.length > 80) throw new Error('Nome do emissor inválido.');
     if (input.sourceHash !== null && !/^[a-f0-9]{64}$/.test(input.sourceHash))
-      throw new Error('Assinatura do arquivo invÃ¡lida.');
+      throw new Error('Assinatura do arquivo inválida.');
     const amounts = [input.invoiceTotal, input.minimumPayment, input.creditLimit, input.usedLimit, input.availableLimit, input.futureInstallments];
     if (amounts.some(value => value !== null &&
       (!Number.isFinite(value) || value < 0 || value > 9999999999.99 ||
         Math.abs(value * 100 - Math.round(value * 100)) > 0.000001)))
-      throw new Error('Valor monetÃ¡rio invÃ¡lido na fatura.');
+      throw new Error('Valor monetário inválido na fatura.');
     if (input.invoiceTotal !== null && input.minimumPayment !== null &&
       input.minimumPayment > input.invoiceTotal)
-      throw new Error('O pagamento mÃ­nimo nÃ£o pode superar a fatura.');
+      throw new Error('O pagamento mínimo não pode superar a fatura.');
     const { data, error } = await supabase.rpc('personal_wallet_confirm_issuer_invoice', {
       p_card_id: input.cardId, p_due_month: input.dueMonth,
       p_request_id: requestId,
@@ -886,11 +886,11 @@ const personalWalletServiceImpl = {
       },
     });
     if (error) throw new Error(error.code === 'PGRST202'
-      ? 'A confirmaÃ§Ã£o integrada da fatura ainda nÃ£o foi instalada no Supabase.'
+      ? 'A confirmação integrada da fatura ainda não foi instalada no Supabase.'
       : error.message);
     const result = data as WalletIssuerInvoiceCommit | null;
     if (!result?.facts?.id || result.facts.due_month.slice(0, 7) !== input.dueMonth.slice(0, 7))
-      throw new Error('O banco nÃ£o confirmou a gravaÃ§Ã£o dos dados deste ciclo.');
+      throw new Error('O banco não confirmou a gravação dos dados deste ciclo.');
     return result;
   },
 
@@ -913,13 +913,13 @@ const personalWalletServiceImpl = {
   async createWalletPinProfile(profile: WrappedWalletMasterKey): Promise<void> {
     const { data, error } = await supabase.rpc('personal_wallet_set_pin_profile', { p_wrapped_key: profile });
     if (error) throw new Error(error.message);
-    if (data !== true) throw new Error('O PIN da Carteira jÃ¡ foi configurado. Atualize os dados e desbloqueie.');
+    if (data !== true) throw new Error('O PIN da Carteira já foi configurado. Atualize os dados e desbloqueie.');
   },
 
   async getCardVault(cardId: string) {
     const ownerId = await this.ownerId();
     const { data, error } = await supabase.rpc('personal_wallet_get_card_vault', { p_card_id: cardId });
-    if (error) throw new Error(error.code === 'PGRST202' ? 'O cofre precisa da atualizaÃ§Ã£o do banco.' : error.message);
+    if (error) throw new Error(error.code === 'PGRST202' ? 'O cofre precisa da atualização do banco.' : error.message);
     return { ownerId, envelope: data as AnyCardVaultEnvelope | null };
   },
 
@@ -930,7 +930,7 @@ const personalWalletServiceImpl = {
 
   async getCardLoginVault(cardId: string): Promise<{ number: string } | null> {
     const { data, error } = await supabase.rpc('personal_wallet_get_card_login_vault', { p_card_id: cardId });
-    if (error) throw new Error(error.code === 'PGRST202' ? 'O cofre sem PIN precisa da atualizaÃ§Ã£o do banco.' : error.message);
+    if (error) throw new Error(error.code === 'PGRST202' ? 'O cofre sem PIN precisa da atualização do banco.' : error.message);
     return data ? { number: String((data as { number?: unknown }).number || '') } : null;
   },
 
@@ -983,19 +983,19 @@ const personalWalletServiceImpl = {
     requestId: string;
   }) {
     if (!input.cardId || !input.dueMonth || !input.requestId) {
-      throw new Error('Dados obrigatÃ³rios da carga inicial do cartÃ£o ausentes.');
+      throw new Error('Dados obrigatórios da carga inicial do cartão ausentes.');
     }
     if (!Number.isFinite(input.creditLimit) || input.creditLimit < 0) {
-      throw new Error('Informe um limite total vÃ¡lido.');
+      throw new Error('Informe um limite total válido.');
     }
     if (!Number.isFinite(input.currentInvoice) || input.currentInvoice < 0) {
-      throw new Error('Informe um valor vÃ¡lido para a fatura atual.');
+      throw new Error('Informe um valor válido para a fatura atual.');
     }
     if (!Number.isFinite(input.futureCommitments) || input.futureCommitments < 0) {
-      throw new Error('Informe um valor vÃ¡lido para os compromissos futuros.');
+      throw new Error('Informe um valor válido para os compromissos futuros.');
     }
     if (Math.round((input.currentInvoice + input.futureCommitments) * 100) > Math.round(input.creditLimit * 100)) {
-      throw new Error('A soma da fatura atual com os compromissos futuros nÃ£o pode superar o limite total.');
+      throw new Error('A soma da fatura atual com os compromissos futuros não pode superar o limite total.');
     }
     const normalizedDueMonth = input.dueMonth.length === 7 ? `${input.dueMonth}-01` : input.dueMonth;
     const { data, error } = await supabase.rpc('personal_wallet_set_card_initial_balances', {
@@ -1035,7 +1035,7 @@ const personalWalletServiceImpl = {
 
   async createRecurringIncome(input: { description: string; category: string; amount: number; receipt_day: number; destination_account_id: string }) {
     const owner_user_id = await this.ownerId();
-    if (!Number.isFinite(input.amount) || input.amount <= 0 || !Number.isInteger(input.receipt_day) || input.receipt_day < 1 || input.receipt_day > 31) throw new Error('Dados invÃ¡lidos.');
+    if (!Number.isFinite(input.amount) || input.amount <= 0 || !Number.isInteger(input.receipt_day) || input.receipt_day < 1 || input.receipt_day > 31) throw new Error('Dados inválidos.');
     const { error } = await supabase.from('personal_wallet_recurring_incomes').insert({
       user_id: owner_user_id, description: input.description.trim(), category: input.category.trim(),
       amount: input.amount, receipt_day: input.receipt_day, destination_account_id: input.destination_account_id
@@ -1066,7 +1066,7 @@ const personalWalletServiceImpl = {
     if (imageFile) {
       const extension = CARD_IMAGE_EXTENSIONS[imageFile.type];
       if (!extension) throw new Error('Use uma imagem JPEG, PNG ou WebP.');
-      if (imageFile.size > MAX_CARD_IMAGE_SIZE) throw new Error('A imagem da conta deve ter no mÃ¡ximo 5 MB.');
+      if (imageFile.size > MAX_CARD_IMAGE_SIZE) throw new Error('A imagem da conta deve ter no máximo 5 MB.');
       imagePath = `${ownerUserId}/${accountId}/account.${extension}`;
       const uploaded = await supabase.storage.from(ACCOUNT_IMAGES_BUCKET).upload(imagePath, imageFile, {
         contentType: imageFile.type,
@@ -1110,7 +1110,7 @@ const personalWalletServiceImpl = {
 
   /**
    * Atualiza exclusivamente os metadados da conta. O saldo fica protegido:
-   * entradas e saÃ­das continuam sendo registradas pelos fluxos financeiros prÃ³prios.
+   * entradas e saídas continuam sendo registradas pelos fluxos financeiros próprios.
    */
   async updateAccount(
     accountId: string,
@@ -1119,14 +1119,14 @@ const personalWalletServiceImpl = {
   ) {
     const ownerUserId = await this.ownerId();
     const nickname = String(input.nickname || '').trim();
-    if (!nickname || nickname.length > 120) throw new Error('Informe um apelido vÃ¡lido de atÃ© 120 caracteres.');
+    if (!nickname || nickname.length > 120) throw new Error('Informe um apelido válido de até 120 caracteres.');
     const accountType = String(input.account_type || '').trim().toUpperCase();
     if (!['CHECKING', 'PAYMENT', 'SAVINGS', 'CASH', 'INVESTMENT'].includes(accountType)) {
-      throw new Error('Tipo de conta invÃ¡lido.');
+      throw new Error('Tipo de conta inválido.');
     }
     const pixKeyType = String(input.pix_key_type || '').trim().toUpperCase();
     if (pixKeyType && !['CPF', 'CNPJ', 'EMAIL', 'PHONE', 'RANDOM'].includes(pixKeyType)) {
-      throw new Error('Tipo de chave PIX invÃ¡lido.');
+      throw new Error('Tipo de chave PIX inválido.');
     }
     const pixKey = String(input.pix_key || '').trim();
     if (pixKeyType && !pixKey) throw new Error('Informe a chave PIX do tipo escolhido.');
@@ -1142,13 +1142,13 @@ const personalWalletServiceImpl = {
       .eq('id', accountId)
       .eq('owner_user_id', ownerUserId)
       .single();
-    if (loadError || !current) throw new Error('Conta nÃ£o encontrada ou acesso nÃ£o autorizado.');
+    if (loadError || !current) throw new Error('Conta não encontrada ou acesso não autorizado.');
 
     let uploadedPath: string | null = null;
     if (imageFile) {
       const ext = CARD_IMAGE_EXTENSIONS[imageFile.type];
       if (!ext || imageFile.size > MAX_CARD_IMAGE_SIZE) {
-        throw new Error('A imagem deve ser JPEG, PNG ou WebP de atÃ© 5 MB.');
+        throw new Error('A imagem deve ser JPEG, PNG ou WebP de até 5 MB.');
       }
       uploadedPath = `${ownerUserId}/${accountId}/account-${generateUUID()}.${ext}`;
       const { error: uploadError } = await supabase.storage.from(ACCOUNT_IMAGES_BUCKET)
@@ -1176,10 +1176,10 @@ const personalWalletServiceImpl = {
       .single();
     if (error || !data) {
       if (uploadedPath) await supabase.storage.from(ACCOUNT_IMAGES_BUCKET).remove([uploadedPath]);
-      throw new Error(error?.message || 'NÃ£o foi possÃ­vel salvar a ediÃ§Ã£o.');
+      throw new Error(error?.message || 'Não foi possível salvar a edição.');
     }
-    // Remover imagem anterior somente DEPOIS de confirmar a atualizaÃ§Ã£o.
-    // Falha de limpeza nÃ£o altera os dados da conta.
+    // Remover imagem anterior somente DEPOIS de confirmar a atualização.
+    // Falha de limpeza não altera os dados da conta.
     if (uploadedPath && current.image_path && current.image_path !== uploadedPath) {
       await supabase.storage.from(ACCOUNT_IMAGES_BUCKET).remove([current.image_path]).catch(() => { });
     }
@@ -1188,12 +1188,12 @@ const personalWalletServiceImpl = {
 
   async ensureDefaultCashAccount() {
     const { error } = await supabase.rpc('personal_wallet_ensure_default_cash_account');
-    // MantÃ©m compatibilidade durante a janela entre o deploy do frontend e a aplicaÃ§Ã£o da migration.
+    // Mantém compatibilidade durante a janela entre o deploy do frontend e a aplicação da migration.
     if (error && error.code !== 'PGRST202') throw new Error(error.message);
   },
 
   async archiveAccount(accountId: string, requestId = generateUUID()) {
-    if (!accountId || !requestId) throw new Error('Conta ou identificador da solicitaÃ§Ã£o ausente.');
+    if (!accountId || !requestId) throw new Error('Conta ou identificador da solicitação ausente.');
     const { error } = await supabase.rpc('personal_wallet_archive_account', {
       p_account_id: accountId,
       p_request_id: requestId,
@@ -1231,13 +1231,13 @@ const personalWalletServiceImpl = {
     if (imageFile) {
       const extension = CARD_IMAGE_EXTENSIONS[imageFile.type];
       if (!extension) throw new Error('Use uma imagem JPEG, PNG ou WebP.');
-      if (imageFile.size > MAX_CARD_IMAGE_SIZE) throw new Error('A imagem do cartÃ£o deve ter no mÃ¡ximo 5 MB.');
+      if (imageFile.size > MAX_CARD_IMAGE_SIZE) throw new Error('A imagem do cartão deve ter no máximo 5 MB.');
       imagePath = `${ownerUserId}/${cardId}/card.${extension}`;
       const uploaded = await supabase.storage.from(CARD_IMAGES_BUCKET).upload(imagePath, imageFile, {
         contentType: imageFile.type,
         upsert: false,
       });
-      if (uploaded.error) throw new Error(`Falha ao enviar a imagem do cartÃ£o: ${uploaded.error.message}`);
+      if (uploaded.error) throw new Error(`Falha ao enviar a imagem do cartão: ${uploaded.error.message}`);
     }
 
     const { data, error } = await supabase
@@ -1253,7 +1253,7 @@ const personalWalletServiceImpl = {
   },
 
   async archiveCard(cardId: string, requestId = generateUUID()) {
-    if (!cardId || !requestId) throw new Error('CartÃ£o ou identificador da solicitaÃ§Ã£o ausente.');
+    if (!cardId || !requestId) throw new Error('Cartão ou identificador da solicitação ausente.');
     const { error } = await supabase.rpc('personal_wallet_archive_card', {
       p_card_id: cardId,
       p_request_id: requestId,
@@ -1281,9 +1281,9 @@ const personalWalletServiceImpl = {
   },
 
   async createPayable(input: { creditor_name: string; creditor_type: 'PERSON' | 'COMPANY'; creditor_document?: string | null; description: string; category?: string; origin_type?: 'ACCOUNT' | 'CARD' | 'CASH'; origin_account_id?: string | null; origin_card_id?: string | null; total_amount: number; due_date?: string | null; interest_rate?: number; fine_percent?: number; notes?: string | null }) {
-    if (!Number.isFinite(input.total_amount) || input.total_amount <= 0) throw new Error('Informe um valor vÃ¡lido para a dÃ­vida.');
+    if (!Number.isFinite(input.total_amount) || input.total_amount <= 0) throw new Error('Informe um valor válido para a dívida.');
     const document = String(input.creditor_document || '').replace(/\D/g, '');
-    if (document && ![11, 14].includes(document.length)) throw new Error('Informe um CPF ou CNPJ vÃ¡lido.');
+    if (document && ![11, 14].includes(document.length)) throw new Error('Informe um CPF ou CNPJ válido.');
     const ownerUserId = await this.ownerId();
     const { data, error } = await supabase.from('personal_wallet_payables').insert({
       ...input,
@@ -1299,12 +1299,12 @@ const personalWalletServiceImpl = {
 
   async payPayable(input: { payableId: string; accountId: string | null; cardId?: string | null; amount: number; requestId: string; receipt?: File | null; split?: { sources: Array<{ kind: 'ACCOUNT' | 'CARD'; id: string; amount: number; interestRate: number }> } }) {
     const ownerUserId = await this.ownerId();
-    if (!Number.isFinite(input.amount) || input.amount <= 0 || Math.abs(input.amount * 100 - Math.round(input.amount * 100)) > 0.000001) throw new Error('Informe um valor positivo com atÃ© duas casas decimais.');
+    if (!Number.isFinite(input.amount) || input.amount <= 0 || Math.abs(input.amount * 100 - Math.round(input.amount * 100)) > 0.000001) throw new Error('Informe um valor positivo com até duas casas decimais.');
     let proofPath: string | null = null;
     if (input.receipt) {
       const allowed: Record<string, string> = { ...CARD_IMAGE_EXTENSIONS, 'application/pdf': 'pdf' };
       const extension = allowed[input.receipt.type];
-      if (!extension || input.receipt.size > 10 * 1024 * 1024) throw new Error('Use comprovante PDF, JPEG, PNG ou WebP de atÃ© 10 MB.');
+      if (!extension || input.receipt.size > 10 * 1024 * 1024) throw new Error('Use comprovante PDF, JPEG, PNG ou WebP de até 10 MB.');
       proofPath = `${ownerUserId}/${input.payableId}/${input.requestId}.${extension}`;
       const uploaded = await supabase.storage.from(PAYABLE_RECEIPTS_BUCKET).upload(proofPath, input.receipt, { contentType: input.receipt.type, upsert: false });
       if (uploaded.error && !/already exists|duplicate|conflict/i.test(uploaded.error.message)) throw new Error(`Falha ao enviar comprovante: ${uploaded.error.message}`);
@@ -1377,15 +1377,15 @@ const personalWalletServiceImpl = {
     const monthPattern = /^\d{4}-(0[1-9]|1[0-2])-01$/;
     if (!input.cardId || !input.requestId || !monthPattern.test(input.dueMonth)
       || (input.previousDueMonth !== null && !monthPattern.test(input.previousDueMonth)))
-      throw new Error('Selecione o cartÃ£o e um mÃªs de vencimento vÃ¡lido.');
+      throw new Error('Selecione o cartão e um mês de vencimento válido.');
     const timestamp = new Date(input.dueDate + 'T00:00:00Z');
     if (!/^\d{4}-\d{2}-\d{2}$/.test(input.dueDate) ||
       Number.isNaN(timestamp.getTime()) || timestamp.toISOString().slice(0, 10) !== input.dueDate ||
       input.dueDate.slice(0, 7) !== input.dueMonth.slice(0, 7))
-      throw new Error('Informe uma data de pagamento vÃ¡lida dentro do mÃªs escolhido.');
+      throw new Error('Informe uma data de pagamento válida dentro do mês escolhido.');
     if (!Number.isFinite(input.amount) || input.amount <= 0 || input.amount > 9999999999.99 ||
       Math.abs(input.amount * 100 - Math.round(input.amount * 100)) > 0.000001)
-      throw new Error('Informe o valor da fatura com atÃ© duas casas decimais.');
+      throw new Error('Informe o valor da fatura com até duas casas decimais.');
     const { data, error } = await supabase.rpc('personal_wallet_correct_invoice_override', {
       p_card_id: input.cardId, p_previous_due_month: input.previousDueMonth,
       p_new_due_month: input.dueMonth, p_due_date: input.dueDate,
@@ -1401,9 +1401,9 @@ const personalWalletServiceImpl = {
     amount: number;
     requestId: string;
   }) {
-    if (!input.cardId || !input.dueMonth || !input.requestId) throw new Error('Dados obrigatÃ³rios da fatura ausentes.');
+    if (!input.cardId || !input.dueMonth || !input.requestId) throw new Error('Dados obrigatórios da fatura ausentes.');
     if (!Number.isFinite(input.amount) || input.amount <= 0 || Math.abs(input.amount * 100 - Math.round(input.amount * 100)) > 0.000001) {
-      throw new Error('Informe um valor positivo com atÃ© duas casas decimais.');
+      throw new Error('Informe um valor positivo com até duas casas decimais.');
     }
     const { data, error } = await supabase.rpc('personal_wallet_set_monthly_invoice_override', {
       p_card_id: input.cardId,
@@ -1417,7 +1417,7 @@ const personalWalletServiceImpl = {
 
   async cancelUnpaidInvoiceCycle(cardId: string, dueMonth: string, requestId: string) {
     if (!cardId || !requestId || !/^\d{4}-(0[1-9]|1[0-2])-01$/.test(dueMonth)) {
-      throw new Error('IdentificaÃ§Ã£o ou mÃªs da fatura invÃ¡lido.');
+      throw new Error('Identificação ou mês da fatura inválido.');
     }
     const { data, error } = await supabase.rpc('personal_wallet_cancel_unpaid_invoice_cycle', {
       p_card_id: cardId, p_due_month: dueMonth, p_request_id: requestId,
@@ -1428,7 +1428,7 @@ const personalWalletServiceImpl = {
 
   async cancelInvoiceConsolidation(cardId: string, dueMonth: string, requestId: string) {
     if (!cardId || !requestId || !/^\d{4}-(0[1-9]|1[0-2])-01$/.test(dueMonth)) {
-      throw new Error('IdentificaÃ§Ã£o ou mÃªs da fatura invÃ¡lido.');
+      throw new Error('Identificação ou mês da fatura inválido.');
     }
     const { data, error } = await supabase.rpc('personal_wallet_cancel_invoice_consolidation', {
       p_card_id: cardId, p_due_month: dueMonth, p_request_id: requestId,
@@ -1438,9 +1438,9 @@ const personalWalletServiceImpl = {
   },
 
   async updateExpense(input: UpdatePersonalWalletExpense, requestId = generateUUID()) {
-    if (!input.description.trim()) throw new Error('Informe a descriÃ§Ã£o do lanÃ§amento.');
+    if (!input.description.trim()) throw new Error('Informe a descrição do lançamento.');
     if (!Number.isFinite(input.amount) || input.amount <= 0 || Math.abs(input.amount * 100 - Math.round(input.amount * 100)) > 0.000001) {
-      throw new Error('Informe um valor positivo com atÃ© duas casas decimais.');
+      throw new Error('Informe um valor positivo com até duas casas decimais.');
     }
     const { error } = await supabase.rpc('personal_wallet_update_expense_idempotent', {
       p_expense_id: input.expenseId,
@@ -1464,7 +1464,7 @@ const personalWalletServiceImpl = {
   },
 
   async cancelExpense(expenseId: string, requestId = generateUUID()) {
-    if (!expenseId || !requestId) throw new Error('Identificador do lanÃ§amento ausente.');
+    if (!expenseId || !requestId) throw new Error('Identificador do lançamento ausente.');
     const { data, error } = await supabase.rpc('personal_wallet_cancel_expense_idempotent', {
       p_expense_id: expenseId,
       p_request_id: requestId,
@@ -1475,7 +1475,7 @@ const personalWalletServiceImpl = {
 
   async payInvoicePartial(cardId: string, dueMonth: string, accountId: string | null, amount: number, requestId: string) {
     if (!Number.isFinite(amount) || amount <= 0 || Math.abs(amount * 100 - Math.round(amount * 100)) > 0.000001) {
-      throw new Error('Informe um valor positivo com atÃ© duas casas decimais.');
+      throw new Error('Informe um valor positivo com até duas casas decimais.');
     }
     const { data, error } = await supabase.rpc('personal_wallet_pay_invoice_partial', {
       p_card_id: cardId,

@@ -357,9 +357,14 @@ export const contractsService = {
     };
 
     const selectedSource = _sources.find(source => safeUUID(source.id) === safeUUID(loan.sourceId));
+    const hasExplicitMultiSourceAllocations = !editingLoan && Array.isArray(loan.fundingAllocations) && loan.fundingAllocations.length > 1;
+    const isCardOnlySource = String(selectedSource?.type || '').toUpperCase() === 'CARD';
     const isCardFundedLoan = !editingLoan
-      && ['CARD', 'MISTO'].includes(String(selectedSource?.type || '').toUpperCase())
-      && loan.fundingPaymentMethod === 'CREDIT_CARD';
+      && !hasExplicitMultiSourceAllocations
+      && (
+        isCardOnlySource
+        || (String(selectedSource?.type || '').toUpperCase() === 'MISTO' && loan.fundingPaymentMethod === 'CREDIT_CARD')
+      );
 
     if (editingLoan) {
       await runContractMutationWithSchemaFallback(loanPayload, (payload) =>
@@ -597,7 +602,19 @@ export const contractsService = {
 
       // Saída de Caixa (novo contrato)
       const safeSrcId = safeUUID(loan.sourceId);
-      if (isCardFundedLoan && !options?.skipTransaction) {
+      if (hasExplicitMultiSourceAllocations && !options?.skipTransaction) {
+        const allocationsPayload = (loan.fundingAllocations || []).map((allocation) => ({
+          source_id: safeUUID(allocation.sourceId),
+          amount: Math.round(Number(allocation.amount || 0) * 100) / 100,
+        }));
+        const { error: allocationError } = await supabase.rpc('finalize_loan_funding_allocations_v1', {
+          p_loan_id: safeUUID(loanId),
+          p_allocations: allocationsPayload,
+        });
+        if (allocationError) {
+          throw new Error('O contrato pode ter sido gravado, mas a composição entre fontes falhou. Confira os saldos, o cartão e o contrato antes de tentar novamente.');
+        }
+      } else if (isCardFundedLoan && !options?.skipTransaction) {
         const { error: finalizationError } = await supabase.rpc('finalize_card_funded_loan_v1', {
           p_loan_id: safeUUID(loanId),
         });

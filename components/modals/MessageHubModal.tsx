@@ -55,7 +55,7 @@ export const MessageHubModal = ({ loan, client, onClose }: { loan: Loan, client?
             await navigator.clipboard.writeText(portalLink);
             showToast('Link do portal copiado.', 'success');
         } catch (error: any) {
-            showToast(error.message || 'NÃ£o foi possÃ­vel acessar o portal.', 'error');
+            showToast(error.message || 'Não foi possível acessar o portal.', 'error');
         } finally {
             setLoading(false);
         }

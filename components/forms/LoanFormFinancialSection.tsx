@@ -12,7 +12,7 @@ import { buildSourceReferenceDisplay } from '../../domain/sources/sourceReferenc
 import type { WalletReference } from '../../domain/sources/sourceWalletReference';
 import { deriveFundingValues, FundingCalculationMode } from '../../domain/finance/installmentFunding';
 
-const MULTI_SOURCE_CREATION_ENABLED = false;
+const MULTI_SOURCE_CREATION_ENABLED = true;
 
 const parseFundingInput = (value: unknown) => parseFloat(String(value || '').replace(',', '.')) || 0;
 const formatMoneyInput = (value: number) => value.toFixed(2);
@@ -157,7 +157,7 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
       ...formData,
       billingCycle,
       ...(billingCycle === 'INSTALLMENT_FIXED' ? {
-        fundingInstallmentsCount: formData.fundingInstallmentsCount || '10',
+        fundingInstallmentsCount: formData.fundingInstallmentsCount || '1',
         customerMarginPercent: formData.customerMarginPercent || '30',
         interestFreeInstallment: formData.billingCycle === 'INSTALLMENT_FIXED' ? formData.interestFreeInstallment === true : false,
       } : {
@@ -528,9 +528,52 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
                 </div>
                 <p className="text-[9px] leading-relaxed text-slate-500">
                   {fundingPaymentMethod === 'CREDIT_CARD'
-                    ? 'Se o cartão não cobrar juros, deixe a taxa ou o total em branco. A quantidade de parcelas continua obrigatória.'
+                    ? 'Se o cartão não cobrar juros, deixe a taxa ou o total em branco. Por padrão, a compra no cartão é lançada à vista (1x).'
                     : 'O capital será debitado da conta selecionada, sem custo de captação adicional.'}
                 </p>
+                {fundingPaymentMethod === 'CREDIT_CARD' && (
+                  <div className="space-y-2 border-t border-slate-800/70 pt-2">
+                    <p className="text-[9px] font-black uppercase text-slate-500">Parcelamento da compra no cartão (origem)</p>
+                    <div className="grid grid-cols-2 gap-1 rounded-lg bg-slate-900/80 p-1">
+                      {[
+                        { value: 'SINGLE', label: 'À vista (1x)' },
+                        { value: 'INSTALLMENTS', label: 'Parcelar na fatura' },
+                      ].map(({ value, label }) => {
+                        const selectedMode = (formData.cardOriginInstallmentMode || 'SINGLE') === value;
+                        return (
+                          <button
+                            key={value}
+                            type="button"
+                            aria-pressed={selectedMode}
+                            onClick={() => setFormData((current: any) => ({
+                              ...current,
+                              cardOriginInstallmentMode: value,
+                              cardPurchaseInstallmentsCount: value === 'SINGLE'
+                                ? '1'
+                                : (Number(current.cardPurchaseInstallmentsCount || 1) > 1 ? current.cardPurchaseInstallmentsCount : '2'),
+                            }))}
+                            className={`flex min-h-9 items-center justify-center rounded-md border px-2 text-[9px] font-black transition-colors ${selectedMode ? 'border-rose-400/50 bg-rose-500/15 text-white' : 'border-transparent text-slate-500 hover:text-slate-200'}`}
+                          >
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {(formData.cardOriginInstallmentMode || 'SINGLE') === 'INSTALLMENTS' && (
+                      <div>
+                        <label className="ml-1 text-[9px] font-black uppercase text-slate-500">Parcelas na fatura do cartão</label>
+                        <input
+                          type="number"
+                          min="2"
+                          max="120"
+                          value={formData.cardPurchaseInstallmentsCount || '2'}
+                          onChange={(e) => setFormData((current: any) => ({ ...current, cardPurchaseInstallmentsCount: e.target.value }))}
+                          className={strongInputClass}
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
             </div>
         )}
 

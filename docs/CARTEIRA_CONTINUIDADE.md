@@ -1,3 +1,22 @@
+## 17/11/2026 — Separação estrita de origem (Conta, Cartão e Composição), compra à vista no cartão, encoding UTF-8 e correção do contrato da Deyse
+
+- **Causa raiz:**
+  - `finalize_card_funded_loan_v1` usava `funding_installments_count` (parcelas do contrato com o cliente) para parcelar a compra no cartão e gravava descrição longa (`"Emprestimo a ..."`), enquanto `useLoanForm.ts` / `LoanFormFinancialSection.tsx` iniciavam `fundingInstallmentsCount` com `'10'`.
+  - Empréstimos fora de `INSTALLMENT_FIXED` em fontes `CARD` podiam cair no caminho de débito de conta, e `trg_sync_transacao_to_wallet()` debitava `personal_wallet_accounts` em qualquer `LOAN_INITIAL` sem verificar `funding_origin = 'CREDIT_CARD'` / `source_balance_effect = 'NONE'`.
+  - Composição explícita entre múltiplas fontes (`MULTI_SOURCE_CREATION_ENABLED`) estava desativada na UI e sem RPC atômica/idempotente no backend.
+  - Textos com mojibake UTF-8/Latin-1 em `services/personalWallet.service.ts`, `MessageHubModal.tsx`, `automation/n8n/*.json` e `trg_sync_transacao_to_wallet()`, além de `tests/architecture/runtime-text-encoding.test.mjs` depender de `rg` (inexistente no Windows).
+- **Arquivos alterados:**
+  - `types.ts`, `features/loans/hooks/useLoanForm.ts`, `features/loans/domain/loanForm.mapper.ts`, `components/forms/LoanFormFinancialSection.tsx`, `services/contracts.service.ts`.
+  - `supabase/migrations/20261117150000_card_funded_loan_no_account_debit.sql`.
+  - `services/personalWallet.service.ts`, `components/modals/MessageHubModal.tsx`, `automation/n8n/capitalflow-whatsapp.json`, `automation/n8n/workflows/capitalflow-whatsapp.json`, `automation/n8n/workflows/capitalflow-manual-collections.json`.
+  - `tests/financial/card-funded-loan-wallet-charge.test.ts`, `tests/financial/loan-origin-and-card-defaults.test.ts`, `tests/architecture/runtime-text-encoding.test.mjs`.
+- **Correção verificada em produção (Deyse · contrato `2ac454ac-04f0-4c60-bd04-1fbb069857a4`):**
+  - Estorno auditável de `R$ 700,00` na conta Nubank (`7ab23316-51c9-4f55-8156-02276a1ae53d`) e fonte espelhada (`5a34b718-47f9-4bfe-a175-6bfeeabe3ef6`), ambos confirmados em `R$ 1.716,21`.
+  - Despesa do cartão Nu `4736` (`9f2a023e-bb85-415e-b42d-b955e4c1623b`) atualizada para `"Empréstimo Deyse"`, `installment_count = 1`, `R$ 734,93` em `2026-12-01` (`current_bill = R$ 3.804,15`, `used_limit = R$ 6.519,17`, `available_limit = R$ 472,13`).
+- **Limitações:**
+  - A aplicação de DDL via `supabase_mcp:apply_migration` foi cancelada automaticamente pelo cliente MCP; a correção dos dados da Deyse foi aplicada e verificada em transação DML no Supabase, e o arquivo `supabase/migrations/20261117150000_card_funded_loan_no_account_debit.sql` aguarda `supabase db push` no ambiente remoto para atualizar as funções `trg_sync_transacao_to_wallet`, `finalize_card_funded_loan_v1` e `finalize_loan_funding_allocations_v1`.
+  - Sem validação visual em dispositivo Android físico nesta etapa.
+
 ## 13/11/2026 — transferência contábil Capital → Minha Carteira e legibilidade
 
 - **Layout:** `LoanFundingCostFields.tsx` reflow responsivo por largura real, rótulos com altura coerente e inputs financeiros inteiros; sem alteração em juros, fórmula de custo nem principal.

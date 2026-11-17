@@ -356,6 +356,11 @@ export const contractsService = {
       cliente_foto_url: loan.clientAvatarUrl,
     };
 
+    const selectedSource = _sources.find(source => safeUUID(source.id) === safeUUID(loan.sourceId));
+    const isCardFundedLoan = !editingLoan
+      && ['CARD', 'MISTO'].includes(String(selectedSource?.type || '').toUpperCase())
+      && loan.fundingPaymentMethod === 'CREDIT_CARD';
+
     if (editingLoan) {
       await runContractMutationWithSchemaFallback(loanPayload, (payload) =>
         supabase.from('contratos').update(payload).eq('id', safeUUID(loanId))
@@ -526,12 +531,31 @@ export const contractsService = {
       });
       if (error) throw new Error(error.message);
     } else {
-      await runContractMutationWithSchemaFallback({
-        ...loanPayload,
-        portal_token: loan.portalToken || generateUUID(),
-        portal_shortcode: loan.portalShortcode || Math.floor(100000 + Math.random() * 900000).toString(),
-        created_at: new Date().toISOString(),
-      }, (payload) => supabase.from('contratos').insert(payload));
+      let existingCardLoan = false;
+      if (isCardFundedLoan) {
+        const { data: existing, error: existingError } = await supabase.from('contratos')
+          .select('id, owner_id, source_id, principal, funding_total_payable, funding_installments_count')
+          .eq('id', loanId).maybeSingle();
+        if (existingError) throw existingError;
+        if (existing) {
+          if (safeUUID(existing.owner_id) !== ownerId
+            || safeUUID(existing.source_id) !== safeUUID(loan.sourceId)
+            || safeFloat(existing.principal) !== principal
+            || safeFloat(existing.funding_total_payable) !== safeFloat(loan.fundingTotalPayable)
+            || Number(existing.funding_installments_count || 1) !== Number(loan.fundingInstallmentsCount || 1)) {
+            throw new Error('O contrato pode ter sido gravado com dados diferentes. Confira-o antes de tentar novamente.');
+          }
+          existingCardLoan = true;
+        }
+      }
+      if (!existingCardLoan) {
+        await runContractMutationWithSchemaFallback({
+          ...loanPayload,
+          portal_token: loan.portalToken || generateUUID(),
+          portal_shortcode: loan.portalShortcode || Math.floor(100000 + Math.random() * 900000).toString(),
+          created_at: new Date().toISOString(),
+        }, (payload) => supabase.from('contratos').insert(payload));
+      }
 
       if (loan.installments?.length) {
         const instPayload = loan.installments.map((inst, index) => ({
@@ -555,13 +579,32 @@ export const contractsService = {
           paid_total: 0,
         }));
 
-        const { error: instErr } = await supabase.from('parcelas').insert(instPayload);
-        if (instErr) throw instErr;
+        let shouldInsertInstallments = true;
+        if (existingCardLoan) {
+          const { count, error: countError } = await supabase.from('parcelas')
+            .select('id', { count: 'exact', head: true }).eq('loan_id', loanId);
+          if (countError) throw countError;
+          if (count && count !== instPayload.length) {
+            throw new Error('O contrato pode ter sido gravado com parcelas incompletas. Confira-o antes de tentar novamente.');
+          }
+          shouldInsertInstallments = !count;
+        }
+        if (shouldInsertInstallments) {
+          const { error: instErr } = await supabase.from('parcelas').insert(instPayload);
+          if (instErr) throw instErr;
+        }
       }
 
       // Saída de Caixa (novo contrato)
       const safeSrcId = safeUUID(loan.sourceId);
-      if (safeSrcId && !options?.skipTransaction) {
+      if (isCardFundedLoan && !options?.skipTransaction) {
+        const { error: finalizationError } = await supabase.rpc('finalize_card_funded_loan_v1', {
+          p_loan_id: safeUUID(loanId),
+        });
+        if (finalizationError) {
+          throw new Error('O contrato pode ter sido gravado, mas o cartão não foi lançado. Confira o vínculo, o limite e o contrato antes de tentar novamente.');
+        }
+      } else if (safeSrcId && !options?.skipTransaction) {
         await adjustSourceBalanceSafe(safeSrcId, -principal);
 
         const { error: initialEntryError } = await supabase.from('transacoes').insert({

@@ -684,10 +684,10 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
           {selected && selectedIsOpeningCycle && (Number(selected.initial_future_installments_balance || 0) > 0 || Number(selected.opening_unallocated_amount || 0) > 0) && <p className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-amber-100">
             <PrivateMoney value={formatMoney(Math.max(Number(selected.initial_future_installments_balance || 0), Number(selected.opening_unallocated_amount || 0)))} /> em gastos iniciais ainda sem detalhamento. Esse valor já está incluído no limite usado.
           </p>}
-          <div className="min-w-0 rounded-2xl border border-slate-800 bg-slate-900 p-2.5 sm:p-3.5">
-            <div className="mb-2.5 flex min-w-0 flex-col gap-2">
+          <div className="min-w-0">
+            <div className="mb-3 flex min-w-0 flex-col gap-2">
               <div className="min-w-0">
-                <div className="flex min-w-0 items-center justify-between gap-2">
+                <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
                   <h3 className="min-w-0 break-words text-sm font-bold text-white">Fatura {selected?.nickname || ''}</h3>
                   <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
                     {invoiceCycles.length > 1 && <button type="button" onClick={() => setInvoiceHistoryOpen(true)}
@@ -727,7 +727,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
                       return (
                         <button key={cycle.dueMonth} type="button" aria-pressed={active}
                           onClick={() => { setStatementMonth(cycle.dueMonth); setActionMenuOpen(false); }}
-                          className={`grid min-h-12 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-xl border px-2.5 py-1.5 text-left transition-colors ${active ? 'border-blue-500/70 bg-blue-500/10' : 'border-slate-800 bg-slate-950/40 hover:bg-slate-800/70'}`}>
+                          className={`grid min-h-12 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-slate-700/60 px-0 py-2 text-left transition-colors ${active ? 'bg-slate-800/20' : 'hover:bg-slate-800/20'}`}>
                           <span className="min-w-0">
                             <span className={`block text-xs font-bold ${active ? 'text-white' : 'text-slate-200'}`}>Fatura {competence}</span>
                             <span className="mt-1 block text-[11px] text-slate-400">{hideFinancialValues ? 'Vencimento protegido' : 'Vence ' + due}</span>

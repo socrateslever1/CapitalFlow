@@ -104,8 +104,24 @@ test('a tela do cartão exibe uma fatura e consulta as demais por Ver mais', () 
   assert.match(page, /setStatementMonth\(cycle\.dueMonth\)/);
   assert.match(page, /setInvoiceHistoryOpen\(false\)/);
   assert.match(page, /<CardInvoiceStatement cardId=\{selected\.id\} dueMonth=\{statementMonth\}/);
-  assert.match(statement, /grid-cols-\[minmax\(0,1fr\)_auto\]/);
+  assert.match(statement, /flex min-w-0 items-start justify-between gap-3/);
   assert.doesNotMatch(statement, /<ShoppingBag/);
   assert.match(statement, /onSave=\{onEdit\}/);
   assert.match(statement, /onDelete\(expense\.id,\s*requestId\)/);
+});
+
+test('extrato do cartão acompanha o scroll da página e evita caixas redundantes', () => {
+  const page = read('features/wallet/pages/WalletCardsPage.tsx');
+  const statement = read('components/wallet/CardInvoiceStatement.tsx');
+  assert.doesNotMatch(page, /min-w-0 rounded-2xl border border-slate-800 bg-slate-900 p-2\.5 sm:p-3\.5/);
+  assert.match(page, /aria-label="Faturas registradas"/);
+  assert.match(page, /aria-label="Consultar outras faturas"/);
+  assert.doesNotMatch(statement, /max-h-56|overflow-y-auto|overscroll-contain/);
+  assert.match(statement, /mt-2 divide-y divide-slate-800\/70/);
+  assert.match(statement, /min-w-0 break-words/);
+  assert.match(statement, /min-h-9 items-center justify-center/);
+  assert.match(statement, /onClick=\{\(\) => setEditing\(expense\)\}/);
+  assert.match(statement, /onClick=\{\(\) => \{ setConfirmingDelete\(expense\);/);
+  assert.match(statement, /setAdvancingExpense\(expense\)/);
+  assert.match(statement, /PrivateMoney value=\{formatMoney\(Number\(installment.amount\) - Number\(installment.paid_amount \|\| 0\)\)\}/);
 });

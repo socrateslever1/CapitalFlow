@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Check, ChevronDown, RotateCcw } from 'lucide-react';
+import { useFinancialPrivacy } from '../../contexts/FinancialPrivacyContext';
 
 export interface SelectOptionItem {
   value: string;
@@ -38,9 +39,11 @@ export const SelectOptionList: React.FC<SelectOptionListProps> = ({
   triggerIcon,
 }) => {
   const [open, setOpen] = useState(false);
+  const privacyHidden = useFinancialPrivacy();
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const selectedOption = options.find((item) => item.value === value);
+  const displayRightValue = (rightValue: string) => privacyHidden && /R\$/.test(rightValue) ? 'R$ ••••' : rightValue;
 
   useEffect(() => {
     if (!open) return;
@@ -81,7 +84,7 @@ export const SelectOptionList: React.FC<SelectOptionListProps> = ({
                   selectedOption.rightTone === 'slate' ? 'text-slate-300' : 'text-emerald-300'
                 }`}
               >
-                {selectedOption.rightValue}
+                {displayRightValue(selectedOption.rightValue)}
               </span>
             )}
             <ChevronDown
@@ -148,7 +151,7 @@ export const SelectOptionList: React.FC<SelectOptionListProps> = ({
                       option.rightTone === 'slate' ? 'text-slate-300' : 'text-emerald-300'
                     }`}
                   >
-                    {option.rightValue}
+                    {displayRightValue(option.rightValue)}
                   </span>
                 )}
                 {selected && <Check size={15} className="shrink-0 text-blue-300" />}

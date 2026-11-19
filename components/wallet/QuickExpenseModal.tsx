@@ -127,8 +127,15 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
   const [description, setDescription] = useState<string>(notificationPrefill?.description || '');
   const [expenseDate, setExpenseDate] = useState<string>(notificationPrefill?.date || todayIso);
   const [category, setCategory] = useState<string>('Alimentação');
-  const [customCategories, setCustomCategories] = useState<string[]>(() => loadCustomExpenseCategories(profileId));
-  useEffect(() => { setCustomCategories(loadCustomExpenseCategories(profileId)); }, [profileId]);
+  const [customCategoryState, setCustomCategoryState] = useState(() => ({
+    profileId, categories: loadCustomExpenseCategories(profileId),
+  }));
+  const customCategories = customCategoryState.profileId === profileId
+    ? customCategoryState.categories : loadCustomExpenseCategories(profileId);
+  useEffect(() => {
+    setCustomCategoryState({ profileId, categories: loadCustomExpenseCategories(profileId) });
+    setCategory('Alimentação');
+  }, [profileId]);
   const [creatingCategory, setCreatingCategory] = useState(false);
   const [newCategoryDraft, setNewCategoryDraft] = useState('');
   const allCategories = useMemo(
@@ -139,7 +146,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
     const clean = normalizeCategoryName(newCategoryDraft);
     if (!clean) return;
     const next = saveCustomExpenseCategory(clean, profileId);
-    setCustomCategories(next);
+    setCustomCategoryState({ profileId, categories: next });
     resetIdempotencyKey();
     setCategory(clean);
     setNewCategoryDraft('');

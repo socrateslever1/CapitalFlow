@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useMemo, useReducer, useRef, useState } from 'react';
 import { ArrowDownLeft, ArrowUpRight, ArrowLeftRight, CreditCard, FileDown, FileUp, History, Plus, Search, Trash2 } from 'lucide-react';
 import { PersonalWalletAccount, PersonalWalletExpense, PersonalWalletInvoicePayment, WalletAccountOperation, WalletStatementRow, personalWalletService } from '../../services/personalWallet.service';
 import { formatMoney } from '../../utils/formatters';
@@ -9,6 +9,7 @@ import { WalletStatementImport } from './WalletStatementImport';
 import { buildAccountStatementEntries } from './accountStatementDomain';
 import { Modal, modalPrimaryActionClass } from '../ui/Modal';
 import { SelectOptionList } from '../ui/SelectOptionList';
+import { accountCategoryReducer, initialAccountCategorySelection } from './accountCategorySelection';
 
 type Props = {
   account: PersonalWalletAccount;
@@ -41,7 +42,8 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
   const [action,setAction]=useState<Action|null>(null);
   const [amount,setAmount]=useState('');
   const [description,setDescription]=useState('');
-  const [category,setCategory]=useState('Outros');
+  const [categoryState,dispatchCategory]=useReducer(accountCategoryReducer,initialAccountCategorySelection);
+  const category=categoryState.value;
   const [destination,setDestination]=useState('');
   const [date,setDate]=useState(localToday());
   const [importOpen,setImportOpen]=useState(false);
@@ -68,7 +70,7 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
   const categoryOptions=[...new Set([...commonCategories,...operations.map(operation=>operation.category).filter(Boolean)])];
   const canInitializeOpening=Number(account.balance)===0&&!operations.some(op=>op.from_account_id===account.id||op.to_account_id===account.id);
 
-  const clear=()=>{setAction(null);setAmount('');setDescription('');setCategory('Outros');setDestination('');setError('');};
+  const clear=()=>{setAction(null);setAmount('');setDescription('');dispatchCategory({type:'reset'});setDestination('');setError('');};
   const submit=async(e:React.FormEvent)=>{
     e.preventDefault();
     if(!action||saving)return;
@@ -254,17 +256,17 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
               <span className="block">Categoria</span>
               <SelectOptionList
                 ariaLabel="Categoria"
-                value={categoryOptions.includes(category) ? category : '__custom__'}
+                value={categoryState.customMode ? '__custom__' : category}
                 placeholder="Selecione a categoria"
                 options={[
                   ...categoryOptions.map((option) => ({ value: option, label: option })),
                   { value: '__custom__', label: 'Outra categoria...' },
                 ]}
-                onChange={(selected) => setCategory(selected === '__custom__' ? '' : selected)}
+                onChange={(selected) => dispatchCategory({type:'select',value:selected})}
               />
             </div>
-            {!categoryOptions.includes(category) && <label className="text-xs text-slate-300 sm:col-span-2">Nome da categoria
-              <input required maxLength={100} className={input} value={category} onChange={e=>setCategory(e.target.value)} placeholder="Digite a categoria"/>
+            {categoryState.customMode && <label className="text-xs text-slate-300 sm:col-span-2">Nome da categoria
+              <input required maxLength={100} className={input} value={category} onChange={e=>dispatchCategory({type:'type',value:e.target.value})} placeholder="Digite a categoria"/>
             </label>}
           </div>
           {error && <p role="alert" className="rounded-lg border border-rose-700/50 p-3 text-xs text-rose-300">{error}</p>}

@@ -8,8 +8,9 @@ import { parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
 import {Modal,modalPrimaryActionClass} from '../ui/Modal';
 import {CardVaultModal} from './CardVaultModal';
 import {FinancialCalculatorInput} from '../forms/FinancialCalculatorInput';
+import {SelectOptionList} from '../ui/SelectOptionList';
 type Props={card:PersonalWalletCard;accounts:PersonalWalletAccount[];onClose:()=>void;onSaved:()=>Promise<void>};
-const field='mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm text-white';
+const field='mt-1 min-h-12 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white';
 export const CardEditModal:React.FC<Props>=({card,accounts,onClose,onSaved})=>{
  const [form,setForm]=useState({nickname:card.nickname,issuer:card.issuer||'',brand:card.brand||'',account_id:card.account_id||'',last_four:card.last_four||'',cardholder_name:card.cardholder_name||'',expiry_month:card.expiry_month?String(card.expiry_month):'',expiry_year:card.expiry_year?String(card.expiry_year):'',credit_limit:String(card.credit_limit),closing_day:String(card.closing_day||''),due_day:String(card.due_day||''),status:card.status,primary_color:card.primary_color||getBankVisual(card.issuer||card.nickname).accent});
  const [saving,setSaving]=useState(false);
@@ -60,8 +61,28 @@ export const CardEditModal:React.FC<Props>=({card,accounts,onClose,onSaved})=>{
    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
     <label className="text-xs text-slate-300">Instituição<input required maxLength={120} list="wallet-edit-banks" className={field} value={form.issuer} onChange={e=>change('issuer',e.target.value)}/><datalist id="wallet-edit-banks">{BANK_CATALOG.map(b=><option key={b.id} value={b.name}/>)}</datalist></label>
     <label className="text-xs text-slate-300">Apelido (opcional)<input maxLength={120} className={field} value={form.nickname} onChange={e=>change('nickname',e.target.value)} placeholder="Usa o nome da instituição se vazio"/></label>
-    <label className="text-xs text-slate-300">Bandeira<select className={field} value={form.brand} onChange={e=>change('brand',e.target.value)}><option value="">Não informada</option>{['Mastercard','Visa','Elo','American Express','Hipercard'].map(name=><option key={name} value={name}>{name}</option>)}</select></label>
-    <label className="text-xs text-slate-300">Conta vinculada<select className={field} value={form.account_id} onChange={e=>change('account_id',e.target.value)}><option value="">Avulso — apenas crédito</option>{accounts.map(a=><option key={a.id} value={a.id}>Híbrido · {a.nickname}</option>)}</select></label>
+    <div className="space-y-1 text-xs text-slate-300">
+     <span className="block">Bandeira</span>
+     <SelectOptionList
+      ariaLabel="Bandeira"
+      value={form.brand}
+      placeholder="Não informada"
+      clearable
+      options={['Mastercard','Visa','Elo','American Express','Hipercard'].map(name=>({value:name,label:name}))}
+      onChange={value=>change('brand',value)}
+     />
+    </div>
+    <div className="space-y-1 text-xs text-slate-300">
+     <span className="block">Conta vinculada</span>
+     <SelectOptionList
+      ariaLabel="Conta vinculada"
+      value={form.account_id}
+      placeholder="Avulso — apenas crédito"
+      clearable
+      options={accounts.map(a=>({value:a.id,label:`Híbrido · ${a.nickname}`}))}
+      onChange={value=>change('account_id',value)}
+     />
+    </div>
     <label className="text-xs text-slate-300">Nome impresso no cartão<input maxLength={120} autoComplete="cc-name" className={field} value={form.cardholder_name} onChange={e=>change('cardholder_name',e.target.value)} placeholder="NOME DO TITULAR"/></label>
     <div className="grid grid-cols-2 gap-2">
      <label className="text-xs text-slate-300">Mês da validade<input type="number" min="1" max="12" autoComplete="cc-exp-month" className={field} value={form.expiry_month} onChange={e=>change('expiry_month',e.target.value)} placeholder="MM"/></label>
@@ -78,12 +99,20 @@ export const CardEditModal:React.FC<Props>=({card,accounts,onClose,onSaved})=>{
      <button type="button" onClick={()=>setVaultOpen(true)} className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl border border-blue-500/40 bg-blue-500/10 px-4 py-2 text-sm font-semibold text-blue-200 hover:bg-blue-500/20"><LockKeyhole size={17}/>Número completo e código de segurança</button>
     </div>
     <label className="text-xs text-slate-300">Limite total<FinancialCalculatorInput required className={field} value={form.credit_limit} onCommit={value=>change('credit_limit',value)} fieldLabel="limite de crédito"/><span className="mt-1 block text-[11px] text-slate-400">Disponível atual: <strong className="text-emerald-300">{formatMoney(Math.max(0,(() => { try { return parseWalletMoney(form.credit_limit); } catch { return 0; } })()-Number(card.used_limit)))}</strong></span></label>
-    <div className="grid grid-cols-2 gap-2">
-     <label className="text-xs text-slate-300">Fechamento (dia)<input type="number" min="1" max="31" className={field} value={form.closing_day} onChange={e=>change('closing_day',e.target.value)}/></label>
-     <label className="text-xs text-slate-300">Dia habitual de vencimento<input type="number" min="1" max="31" className={field} value={form.due_day} onChange={e=>change('due_day',e.target.value)}/></label>
+    <div className="grid grid-cols-2 items-start gap-2">
+     <label className="min-w-0 text-xs text-slate-300"><span className="block truncate">Fechamento (dia)</span><input type="number" min="1" max="31" className={field} value={form.closing_day} onChange={e=>change('closing_day',e.target.value)}/></label>
+     <label className="min-w-0 text-xs text-slate-300"><span className="block truncate">Vencimento (dia)</span><input type="number" min="1" max="31" className={field} value={form.due_day} onChange={e=>change('due_day',e.target.value)}/></label>
     </div>
-    <label className="text-xs text-slate-300">Cor no app<input type="color" value={form.primary_color} onChange={e=>change('primary_color',e.target.value)} className="mt-1 h-11 w-full cursor-pointer rounded-lg border border-slate-700 bg-slate-950 p-1"/></label>
-    <label className="text-xs text-slate-300">Status<select className={field} value={form.status} onChange={e=>change('status',e.target.value)}><option value="ACTIVE">Ativo</option><option value="BLOCKED">Bloqueado neste sistema</option></select></label>
+    <label className="text-xs text-slate-300"><span className="block">Cor no app</span><input type="color" value={form.primary_color} onChange={e=>change('primary_color',e.target.value)} className="mt-1 h-12 w-full cursor-pointer rounded-lg border border-slate-700 bg-slate-950 p-1"/></label>
+    <div className="space-y-1 text-xs text-slate-300">
+     <span className="block">Status</span>
+     <SelectOptionList
+      ariaLabel="Status"
+      value={form.status}
+      options={[{value:'ACTIVE',label:'Ativo'},{value:'BLOCKED',label:'Bloqueado neste sistema'}]}
+      onChange={value=>change('status',value)}
+     />
+    </div>
     <p className="flex gap-2 rounded-xl border border-amber-700/40 bg-amber-950/20 p-3 text-xs text-amber-200 sm:col-span-2"><AlertTriangle size={17} className="shrink-0"/>Arquivar preserva o histórico e retira o cartão da carteira ativa. Excluir é permanente e só é permitido sem faturas, lançamentos ou limite utilizado. Bloquear no CapitalFlow não bloqueia o cartão no banco.</p>
     {error&&<p role="alert" className="text-xs text-rose-300 sm:col-span-2">{error}</p>}
    </div>

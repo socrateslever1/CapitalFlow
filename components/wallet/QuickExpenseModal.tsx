@@ -12,6 +12,15 @@ import { businessDateInManaus } from '../../utils/businessDate';
 import { generateUUID } from '../../utils/generators';
 import { parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
 import { FinancialCalculatorInput } from '../forms/FinancialCalculatorInput';
+import { SelectOptionList } from '../ui/SelectOptionList';
+import { useModal } from '../../contexts/ModalContext';
+import {
+  DEFAULT_EXPENSE_CATEGORIES,
+  loadCustomExpenseCategories,
+  mergeCategories,
+  normalizeCategoryName,
+  saveCustomExpenseCategory,
+} from '../../features/wallet/utils/walletCustomCategories';
 import { getInvoiceCycleDates, getPurchaseInvoiceMonth } from './invoiceStatementDomain';
 import {
   buildCardExpenseNotes,
@@ -101,6 +110,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
   onClose,
   onSaved,
 }) => {
+  const profileId = useModal().activeUser?.id;
   const activeCards = useMemo(() => cards.filter((c) => c.status === 'ACTIVE'), [cards]);
   const resolvedCardId = initialCardId ?? defaultCardId ?? null;
   const resolvedAccountId = initialAccountId ?? defaultAccountId ?? null;
@@ -117,6 +127,31 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
   const [description, setDescription] = useState<string>(notificationPrefill?.description || '');
   const [expenseDate, setExpenseDate] = useState<string>(notificationPrefill?.date || todayIso);
   const [category, setCategory] = useState<string>('Alimentação');
+  const [customCategoryState, setCustomCategoryState] = useState(() => ({
+    profileId, categories: loadCustomExpenseCategories(profileId),
+  }));
+  const customCategories = customCategoryState.profileId === profileId
+    ? customCategoryState.categories : loadCustomExpenseCategories(profileId);
+  useEffect(() => {
+    setCustomCategoryState({ profileId, categories: loadCustomExpenseCategories(profileId) });
+    setCategory('Alimentação');
+  }, [profileId]);
+  const [creatingCategory, setCreatingCategory] = useState(false);
+  const [newCategoryDraft, setNewCategoryDraft] = useState('');
+  const allCategories = useMemo(
+    () => mergeCategories([...EXPENSE_CATEGORIES, ...DEFAULT_EXPENSE_CATEGORIES], customCategories),
+    [customCategories],
+  );
+  const handleAddCustomCategory = () => {
+    const clean = normalizeCategoryName(newCategoryDraft);
+    if (!clean) return;
+    const next = saveCustomExpenseCategory(clean, profileId);
+    setCustomCategoryState({ profileId, categories: next });
+    resetIdempotencyKey();
+    setCategory(clean);
+    setNewCategoryDraft('');
+    setCreatingCategory(false);
+  };
   const [selectedCardId, setSelectedCardId] = useState<string>(
     requireExplicitDestination ? '' : resolvedCardId || activeCards[0]?.id || '',
   );
@@ -452,31 +487,75 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
             </label>
 
             {/* Categoria */}
-            <label>
-              <span className={labelClass}>
-                <Tag size={11} className="mr-1 inline text-blue-400" />
-                Categoria
-              </span>
-              <select
-                value={category}
-                onChange={(e) => {
-                  resetIdempotencyKey();
-                  setCategory(e.target.value);
-                }}
-                className={fieldClass}
-              >
-                {EXPENSE_CATEGORIES.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="min-w-0">
+              <div className="flex min-h-6 items-center justify-between gap-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  <Tag size={11} className="mr-1 inline text-blue-400" />
+                  Categoria
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setCreatingCategory((current) => !current)}
+                  className={`rounded-md border px-2 py-0.5 text-[10px] font-bold transition ${
+                    creatingCategory
+                      ? 'border-blue-500/60 bg-blue-500/20 text-blue-200'
+                      : 'border-slate-700 bg-slate-900 text-slate-400 hover:text-white'
+                  }`}
+                >
+                  {creatingCategory ? 'Fechar' : '+ Nova'}
+                </button>
+              </div>
+              <div className="mt-1.5">
+                <SelectOptionList
+                  ariaLabel="Categoria"
+                  value={category}
+                  options={[
+                    ...allCategories.map((cat) => ({ value: cat, label: cat })),
+                    { value: '__new_category__', label: '+ Nova categoria...' },
+                  ]}
+                  onChange={(next) => {
+                    if (next === '__new_category__') {
+                      setCreatingCategory(true);
+                      return;
+                    }
+                    resetIdempotencyKey();
+                    setCategory(next);
+                    setCreatingCategory(false);
+                  }}
+                />
+              </div>
+              {creatingCategory && (
+                <div className="mt-2 flex items-center gap-1.5">
+                  <input
+                    type="text"
+                    maxLength={48}
+                    value={newCategoryDraft}
+                    onChange={(e) => setNewCategoryDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddCustomCategory();
+                      }
+                    }}
+                    placeholder="Ex: Pet, Carro, Academia"
+                    className="min-h-10 min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-950 px-3 text-xs text-white outline-none focus:border-blue-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddCustomCategory}
+                    disabled={!normalizeCategoryName(newCategoryDraft)}
+                    className="min-h-10 shrink-0 rounded-lg bg-blue-600 px-3 text-xs font-bold text-white transition hover:bg-blue-500 disabled:opacity-40"
+                  >
+                    Salvar
+                  </button>
+                </div>
+              )}
+            </div>
 
             {/* Data */}
-            <div>
-              <div className="flex items-center justify-between gap-1.5">
-                <span className={labelClass}>
+            <div className="min-w-0">
+              <div className="flex min-h-6 items-center justify-between gap-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                   <Calendar size={11} className="mr-1 inline text-emerald-400" />
                   Data da Compra
                 </span>
@@ -520,39 +599,41 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                   resetIdempotencyKey();
                   setExpenseDate(e.target.value);
                 }}
-                className={fieldClass}
+                className="mt-1.5 min-h-12 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm font-semibold text-white outline-none focus:border-blue-500"
               />
             </div>
 
             {/* Fluxo Condicional: Cartão vs Conta */}
             {paymentMode === 'CARD' ? (
               <>
-                <label className="sm:col-span-2">
+                <div className="sm:col-span-2">
                   <span className={labelClass}>Cartão de Crédito</span>
-                  <select
-                    required
-                    value={selectedCardId}
-                    onChange={(e) => {
-                      resetIdempotencyKey();
-                      setSelectedCardId(e.target.value);
-                    }}
-                    className={fieldClass}
-                  >
-                    <option value="">Selecione o cartão ativo</option>
-                    {activeCards.map((card) => {
-                      const available = Math.max(
-                        0,
-                        Number(card.credit_limit || 0) - Number(card.used_limit || 0),
-                      );
-                      return (
-                        <option key={card.id} value={card.id}>
-                          💳 {card.nickname} {card.last_four ? `•••• ${card.last_four}` : ''} · Livre:{' '}
-                          {formatMoney(available)}
-                        </option>
-                      );
-                    })}
-                  </select>
-                </label>
+                  <div className="mt-1">
+                    <SelectOptionList
+                      ariaLabel="Cartão de Crédito"
+                      value={selectedCardId}
+                      placeholder="Selecione o cartão ativo"
+                      triggerIcon={<CreditCard size={16} className="shrink-0 text-blue-300" />}
+                      options={activeCards.map((card) => {
+                        const available = Math.max(
+                          0,
+                          Number(card.credit_limit || 0) - Number(card.used_limit || 0),
+                        );
+                        return {
+                          value: card.id,
+                          label: `${card.nickname}${card.last_four ? ` •••• ${card.last_four}` : ''}`,
+                          subtitle: 'Limite disponível',
+                          rightValue: formatMoney(available),
+                          icon: <CreditCard size={15} className="text-blue-300" />,
+                        };
+                      })}
+                      onChange={(next) => {
+                        resetIdempotencyKey();
+                        setSelectedCardId(next);
+                      }}
+                    />
+                  </div>
+                </div>
 
                 <div className="sm:col-span-2 space-y-3 rounded-2xl border border-slate-800 bg-slate-950/70 p-3.5">
                   <div className="flex flex-wrap items-center justify-between gap-2">
@@ -729,30 +810,33 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                 </div>
               </>
             ) : (
-              <label className="sm:col-span-2">
+              <div className="sm:col-span-2">
                 <span className={labelClass}>Conta Bancária / Carteira de Origem</span>
-                <select
-                  required
-                  value={selectedAccountId}
-                  onChange={(e) => {
-                    resetIdempotencyKey();
-                    setSelectedAccountId(e.target.value);
-                  }}
-                  className={fieldClass}
-                >
-                  <option value="">Selecione a conta para débito</option>
-                  {accounts.map((acc) => (
-                    <option key={acc.id} value={acc.id}>
-                      🏦 {acc.nickname} · Saldo: {formatMoney(Number(acc.balance || 0))}
-                    </option>
-                  ))}
-                </select>
+                <div className="mt-1">
+                  <SelectOptionList
+                    ariaLabel="Conta Bancária / Carteira de Origem"
+                    value={selectedAccountId}
+                    placeholder="Selecione a conta para débito"
+                    triggerIcon={<Landmark size={16} className="shrink-0 text-blue-300" />}
+                    options={accounts.map((acc) => ({
+                      value: acc.id,
+                      label: acc.nickname,
+                      subtitle: 'Saldo disponível',
+                      rightValue: formatMoney(Number(acc.balance || 0)),
+                      icon: <Landmark size={15} className="text-blue-300" />,
+                    }))}
+                    onChange={(next) => {
+                      resetIdempotencyKey();
+                      setSelectedAccountId(next);
+                    }}
+                  />
+                </div>
                 {selectedAccount && amountValue > Number(selectedAccount.balance || 0) && (
                   <span className="mt-1.5 block text-[11px] font-semibold text-amber-300">
                     Atenção: o valor excede o saldo disponível na conta ({formatMoney(Number(selectedAccount.balance || 0))}).
                   </span>
                 )}
-              </label>
+              </div>
             )}
 
             <label className="sm:col-span-2">

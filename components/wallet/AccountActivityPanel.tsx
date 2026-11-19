@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useMemo, useReducer, useRef, useState } from 'react';
 import { ArrowDownLeft, ArrowUpRight, ArrowLeftRight, CreditCard, FileDown, FileUp, History, Plus, Search, Trash2 } from 'lucide-react';
 import { PersonalWalletAccount, PersonalWalletExpense, PersonalWalletInvoicePayment, WalletAccountOperation, WalletStatementRow, personalWalletService } from '../../services/personalWallet.service';
 import { formatMoney } from '../../utils/formatters';
@@ -8,6 +8,8 @@ import { parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
 import { WalletStatementImport } from './WalletStatementImport';
 import { buildAccountStatementEntries } from './accountStatementDomain';
 import { Modal, modalPrimaryActionClass } from '../ui/Modal';
+import { SelectOptionList } from '../ui/SelectOptionList';
+import { accountCategoryReducer, initialAccountCategorySelection } from './accountCategorySelection';
 
 type Props = {
   account: PersonalWalletAccount;
@@ -26,6 +28,7 @@ const labels: Record<Action,string> = {
 const fmtDate=(date:string)=>new Date(date.slice(0,10)+'T12:00:00').toLocaleDateString('pt-BR');
 const localToday=()=>{const value=new Date();value.setMinutes(value.getMinutes()-value.getTimezoneOffset());return value.toISOString().slice(0,10);};
 const input='w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm text-white outline-none focus:border-emerald-500';
+const commonCategories = ['Outros', 'Alimentação', 'Transporte', 'Moradia', 'Serviços', 'Compras', 'Saúde', 'Educação', 'Lazer', 'Recebimento', 'Salário'];
 const tagClass = (tag: string) => {
   if (tag === 'Empréstimo concedido') return 'border-rose-700/60 bg-rose-950/30 text-rose-200';
   if (tag === 'Parcela recebida') return 'border-emerald-700/60 bg-emerald-950/30 text-emerald-200';
@@ -39,7 +42,8 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
   const [action,setAction]=useState<Action|null>(null);
   const [amount,setAmount]=useState('');
   const [description,setDescription]=useState('');
-  const [category,setCategory]=useState('Outros');
+  const [categoryState,dispatchCategory]=useReducer(accountCategoryReducer,initialAccountCategorySelection);
+  const category=categoryState.value;
   const [destination,setDestination]=useState('');
   const [date,setDate]=useState(localToday());
   const [importOpen,setImportOpen]=useState(false);
@@ -63,9 +67,10 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
   const filtered=entries.filter(x=>(x.label+' '+x.category+' '+x.tag).toLocaleLowerCase('pt-BR').includes(search.toLocaleLowerCase('pt-BR')));
   const statementTotal=filtered.reduce((total, entry)=>total+Number(entry.amount||0),0);
   const others=accounts.filter(a=>a.id!==account.id);
+  const categoryOptions=[...new Set([...commonCategories,...operations.map(operation=>operation.category).filter(Boolean)])];
   const canInitializeOpening=Number(account.balance)===0&&!operations.some(op=>op.from_account_id===account.id||op.to_account_id===account.id);
 
-  const clear=()=>{setAction(null);setAmount('');setDescription('');setCategory('Outros');setDestination('');setError('');};
+  const clear=()=>{setAction(null);setAmount('');setDescription('');dispatchCategory({type:'reset'});setDestination('');setError('');};
   const submit=async(e:React.FormEvent)=>{
     e.preventDefault();
     if(!action||saving)return;
@@ -230,18 +235,39 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
             <label className="text-xs text-slate-300">Data
               <input required className={input} type="date" max={localToday()} value={date} onChange={e=>setDate(e.target.value)}/>
             </label>
-            {action==='TRANSFER' && <label className="text-xs text-slate-300 sm:col-span-2">Conta de destino
-              <select required className={input} value={destination} onChange={e=>setDestination(e.target.value)}>
-                <option value="">Selecione outra conta</option>
-                {others.map(x=><option key={x.id} value={x.id}>{x.nickname} — {formatMoney(x.balance)}</option>)}
-              </select>
-            </label>}
+            {action==='TRANSFER' && <div className="space-y-1 text-xs text-slate-300 sm:col-span-2">
+              <span className="block">Conta de destino</span>
+              <SelectOptionList
+                ariaLabel="Conta de destino"
+                value={destination}
+                placeholder="Selecione outra conta"
+                options={others.map((item) => ({
+                  value: item.id,
+                  label: item.nickname,
+                  rightValue: formatMoney(item.balance),
+                }))}
+                onChange={setDestination}
+              />
+            </div>}
             <label className="text-xs text-slate-300 sm:col-span-2">Descrição
               <input required maxLength={240} className={input} value={description} onChange={e=>setDescription(e.target.value)} placeholder={action==='TRANSFER'?'Transferência entre contas':'Descreva a movimentação'}/>
             </label>
-            <label className="text-xs text-slate-300 sm:col-span-2">Categoria
-              <input maxLength={100} className={input} value={category} onChange={e=>setCategory(e.target.value)}/>
-            </label>
+            <div className="space-y-1 text-xs text-slate-300 sm:col-span-2">
+              <span className="block">Categoria</span>
+              <SelectOptionList
+                ariaLabel="Categoria"
+                value={categoryState.customMode ? '__custom__' : category}
+                placeholder="Selecione a categoria"
+                options={[
+                  ...categoryOptions.map((option) => ({ value: option, label: option })),
+                  { value: '__custom__', label: 'Outra categoria...' },
+                ]}
+                onChange={(selected) => dispatchCategory({type:'select',value:selected})}
+              />
+            </div>
+            {categoryState.customMode && <label className="text-xs text-slate-300 sm:col-span-2">Nome da categoria
+              <input required maxLength={100} className={input} value={category} onChange={e=>dispatchCategory({type:'type',value:e.target.value})} placeholder="Digite a categoria"/>
+            </label>}
           </div>
           {error && <p role="alert" className="rounded-lg border border-rose-700/50 p-3 text-xs text-rose-300">{error}</p>}
         </form>

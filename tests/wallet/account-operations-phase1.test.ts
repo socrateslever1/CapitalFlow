@@ -66,6 +66,28 @@ test('unified statement includes imports and hides the legacy invoice duplicate 
   assert.equal(entries[1]?.tag, 'Importado de PDF');
 });
 
+test('contract receipt, loan disbursement and capital transfer use short display labels without changing other descriptions', () => {
+  const base = {
+    from_account_id: null, to_account_id: 'account-1', amount: 90,
+    category: 'Recebimento de contrato', operation_date: '2026-11-17',
+    created_at: '2026-11-17T15:00:00Z', operation_type: 'RECEIPT',
+  };
+  const entries = buildAccountStatementEntries({
+    accountId: 'account-1', accounts: [{ id: 'account-1', nickname: 'Principal' }],
+    operations: [
+      { ...base, id: 'contract', contract_id: 'loan-1', description: 'Recebimento de contrato · Ewerton Almeida' },
+      { ...base, id: 'loan-out', contract_id: 'loan-2', operation_type: 'LOAN_DISBURSEMENT', from_account_id: 'account-1', to_account_id: null, description: 'Empréstimo concedido · Deyse' },
+      { ...base, id: 'cap-in', operation_type: 'CAPITAL_TRANSFER', description: 'Transferência de capital · C6' },
+      { ...base, id: 'manual', description: 'Recebimento de contrato · ajuste manual' },
+    ],
+    expenses: [], invoicePayments: [], statementRows: [],
+  });
+  assert.equal(entries.find(entry => entry.id === 'contract')?.label, 'Recebimento de Ewerton Almeida');
+  assert.equal(entries.find(entry => entry.id === 'loan-out')?.label, 'Empréstimo · Deyse');
+  assert.equal(entries.find(entry => entry.id === 'cap-in')?.label, 'Capital · C6');
+  assert.equal(entries.find(entry => entry.id === 'manual')?.label, 'Recebimento de contrato · ajuste manual');
+});
+
 test('open invoice options are grouped by card and due month using only pending balances', () => {
   const options = buildOpenInvoiceOptions(
     [{ id: 'card-1', nickname: 'Nubank' }],

@@ -11,7 +11,10 @@ test('quick receipt offers optional destination and confirms actual account befo
   assert.match(grid, /walletRepository\.loadOverview\(\)/);
   assert.match(grid, /Conta que recebeu o pagamento \(opcional\)/);
   assert.match(grid, /Fonte de destino para recebimento \(opcional\)/);
-  assert.match(selector, /Padrão \(fontes originais\)/);
+  assert.match(selector, /Sem seleção: mantém as fontes originais/);
+  assert.match(selector, /Sem seleção: nenhuma conta adicional/);
+  assert.equal((selector.match(/onClick=\{\(\) => onChange\(''\)\}/g) || []).length, 2);
+  assert.doesNotMatch(selector, /Padrão \(fontes originais\)/);
   assert.match(selector, /role="radiogroup"/);
   assert.match(selector, /BankLogo/);
   assert.match(grid, /receiptDestinationAccountId: walletReceiptAllowed/);

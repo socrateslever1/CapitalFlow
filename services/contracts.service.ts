@@ -735,7 +735,7 @@ export const contractsService = {
     });
 
     if (error) {
-       throw new Error(`Erro ao aplicar aporte: ${error.message}`);
+      throw new Error(`Erro ao aplicar aporte: ${error.message}`);
     }
     clearStableFinancialRequestKey(stableRequest.storageKey);
     return true;

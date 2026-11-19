@@ -97,7 +97,9 @@ test('contract receipts provide an optional destination without changing the def
   const statement=readFileSync('components/wallet/accountStatementDomain.ts','utf8');
   const selector=readFileSync('components/wallet/ReceiptDestinationSelector.tsx','utf8');
   assert.match(modal,/Conta que recebeu o pagamento/);
-  assert.match(selector,/Padrão \(fontes originais\)/);
+  assert.match(selector,/Sem seleção: mantém as fontes originais/);
+  assert.match(selector,/Sem seleção: nenhuma conta adicional/);
+  assert.doesNotMatch(selector,/Padrão \(fontes originais\)/);
   assert.match(modal,/Conta que recebeu o pagamento \(opcional\)/);
   assert.match(modal,/Fonte de destino para recebimento \(opcional\)/);
   assert.doesNotMatch(modal,/select required value=\{receiptDestinationAccountId\}/);

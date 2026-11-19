@@ -339,7 +339,7 @@ export const QuickWalletActionsModal: React.FC<QuickWalletActionsModalProps> = (
                 <span className="mb-1.5 block text-[10px] font-black uppercase tracking-wider text-slate-400">
                   1. Onde foi a despesa? (Cartão, Conta ou Carteira)
                 </span>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 max-h-44 overflow-y-auto pr-1">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {activeCards.map((card) => {
                     const pos = getCardCreditPosition(card, expenses, installments);
                     const valueKey = `card:${card.id}`;

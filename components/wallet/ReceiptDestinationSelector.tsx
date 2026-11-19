@@ -43,27 +43,13 @@ export const ReceiptSourceDestinationList: React.FC<SourceSelectorProps> = ({
     <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-3 space-y-2">
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs font-semibold text-slate-200">{label}</span>
+        {value && <button type="button" onClick={() => onChange('')} disabled={disabled}
+          className="inline-flex min-h-9 items-center gap-1 rounded-md px-2 text-[11px] font-semibold text-blue-300 hover:bg-blue-500/10 focus-visible:outline-2 focus-visible:outline-blue-400 disabled:opacity-50">
+          <RotateCcw size={13} /> Limpar
+        </button>}
       </div>
-      <div role="radiogroup" aria-label={label} className="grid max-h-40 gap-1.5 overflow-y-auto pr-0.5">
-        <button
-          type="button"
-          role="radio"
-          aria-checked={value === ''}
-          disabled={disabled}
-          onClick={() => onChange('')}
-          className={`flex min-h-9 w-full items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5 text-left text-xs transition-colors disabled:opacity-50 ${
-            value === ''
-              ? 'border-blue-500/70 bg-blue-500/15 text-white'
-              : 'border-slate-800 bg-slate-950/70 text-slate-300 hover:border-slate-700 hover:bg-slate-900'
-          }`}
-        >
-          <span className="flex min-w-0 items-center gap-2">
-            <RotateCcw size={14} className={value === '' ? 'shrink-0 text-blue-300' : 'shrink-0 text-slate-400'} />
-            <span className="truncate font-semibold">Padrão (fontes originais)</span>
-          </span>
-          {value === '' && <Check size={14} className="shrink-0 text-blue-300" />}
-        </button>
-
+      {!value && <p className="text-[11px] text-slate-400">Sem seleção: mantém as fontes originais.</p>}
+      <div role="radiogroup" aria-label={label} className="grid gap-1.5">
         {sources.map(source => {
           const selected = value === source.id;
           return (
@@ -125,27 +111,13 @@ export const ReceiptAccountDestinationList: React.FC<AccountSelectorProps> = ({
   <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-3 space-y-2">
     <div className="flex items-center justify-between gap-2">
       <span className="text-xs font-semibold text-slate-200">{label}</span>
+      {value && <button type="button" onClick={() => onChange('')} disabled={disabled}
+        className="inline-flex min-h-9 items-center gap-1 rounded-md px-2 text-[11px] font-semibold text-blue-300 hover:bg-blue-500/10 focus-visible:outline-2 focus-visible:outline-blue-400 disabled:opacity-50">
+        <RotateCcw size={13} /> Limpar
+      </button>}
     </div>
-    <div role="radiogroup" aria-label={label} className="grid max-h-40 gap-1.5 overflow-y-auto pr-0.5">
-      <button
-        type="button"
-        role="radio"
-        aria-checked={value === ''}
-        disabled={disabled}
-        onClick={() => onChange('')}
-        className={`flex min-h-9 w-full items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5 text-left text-xs transition-colors disabled:opacity-50 ${
-          value === ''
-            ? 'border-emerald-500/70 bg-emerald-500/15 text-white'
-            : 'border-slate-800 bg-slate-950/70 text-slate-300 hover:border-slate-700 hover:bg-slate-900'
-        }`}
-      >
-        <span className="flex min-w-0 items-center gap-2">
-          <RotateCcw size={14} className={value === '' ? 'shrink-0 text-emerald-300' : 'shrink-0 text-slate-400'} />
-          <span className="truncate font-semibold">Padrão (fontes originais)</span>
-        </span>
-        {value === '' && <Check size={14} className="shrink-0 text-emerald-300" />}
-      </button>
-
+    {!value && <p className="text-[11px] text-slate-400">Sem seleção: nenhuma conta adicional.</p>}
+    <div role="radiogroup" aria-label={label} className="grid gap-1.5">
       {accounts.map(account => {
         const selected = value === account.id;
         const isCash = account.account_type === 'CASH';
@@ -159,7 +131,7 @@ export const ReceiptAccountDestinationList: React.FC<AccountSelectorProps> = ({
             onClick={() => onChange(account.id)}
             className={`flex min-h-9 w-full items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5 text-left text-xs transition-colors disabled:opacity-50 ${
               selected
-                ? 'border-emerald-500/70 bg-emerald-500/15 text-white'
+                ? 'border-blue-500/70 bg-blue-500/15 text-white'
                 : 'border-slate-800 bg-slate-950/70 text-slate-200 hover:border-slate-700 hover:bg-slate-900'
             }`}
           >
@@ -180,7 +152,7 @@ export const ReceiptAccountDestinationList: React.FC<AccountSelectorProps> = ({
               <span className="tabular-nums text-[11px] font-semibold text-emerald-300">
                 {formatMoney(account.balance, isStealthMode)}
               </span>
-              {selected && <Check size={14} className="text-emerald-300" />}
+              {selected && <Check size={14} className="text-blue-300" />}
             </span>
           </button>
         );

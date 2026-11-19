@@ -48,6 +48,8 @@ O contrato de qualidade e as invariantes obrigatórias estão em [`docs/QUALITY.
 
 ## Produção
 
+Acompanhe as mudanças entregues, os arquivos afetados e o estado de cada publicação no [changelog](CHANGELOG.md).
+
 A branch `main` é protegida por Quality Gates executados também em `push`. Um deploy só deve ser considerado validado depois que build, invariantes financeiras, arquitetura e smoke aplicáveis tiverem sido verificados.
 
 Operações financeiras históricas que dependam de interpretação humana não devem ser corrigidas automaticamente apenas para eliminar divergências de relatório. Elas devem permanecer identificadas para reconciliação auditada.

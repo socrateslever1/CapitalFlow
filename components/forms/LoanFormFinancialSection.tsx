@@ -12,8 +12,9 @@ import { personalWalletService } from '../../services/personalWallet.service';
 import { buildSourceReferenceDisplay } from '../../domain/sources/sourceReferenceDisplay';
 import type { WalletReference } from '../../domain/sources/sourceWalletReference';
 import { deriveFundingValues, FundingCalculationMode } from '../../domain/finance/installmentFunding';
+import { usesSingleCardSource } from '../../features/loans/domain/cardFundingSource';
 
-const MULTI_SOURCE_CREATION_ENABLED = true;
+const MULTI_SOURCE_CREATION_ENABLED = false;
 
 const parseFundingInput = (value: unknown) => parseFloat(String(value || '').replace(',', '.')) || 0;
 const formatMoneyInput = (value: number) => value.toFixed(2);
@@ -72,7 +73,7 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
   const [editingCustomerInstallment, setEditingCustomerInstallment] = useState(false);
   const [customerInstallmentDraft, setCustomerInstallmentDraft] = useState('');
   // Crédito do cartão é informativo: nunca sobrescrever fontes.balance nem inferir disponibilidade.
-  const [cardCreditBySource, setCardCreditBySource] = useState<Record<string, { amount: number | null; cardCount: number }>>({});
+  const [cardCreditBySource, setCardCreditBySource] = useState<Record<string, { amount: number | null; cardCount: number; linkCount: number }>>({});
   const [cardCreditStatus, setCardCreditStatus] = useState<'loading' | 'ready' | 'restricted' | 'error'>('loading');
   const cardSourceIds = sources.filter(source => source.type === 'CARD' || source.type === 'MISTO').map(source => source.id);
   const cardSourceIdsKey = [...cardSourceIds].sort().join(',');
@@ -102,17 +103,18 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
         if (result.error) throw result.error;
         if (!active) return;
         const links = (result.data || []) as WalletReference[];
-        const positions: Record<string, { amount: number | null; cardCount: number }> = {};
+        const positions: Record<string, { amount: number | null; cardCount: number; linkCount: number }> = {};
         for (const id of ids) {
           const display = buildSourceReferenceDisplay(
             links.filter(link => link.source_id === id), wallet.accounts, wallet.cards,
           );
           const cardEntries = display?.entries.filter(entry => entry.kind === 'CARD') || [];
-          if (!cardEntries.length) continue;
+          if (!display) continue;
           const allAvailable = cardEntries.every(entry => entry.available !== null);
           positions[id] = {
             cardCount: cardEntries.length,
-            amount: allAvailable
+            linkCount: display.entries.length,
+            amount: display.entries.length === 1 && cardEntries.length === 1 && allAvailable
               ? Math.round(cardEntries.reduce((total, entry) => total + (entry.available ?? 0), 0) * 100) / 100
               : null,
           };
@@ -142,6 +144,7 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
   const selectedCardCredit = selectedSource ? cardCreditBySource[selectedSource.id] : undefined;
   const isInstallmentFixed = formData.billingCycle === 'INSTALLMENT_FIXED';
   const fundingPaymentMethod = formData.fundingPaymentMethod || 'CREDIT_CARD';
+  const chargesLinkedCard = usesSingleCardSource(selectedSource?.type, fundingPaymentMethod, formData.fundingAllocations?.length || 0);
   const interestFreeInstallment = isInstallmentFixed && formData.interestFreeInstallment === true;
   const supportsCollectionDays = isDailyModality || formData.billingCycle === 'WEEKLY';
   const collectionDaysMode = normalizeCollectionDaysMode(formData.collectionDaysMode, !!formData.skipWeekends);
@@ -454,13 +457,19 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
                     const linked = cardCreditBySource[source.id];
                     const detail = isCard && linked?.amount != null
                       ? { label: 'Crédito disponível', value: formatMoney(linked.amount) }
-                      : isCard && cardCreditStatus === 'loading'
-                        ? { label: 'Crédito', value: 'Consultando…' }
-                        : isCard && cardCreditStatus === 'error'
-                          ? { label: 'Crédito', value: 'Indisponível' }
-                          : isCard && linked?.cardCount
-                            ? { label: 'Crédito', value: 'Não confirmado' }
-                            : { label: 'Saldo da fonte', value: formatMoney(source.balance) };
+                      : isCard && linked?.linkCount > 1
+                        ? { label: 'Vínculo', value: 'Revise os vínculos' }
+                        : isCard && cardCreditStatus === 'loading'
+                          ? { label: 'Crédito', value: 'Consultando…' }
+                          : isCard && cardCreditStatus === 'restricted'
+                            ? { label: 'Crédito', value: 'Sem permissão' }
+                            : isCard && cardCreditStatus === 'error'
+                              ? { label: 'Crédito', value: 'Indisponível' }
+                              : isCard && linked?.cardCount
+                                ? { label: 'Crédito', value: 'Não confirmado' }
+                                : isCard && cardCreditStatus === 'ready'
+                                  ? { label: 'Cartão', value: 'Sem cartão' }
+                                  : { label: 'Saldo da fonte', value: formatMoney(source.balance) };
                     const Icon = isCard ? CreditCard : Landmark;
                     return {
                       value: source.id,
@@ -480,6 +489,8 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
                         ...current,
                         sourceId: index === 0 ? selectedId : current.sourceId,
                         fundingAllocations: next,
+                        ...(index === 0 && chosen?.type === 'CARD' ? { fundingPaymentMethod: 'CREDIT_CARD' } : {}),
+                        ...(index === 0 && !cardOrigin ? { fundingPaymentMethod: 'BANK_ACCOUNT_DEBIT' } : {}),
                         ...(index === 0 && !cardOrigin && current.billingCycle !== 'INSTALLMENT_FIXED'
                           ? { fundingTotalPayable: '', fundingFeePercent: '' } : {}),
                       };
@@ -500,13 +511,16 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
             <strong className="block">
               {selectedCardCredit?.amount != null
                 ? 'Crédito disponível no cartão vinculado: ' + formatMoney(selectedCardCredit.amount)
+                : selectedCardCredit?.linkCount > 1 ? 'Esta fonte tem vários vínculos. Mantenha exatamente um cartão para financiar o contrato.'
                 : cardCreditStatus === 'loading' ? 'Consultando crédito do cartão…'
                   : cardCreditStatus === 'restricted' ? 'Consulta de crédito não autorizada neste perfil.'
                     : cardCreditStatus === 'error' ? 'Não foi possível consultar o crédito. Atualize os dados antes de decidir.'
                       : selectedCardCredit?.cardCount ? 'Crédito vinculado indisponível ou não confirmado.'
                         : 'Nenhum cartão da Minha Carteira vinculado a esta fonte.'}
             </strong>
-            <p className="mt-1 text-[11px] leading-relaxed text-slate-300">Saldo operacional da fonte: {formatMoney(selectedSource?.balance)}. O crédito exibido é informativo; registrar o empréstimo na fonte não debita automaticamente o limite bancário do cartão.</p>
+            <p className="mt-1 text-[11px] leading-relaxed text-slate-300">Saldo operacional da fonte: {formatMoney(selectedSource?.balance)}. {chargesLinkedCard
+              ? 'O total financiado será lançado no cartão vinculado e consumirá o crédito disponível após a confirmação.'
+              : 'O método selecionado usa o saldo da fonte; o crédito do cartão vinculado não financia este contrato.'}</p>
           </div>}
           {!hasMultipleSources && !isCardSource && <p className="ml-2 text-[10px] text-slate-500">O valor do contrato será retirado desta fonte, mesmo que o saldo fique negativo.</p>}
           {hasMultipleSources && <div className={`rounded-lg border p-3 text-[10px] font-black uppercase ${Math.abs(distributedTotal - principalValue) < 0.005 ? 'border-emerald-500/30 bg-emerald-950/20 text-emerald-300' : 'border-amber-500/30 bg-amber-950/20 text-amber-300'}`}>Distribuído: R$ {distributedTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} · Capital: R$ {principalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} · {Math.abs(distributedTotal - principalValue) < 0.005 ? 'Fechado' : 'Ajuste os valores'}</div>}
@@ -521,11 +535,13 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
                 { value: 'BANK_ACCOUNT_DEBIT', label: 'Débito em conta', icon: Landmark },
               ].map(({ value, label, icon: Icon }) => {
                 const selected = fundingPaymentMethod === value;
+                const disabled = value === 'BANK_ACCOUNT_DEBIT' && selectedSource?.type === 'CARD';
                 return (
                   <button
                     key={value}
                     type="button"
                     aria-pressed={selected}
+                    disabled={disabled}
                     onClick={() => setFormData((current: any) => ({
                       ...current,
                       fundingPaymentMethod: value,
@@ -538,7 +554,7 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
                         fundingOperatorAbsorbsInterest: current.interestFreeInstallment === true ? true : false,
                       }),
                     }))}
-                    className={`flex min-h-10 items-center justify-center gap-2 rounded-md border px-2 text-[9px] font-black transition-colors ${selected ? 'border-blue-400/50 bg-blue-500/15 text-white' : 'border-transparent text-slate-500 hover:text-slate-200'}`}
+                    className={`flex min-h-10 items-center justify-center gap-2 rounded-md border px-2 text-[9px] font-black transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${selected ? 'border-blue-400/50 bg-blue-500/15 text-white' : 'border-transparent text-slate-500 hover:text-slate-200'}`}
                   >
                     <Icon size={14} /> {label}
                   </button>

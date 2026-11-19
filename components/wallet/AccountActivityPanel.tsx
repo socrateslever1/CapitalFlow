@@ -9,6 +9,7 @@ import { WalletStatementImport } from './WalletStatementImport';
 import { buildAccountStatementEntries } from './accountStatementDomain';
 import { Modal, modalPrimaryActionClass } from '../ui/Modal';
 import { SelectOptionList } from '../ui/SelectOptionList';
+import { notifyFinancialDataChanged } from '../../utils/appSyncEvents';
 import { accountCategoryReducer, initialAccountCategorySelection } from './accountCategorySelection';
 
 type Props = {
@@ -86,6 +87,7 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
         type:action,fromAccountId:fromAccount,toAccountId:toAccount,
         amount:parsedAmount,description,category,date,requestId:transactionRef.current.id,
       });
+      notifyFinancialDataChanged({ wallet: true, capital: Boolean(account.capital_source_id) });
       await onSaved();
       transactionRef.current={signature:'',id:generateUUID()};
       clear();
@@ -105,6 +107,7 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
     setOpeningSaving(true);setError('');setSuccess('');
     try{
       await personalWalletService.initializeAccountOpening({accountId:account.id,amount:value,occurredAt,requestId:openingRef.current.id});
+      notifyFinancialDataChanged({ wallet: true, capital: Boolean(account.capital_source_id) });
       await onSaved();
       openingRef.current={signature:'',id:generateUUID()};setOpeningAmount('');setOpeningModalOpen(false);
       setSuccess('Saldo inicial registrado de forma auditável.');
@@ -117,6 +120,7 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
     setError(''); setSuccess('');
     try {
       await personalWalletService.voidManualAccountOperation(operation.id);
+      notifyFinancialDataChanged({ wallet: true, capital: Boolean(account.capital_source_id) });
       await onSaved();
       setVoidTarget(null);
       setSuccess('Lançamento excluído do extrato e saldo corrigido. Histórico de auditoria preservado.');

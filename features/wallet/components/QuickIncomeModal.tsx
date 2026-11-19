@@ -12,6 +12,7 @@ import { useFinancialPrivacy } from '../../../contexts/FinancialPrivacyContext';
 import { useModal } from '../../../contexts/ModalContext';
 import { FinancialCalculatorInput } from '../../../components/forms/FinancialCalculatorInput';
 import { SelectOptionList } from '../../../components/ui/SelectOptionList';
+import { notifyFinancialDataChanged } from '../../../utils/appSyncEvents';
 import { businessDateInManaus } from '../../../utils/businessDate';
 
 type ReceiveMode = 'COMMON' | 'CLIENT';
@@ -46,7 +47,7 @@ const OrdinaryReceipt: React.FC<{ onClose: () => void }> = ({ onClose }) => {
       setError('');
       setSaving(true);
       await personalWalletService.recordAccountOperation(operation);
-      window.dispatchEvent(new Event('capitalflow:wallet-updated'));
+      notifyFinancialDataChanged({ wallet: true, capital: Boolean(selectedAccount?.capital_source_id) });
       try { await refresh(); } catch { /* The operation already committed; avoid retrying it. */ }
       onClose();
     } catch (cause) {

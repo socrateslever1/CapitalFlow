@@ -11,6 +11,7 @@ import type { Loan, UserProfile, CapitalSource, Client, LedgerEntry } from '../.
 import { isCapitalOnlyRecoveryLoan, withCapitalOnlyRecoveryState } from '../../utils/capitalOnlyRecovery';
 import { markDeletedContract, markDeletedContracts } from '../../services/deletedContracts.service';
 import { validateArchiveClassification } from '../../domain/credit/archivePolicy';
+import { notifyWalletUpdated } from '../../utils/appSyncEvents';
 
 const isUUID = (v: any) =>
   typeof v === 'string' &&
@@ -141,6 +142,7 @@ export const useLoanController = (
     }
 
     // A persistência terminou; erro na sincronização da lista não desfaz a gravação.
+    notifyWalletUpdated();
     showToast(ui.editingLoan ? 'Contrato atualizado!' : 'Contrato salvo!', 'success');
     ui.closeModal();
     ui.setEditingLoan(null);

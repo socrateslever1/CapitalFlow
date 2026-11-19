@@ -94,7 +94,7 @@ test('fontes com cartão exibem crédito real sem reclassificar saldo contábil'
   assert.match(section, /buildSourceReferenceDisplay/);
   assert.match(section, /Crédito disponível no cartão vinculado/);
   assert.match(section, /Saldo operacional da fonte/);
-  assert.match(section, /não debita automaticamente o limite bancário/);
+  assert.match(section, /O total financiado será lançado no cartão vinculado e consumirá o crédito disponível/);
   const source = { balance: 0 };
   const cards = [{ id: 'card-nu', nickname: 'Nu', status: 'ACTIVE', available_limit: 6982.5 }];
   const display = buildSourceReferenceDisplay(

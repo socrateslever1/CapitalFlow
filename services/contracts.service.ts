@@ -7,6 +7,7 @@ import { clearStableFinancialRequestKey, getStableFinancialRequestKey } from './
 import { validateFundingAllocations } from '../domain/finance/fundingAllocations';
 import { calculateAdditionalCapital, canReceiveCapitalAdvance } from '../domain/finance/capitalAdvance';
 import { adjustSourceBalanceSafe } from './payments/paymentWallets';
+import { checkLinkedCardFunding, usesSingleCardSource } from '../features/loans/domain/cardFundingSource';
 
 /* =========================
    Helpers de Sanitização
@@ -358,13 +359,11 @@ export const contractsService = {
 
     const selectedSource = _sources.find(source => safeUUID(source.id) === safeUUID(loan.sourceId));
     const hasExplicitMultiSourceAllocations = !editingLoan && Array.isArray(loan.fundingAllocations) && loan.fundingAllocations.length > 1;
-    const isCardOnlySource = String(selectedSource?.type || '').toUpperCase() === 'CARD';
-    const isCardFundedLoan = !editingLoan
-      && !hasExplicitMultiSourceAllocations
-      && (
-        isCardOnlySource
-        || (String(selectedSource?.type || '').toUpperCase() === 'MISTO' && loan.fundingPaymentMethod === 'CREDIT_CARD')
-      );
+    const isCardFundedLoan = !editingLoan && usesSingleCardSource(
+      selectedSource?.type,
+      loan.fundingPaymentMethod,
+      loan.fundingAllocations?.length || 0,
+    );
 
     if (editingLoan) {
       await runContractMutationWithSchemaFallback(loanPayload, (payload) =>
@@ -552,6 +551,23 @@ export const contractsService = {
           }
           existingCardLoan = true;
         }
+      }
+      if (isCardFundedLoan && !existingCardLoan && !options?.skipTransaction) {
+        const { data: links, error: linksError } = await supabase.from('capital_source_wallet_references')
+          .select('target_kind,target_id').eq('source_id', safeUUID(loan.sourceId));
+        if (linksError) throw new Error('Não foi possível conferir o cartão vinculado. Atualize a Carteira e tente novamente.');
+        const cardLink = links?.length === 1 && links[0].target_kind === 'CARD' ? links[0] : null;
+        let card: { status: string; credit_limit: number; used_limit: number } | null = null;
+        if (cardLink) {
+          const { data, error } = await supabase.from('personal_wallet_cards')
+            .select('status,credit_limit,used_limit').eq('id', cardLink.target_id).maybeSingle();
+          if (error) throw new Error('Não foi possível conferir o cartão vinculado. Atualize a Carteira e tente novamente.');
+          card = data;
+        }
+        const issue = checkLinkedCardFunding(links || [], card, safeFloat(loan.fundingTotalPayable) || safeFloat(loan.principal));
+        if (issue === 'LINK') throw new Error('Vincule exatamente um cartão da Carteira à fonte antes de emitir o contrato.');
+        if (issue === 'CARD') throw new Error('O cartão vinculado está indisponível. Ative-o ou escolha outra fonte.');
+        if (issue === 'LIMIT') throw new Error('Crédito disponível insuficiente para o total financiado. Confira o limite do cartão.');
       }
       if (!existingCardLoan) {
         await runContractMutationWithSchemaFallback({

@@ -35,6 +35,10 @@ export function formatContractSaveError(error: unknown): string {
   const userMessages = [
     'Selecione uma fonte de capital',
     'A fonte de capital selecionada',
+    'Não foi possível conferir o cartão vinculado',
+    'Vincule exatamente um cartão',
+    'O cartão vinculado está indisponível',
+    'Crédito disponível insuficiente',
     'Cliente marcado como Somente Capital',
     'Há uma pendência de pagamento',
     'Há contrato arquivado',

@@ -9,6 +9,7 @@ import {Modal,modalPrimaryActionClass} from '../ui/Modal';
 import {CardVaultModal} from './CardVaultModal';
 import {FinancialCalculatorInput} from '../forms/FinancialCalculatorInput';
 import {SelectOptionList} from '../ui/SelectOptionList';
+import {notifyFinancialDataChanged} from '../../utils/appSyncEvents';
 type Props={card:PersonalWalletCard;accounts:PersonalWalletAccount[];onClose:()=>void;onSaved:()=>Promise<void>};
 const field='mt-1 min-h-12 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white';
 export const CardEditModal:React.FC<Props>=({card,accounts,onClose,onSaved})=>{
@@ -37,7 +38,7 @@ export const CardEditModal:React.FC<Props>=({card,accounts,onClose,onSaved})=>{
     credit_limit:limit,closing_day:form.closing_day?Number(form.closing_day):null,
     due_day:form.due_day?Number(form.due_day):null,status:form.status as 'ACTIVE'|'BLOCKED'|'CANCELED',primary_color:form.primary_color
    });
-   await onSaved();onClose();
+   notifyFinancialDataChanged({wallet:true,sourceOrigins:true});await onSaved();onClose();
  }catch(reason){setError(reason instanceof Error?reason.message:'Erro ao salvar');}
  finally{setSaving(false);}
  };

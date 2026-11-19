@@ -9,6 +9,7 @@ import { isTestSource } from '../../../utils/testSource';
 import { validateLoanForm } from '../domain/loanForm.validators';
 import { mapFormToLoan } from '../domain/loanForm.mapper';
 import { normalizeOptionalCardFunding } from '../domain/optionalCardFunding';
+import { usesSingleCardSource } from '../domain/cardFundingSource';
 import { formatContractSaveError } from '../domain/contractSaveError';
 import { addDaysUTC, addMonthsUTC, toISODateOnlyUTC } from '../../../utils/dateHelpers';
 import { calculateAdditionalCapital, isPrincipalReduction } from '../../../domain/finance/capitalAdvance';
@@ -240,10 +241,16 @@ export const useLoanForm = ({ onAdd, initialData, clients, sources, userProfile 
     }
 
     if (formData.sourceId && !initialData) {
-        const selectedSource = sources.find(s => s.id === formData.sourceId);
-        if (selectedSource && !isTestSource(selectedSource) && parseFloat(formData.principal) > selectedSource.balance) {
-            const diff = parseFloat(formData.principal) - selectedSource.balance;
-            if(!window.confirm(`AVISO CONTÁBIL:\n\nO valor do empréstimo (R$ ${parseFloat(formData.principal).toLocaleString()}) é maior que o saldo na carteira ${selectedSource.name} (R$ ${selectedSource.balance.toLocaleString()}).\n\nIsso deixará a carteira NEGATIVA em R$ -${diff.toLocaleString()}.\n\nDeseja confirmar esta saída de caixa?`)) return;
+        const selectedSource = sources.find(source => source.id === formData.sourceId);
+        const cardFunded = usesSingleCardSource(
+            selectedSource?.type,
+            formData.fundingPaymentMethod,
+            formData.fundingAllocations?.length || 0,
+        );
+        if (selectedSource && !cardFunded && !isTestSource(selectedSource) && requestedPrincipal > selectedSource.balance) {
+            const money = (value: number) => value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            const deficit = requestedPrincipal - selectedSource.balance;
+            if (!window.confirm(`AVISO CONTÁBIL:\n\nO valor do empréstimo (R$ ${money(requestedPrincipal)}) é maior que o saldo na fonte ${selectedSource.name} (R$ ${money(selectedSource.balance)}).\n\nIsso deixará a fonte com saldo negativo de R$ -${money(deficit)}.\n\nDeseja confirmar esta saída de caixa?`)) return;
         }
     }
 

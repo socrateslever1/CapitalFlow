@@ -163,6 +163,7 @@ export const SourceWalletReferencePanel: React.FC<Props> = ({ sources, activeUse
       window.dispatchEvent(new CustomEvent('capitalflow:source-origins-updated', {
         detail: { sourceId: source.id },
       }));
+      window.dispatchEvent(new Event('capitalflow:wallet-updated'));
       setMessage('Origens confirmadas e salvas.');
       return true;
     } catch (cause) {

@@ -3,6 +3,9 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { mapFormToLoan } from '../../features/loans/domain/loanForm.mapper';
 import type { LoanFormState } from '../../features/loans/domain/loanForm.mapper';
+import { checkLinkedCardFunding, usesSingleCardSource } from '../../features/loans/domain/cardFundingSource';
+import { validateLoanForm } from '../../features/loans/domain/loanForm.validators';
+import { formatContractSaveError } from '../../features/loans/domain/contractSaveError';
 
 const buildBaseForm = (overrides: Partial<LoanFormState> = {}): LoanFormState => ({
   clientId: 'client-1',
@@ -77,12 +80,52 @@ test('empréstimo mensal comum com fonte cartão mantém método CREDIT_CARD e d
   assert.doesNotMatch(formSource, /fundingInstallmentsCount:\s*'10'/);
   assert.doesNotMatch(sectionSource, /fundingInstallmentsCount:\s*formData\.fundingInstallmentsCount\s*\|\|\s*'10'/);
 
-  // Criação com múltiplas fontes (composição conta + cartão) habilitada
-  assert.match(sectionSource, /const MULTI_SOURCE_CREATION_ENABLED = true;/);
+  // O serviço ainda bloqueia a criação por várias fontes; o formulário não oferece um caminho sem saída.
+  assert.match(sectionSource, /const MULTI_SOURCE_CREATION_ENABLED = false;/);
 });
 
 test('contracts.service suporta composição explícita de fontes via RPC atômica e respeita origem cartão fora de INSTALLMENT_FIXED', () => {
   const contractsSource = readFileSync('services/contracts.service.ts', 'utf8');
   assert.match(contractsSource, /finalize_loan_funding_allocations_v1/);
-  assert.match(contractsSource, /isCardOnlySource/);
+  assert.match(contractsSource, /usesSingleCardSource/);
+});
+
+test('aviso de caixa não se aplica ao financiamento integral por cartão', () => {
+  assert.equal(usesSingleCardSource('CARD', 'CREDIT_CARD', 1), true);
+  assert.equal(usesSingleCardSource('CARD', undefined, 1), true);
+  assert.equal(usesSingleCardSource('MISTO', 'CREDIT_CARD', 1), true);
+  assert.equal(usesSingleCardSource('MISTO', 'BANK_ACCOUNT_DEBIT', 1), false);
+  assert.equal(usesSingleCardSource('BANK', 'CREDIT_CARD', 1), false);
+  assert.equal(usesSingleCardSource('CARD', 'CREDIT_CARD', 2), false);
+  const formSource = readFileSync('features/loans/hooks/useLoanForm.ts', 'utf8');
+  assert.match(formSource, /!cardFunded && !isTestSource\(selectedSource\)/);
+});
+
+test('fonte somente cartão não aceita débito em conta', () => {
+  const form = buildBaseForm({ debtorDocument: '12345678909', fundingPaymentMethod: 'BANK_ACCOUNT_DEBIT' });
+  const source = { id: form.sourceId, type: 'CARD', balance: 0 } as any;
+  assert.match(validateLoanForm(form, [source], false).error || '', /fonte selecionada é um cartão/);
+  assert.doesNotMatch(validateLoanForm({ ...form, fundingPaymentMethod: 'CREDIT_CARD' }, [source], false).error || '', /fonte selecionada é um cartão/);
+});
+
+test('formulário bloqueia composição por várias fontes antes da confirmação de caixa', () => {
+  const form = buildBaseForm({ debtorDocument: '12345678909', fundingAllocations: [
+    { sourceId: 'source-card-nu', amount: '300' },
+    { sourceId: 'source-bank', amount: '400' },
+  ] });
+  assert.match(validateLoanForm(form, [], false).error || '', /composição por várias fontes está temporariamente indisponível/);
+});
+
+test('vínculo e crédito são conferidos antes de gravar um novo contrato no cartão', () => {
+  const link = [{ target_kind: 'CARD', target_id: 'card-1' }];
+  const card = { status: 'ACTIVE', credit_limit: 8177, used_limit: 6114.27 };
+  assert.equal(checkLinkedCardFunding(link, card, 524.95), null);
+  assert.equal(checkLinkedCardFunding([], card, 524.95), 'LINK');
+  assert.equal(checkLinkedCardFunding([...link, ...link], card, 524.95), 'LINK');
+  assert.equal(checkLinkedCardFunding(link, { ...card, status: 'BLOCKED' }, 524.95), 'CARD');
+  assert.equal(checkLinkedCardFunding(link, card, 2062.74), 'LIMIT');
+  assert.equal(formatContractSaveError(new Error('Crédito disponível insuficiente para o total financiado. Confira o limite do cartão.')),
+    'Crédito disponível insuficiente para o total financiado. Confira o limite do cartão.');
+  const serviceSource = readFileSync('services/contracts.service.ts', 'utf8');
+  assert.match(serviceSource, /isCardFundedLoan && !existingCardLoan && !options\?\.skipTransaction/);
 });

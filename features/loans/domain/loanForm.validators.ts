@@ -69,6 +69,13 @@ export const validateLoanForm = (
   if (!formData.sourceId) {
     return { isValid: false, error: "Erro: A Carteira de Origem é obrigatória." };
   }
+  if (!isEditing && (formData.fundingAllocations?.length || 0) > 1) {
+    return { isValid: false, error: 'A composição por várias fontes está temporariamente indisponível. Selecione uma única fonte para emitir o contrato.' };
+  }
+  const selectedSource = sources.find(source => source.id === formData.sourceId);
+  if (!isEditing && selectedSource?.type === 'CARD' && formData.fundingPaymentMethod === 'BANK_ACCOUNT_DEBIT') {
+    return { isValid: false, error: 'A fonte selecionada é um cartão. Escolha pagamento no cartão ou outra fonte para débito em conta.' };
+  }
 
   // A taxa/custo do cartão é opcional: campo vazio equivale a custo zero.
   // Quando houver um total informado, ele nunca pode ser inferior ao capital.

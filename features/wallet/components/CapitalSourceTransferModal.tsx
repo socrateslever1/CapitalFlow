@@ -10,6 +10,7 @@ import { FinancialCalculatorInput } from '../../../components/forms/FinancialCal
 import { Modal } from '../../../components/ui/Modal';
 import { SelectOptionList } from '../../../components/ui/SelectOptionList';
 import { canMoveCapitalSource, getMovableCapitalTotal, validateCapitalMovement } from '../domain/capitalSourceTransfer';
+import { notifyFinancialDataChanged } from '../../../utils/appSyncEvents';
 
 type Props = {
   profileId: string;
@@ -98,8 +99,7 @@ export const CapitalSourceTransferModal: React.FC<Props> = ({
       await personalWalletService.transferCapitalSourceToAccount({
         profileId, sourceId, accountId, amount, requestId: requestId.current,
       });
-      window.dispatchEvent(new Event('capitalflow:wallet-updated'));
-      window.dispatchEvent(new Event('capitalflow:source-origins-updated'));
+      notifyFinancialDataChanged({ wallet: true, capital: true, sourceOrigins: true });
       await onSaved();
       onClose();
     } catch (cause) {

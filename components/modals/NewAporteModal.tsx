@@ -8,6 +8,7 @@ import { Loan, UserProfile, CapitalSource, Installment } from '../../types';
 import { contractsService } from '../../services/contracts.service';
 import { formatMoney, cleanNumberStr, parseCurrency } from '../../utils/formatters';
 import { canReceiveCapitalAdvance } from '../../domain/finance/capitalAdvance';
+import { notifyFinancialDataChanged } from '../../utils/appSyncEvents';
 
 type Props = {
   open: boolean;
@@ -100,6 +101,7 @@ export const NewAporteModal: React.FC<Props> = ({
         activeUser,
       });
 
+      notifyFinancialDataChanged({ wallet: true, capital: true });
       await onSuccess?.();
       setLoading(false);
       onClose();

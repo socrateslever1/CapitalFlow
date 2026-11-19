@@ -13,6 +13,7 @@ import { generateUUID } from '../../utils/generators';
 import { parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
 import { FinancialCalculatorInput } from '../forms/FinancialCalculatorInput';
 import { SelectOptionList } from '../ui/SelectOptionList';
+import { notifyFinancialDataChanged } from '../../utils/appSyncEvents';
 import { useModal } from '../../contexts/ModalContext';
 import {
   DEFAULT_EXPENSE_CATEGORIES,
@@ -282,7 +283,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
       }
 
       setPersisted(true);
-      window.dispatchEvent(new Event('capitalflow:wallet-updated'));
+      notifyFinancialDataChanged({ wallet: true, capital: paymentMode === 'ACCOUNT' });
       try {
         await onSaved();
       } catch {

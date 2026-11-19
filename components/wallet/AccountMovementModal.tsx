@@ -11,6 +11,7 @@ import { formatMoney } from '../../utils/formatters';
 import { generateUUID } from '../../utils/generators';
 import { Modal } from '../ui/Modal';
 import { SelectOptionList } from '../ui/SelectOptionList';
+import { notifyFinancialDataChanged } from '../../utils/appSyncEvents';
 import { buildOpenInvoiceOptions } from './accountStatementDomain';
 import { parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
 import { getQuickDateTag, resolveQuickDateShortcuts } from '../../features/wallet/utils/minhasFinancasWalletTools';
@@ -118,6 +119,7 @@ export const AccountMovementModal: React.FC<Props> = ({
         );
         setSuccess('Pagamento da fatura registrado e limite atualizado.');
       }
+      notifyFinancialDataChanged({ wallet: true, capital: true });
       await onSaved();
       resetRequest();
       setAmount(''); setDescription('');

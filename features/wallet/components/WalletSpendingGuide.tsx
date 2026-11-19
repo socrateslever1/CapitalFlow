@@ -97,6 +97,23 @@ export const WalletSpendingGuide: React.FC<{
             Ainda não há despesas cadastradas neste mês para distribuir por categoria.
           </p>
         )}
+        {spending.count > 0 && spending.byMethod && (
+          <div className="mt-4 grid grid-cols-2 gap-2 rounded-lg border border-slate-800 bg-slate-950/60 p-2.5 text-[11px]">
+            <div>
+              <span className="block text-slate-400">Como gastou</span>
+              <span className="mt-0.5 block font-semibold tabular-nums text-slate-100">
+                Cartão {spending.byMethod.cardPercentage}% · Conta {spending.byMethod.accountPercentage}%
+              </span>
+            </div>
+            <div className="text-right">
+              <span className="block text-slate-400">Forma de compra</span>
+              <span className="mt-0.5 block font-semibold tabular-nums text-slate-100">
+                À vista {formatMoney(spending.byMethod.singleAmount)}
+                {spending.byMethod.installmentCount > 0 ? ` · Compras parceladas ${formatMoney(spending.byMethod.installmentAmount)} (valor original)` : ''}
+              </span>
+            </div>
+          </div>
+        )}
         <p className="mt-3 text-[11px] text-slate-500">
           Valores originais lançados no mês · não equivale à fatura nem ao valor pago.
         </p>

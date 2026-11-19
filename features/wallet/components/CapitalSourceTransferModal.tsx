@@ -8,6 +8,7 @@ import { generateUUID } from '../../../utils/generators';
 import { parseWalletMoney } from '../utils/parseWalletMoney';
 import { FinancialCalculatorInput } from '../../../components/forms/FinancialCalculatorInput';
 import { Modal } from '../../../components/ui/Modal';
+import { SelectOptionList } from '../../../components/ui/SelectOptionList';
 import { canMoveCapitalSource, getMovableCapitalTotal, validateCapitalMovement } from '../domain/capitalSourceTransfer';
 
 type Props = {
@@ -121,22 +122,36 @@ export const CapitalSourceTransferModal: React.FC<Props> = ({
           <p className="text-xs text-slate-400">Capital operacional transferível, sem cartões ou contas espelho</p>
           <strong className="mt-1 block text-xl font-bold tabular-nums text-emerald-300">{formatMoney(getMovableCapitalTotal(sources,destinationAccounts))}</strong>
         </div>
-        <label className="block space-y-1.5 text-sm font-medium text-slate-200">
-          Fonte de origem
-          <select value={sourceId} onChange={event => { setSourceId(event.target.value); clearRequest(); }}
-            className="min-h-12 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
-            <option value="">Selecione a fonte</option>
-            {eligible.map(item => <option key={item.id} value={item.id}>{item.name} · {formatMoney(Number(item.balance))}</option>)}
-          </select>
-        </label>
-        <label className="block space-y-1.5 text-sm font-medium text-slate-200">
-          Conta de destino
-          <select value={accountId} onChange={event => { setAccountId(event.target.value); clearRequest(); }}
-            className="min-h-12 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
-            <option value="">Selecione a conta</option>
-            {destinationAccounts.map(item => <option key={item.id} value={item.id}>{item.nickname} · {formatMoney(Number(item.balance))}</option>)}
-          </select>
-        </label>
+        <div className="block space-y-1.5 text-sm font-medium text-slate-200">
+          <span className="block">Fonte de origem</span>
+          <SelectOptionList
+            ariaLabel="Fonte de origem"
+            value={sourceId}
+            placeholder="Selecione a fonte"
+            options={eligible.map((item) => ({
+              value: item.id,
+              label: item.name,
+              subtitle: 'Saldo operacional',
+              rightValue: formatMoney(Number(item.balance)),
+            }))}
+            onChange={(next) => { setSourceId(next); clearRequest(); }}
+          />
+        </div>
+        <div className="block space-y-1.5 text-sm font-medium text-slate-200">
+          <span className="block">Conta de destino</span>
+          <SelectOptionList
+            ariaLabel="Conta de destino"
+            value={accountId}
+            placeholder="Selecione a conta"
+            options={destinationAccounts.map((item) => ({
+              value: item.id,
+              label: item.nickname,
+              subtitle: 'Saldo da conta',
+              rightValue: formatMoney(Number(item.balance)),
+            }))}
+            onChange={(next) => { setAccountId(next); clearRequest(); }}
+          />
+        </div>
         {linkedSource && <p className="text-xs text-blue-200">Esta conta espelha a fonte {linkedSource.name}; o saldo vinculado será sincronizado. Não conte as duas posições como dinheiro diferente.</p>}
         <div className="space-y-1.5">
           <div className="flex items-center justify-between gap-2">

@@ -1,6 +1,7 @@
 import { addCollectionDaysUTC, addDaysUTC, adjustToCollectionDayUTC, normalizeCollectionDaysMode, parseDateOnlyUTC, toISODateOnlyUTC } from '../../utils/dateHelpers';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Wallet, CalendarX, Clock, CreditCard, Landmark, CalendarDays, ChevronDown, Plus, Trash2 } from 'lucide-react';
+import { SelectOptionList } from '../ui/SelectOptionList';
 import { CapitalSource, LoanBillingModality } from '../../types';
 import { formatMoney, cleanNumberStr } from '../../utils/formatters';
 import { LoanTotalPreview } from './LoanFormFinancialSection.preview';
@@ -187,29 +188,29 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
 
 
   const fixedInstallmentDisplay = useMemo(() => {
-      const principal = parseFloat(formData.principal) || 0;
-      const count = Math.max(1, parseInt(formData.fundingInstallmentsCount || '1', 10) || 1);
-      const bankTotalInput = parseFloat(formData.fundingTotalPayable) || 0;
-      const bankMonthlyRate = parseFloat(formData.fundingMonthlyRate) || 0;
-      const bankInstallmentInput = parseFloat(formData.fundingInstallmentValue) || 0;
-      const margin = parseFloat(formData.customerMarginPercent) || 0;
-      const mode = formData.fundingCalculationMode || 'TOTAL';
-      const monthlyRate = bankMonthlyRate / 100;
-      const bankInstallment = fundingPaymentMethod === 'BANK_ACCOUNT_DEBIT'
-          ? principal / count
-          : mode === 'INSTALLMENT'
-          ? bankInstallmentInput
-          : mode === 'RATE'
+    const principal = parseFloat(formData.principal) || 0;
+    const count = Math.max(1, parseInt(formData.fundingInstallmentsCount || '1', 10) || 1);
+    const bankTotalInput = parseFloat(formData.fundingTotalPayable) || 0;
+    const bankMonthlyRate = parseFloat(formData.fundingMonthlyRate) || 0;
+    const bankInstallmentInput = parseFloat(formData.fundingInstallmentValue) || 0;
+    const margin = parseFloat(formData.customerMarginPercent) || 0;
+    const mode = formData.fundingCalculationMode || 'TOTAL';
+    const monthlyRate = bankMonthlyRate / 100;
+    const bankInstallment = fundingPaymentMethod === 'BANK_ACCOUNT_DEBIT'
+      ? principal / count
+      : mode === 'INSTALLMENT'
+        ? bankInstallmentInput
+        : mode === 'RATE'
           ? (monthlyRate > 0 ? principal * (monthlyRate / (1 - Math.pow(1 + monthlyRate, -count))) : principal / count)
           : (bankTotalInput > 0 ? bankTotalInput / count : principal / count);
-      const bankTotal = bankInstallment * count;
-      
-      const absorbsInterest = formData.fundingOperatorAbsorbsInterest === true;
-      const baseForClient = absorbsInterest ? (principal / count) : bankInstallment;
+    const bankTotal = bankInstallment * count;
 
-      const customerInstallment = interestFreeInstallment ? principal / count : baseForClient * (1 + margin / 100);
-      const customerTotal = interestFreeInstallment ? principal : customerInstallment * count;
-      return { count, baseForClient, bankInstallment, bankTotal, customerInstallment, customerTotal, profit: customerTotal - bankTotal };
+    const absorbsInterest = formData.fundingOperatorAbsorbsInterest === true;
+    const baseForClient = absorbsInterest ? (principal / count) : bankInstallment;
+
+    const customerInstallment = interestFreeInstallment ? principal / count : baseForClient * (1 + margin / 100);
+    const customerTotal = interestFreeInstallment ? principal : customerInstallment * count;
+    return { count, baseForClient, bankInstallment, bankTotal, customerInstallment, customerTotal, profit: customerTotal - bankTotal };
   }, [formData.principal, formData.fundingInstallmentsCount, formData.fundingTotalPayable, formData.fundingMonthlyRate, formData.fundingInstallmentValue, formData.customerMarginPercent, formData.fundingCalculationMode, formData.fundingOperatorAbsorbsInterest, interestFreeInstallment, fundingPaymentMethod]);
 
   return (
@@ -218,140 +219,140 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
       <div className="space-y-3">
 
         <div className="grid grid-cols-6 gap-1 rounded-lg border border-slate-800/80 bg-slate-950/45 p-1">
-            {[
-              { value: 'MONTHLY', label: 'Mensal', active: formData.billingCycle === 'MONTHLY', mobileSpan: 'col-span-2' },
-              { value: 'BIWEEKLY', label: 'Quinzenal', active: formData.billingCycle === 'BIWEEKLY', mobileSpan: 'col-span-2' },
-              { value: 'WEEKLY', label: 'Semanal', active: formData.billingCycle === 'WEEKLY', mobileSpan: 'col-span-2' },
-              { value: 'INSTALLMENT_FIXED', label: 'Parcelado', active: isInstallmentFixed, mobileSpan: 'col-span-3' },
-              { value: 'DAILY_FREE', label: 'Diário', active: isDailyModality, mobileSpan: 'col-span-3' },
-            ].map(({ value, label, active, mobileSpan }) => (
-              <button
-                key={value}
-                type="button"
-                aria-pressed={active}
-                onClick={() => selectBillingCycle(value as LoanBillingModality)}
-                className={`${mobileSpan} flex h-9 min-h-0 min-w-0 items-center justify-center rounded-md border px-2 text-[9px] font-black uppercase tracking-wide whitespace-nowrap transition-all ${active ? 'border-purple-400/50 bg-purple-500/15 text-white ring-1 ring-purple-400/10' : 'border-transparent text-slate-500 hover:border-slate-800 hover:bg-slate-900/70 hover:text-slate-200'}`}
-              >
-                {label}
-              </button>
-            ))}
+          {[
+            { value: 'MONTHLY', label: 'Mensal', active: formData.billingCycle === 'MONTHLY', mobileSpan: 'col-span-2' },
+            { value: 'BIWEEKLY', label: 'Quinzenal', active: formData.billingCycle === 'BIWEEKLY', mobileSpan: 'col-span-2' },
+            { value: 'WEEKLY', label: 'Semanal', active: formData.billingCycle === 'WEEKLY', mobileSpan: 'col-span-2' },
+            { value: 'INSTALLMENT_FIXED', label: 'Parcelado', active: isInstallmentFixed, mobileSpan: 'col-span-3' },
+            { value: 'DAILY_FREE', label: 'Diário', active: isDailyModality, mobileSpan: 'col-span-3' },
+          ].map(({ value, label, active, mobileSpan }) => (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={active}
+              onClick={() => selectBillingCycle(value as LoanBillingModality)}
+              className={`${mobileSpan} flex h-9 min-h-0 min-w-0 items-center justify-center rounded-md border px-2 text-[9px] font-black uppercase tracking-wide whitespace-nowrap transition-all ${active ? 'border-purple-400/50 bg-purple-500/15 text-white ring-1 ring-purple-400/10' : 'border-transparent text-slate-500 hover:border-slate-800 hover:bg-slate-900/70 hover:text-slate-200'}`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
 
         {isInstallmentFixed && (!isEditing || interestFreeInstallment) && (
-            <button
-              type="button"
-              disabled={!!isEditing}
-              aria-pressed={interestFreeInstallment}
-              onClick={() => {
-                if (isEditing) return;
-                setFormData((current: any) => {
-                  const enabled = current.interestFreeInstallment !== true;
-                  return {
-                    ...current,
-                    interestFreeInstallment: enabled,
-                    interestRate: enabled ? '0' : current.interestRate,
-                    finePercent: current.finePercent,
-                    dailyInterestPercent: current.dailyInterestPercent,
-                    customerMarginPercent: enabled ? '0' : (current.customerMarginPercent === '0' ? '30' : current.customerMarginPercent),
-                    fundingOperatorAbsorbsInterest: enabled ? true : false,
-                  };
-                });
-              }}
-              className={`flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-left transition-all ${interestFreeInstallment ? 'border-emerald-500/35 bg-emerald-500/10' : 'border-slate-800 bg-slate-950/35 hover:border-slate-700'} ${isEditing ? 'cursor-default' : ''}`}
-            >
-              <div className="min-w-0">
-                <p className={`text-[10px] font-black ${interestFreeInstallment ? 'text-emerald-300' : 'text-slate-300'}`}>Sem juros no parcelamento</p>
-                <p className="mt-0.5 text-[8px] leading-tight text-slate-500">As parcelas não têm juros. Se atrasar, aplica a multa e a mora diária configuradas abaixo.</p>
-              </div>
-              <span className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${interestFreeInstallment ? 'bg-emerald-500' : 'bg-slate-800'}`}>
-                <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${interestFreeInstallment ? 'translate-x-4' : 'translate-x-0.5'}`} />
-              </span>
-            </button>
+          <button
+            type="button"
+            disabled={!!isEditing}
+            aria-pressed={interestFreeInstallment}
+            onClick={() => {
+              if (isEditing) return;
+              setFormData((current: any) => {
+                const enabled = current.interestFreeInstallment !== true;
+                return {
+                  ...current,
+                  interestFreeInstallment: enabled,
+                  interestRate: enabled ? '0' : current.interestRate,
+                  finePercent: current.finePercent,
+                  dailyInterestPercent: current.dailyInterestPercent,
+                  customerMarginPercent: enabled ? '0' : (current.customerMarginPercent === '0' ? '30' : current.customerMarginPercent),
+                  fundingOperatorAbsorbsInterest: enabled ? true : false,
+                };
+              });
+            }}
+            className={`flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-left transition-all ${interestFreeInstallment ? 'border-emerald-500/35 bg-emerald-500/10' : 'border-slate-800 bg-slate-950/35 hover:border-slate-700'} ${isEditing ? 'cursor-default' : ''}`}
+          >
+            <div className="min-w-0">
+              <p className={`text-[10px] font-black ${interestFreeInstallment ? 'text-emerald-300' : 'text-slate-300'}`}>Sem juros no parcelamento</p>
+              <p className="mt-0.5 text-[8px] leading-tight text-slate-500">As parcelas não têm juros. Se atrasar, aplica a multa e a mora diária configuradas abaixo.</p>
+            </div>
+            <span className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${interestFreeInstallment ? 'bg-emerald-500' : 'bg-slate-800'}`}>
+              <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${interestFreeInstallment ? 'translate-x-4' : 'translate-x-0.5'}`} />
+            </span>
+          </button>
         )}
 
         {isDailyModality && (
-            <div className="space-y-4 animate-in slide-in-from-top-2">
-                <div className="space-y-2">
-                    <label className="text-[9px] text-purple-400 font-black uppercase ml-2">Tipo de Diária</label>
-                    <div className="relative group">
-                        <select
-                            value={formData.billingCycle || ''}
-                            onChange={(e) => {
-                              const nextCycle = e.target.value as LoanBillingModality;
-                              setFormData({...formData, billingCycle: nextCycle});
-                              if (formData.startDate) {
-                                const suggested = nextCycle === 'DAILY_FIXED_TERM'
-                                  ? addCollectionDaysUTC(formData.startDate, Math.max(1, Number(fixedDuration) || 1), collectionDaysMode)
-                                  : addCollectionDaysUTC(formData.startDate, 1, collectionDaysMode);
-                                setManualFirstDueDate(toISODateOnlyUTC(suggested));
-                              }
-                            }}
-                            className="w-full appearance-none bg-slate-950/50 border border-purple-500/30 rounded-lg px-4 py-3 pr-10 text-white text-xs outline-none focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/10 transition-all cursor-pointer"
-                        >
-                            <option value="DAILY_FREE">Diária Livre (Somente Juros)</option>
-                            <option value="DAILY_FIXED_TERM">Prazo Fixo (Parcela Fixa)</option>
-                        </select>
-                        <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-purple-500 pointer-events-none" size={16}/>
-                    </div>
-                </div>
-
-                {formData.billingCycle === 'DAILY_FIXED_TERM' && (
-                    <div className="space-y-1 animate-in fade-in">
-                        <label className="text-[9px] text-slate-500 font-black uppercase ml-2 flex items-center gap-1"><Clock size={10}/> Prazo Total (Dias)</label>
-                        <input
-                            type="number"
-                            min="1"
-                            value={fixedDuration || ''}
-                            onChange={(e) => setFixedDuration(e.target.value)}
-                            className="w-full bg-slate-950/50 border border-slate-800/80 rounded-lg px-5 py-4 text-white font-bold text-sm outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 transition-all"
-                            placeholder="Ex: 30"
-                        />
-                    </div>
-                )}
+          <div className="space-y-4 animate-in slide-in-from-top-2">
+            <div className="space-y-2">
+              <label className="text-[9px] text-purple-400 font-black uppercase ml-2">Tipo de Diária</label>
+              <div className="relative group">
+                <select
+                  value={formData.billingCycle || ''}
+                  onChange={(e) => {
+                    const nextCycle = e.target.value as LoanBillingModality;
+                    setFormData({ ...formData, billingCycle: nextCycle });
+                    if (formData.startDate) {
+                      const suggested = nextCycle === 'DAILY_FIXED_TERM'
+                        ? addCollectionDaysUTC(formData.startDate, Math.max(1, Number(fixedDuration) || 1), collectionDaysMode)
+                        : addCollectionDaysUTC(formData.startDate, 1, collectionDaysMode);
+                      setManualFirstDueDate(toISODateOnlyUTC(suggested));
+                    }
+                  }}
+                  className="w-full appearance-none bg-slate-950/50 border border-purple-500/30 rounded-lg px-4 py-3 pr-10 text-white text-xs outline-none focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/10 transition-all cursor-pointer"
+                >
+                  <option value="DAILY_FREE">Diária Livre (Somente Juros)</option>
+                  <option value="DAILY_FIXED_TERM">Prazo Fixo (Parcela Fixa)</option>
+                </select>
+                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-purple-500 pointer-events-none" size={16} />
+              </div>
             </div>
+
+            {formData.billingCycle === 'DAILY_FIXED_TERM' && (
+              <div className="space-y-1 animate-in fade-in">
+                <label className="text-[9px] text-slate-500 font-black uppercase ml-2 flex items-center gap-1"><Clock size={10} /> Prazo Total (Dias)</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={fixedDuration || ''}
+                  onChange={(e) => setFixedDuration(e.target.value)}
+                  className="w-full bg-slate-950/50 border border-slate-800/80 rounded-lg px-5 py-4 text-white font-bold text-sm outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 transition-all"
+                  placeholder="Ex: 30"
+                />
+              </div>
+            )}
+          </div>
         )}
 
         {supportsCollectionDays && (
-            <div className="space-y-2 rounded-lg border border-slate-800/80 bg-slate-950/40 p-2.5">
-                <div className="flex items-center gap-1.5 px-0.5">
-                    <CalendarX size={13} className="text-purple-400" />
-                    <p className="text-[9px] font-black tracking-wide text-slate-300">Receber em</p>
-                </div>
-                <div className="grid grid-cols-3 gap-1.5">
-                    {[
-                      { value: 'ALL_DAYS', label: 'Todos os dias', detail: 'Seg–Dom' },
-                      { value: 'SKIP_SUNDAY', label: 'Seg. a sábado', detail: 'Domingo livre' },
-                      { value: 'SKIP_WEEKEND', label: 'Seg. a sexta', detail: 'Fim de semana livre' },
-                    ].map(({ value, label, detail }) => {
-                      const selected = collectionDaysMode === value;
-                      return (
-                        <button
-                          key={value}
-                          type="button"
-                          aria-pressed={selected}
-                          onClick={() => {
-                            setFormData((current: any) => ({ ...current, collectionDaysMode: value }));
-                            if (!isEditing && formData.startDate) {
-                              let suggested = parseDateOnlyUTC(formData.startDate);
-                              if (formData.billingCycle === 'DAILY_FREE') {
-                                suggested = addCollectionDaysUTC(formData.startDate, 1, value as any);
-                              } else if (formData.billingCycle === 'DAILY_FIXED_TERM') {
-                                suggested = addCollectionDaysUTC(formData.startDate, Math.max(1, Number(fixedDuration) || 1), value as any);
-                              } else if (formData.billingCycle === 'WEEKLY') {
-                                suggested = adjustToCollectionDayUTC(addDaysUTC(formData.startDate, 7), value as any);
-                              }
-                              setManualFirstDueDate(toISODateOnlyUTC(suggested));
-                            }
-                          }}
-                          className={`flex h-[52px] min-h-0 flex-col items-center justify-center rounded-md border px-1.5 text-center transition-all ${selected ? 'border-purple-400/60 bg-purple-500/15 text-white ring-1 ring-purple-400/10' : 'border-slate-800 bg-slate-900/45 text-slate-400 hover:border-slate-700 hover:bg-slate-900/70'}`}
-                        >
-                          <span className="text-[9px] font-black leading-tight">{label}</span>
-                          <span className={`mt-0.5 text-[7px] font-bold leading-tight ${selected ? 'text-purple-200' : 'text-slate-600'}`}>{detail}</span>
-                        </button>
-                      );
-                    })}
-                </div>
+          <div className="space-y-2 rounded-lg border border-slate-800/80 bg-slate-950/40 p-2.5">
+            <div className="flex items-center gap-1.5 px-0.5">
+              <CalendarX size={13} className="text-purple-400" />
+              <p className="text-[9px] font-black tracking-wide text-slate-300">Receber em</p>
             </div>
+            <div className="grid grid-cols-3 gap-1.5">
+              {[
+                { value: 'ALL_DAYS', label: 'Todos os dias', detail: 'Seg–Dom' },
+                { value: 'SKIP_SUNDAY', label: 'Seg. a sábado', detail: 'Domingo livre' },
+                { value: 'SKIP_WEEKEND', label: 'Seg. a sexta', detail: 'Fim de semana livre' },
+              ].map(({ value, label, detail }) => {
+                const selected = collectionDaysMode === value;
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    aria-pressed={selected}
+                    onClick={() => {
+                      setFormData((current: any) => ({ ...current, collectionDaysMode: value }));
+                      if (!isEditing && formData.startDate) {
+                        let suggested = parseDateOnlyUTC(formData.startDate);
+                        if (formData.billingCycle === 'DAILY_FREE') {
+                          suggested = addCollectionDaysUTC(formData.startDate, 1, value as any);
+                        } else if (formData.billingCycle === 'DAILY_FIXED_TERM') {
+                          suggested = addCollectionDaysUTC(formData.startDate, Math.max(1, Number(fixedDuration) || 1), value as any);
+                        } else if (formData.billingCycle === 'WEEKLY') {
+                          suggested = adjustToCollectionDayUTC(addDaysUTC(formData.startDate, 7), value as any);
+                        }
+                        setManualFirstDueDate(toISODateOnlyUTC(suggested));
+                      }
+                    }}
+                    className={`flex h-[52px] min-h-0 flex-col items-center justify-center rounded-md border px-1.5 text-center transition-all ${selected ? 'border-purple-400/60 bg-purple-500/15 text-white ring-1 ring-purple-400/10' : 'border-slate-800 bg-slate-900/45 text-slate-400 hover:border-slate-700 hover:bg-slate-900/70'}`}
+                  >
+                    <span className="text-[9px] font-black leading-tight">{label}</span>
+                    <span className={`mt-0.5 text-[7px] font-bold leading-tight ${selected ? 'text-purple-200' : 'text-slate-600'}`}>{detail}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         )}
 
         <div className={`grid ${isInstallmentFixed ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'} gap-4`}>
@@ -383,7 +384,7 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
           </div>
           {!isInstallmentFixed && <div className="space-y-1">
             <label className="text-[9px] text-slate-500 font-black uppercase ml-2">{periodicRateLabel}</label>
-            <FinancialCalculatorInput rate required type="text" step="0.01" value={formData.interestRate || ''} onChange={e => setFormData({...formData, interestRate: cleanNumberStr(e.target.value)})} centsEntry className="w-full bg-slate-950/50 border border-slate-800/80 rounded-lg px-5 py-4 text-white font-bold outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 transition-all" />
+            <FinancialCalculatorInput rate required type="text" step="0.01" value={formData.interestRate || ''} onChange={e => setFormData({ ...formData, interestRate: cleanNumberStr(e.target.value) })} centsEntry className="w-full bg-slate-950/50 border border-slate-800/80 rounded-lg px-5 py-4 text-white font-bold outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 transition-all" />
           </div>}
         </div>
 
@@ -391,347 +392,365 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
 
         <div className="grid grid-cols-1 gap-4">
           <div className="space-y-1">
-              <label className="text-[9px] text-slate-500 font-black uppercase ml-2">Data Empréstimo</label>
-              <input
-                  required
-                  type="date"
-                  value={formData.startDate || ''}
-                  onChange={e => {
-                      const startDate = e.target.value;
-                      setFormData((current: any) => ({ ...current, startDate }));
-                      if (startDate) {
-                        let suggested = addDaysUTC(startDate, formData.billingCycle === 'WEEKLY' ? 7 : formData.billingCycle === 'BIWEEKLY' ? 15 : 30);
-                        if (formData.billingCycle === 'DAILY_FREE') {
-                          suggested = addCollectionDaysUTC(startDate, 1, collectionDaysMode);
-                        } else if (formData.billingCycle === 'DAILY_FIXED_TERM') {
-                          suggested = addCollectionDaysUTC(startDate, Math.max(1, Number(fixedDuration) || 1), collectionDaysMode);
-                        } else if (formData.billingCycle === 'WEEKLY') {
-                          suggested = adjustToCollectionDayUTC(suggested, collectionDaysMode);
-                        }
-                        setManualFirstDueDate(toISODateOnlyUTC(suggested));
-                      }
-                  }}
-                  className={dateInputClass}
-              />
+            <label className="text-[9px] text-slate-500 font-black uppercase ml-2">Data Empréstimo</label>
+            <input
+              required
+              type="date"
+              value={formData.startDate || ''}
+              onChange={e => {
+                const startDate = e.target.value;
+                setFormData((current: any) => ({ ...current, startDate }));
+                if (startDate) {
+                  let suggested = addDaysUTC(startDate, formData.billingCycle === 'WEEKLY' ? 7 : formData.billingCycle === 'BIWEEKLY' ? 15 : 30);
+                  if (formData.billingCycle === 'DAILY_FREE') {
+                    suggested = addCollectionDaysUTC(startDate, 1, collectionDaysMode);
+                  } else if (formData.billingCycle === 'DAILY_FIXED_TERM') {
+                    suggested = addCollectionDaysUTC(startDate, Math.max(1, Number(fixedDuration) || 1), collectionDaysMode);
+                  } else if (formData.billingCycle === 'WEEKLY') {
+                    suggested = adjustToCollectionDayUTC(suggested, collectionDaysMode);
+                  }
+                  setManualFirstDueDate(toISODateOnlyUTC(suggested));
+                }
+              }}
+              className={dateInputClass}
+            />
           </div>
           <div className="space-y-1">
-              <label className="text-[9px] text-blue-400 font-black uppercase ml-2 flex items-center gap-1"><CalendarDays size={10}/> Vencimento (1º)</label>
-              <input
-                  required
-                  type="date"
-                  value={manualFirstDueDate || ''}
-                  onChange={e => setManualFirstDueDate(e.target.value)}
-                  className={`${dateInputClass} border-blue-500/30 focus:border-blue-500/50`}
-              />
-              <p className="ml-2 text-[10px] text-slate-500">Sugerido conforme a modalidade. Você pode alterar livremente o vencimento.</p>
+            <label className="text-[9px] text-blue-400 font-black uppercase ml-2 flex items-center gap-1"><CalendarDays size={10} /> Vencimento (1º)</label>
+            <input
+              required
+              type="date"
+              value={manualFirstDueDate || ''}
+              onChange={e => setManualFirstDueDate(e.target.value)}
+              className={`${dateInputClass} border-blue-500/30 focus:border-blue-500/50`}
+            />
+            <p className="ml-2 text-[10px] text-slate-500">Sugerido conforme a modalidade. Você pode alterar livremente o vencimento.</p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1">
-                <label className="text-[9px] text-slate-500 font-black uppercase ml-2">Multa (%)</label>
-                <FinancialCalculatorInput rate type="text" step="0.1" value={formData.finePercent || ''} onChange={e => setFormData({...formData, finePercent: cleanNumberStr(e.target.value)})} centsEntry className="w-full bg-slate-950/50 border border-slate-800/80 rounded-lg px-5 py-4 text-white text-sm outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 transition-all" />
-            </div>
-            <div className="space-y-1">
-                <label className="text-[9px] text-slate-500 font-black uppercase ml-2">Mora Diária (%)</label>
-                <FinancialCalculatorInput rate type="text" step="0.1" value={formData.dailyInterestPercent || ''} onChange={e => setFormData({...formData, dailyInterestPercent: cleanNumberStr(e.target.value)})} centsEntry className="w-full bg-slate-950/50 border border-slate-800/80 rounded-lg px-5 py-4 text-white text-sm outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 transition-all" />
-            </div>
+          <div className="space-y-1">
+            <label className="text-[9px] text-slate-500 font-black uppercase ml-2">Multa (%)</label>
+            <FinancialCalculatorInput rate type="text" step="0.1" value={formData.finePercent || ''} onChange={e => setFormData({ ...formData, finePercent: cleanNumberStr(e.target.value) })} centsEntry className="w-full bg-slate-950/50 border border-slate-800/80 rounded-lg px-5 py-4 text-white text-sm outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 transition-all" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-[9px] text-slate-500 font-black uppercase ml-2">Mora Diária (%)</label>
+            <FinancialCalculatorInput rate type="text" step="0.1" value={formData.dailyInterestPercent || ''} onChange={e => setFormData({ ...formData, dailyInterestPercent: cleanNumberStr(e.target.value) })} centsEntry className="w-full bg-slate-950/50 border border-slate-800/80 rounded-lg px-5 py-4 text-white text-sm outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 transition-all" />
+          </div>
         </div>
 
         <div className="space-y-3">
-            <div className="flex items-center justify-between gap-3"><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Fonte de capital</label>{MULTI_SOURCE_CREATION_ENABLED && !isEditing && <button type="button" onClick={() => setFormData((current: any) => ({ ...current, fundingAllocations: [...(current.fundingAllocations || []), { sourceId: sources.find((source) => source.id !== current.sourceId)?.id || sources[0]?.id || '', amount: '' }] }))} className="flex items-center gap-1 rounded-md border border-purple-500/30 px-2 py-1.5 text-[9px] font-black uppercase text-purple-300"><Plus size={12} /> Adicionar fonte</button>}</div>
-            <div className="space-y-2">
-              {fundingAllocations.map((allocation: any, index: number) => <div key={`${allocation.sourceId}-${index}`} className="flex gap-2">
-                <div className="relative group min-w-0 flex-1"><select value={allocation.sourceId || ''} onChange={(event) => setFormData((current: any) => {
+          <div className="flex items-center justify-between gap-3"><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Fonte de capital</label>{MULTI_SOURCE_CREATION_ENABLED && !isEditing && <button type="button" onClick={() => setFormData((current: any) => ({ ...current, fundingAllocations: [...(current.fundingAllocations || []), { sourceId: sources.find((source) => source.id !== current.sourceId)?.id || sources[0]?.id || '', amount: '' }] }))} className="flex items-center gap-1 rounded-md border border-purple-500/30 px-2 py-1.5 text-[9px] font-black uppercase text-purple-300"><Plus size={12} /> Adicionar fonte</button>}</div>
+          <div className="space-y-2">
+            {fundingAllocations.map((allocation: any, index: number) => <div key={`${allocation.sourceId}-${index}`} className="flex items-start gap-2">
+              <div className="min-w-0 flex-1">
+                <SelectOptionList
+                  ariaLabel={`Fonte de capital ${index + 1}`}
+                  value={allocation.sourceId || ''}
+                  placeholder="Selecione a fonte"
+                  triggerIcon={<Landmark size={16} className="shrink-0 text-blue-300" />}
+                  options={sources.map((source) => {
+                    const isCard = source.type === 'CARD' || source.type === 'MISTO';
+                    const linked = cardCreditBySource[source.id];
+                    const detail = isCard && linked?.amount != null
+                      ? { label: 'Crédito disponível', value: formatMoney(linked.amount) }
+                      : isCard && cardCreditStatus === 'loading'
+                        ? { label: 'Crédito', value: 'Consultando…' }
+                        : isCard && cardCreditStatus === 'error'
+                          ? { label: 'Crédito', value: 'Indisponível' }
+                          : isCard && linked?.cardCount
+                            ? { label: 'Crédito', value: 'Não confirmado' }
+                            : { label: 'Saldo da fonte', value: formatMoney(source.balance) };
+                    const Icon = isCard ? CreditCard : Landmark;
+                    return {
+                      value: source.id,
+                      label: source.name,
+                      subtitle: detail.label,
+                      rightValue: detail.value,
+                      icon: <Icon size={16} className="text-blue-300" />,
+                    };
+                  })}
+                  onChange={(selectedId) => {
+                    setFormData((current: any) => {
+                      const next = [...(current.fundingAllocations || fundingAllocations)];
+                      next[index] = { ...next[index], sourceId: selectedId };
+                      const chosen = sources.find((item) => item.id === selectedId);
+                      const cardOrigin = chosen?.type === 'CARD' || chosen?.type === 'MISTO';
+                      return {
+                        ...current,
+                        sourceId: index === 0 ? selectedId : current.sourceId,
+                        fundingAllocations: next,
+                        ...(index === 0 && !cardOrigin && current.billingCycle !== 'INSTALLMENT_FIXED'
+                          ? { fundingTotalPayable: '', fundingFeePercent: '' } : {}),
+                      };
+                    });
+                  }}
+                />
+              </div>
+              {hasMultipleSources && <div className="w-28 shrink-0"><FinancialCalculatorInput type="text" centsEntry min="0.01"
+                value={allocation.amount || ''} onChange={(event) => setFormData((current: any) => {
                   const next = [...(current.fundingAllocations || fundingAllocations)];
-                  next[index] = { ...next[index], sourceId: event.target.value };
-                  const chosen = sources.find(source => source.id === event.target.value);
-                  const cardOrigin = chosen?.type === 'CARD' || chosen?.type === 'MISTO';
-                  return {
-                    ...current,
-                    sourceId: index === 0 ? event.target.value : current.sourceId,
-                    fundingAllocations: next,
-                    ...(index === 0 && !cardOrigin && current.billingCycle !== 'INSTALLMENT_FIXED'
-                      ? { fundingTotalPayable: '', fundingFeePercent: '' } : {}),
-                  };
-                })} className="w-full appearance-none rounded-lg border border-slate-800/80 bg-slate-950/50 px-3 py-4 pr-8 text-xs text-white outline-none focus:border-purple-500/50"><option value="">Selecione</option>{sources.map((source) => {
-                  const isCard = source.type === 'CARD' || source.type === 'MISTO';
-                  const linked = cardCreditBySource[source.id];
-                  const detail = isCard && linked?.amount != null
-                    ? 'Crédito disponível: ' + formatMoney(linked.amount)
-                    : isCard && cardCreditStatus === 'loading'
-                      ? 'Consultando crédito…'
-                      : isCard && cardCreditStatus === 'error'
-                        ? 'Crédito temporariamente indisponível'
-                        : isCard && linked?.cardCount
-                          ? 'Crédito vinculado não confirmado'
-                          : 'Saldo da fonte: ' + formatMoney(source.balance);
-                  return <option key={source.id} value={source.id}>{source.name} · {detail}</option>;
-                })}</select><ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-500" size={15} /></div>
-                {hasMultipleSources && <div className="w-28 shrink-0"><FinancialCalculatorInput type="text" centsEntry min="0.01"
-                  value={allocation.amount || ''} onChange={(event) => setFormData((current: any) => {
-                    const next = [...(current.fundingAllocations || fundingAllocations)];
-                    next[index] = { ...next[index], amount: event.target.value };
-                    return { ...current, fundingAllocations: next };
-                  })} placeholder="Valor" className="w-full rounded-lg border border-slate-800/80 bg-slate-950/50 px-2 py-3 text-xs font-bold text-white outline-none focus:border-purple-500/50" /></div>}
-                {fundingAllocations.length > 1 && !isEditing && <button type="button" aria-label="Remover fonte" onClick={() => setFormData((current: any) => ({ ...current, fundingAllocations: (current.fundingAllocations || fundingAllocations).filter((_: any, itemIndex: number) => itemIndex !== index) }))} className="rounded-lg border border-rose-500/20 px-2 text-rose-300"><Trash2 size={15} /></button>}
-              </div>)}
-            </div>
-            {!hasMultipleSources && isCardSource && <div className="rounded-lg border border-blue-500/25 bg-blue-950/20 p-3 text-xs text-blue-100" role="status">
-              <strong className="block">
-                {selectedCardCredit?.amount != null
-                  ? 'Crédito disponível no cartão vinculado: ' + formatMoney(selectedCardCredit.amount)
-                  : cardCreditStatus === 'loading' ? 'Consultando crédito do cartão…'
-                    : cardCreditStatus === 'restricted' ? 'Consulta de crédito não autorizada neste perfil.'
+                  next[index] = { ...next[index], amount: event.target.value };
+                  return { ...current, fundingAllocations: next };
+                })} placeholder="Valor" className="w-full rounded-lg border border-slate-800/80 bg-slate-950/50 px-2 py-3 text-xs font-bold text-white outline-none focus:border-purple-500/50" /></div>}
+              {fundingAllocations.length > 1 && !isEditing && <button type="button" aria-label="Remover fonte" onClick={() => setFormData((current: any) => ({ ...current, fundingAllocations: (current.fundingAllocations || fundingAllocations).filter((_: any, itemIndex: number) => itemIndex !== index) }))} className="rounded-lg border border-rose-500/20 px-2 text-rose-300"><Trash2 size={15} /></button>}
+            </div>)}
+          </div>
+          {!hasMultipleSources && isCardSource && <div className="rounded-lg border border-blue-500/25 bg-blue-950/20 p-3 text-xs text-blue-100" role="status">
+            <strong className="block">
+              {selectedCardCredit?.amount != null
+                ? 'Crédito disponível no cartão vinculado: ' + formatMoney(selectedCardCredit.amount)
+                : cardCreditStatus === 'loading' ? 'Consultando crédito do cartão…'
+                  : cardCreditStatus === 'restricted' ? 'Consulta de crédito não autorizada neste perfil.'
                     : cardCreditStatus === 'error' ? 'Não foi possível consultar o crédito. Atualize os dados antes de decidir.'
-                    : selectedCardCredit?.cardCount ? 'Crédito vinculado indisponível ou não confirmado.'
-                    : 'Nenhum cartão da Minha Carteira vinculado a esta fonte.'}
-              </strong>
-              <p className="mt-1 text-[11px] leading-relaxed text-slate-300">Saldo operacional da fonte: {formatMoney(selectedSource?.balance)}. O crédito exibido é informativo; registrar o empréstimo na fonte não debita automaticamente o limite bancário do cartão.</p>
-            </div>}
-            {!hasMultipleSources && !isCardSource && <p className="ml-2 text-[10px] text-slate-500">O valor do contrato será retirado desta fonte, mesmo que o saldo fique negativo.</p>}
-            {hasMultipleSources && <div className={`rounded-lg border p-3 text-[10px] font-black uppercase ${Math.abs(distributedTotal - principalValue) < 0.005 ? 'border-emerald-500/30 bg-emerald-950/20 text-emerald-300' : 'border-amber-500/30 bg-amber-950/20 text-amber-300'}`}>Distribuído: R$ {distributedTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} · Capital: R$ {principalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} · {Math.abs(distributedTotal - principalValue) < 0.005 ? 'Fechado' : 'Ajuste os valores'}</div>}
+                      : selectedCardCredit?.cardCount ? 'Crédito vinculado indisponível ou não confirmado.'
+                        : 'Nenhum cartão da Minha Carteira vinculado a esta fonte.'}
+            </strong>
+            <p className="mt-1 text-[11px] leading-relaxed text-slate-300">Saldo operacional da fonte: {formatMoney(selectedSource?.balance)}. O crédito exibido é informativo; registrar o empréstimo na fonte não debita automaticamente o limite bancário do cartão.</p>
+          </div>}
+          {!hasMultipleSources && !isCardSource && <p className="ml-2 text-[10px] text-slate-500">O valor do contrato será retirado desta fonte, mesmo que o saldo fique negativo.</p>}
+          {hasMultipleSources && <div className={`rounded-lg border p-3 text-[10px] font-black uppercase ${Math.abs(distributedTotal - principalValue) < 0.005 ? 'border-emerald-500/30 bg-emerald-950/20 text-emerald-300' : 'border-amber-500/30 bg-amber-950/20 text-amber-300'}`}>Distribuído: R$ {distributedTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} · Capital: R$ {principalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} · {Math.abs(distributedTotal - principalValue) < 0.005 ? 'Fechado' : 'Ajuste os valores'}</div>}
         </div>
 
         {isInstallmentFixed && (
-            <div className="space-y-2 rounded-lg border border-slate-800/80 bg-slate-950/45 p-3">
-                <p className="text-[9px] font-black uppercase text-slate-500">Forma de lançamento</p>
+          <div className="space-y-2 rounded-lg border border-slate-800/80 bg-slate-950/45 p-3">
+            <p className="text-[9px] font-black uppercase text-slate-500">Forma de lançamento</p>
+            <div className="grid grid-cols-2 gap-1 rounded-lg bg-slate-900/80 p-1">
+              {[
+                { value: 'CREDIT_CARD', label: 'Cartão de crédito', icon: CreditCard },
+                { value: 'BANK_ACCOUNT_DEBIT', label: 'Débito em conta', icon: Landmark },
+              ].map(({ value, label, icon: Icon }) => {
+                const selected = fundingPaymentMethod === value;
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    aria-pressed={selected}
+                    onClick={() => setFormData((current: any) => ({
+                      ...current,
+                      fundingPaymentMethod: value,
+                      ...(value === 'BANK_ACCOUNT_DEBIT' ? {
+                        fundingCalculationMode: 'TOTAL',
+                        fundingTotalPayable: current.principal || '',
+                        fundingMonthlyRate: '0',
+                        fundingOperatorAbsorbsInterest: true,
+                      } : {
+                        fundingOperatorAbsorbsInterest: current.interestFreeInstallment === true ? true : false,
+                      }),
+                    }))}
+                    className={`flex min-h-10 items-center justify-center gap-2 rounded-md border px-2 text-[9px] font-black transition-colors ${selected ? 'border-blue-400/50 bg-blue-500/15 text-white' : 'border-transparent text-slate-500 hover:text-slate-200'}`}
+                  >
+                    <Icon size={14} /> {label}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-[9px] leading-relaxed text-slate-500">
+              {fundingPaymentMethod === 'CREDIT_CARD'
+                ? 'Se o cartão não cobrar juros, deixe a taxa ou o total em branco. Por padrão, a compra no cartão é lançada à vista (1x).'
+                : 'O capital será debitado da conta selecionada, sem custo de captação adicional.'}
+            </p>
+            {fundingPaymentMethod === 'CREDIT_CARD' && (
+              <div className="space-y-2 border-t border-slate-800/70 pt-2">
+                <p className="text-[9px] font-black uppercase text-slate-500">Parcelamento da compra no cartão (origem)</p>
                 <div className="grid grid-cols-2 gap-1 rounded-lg bg-slate-900/80 p-1">
-                    {[
-                      { value: 'CREDIT_CARD', label: 'Cartão de crédito', icon: CreditCard },
-                      { value: 'BANK_ACCOUNT_DEBIT', label: 'Débito em conta', icon: Landmark },
-                    ].map(({ value, label, icon: Icon }) => {
-                      const selected = fundingPaymentMethod === value;
-                      return (
-                        <button
-                          key={value}
-                          type="button"
-                          aria-pressed={selected}
-                          onClick={() => setFormData((current: any) => ({
-                            ...current,
-                            fundingPaymentMethod: value,
-                            ...(value === 'BANK_ACCOUNT_DEBIT' ? {
-                              fundingCalculationMode: 'TOTAL',
-                              fundingTotalPayable: current.principal || '',
-                              fundingMonthlyRate: '0',
-                              fundingOperatorAbsorbsInterest: true,
-                            } : {
-                              fundingOperatorAbsorbsInterest: current.interestFreeInstallment === true ? true : false,
-                            }),
-                          }))}
-                          className={`flex min-h-10 items-center justify-center gap-2 rounded-md border px-2 text-[9px] font-black transition-colors ${selected ? 'border-blue-400/50 bg-blue-500/15 text-white' : 'border-transparent text-slate-500 hover:text-slate-200'}`}
-                        >
-                          <Icon size={14} /> {label}
-                        </button>
-                      );
-                    })}
+                  {[
+                    { value: 'SINGLE', label: 'À vista (1x)' },
+                    { value: 'INSTALLMENTS', label: 'Parcelar na fatura' },
+                  ].map(({ value, label }) => {
+                    const selectedMode = (formData.cardOriginInstallmentMode || 'SINGLE') === value;
+                    return (
+                      <button
+                        key={value}
+                        type="button"
+                        aria-pressed={selectedMode}
+                        onClick={() => setFormData((current: any) => ({
+                          ...current,
+                          cardOriginInstallmentMode: value,
+                          cardPurchaseInstallmentsCount: value === 'SINGLE'
+                            ? '1'
+                            : (Number(current.cardPurchaseInstallmentsCount || 1) > 1 ? current.cardPurchaseInstallmentsCount : '2'),
+                        }))}
+                        className={`flex min-h-9 items-center justify-center rounded-md border px-2 text-[9px] font-black transition-colors ${selectedMode ? 'border-rose-400/50 bg-rose-500/15 text-white' : 'border-transparent text-slate-500 hover:text-slate-200'}`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
                 </div>
-                <p className="text-[9px] leading-relaxed text-slate-500">
-                  {fundingPaymentMethod === 'CREDIT_CARD'
-                    ? 'Se o cartão não cobrar juros, deixe a taxa ou o total em branco. Por padrão, a compra no cartão é lançada à vista (1x).'
-                    : 'O capital será debitado da conta selecionada, sem custo de captação adicional.'}
-                </p>
-                {fundingPaymentMethod === 'CREDIT_CARD' && (
-                  <div className="space-y-2 border-t border-slate-800/70 pt-2">
-                    <p className="text-[9px] font-black uppercase text-slate-500">Parcelamento da compra no cartão (origem)</p>
-                    <div className="grid grid-cols-2 gap-1 rounded-lg bg-slate-900/80 p-1">
-                      {[
-                        { value: 'SINGLE', label: 'À vista (1x)' },
-                        { value: 'INSTALLMENTS', label: 'Parcelar na fatura' },
-                      ].map(({ value, label }) => {
-                        const selectedMode = (formData.cardOriginInstallmentMode || 'SINGLE') === value;
-                        return (
-                          <button
-                            key={value}
-                            type="button"
-                            aria-pressed={selectedMode}
-                            onClick={() => setFormData((current: any) => ({
-                              ...current,
-                              cardOriginInstallmentMode: value,
-                              cardPurchaseInstallmentsCount: value === 'SINGLE'
-                                ? '1'
-                                : (Number(current.cardPurchaseInstallmentsCount || 1) > 1 ? current.cardPurchaseInstallmentsCount : '2'),
-                            }))}
-                            className={`flex min-h-9 items-center justify-center rounded-md border px-2 text-[9px] font-black transition-colors ${selectedMode ? 'border-rose-400/50 bg-rose-500/15 text-white' : 'border-transparent text-slate-500 hover:text-slate-200'}`}
-                          >
-                            {label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    {(formData.cardOriginInstallmentMode || 'SINGLE') === 'INSTALLMENTS' && (
-                      <div>
-                        <label className="ml-1 text-[9px] font-black uppercase text-slate-500">Parcelas na fatura do cartão</label>
-                        <input
-                          type="number"
-                          min="2"
-                          max="120"
-                          value={formData.cardPurchaseInstallmentsCount || '2'}
-                          onChange={(e) => setFormData((current: any) => ({ ...current, cardPurchaseInstallmentsCount: e.target.value }))}
-                          className={strongInputClass}
-                        />
-                      </div>
-                    )}
+                {(formData.cardOriginInstallmentMode || 'SINGLE') === 'INSTALLMENTS' && (
+                  <div>
+                    <label className="ml-1 text-[9px] font-black uppercase text-slate-500">Parcelas na fatura do cartão</label>
+                    <input
+                      type="number"
+                      min="2"
+                      max="120"
+                      value={formData.cardPurchaseInstallmentsCount || '2'}
+                      onChange={(e) => setFormData((current: any) => ({ ...current, cardPurchaseInstallmentsCount: e.target.value }))}
+                      className={strongInputClass}
+                    />
                   </div>
                 )}
-            </div>
+              </div>
+            )}
+          </div>
         )}
 
         {interestFreeInstallment && (
-            <div className="rounded-lg border border-emerald-500/20 bg-emerald-950/10 p-3 space-y-3">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                        <label className="ml-1 text-[9px] font-black uppercase text-slate-500">Número de parcelas</label>
-                        <input type="number" min="1" value={formData.fundingInstallmentsCount || ''} onChange={e => setFormData((current: any) => {
-                          const mode = (current.fundingCalculationMode || 'TOTAL') as FundingCalculationMode;
-                          return synchronizeFundingValues(current, mode, getFundingSourceValue(current, mode), { fundingInstallmentsCount: e.target.value });
-                        })} className={strongInputClass} />
-                    </div>
-                    <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
-                        <p className="text-[8px] font-black uppercase text-slate-500">Valor por parcela</p>
-                        <p className="mt-1 text-sm font-black text-emerald-300">{formatMoney(fixedInstallmentDisplay.customerInstallment)}</p>
-                    </div>
+          <div className="rounded-lg border border-emerald-500/20 bg-emerald-950/10 p-3 space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="ml-1 text-[9px] font-black uppercase text-slate-500">Número de parcelas</label>
+                <input type="number" min="1" value={formData.fundingInstallmentsCount || ''} onChange={e => setFormData((current: any) => {
+                  const mode = (current.fundingCalculationMode || 'TOTAL') as FundingCalculationMode;
+                  return synchronizeFundingValues(current, mode, getFundingSourceValue(current, mode), { fundingInstallmentsCount: e.target.value });
+                })} className={strongInputClass} />
+              </div>
+              <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
+                <p className="text-[8px] font-black uppercase text-slate-500">Valor por parcela</p>
+                <p className="mt-1 text-sm font-black text-emerald-300">{formatMoney(fixedInstallmentDisplay.customerInstallment)}</p>
+              </div>
+            </div>
+            {fundingPaymentMethod === 'CREDIT_CARD' && (
+              <div className="grid grid-cols-1 gap-3 border-t border-slate-800/70 pt-3 sm:grid-cols-2">
+                <div className="grid grid-cols-3 rounded-lg border border-slate-800/60 bg-slate-900/80 p-1">
+                  {(['TOTAL', 'INSTALLMENT', 'RATE'] as FundingCalculationMode[]).map((mode) => <button key={mode} type="button" onClick={() => setFormData((current: any) => {
+                    const currentMode = (current.fundingCalculationMode || 'TOTAL') as FundingCalculationMode;
+                    const synchronized = synchronizeFundingValues(current, currentMode, getFundingSourceValue(current, currentMode));
+                    return { ...synchronized, fundingCalculationMode: mode };
+                  })} className={`flex-1 rounded-md py-2 text-[9px] font-black ${formData.fundingCalculationMode === mode ? 'bg-slate-700 text-white' : 'text-slate-500'}`}>{mode === 'TOTAL' ? 'Valor final' : mode === 'INSTALLMENT' ? 'Parcela' : 'Taxa mensal'}</button>)}
                 </div>
+                {formData.fundingCalculationMode === 'RATE'
+                  ? <div><label className="ml-1 text-[9px] font-black uppercase text-slate-500">Taxa do cartão (% a.m.)</label><FinancialCalculatorInput rate type="text" min="0" step="0.01" value={formData.fundingMonthlyRate || ''} onChange={e => { const value = cleanNumberStr(e.target.value); setFormData((current: any) => synchronizeFundingValues(current, 'RATE', value)); }} centsEntry className={strongInputClass} /></div>
+                  : formData.fundingCalculationMode === 'INSTALLMENT'
+                    ? <div><label className="ml-1 text-[9px] font-black uppercase text-slate-500">Valor da parcela do cartão</label><FinancialCalculatorInput type="text" min="0.01" step="0.01" value={formData.fundingInstallmentValue || ''} onChange={e => { const value = cleanNumberStr(e.target.value); setFormData((current: any) => synchronizeFundingValues(current, 'INSTALLMENT', value)); }} centsEntry className={strongInputClass} /></div>
+                    : <div><label className="ml-1 text-[9px] font-black uppercase text-slate-500">Total cobrado pelo cartão</label><FinancialCalculatorInput type="text" min="0" step="0.01" value={formData.fundingTotalPayable || ''} onChange={e => { const value = cleanNumberStr(e.target.value); setFormData((current: any) => synchronizeFundingValues(current, 'TOTAL', value)); }} centsEntry className={strongInputClass} /></div>}
+              </div>
+            )}
+            <div className="flex items-center justify-between border-t border-slate-800/70 pt-2 text-[9px]">
+              <span className="font-bold text-slate-500">Total do contrato</span>
+              <span className="font-black text-white">{formatMoney(principalValue)}</span>
+            </div>
+          </div>
+        )}
+
+        {!interestFreeInstallment && (isCardSource || isInstallmentFixed) && (
+          <div className="bg-slate-950/60 border border-slate-800/80 rounded-lg p-5 sm:p-6 space-y-6 shadow-2xl relative overflow-hidden transition-all duration-300 hover:border-slate-700/80 animate-in slide-in-from-right">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/5 rounded-full blur-3xl pointer-events-none"></div>
+            <div className="absolute bottom-0 left-0 w-32 h-32 bg-purple-500/5 rounded-full blur-3xl pointer-events-none"></div>
+
+            <div className="flex items-center gap-2.5 text-rose-400 border-b border-slate-900 pb-3">
+              {fundingPaymentMethod === 'BANK_ACCOUNT_DEBIT' ? <Landmark size={18} className="text-blue-400" /> : <CreditCard size={18} className="text-rose-500" />}
+              <span className="text-xs font-black uppercase tracking-widest text-slate-200">Condições do parcelamento</span>
+            </div>
+
+            {isInstallmentFixed ? (
+              <div className="space-y-5">
                 {fundingPaymentMethod === 'CREDIT_CARD' && (
-                  <div className="grid grid-cols-1 gap-3 border-t border-slate-800/70 pt-3 sm:grid-cols-2">
-                    <div className="grid grid-cols-3 rounded-lg border border-slate-800/60 bg-slate-900/80 p-1">
+                  <>
+                    <div className="grid grid-cols-3 bg-slate-900/80 p-1 rounded-lg border border-slate-800/60">
                       {(['TOTAL', 'INSTALLMENT', 'RATE'] as FundingCalculationMode[]).map((mode) => <button key={mode} type="button" onClick={() => setFormData((current: any) => {
                         const currentMode = (current.fundingCalculationMode || 'TOTAL') as FundingCalculationMode;
                         const synchronized = synchronizeFundingValues(current, currentMode, getFundingSourceValue(current, currentMode));
                         return { ...synchronized, fundingCalculationMode: mode };
-                      })} className={`flex-1 rounded-md py-2 text-[9px] font-black ${formData.fundingCalculationMode === mode ? 'bg-slate-700 text-white' : 'text-slate-500'}`}>{mode === 'TOTAL' ? 'Valor final' : mode === 'INSTALLMENT' ? 'Parcela' : 'Taxa mensal'}</button>)}
+                      })} className={`py-2.5 rounded-lg text-[9px] font-black uppercase tracking-wide transition-all duration-200 ${formData.fundingCalculationMode === mode ? 'bg-gradient-to-r from-rose-600 to-pink-600 text-white shadow-md shadow-rose-950/50' : 'text-slate-400 hover:text-slate-200'}`}>{mode === 'TOTAL' ? 'Valor final' : mode === 'INSTALLMENT' ? 'Parcela' : 'Taxa mensal'}</button>)}
                     </div>
-                    {formData.fundingCalculationMode === 'RATE'
-                      ? <div><label className="ml-1 text-[9px] font-black uppercase text-slate-500">Taxa do cartão (% a.m.)</label><FinancialCalculatorInput rate type="text" min="0" step="0.01" value={formData.fundingMonthlyRate || ''} onChange={e => { const value = cleanNumberStr(e.target.value); setFormData((current: any) => synchronizeFundingValues(current, 'RATE', value)); }} centsEntry className={strongInputClass}/></div>
-                      : formData.fundingCalculationMode === 'INSTALLMENT'
-                        ? <div><label className="ml-1 text-[9px] font-black uppercase text-slate-500">Valor da parcela do cartão</label><FinancialCalculatorInput type="text" min="0.01" step="0.01" value={formData.fundingInstallmentValue || ''} onChange={e => { const value = cleanNumberStr(e.target.value); setFormData((current: any) => synchronizeFundingValues(current, 'INSTALLMENT', value)); }} centsEntry className={strongInputClass}/></div>
-                        : <div><label className="ml-1 text-[9px] font-black uppercase text-slate-500">Total cobrado pelo cartão</label><FinancialCalculatorInput type="text" min="0" step="0.01" value={formData.fundingTotalPayable || ''} onChange={e => { const value = cleanNumberStr(e.target.value); setFormData((current: any) => synchronizeFundingValues(current, 'TOTAL', value)); }} centsEntry className={strongInputClass}/></div>}
-                  </div>
+
+                    <div className="space-y-1.5 rounded-lg border border-slate-800/80 bg-slate-900/45 p-2.5">
+                      <p className="text-[9px] font-black uppercase tracking-wide text-slate-400">Ajuste dos juros do cartão no empréstimo</p>
+                      <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                        <button
+                          type="button"
+                          aria-pressed={!formData.fundingOperatorAbsorbsInterest}
+                          onClick={() => setFormData((current: any) => ({ ...current, fundingOperatorAbsorbsInterest: false }))}
+                          className={`flex flex-col items-start rounded-md border px-3 py-2 text-left transition-all ${!formData.fundingOperatorAbsorbsInterest ? 'border-rose-500/50 bg-rose-500/15 text-white' : 'border-slate-800 bg-slate-950/50 text-slate-400 hover:text-slate-200'}`}
+                        >
+                          <span className="text-[9px] font-black uppercase">Repassar juros do cartão ao cliente</span>
+                          <span className="mt-0.5 text-[8px] leading-tight text-slate-300">Sua margem (%) incide sobre a parcela já com a taxa do cartão.</span>
+                        </button>
+                        <button
+                          type="button"
+                          aria-pressed={formData.fundingOperatorAbsorbsInterest === true}
+                          onClick={() => setFormData((current: any) => ({ ...current, fundingOperatorAbsorbsInterest: true }))}
+                          className={`flex flex-col items-start rounded-md border px-3 py-2 text-left transition-all ${formData.fundingOperatorAbsorbsInterest === true ? 'border-purple-500/50 bg-purple-500/15 text-white' : 'border-slate-800 bg-slate-950/50 text-slate-400 hover:text-slate-200'}`}
+                        >
+                          <span className="text-[9px] font-black uppercase">Absorver juros do cartão no lucro</span>
+                          <span className="mt-0.5 text-[8px] leading-tight text-slate-300">Sua margem (%) incide apenas sobre o principal emprestado.</span>
+                        </button>
+                      </div>
+                    </div>
+                  </>
                 )}
-                <div className="flex items-center justify-between border-t border-slate-800/70 pt-2 text-[9px]">
-                    <span className="font-bold text-slate-500">Total do contrato</span>
-                    <span className="font-black text-white">{formatMoney(principalValue)}</span>
-                </div>
-            </div>
-        )}
-
-        {!interestFreeInstallment && (isCardSource || isInstallmentFixed) && (
-            <div className="bg-slate-950/60 border border-slate-800/80 rounded-lg p-5 sm:p-6 space-y-6 shadow-2xl relative overflow-hidden transition-all duration-300 hover:border-slate-700/80 animate-in slide-in-from-right">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/5 rounded-full blur-3xl pointer-events-none"></div>
-                <div className="absolute bottom-0 left-0 w-32 h-32 bg-purple-500/5 rounded-full blur-3xl pointer-events-none"></div>
-
-                <div className="flex items-center gap-2.5 text-rose-400 border-b border-slate-900 pb-3">
-                    {fundingPaymentMethod === 'BANK_ACCOUNT_DEBIT' ? <Landmark size={18} className="text-blue-400" /> : <CreditCard size={18} className="text-rose-500" />}
-                    <span className="text-xs font-black uppercase tracking-widest text-slate-200">Condições do parcelamento</span>
-                </div>
-
-                {isInstallmentFixed ? (
-                    <div className="space-y-5">
-                        {fundingPaymentMethod === 'CREDIT_CARD' && (
-                          <>
-                            <div className="grid grid-cols-3 bg-slate-900/80 p-1 rounded-lg border border-slate-800/60">
-                                {(['TOTAL', 'INSTALLMENT', 'RATE'] as FundingCalculationMode[]).map((mode) => <button key={mode} type="button" onClick={() => setFormData((current: any) => {
-                                  const currentMode = (current.fundingCalculationMode || 'TOTAL') as FundingCalculationMode;
-                                  const synchronized = synchronizeFundingValues(current, currentMode, getFundingSourceValue(current, currentMode));
-                                  return { ...synchronized, fundingCalculationMode: mode };
-                                })} className={`py-2.5 rounded-lg text-[9px] font-black uppercase tracking-wide transition-all duration-200 ${formData.fundingCalculationMode === mode ? 'bg-gradient-to-r from-rose-600 to-pink-600 text-white shadow-md shadow-rose-950/50' : 'text-slate-400 hover:text-slate-200'}`}>{mode === 'TOTAL' ? 'Valor final' : mode === 'INSTALLMENT' ? 'Parcela' : 'Taxa mensal'}</button>)}
-                            </div>
-
-                            <div className="space-y-1.5 rounded-lg border border-slate-800/80 bg-slate-900/45 p-2.5">
-                              <p className="text-[9px] font-black uppercase tracking-wide text-slate-400">Ajuste dos juros do cartão no empréstimo</p>
-                              <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-                                <button
-                                  type="button"
-                                  aria-pressed={!formData.fundingOperatorAbsorbsInterest}
-                                  onClick={() => setFormData((current: any) => ({ ...current, fundingOperatorAbsorbsInterest: false }))}
-                                  className={`flex flex-col items-start rounded-md border px-3 py-2 text-left transition-all ${!formData.fundingOperatorAbsorbsInterest ? 'border-rose-500/50 bg-rose-500/15 text-white' : 'border-slate-800 bg-slate-950/50 text-slate-400 hover:text-slate-200'}`}
-                                >
-                                  <span className="text-[9px] font-black uppercase">Repassar juros do cartão ao cliente</span>
-                                  <span className="mt-0.5 text-[8px] leading-tight text-slate-300">Sua margem (%) incide sobre a parcela já com a taxa do cartão.</span>
-                                </button>
-                                <button
-                                  type="button"
-                                  aria-pressed={formData.fundingOperatorAbsorbsInterest === true}
-                                  onClick={() => setFormData((current: any) => ({ ...current, fundingOperatorAbsorbsInterest: true }))}
-                                  className={`flex flex-col items-start rounded-md border px-3 py-2 text-left transition-all ${formData.fundingOperatorAbsorbsInterest === true ? 'border-purple-500/50 bg-purple-500/15 text-white' : 'border-slate-800 bg-slate-950/50 text-slate-400 hover:text-slate-200'}`}
-                                >
-                                  <span className="text-[9px] font-black uppercase">Absorver juros do cartão no lucro</span>
-                                  <span className="mt-0.5 text-[8px] leading-tight text-slate-300">Sua margem (%) incide apenas sobre o principal emprestado.</span>
-                                </button>
-                              </div>
-                            </div>
-                          </>
-                        )}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Quantidade de parcelas</label><input type="number" min="1" value={formData.fundingInstallmentsCount || ''} onChange={e => setFormData((current: any) => {
-                              const mode = (current.fundingCalculationMode || 'TOTAL') as FundingCalculationMode;
-                              return synchronizeFundingValues(current, mode, getFundingSourceValue(current, mode), { fundingInstallmentsCount: e.target.value });
-                            })} className={strongInputClass}/></div>
-                            {fundingPaymentMethod === 'CREDIT_CARD' && (formData.fundingCalculationMode === 'RATE' ? <div><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Taxa do cartão (% a.m.)</label><FinancialCalculatorInput rate type="text" step="0.01" value={formData.fundingMonthlyRate || ''} onChange={e => { const value = cleanNumberStr(e.target.value); setFormData((current: any) => synchronizeFundingValues(current, 'RATE', value)); }} centsEntry className={strongInputClass}/></div> : formData.fundingCalculationMode === 'INSTALLMENT' ? <div><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Valor da parcela do cartão</label><FinancialCalculatorInput type="text" min="0.01" step="0.01" value={formData.fundingInstallmentValue || ''} onChange={e => { const value = cleanNumberStr(e.target.value); setFormData((current: any) => synchronizeFundingValues(current, 'INSTALLMENT', value)); }} centsEntry className={strongInputClass}/></div> : <div><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Total cobrado pelo cartão</label><FinancialCalculatorInput type="text" step="0.01" value={formData.fundingTotalPayable || ''} onChange={e => { const value = cleanNumberStr(e.target.value); setFormData((current: any) => synchronizeFundingValues(current, 'TOTAL', value)); }} centsEntry className={strongInputClass}/></div>)}
-                            <div><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Juros do cliente (%)</label><FinancialCalculatorInput rate type="text" min="0" step="0.01" value={formData.customerMarginPercent || ''} onChange={e => setFormData({...formData, customerMarginPercent: cleanNumberStr(e.target.value)})} centsEntry className={strongInputClass}/></div>
-                            <div>
-                              <label className="text-[9px] text-emerald-400 font-black uppercase ml-2">Definir parcela do cliente (R$)</label>
-                              <FinancialCalculatorInput
-                                type="text"
-                                placeholder="Ex.: 150,00"
-                                value={editingCustomerInstallment ? customerInstallmentDraft : (fixedInstallmentDisplay.customerInstallment > 0 ? fixedInstallmentDisplay.customerInstallment.toFixed(2).replace('.', ',') : '')}
-                                onFocus={() => {
-                                  setEditingCustomerInstallment(true);
-                                  setCustomerInstallmentDraft(fixedInstallmentDisplay.customerInstallment > 0 ? fixedInstallmentDisplay.customerInstallment.toFixed(2).replace('.', ',') : '');
-                                }}
-                                onBlur={() => setEditingCustomerInstallment(false)}
-                                onChange={e => {
-                                  const raw = e.target.value.replace(/[^0-9.,]/g, '');
-                                  setCustomerInstallmentDraft(raw);
-                                  const targetInstallment = parseFloat(cleanNumberStr(raw));
-                                  const base = fixedInstallmentDisplay.baseForClient;
-                                  if (!Number.isFinite(targetInstallment) || targetInstallment <= 0 || base <= 0) return;
-                                  const nextMargin = Math.max(0, ((targetInstallment / base) - 1) * 100);
-                                  setFormData((current: any) => ({
-                                    ...current,
-                                    customerMarginPercent: formatRateInput(nextMargin),
-                                  }));
-                                }}
-                                centsEntry className={`${strongInputClass} border-emerald-500/30 focus:border-emerald-500/60`}
-                              />
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                            <div className="rounded-lg bg-slate-900/70 border border-slate-800 p-3"><p className="text-[9px] uppercase font-black text-slate-500">{fundingPaymentMethod === 'CREDIT_CARD' ? 'Parcela do cartão' : 'Débito base'}</p><p className="font-black text-white mt-1 tabular-nums">{formatMoney(fixedInstallmentDisplay.bankInstallment)}</p></div>
-                            <div className="grid grid-cols-2 rounded-lg border border-slate-800 bg-slate-900/70 p-3">
-                              <div className="min-w-0 pr-3">
-                                <p className="text-[9px] font-black uppercase text-slate-500">Parcela cliente</p>
-                                <p className="mt-1 font-black text-emerald-400 tabular-nums">{formatMoney(fixedInstallmentDisplay.customerInstallment)}</p>
-                              </div>
-                              <div className="min-w-0 border-l border-slate-800 pl-3">
-                                <p className="text-[9px] font-black uppercase text-slate-500">Total cliente</p>
-                                <p className="mt-1 font-black text-white tabular-nums">{formatMoney(fixedInstallmentDisplay.customerTotal)}</p>
-                              </div>
-                            </div>
-                            <div className="rounded-lg bg-slate-900/70 border border-slate-800 p-3"><p className="text-[9px] uppercase font-black text-slate-500">Lucro previsto</p><p className={`font-black mt-1 tabular-nums ${fixedInstallmentDisplay.profit < 0 ? 'text-rose-400' : 'text-purple-400'}`}>{formatMoney(fixedInstallmentDisplay.profit)}</p></div>
-                        </div>
-                    </div>
-                ) : (
-                    <LoanFundingCostFields
-                      principal={principalValue}
-                      totalPayable={String(formData.fundingTotalPayable ?? '')}
-                      feePercent={String(formData.fundingFeePercent ?? '')}
-                      customerRate={String(formData.interestRate ?? '')}
-                      disabled={isEditing || principalValue <= 0}
-                      onAdjustCustomerRate={(nextRate) => setFormData((current: any) => ({
-                        ...current,
-                        interestRate: nextRate,
-                      }))}
-                      onChange={(total, rate) => setFormData((current: any) => ({
-                        ...current,
-                        fundingTotalPayable: total,
-                        fundingFeePercent: rate,
-                        fundingPaymentMethod: 'CREDIT_CARD',
-                        fundingCalculationMode: 'TOTAL',
-                      }))}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Quantidade de parcelas</label><input type="number" min="1" value={formData.fundingInstallmentsCount || ''} onChange={e => setFormData((current: any) => {
+                    const mode = (current.fundingCalculationMode || 'TOTAL') as FundingCalculationMode;
+                    return synchronizeFundingValues(current, mode, getFundingSourceValue(current, mode), { fundingInstallmentsCount: e.target.value });
+                  })} className={strongInputClass} /></div>
+                  {fundingPaymentMethod === 'CREDIT_CARD' && (formData.fundingCalculationMode === 'RATE' ? <div><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Taxa do cartão (% a.m.)</label><FinancialCalculatorInput rate type="text" step="0.01" value={formData.fundingMonthlyRate || ''} onChange={e => { const value = cleanNumberStr(e.target.value); setFormData((current: any) => synchronizeFundingValues(current, 'RATE', value)); }} centsEntry className={strongInputClass} /></div> : formData.fundingCalculationMode === 'INSTALLMENT' ? <div><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Valor da parcela do cartão</label><FinancialCalculatorInput type="text" min="0.01" step="0.01" value={formData.fundingInstallmentValue || ''} onChange={e => { const value = cleanNumberStr(e.target.value); setFormData((current: any) => synchronizeFundingValues(current, 'INSTALLMENT', value)); }} centsEntry className={strongInputClass} /></div> : <div><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Total cobrado pelo cartão</label><FinancialCalculatorInput type="text" step="0.01" value={formData.fundingTotalPayable || ''} onChange={e => { const value = cleanNumberStr(e.target.value); setFormData((current: any) => synchronizeFundingValues(current, 'TOTAL', value)); }} centsEntry className={strongInputClass} /></div>)}
+                  <div><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Juros do cliente (%)</label><FinancialCalculatorInput rate type="text" min="0" step="0.01" value={formData.customerMarginPercent || ''} onChange={e => setFormData({ ...formData, customerMarginPercent: cleanNumberStr(e.target.value) })} centsEntry className={strongInputClass} /></div>
+                  <div>
+                    <label className="text-[9px] text-emerald-400 font-black uppercase ml-2">Definir parcela do cliente (R$)</label>
+                    <FinancialCalculatorInput
+                      type="text"
+                      placeholder="Ex.: 150,00"
+                      value={editingCustomerInstallment ? customerInstallmentDraft : (fixedInstallmentDisplay.customerInstallment > 0 ? fixedInstallmentDisplay.customerInstallment.toFixed(2).replace('.', ',') : '')}
+                      onFocus={() => {
+                        setEditingCustomerInstallment(true);
+                        setCustomerInstallmentDraft(fixedInstallmentDisplay.customerInstallment > 0 ? fixedInstallmentDisplay.customerInstallment.toFixed(2).replace('.', ',') : '');
+                      }}
+                      onBlur={() => setEditingCustomerInstallment(false)}
+                      onChange={e => {
+                        const raw = e.target.value.replace(/[^0-9.,]/g, '');
+                        setCustomerInstallmentDraft(raw);
+                        const targetInstallment = parseFloat(cleanNumberStr(raw));
+                        const base = fixedInstallmentDisplay.baseForClient;
+                        if (!Number.isFinite(targetInstallment) || targetInstallment <= 0 || base <= 0) return;
+                        const nextMargin = Math.max(0, ((targetInstallment / base) - 1) * 100);
+                        setFormData((current: any) => ({
+                          ...current,
+                          customerMarginPercent: formatRateInput(nextMargin),
+                        }));
+                      }}
+                      centsEntry className={`${strongInputClass} border-emerald-500/30 focus:border-emerald-500/60`}
                     />
-                )}
-            </div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                  <div className="rounded-lg bg-slate-900/70 border border-slate-800 p-3"><p className="text-[9px] uppercase font-black text-slate-500">{fundingPaymentMethod === 'CREDIT_CARD' ? 'Parcela do cartão' : 'Débito base'}</p><p className="font-black text-white mt-1 tabular-nums">{formatMoney(fixedInstallmentDisplay.bankInstallment)}</p></div>
+                  <div className="grid grid-cols-2 rounded-lg border border-slate-800 bg-slate-900/70 p-3">
+                    <div className="min-w-0 pr-3">
+                      <p className="text-[9px] font-black uppercase text-slate-500">Parcela cliente</p>
+                      <p className="mt-1 font-black text-emerald-400 tabular-nums">{formatMoney(fixedInstallmentDisplay.customerInstallment)}</p>
+                    </div>
+                    <div className="min-w-0 border-l border-slate-800 pl-3">
+                      <p className="text-[9px] font-black uppercase text-slate-500">Total cliente</p>
+                      <p className="mt-1 font-black text-white tabular-nums">{formatMoney(fixedInstallmentDisplay.customerTotal)}</p>
+                    </div>
+                  </div>
+                  <div className="rounded-lg bg-slate-900/70 border border-slate-800 p-3"><p className="text-[9px] uppercase font-black text-slate-500">Lucro previsto</p><p className={`font-black mt-1 tabular-nums ${fixedInstallmentDisplay.profit < 0 ? 'text-rose-400' : 'text-purple-400'}`}>{formatMoney(fixedInstallmentDisplay.profit)}</p></div>
+                </div>
+              </div>
+            ) : (
+              <LoanFundingCostFields
+                principal={principalValue}
+                totalPayable={String(formData.fundingTotalPayable ?? '')}
+                feePercent={String(formData.fundingFeePercent ?? '')}
+                customerRate={String(formData.interestRate ?? '')}
+                disabled={isEditing || principalValue <= 0}
+                onAdjustCustomerRate={(nextRate) => setFormData((current: any) => ({
+                  ...current,
+                  interestRate: nextRate,
+                }))}
+                onChange={(total, rate) => setFormData((current: any) => ({
+                  ...current,
+                  fundingTotalPayable: total,
+                  fundingFeePercent: rate,
+                  fundingPaymentMethod: 'CREDIT_CARD',
+                  fundingCalculationMode: 'TOTAL',
+                }))}
+              />
+            )}
+          </div>
         )}
       </div>
     </div>

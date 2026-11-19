@@ -1,11 +1,21 @@
 import type { PersonalWalletExpense } from '../../../services/personalWallet.service';
 
 export type SpendingCategory = { name: string; amount: number; percentage: number; count: number };
+export type SpendingMethodSummary = {
+  cardAmount: number;
+  cardPercentage: number;
+  accountAmount: number;
+  accountPercentage: number;
+  singleAmount: number;
+  installmentAmount: number;
+  installmentCount: number;
+};
 export type SpendingOverview = {
   total: number;
   count: number;
   previousTotal: number;
   categories: SpendingCategory[];
+  byMethod?: SpendingMethodSummary;
 };
 
 /**
@@ -21,10 +31,29 @@ export function getWalletSpendingOverview(
   const current = new Map<string, { amountCents: number; count: number }>();
   let totalCents = 0;
   let previousCents = 0;
+  let cardCents = 0;
+  let accountCents = 0;
+  let singleCents = 0;
+  let installmentCents = 0;
+  let installmentCount = 0;
   let count = 0;
   const [year, monthIndex] = month.split('-').map(Number);
   if (!year || !monthIndex || monthIndex < 1 || monthIndex > 12) {
-    return { total: 0, previousTotal: 0, count: 0, categories: [] };
+    return {
+      total: 0,
+      previousTotal: 0,
+      count: 0,
+      categories: [],
+      byMethod: {
+        cardAmount: 0,
+        cardPercentage: 0,
+        accountAmount: 0,
+        accountPercentage: 0,
+        singleAmount: 0,
+        installmentAmount: 0,
+        installmentCount: 0,
+      },
+    };
   }
   const previousDate = new Date(Date.UTC(year, monthIndex - 2, 1));
   const previousMonth = previousDate.toISOString().slice(0, 7);
@@ -47,6 +76,14 @@ export function getWalletSpendingOverview(
         stored.count += 1;
       } else current.set(key, { amountCents: cents, count: 1 });
       totalCents += cents;
+      if (expense.card_id) cardCents += cents;
+      else accountCents += cents;
+      if (Number(expense.installment_count || 1) > 1) {
+        installmentCents += cents;
+        installmentCount += 1;
+      } else {
+        singleCents += cents;
+      }
       count++;
     }
   }
@@ -75,5 +112,14 @@ export function getWalletSpendingOverview(
       count: item.count,
       percentage: totalCents ? Math.round(item.amountCents / totalCents * 100) : 0,
     })),
+    byMethod: {
+      cardAmount: cardCents / 100,
+      cardPercentage: totalCents ? Math.round((cardCents / totalCents) * 100) : 0,
+      accountAmount: accountCents / 100,
+      accountPercentage: totalCents ? Math.round((accountCents / totalCents) * 100) : 0,
+      singleAmount: singleCents / 100,
+      installmentAmount: installmentCents / 100,
+      installmentCount,
+    },
   };
 }

@@ -235,8 +235,9 @@ export const FinancialCalculatorInput: React.FC<Props> = ({
             onKeyDown?.(e);
           }}
           aria-invalid={!!error}
-          className={className + ' pr-12'}
+          className={className + (rate ? ' pr-20' : ' pr-12')}
         />
+        {rate && <span aria-hidden="true" className="pointer-events-none absolute right-11 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">%</span>}
         <button type="button" disabled={disabled} aria-label="Operadores de cálculo"
           onPointerDown={e => e.preventDefault()}
           onClick={() => { if (!editing) { setDraft(displayValue()); setEditing(true); } setOperatorsOpen(v => !v); ref.current?.focus(); }}

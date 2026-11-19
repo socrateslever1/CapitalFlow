@@ -249,7 +249,7 @@ export const AppShell: React.FC<AppShellProps> = ({
       <MasterMascot activeUser={activeUser} notifications={notifications} />
 
       <ApplePageBackBar onBack={onGoBack} isHome={activeTab === 'DASHBOARD'} />
-      <main ref={mainRef} className="flex-1 overflow-y-auto touch-pan-y overflow-x-hidden [-webkit-overflow-scrolling:touch] overscroll-y-contain pb-36 md:pb-12">
+      <main ref={mainRef} className={`flex-1 overflow-y-auto touch-pan-y overflow-x-hidden [-webkit-overflow-scrolling:touch] overscroll-y-contain ${walletModuleRoute ? 'pb-28 md:pb-12' : 'pb-36 md:pb-12'}`}>
         <PullToRefreshIndicator pullDistance={pullDistance} isRefreshing={isRefreshing} isReady={isReady} />
         <div className="w-full max-w-[1500px] mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-5">
           {children}

@@ -85,10 +85,17 @@ export function buildAccountStatementEntries(input: {
       } else if (operation.operation_type === 'INCOME' && operation.category === 'Saldo inicial') {
         tag = 'Saldo inicial';
       }
+      const normalizedLabel = operation.contract_id && /^(recebimento de contrato|recebimento do contrato)\s*[·-]\s*/i.test(operation.description)
+        ? operation.description.replace(/^(recebimento de contrato|recebimento do contrato)\s*[·-]\s*/i, 'Recebimento de ')
+        : operation.contract_id && /^empr[eé]stimo concedido\s*[·-]\s*/i.test(operation.description)
+          ? operation.description.replace(/^empr[eé]stimo concedido\s*[·-]\s*/i, 'Empréstimo · ')
+          : operation.operation_type === 'CAPITAL_TRANSFER' && /^transfer[eê]ncia de capital\s*[·-]\s*/i.test(operation.description)
+            ? operation.description.replace(/^transfer[eê]ncia de capital\s*[·-]\s*/i, 'Capital · ')
+            : operation.description;
       return {
         id: operation.id,
         date: operation.operation_date,
-        label: operation.description,
+        label: normalizedLabel,
         category,
         tag,
         amount: incoming ? Number(operation.amount) : -Number(operation.amount),

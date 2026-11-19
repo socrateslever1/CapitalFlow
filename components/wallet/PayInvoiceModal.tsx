@@ -7,6 +7,7 @@ import { formatWalletMoneyInput, parseWalletMoney } from '../../features/wallet/
 import { resolveLiveBrazilianCentsChange } from '../../features/wallet/utils/liveBrazilianMoneyInput';
 import { stepInvoiceMonth } from '../../features/wallet/utils/minhasFinancasWalletTools';
 import { businessMonthInManaus } from '../../utils/businessDate';
+import { SelectOptionList } from '../ui/SelectOptionList';
 
 export type InvoiceRemainderAction =
   | { mode: 'KEEP_IN_CURRENT' }
@@ -182,16 +183,24 @@ export const PayInvoiceModal: React.FC<PayInvoiceModalProps> = ({
                 className="rounded-lg border border-slate-700 px-3 text-xs text-slate-200">Total</button>
             </div>
           </label>
-          <label className="block space-y-1.5">
+          <div className="block space-y-1.5">
             <span className="block text-[11px] font-bold uppercase text-slate-300">Origem do pagamento</span>
-            <select value={accountId} onChange={(event) => setAccountId(event.target.value)}
-              className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-3 text-xs text-white">
-              <option value="MANUAL">Pagamento já realizado (registro manual)</option>
-              {accounts.map((account) => <option key={account.id} value={account.id}>
-                {account.nickname} · Saldo: {formatMoney(account.balance)}
-              </option>)}
-            </select>
-          </label>
+            <SelectOptionList
+              ariaLabel="Origem do pagamento"
+              value={accountId}
+              placeholder="Selecione a origem"
+              options={[
+                { value: 'MANUAL', label: 'Pagamento já realizado (registro manual)', subtitle: 'Sem débito em conta' },
+                ...accounts.map((account) => ({
+                  value: account.id,
+                  label: account.nickname,
+                  subtitle: 'Saldo disponível',
+                  rightValue: formatMoney(account.balance),
+                })),
+              ]}
+              onChange={setAccountId}
+            />
+          </div>
           {accountId === 'MANUAL'
             ? <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200">
                 Use somente para registrar um pagamento realmente realizado. Nenhuma conta bancária será debitada no CapitalFlow.

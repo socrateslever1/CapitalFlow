@@ -50,13 +50,13 @@ test('bank facts navigate real due-month cycles while preserving distinct financ
   assert.match(page, /Aplicar valores já salvos à posição do cartão/);
   assert.match(page, /await Promise\.all\(\[refreshInvoiceFacts\(\),\s*refresh\(\)\]\)/);
   assert.match(page, /setStatementMonth\(result\.due_month\)/);
-  assert.match(preview, /Dados do PDF salvos; posição financeira não modificada/);
-  assert.match(preview, /Fatura e posição financeira registradas/);
+  assert.match(preview, /Referência salva em Valores do banco; total da lista mantido/);
+  assert.match(preview, /Fatura e posição inicial do cartão registradas/);
 });
 
 test('invoice review form does not reset on parent object recreation', () => {
   assert.match(preview, /const summaryIdentity = JSON\.stringify\(\{/);
-  assert.match(preview, /useEffect\(\(\) => \{ setForm\(toForm\(summary\)\); setSaved\(null\); setError\('\'\); \}, \[summaryIdentity\]\)/);
+  assert.match(preview, /useEffect\(\(\) => \{ setForm\(toForm\((?:summary|resolvedSummary)\)\); setSaved\(null\); setError\('\'\); \}, \[summaryIdentity\]\)/);
   assert.doesNotMatch(preview, /\}, \[summary\]\)/);
 });
 

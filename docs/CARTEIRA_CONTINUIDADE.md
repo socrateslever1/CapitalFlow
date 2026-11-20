@@ -1,3 +1,23 @@
+## 20/11/2026 — conciliação financeira REAL de empréstimos pagos no cartão (Nubank)
+
+**Causa-raiz identificada no Supabase de produção:** o gatilho \`trg_sync_transacao_to_wallet()\` efetivamente instalado era uma versão anterior ao código versionado e debitava \`personal_wallet_accounts.balance\` ao inserir qualquer \`LOAN_INITIAL\`, mesmo em contratos \`funding_payment_method=CREDIT_CARD\` com fonte do tipo \`CARD\`. Havia três desembolsos para o mesmo cliente: R$ 700,00, R$ 200,00 e R$ 200,00; todos tinham compras financeiras correspondentes em \`loan_card_wallet_charges\` e \`personal_wallet_expenses\` (respectivamente R$ 734,93, R$ 209,98 e R$ 209,98; \`account_id\` nulo nas despesas). O primeiro já tinha ajuste e estorno auditável de R$ 700,00; os dois últimos não.
+
+**Correção executada diretamente no banco:** migração \`20261120232000_reconcile_card_funded_wallet_debits.sql\`. Protege o gatilho de novos débitos de empréstimos financiados por cartão ANTES de sincronizar saldo, verificando metadados e modalidade do contrato/fonte, sem depender da compra do cartão já ter sido criada. Mantém integralmente a sincronização normal de desembolsos em dinheiro e recebimentos.
+
+A correção histórica aplicou **dois estornos de R$ 200,00**, cada um com \`request_id\` determinístico, operação de auditoria na Carteira, transação \`ADJUSTMENT\` no ledger com \`reversed_of_transaction_id\`, metadados de correção e referência na nova tabela \`personal_wallet_card_funding_reconciliations\` (chave única de contrato). Os registros originais permanecem intactos, e os lançamentos auditáveis são excluídos somente da **apresentação normal** via filtragem que verifica vínculos reais de cartão. O gatilho existente de espelhamento sincronizou a fonte Nu com a conta Nubank, registrando dois ajustes de R$ 200,00 em \`financial_balance_audit\`.
+
+**Resultado verificado em produção:**
+- Conta Nubank: R$ 1.316,21 → **R$ 1.716,21**
+- Fonte Nu sincronizada: R$ 1.316,21 → **R$ 1.716,21**
+- Soma contábil das oito movimentações da conta após compensação: **R$ 1.716,21**
+- \`personal_wallet_card_funding_reconciliations\`: 2 registros, R$ 400,00, duas operações e dois ajustes no ledger.
+- \`loan_card_wallet_charges\` dos 3 contratos: \`source_balance_effect='REVERSED'\`, com referência de correção; o contrato de R$ 700,00 não recebeu segundo estorno.
+- Proteção ativa no gatilho comprovada por consulta à definição da função no banco.
+- **Não foram alterados:** valores dos contratos, clientes, despesas nem faturas do cartão. Apenas a conta e sua fonte espelhada foram creditadas com o valor que havia sido debitado indevidamente.
+- Em ambientes vazios, reaplicação do script não cria valores artificiais; há verificação de exatamente dois débitos de R$ 200,00 não compensados antes de qualquer ajuste. \`tests/wallet/wallet-card-funding-reconciliation.test.ts\` protege a regra e a igualdade do saldo com o resultado das movimentações.
+- **Limite:** esse saldo é o valor contábil conciliado no sistema; não significa confirmação externa do extrato real do banco Nubank. Testes CI e APK devem ser verificados no commit correspondente.
+
+
 ## 20/11/2026 — Extrato da conta: separar empréstimos financiados por cartão
 - **Diagnóstico em produção:** Nubank mostrou `LOAN_DISBURSEMENT` de R$ 700,00 + R$ 200,00 + R$ 200,00, todos vinculados a contratos com `funding_payment_method=CREDIT_CARD` e com linhas efetivas em `loan_card_wallet_charges`. Há estorno de auditoria de R$ 700,00 para o primeiro contrato. Esses lançamentos são registros contábeis do empréstimo e não movimentações bancárias diretamente iniciadas pelo usuário.
 - **Correção visual segura:** `services/personalWallet.service.ts` lê `loan_id` apenas de `loan_card_wallet_charges`, protegido por RLS de proprietário. `accountStatementDomain.ts` filtra do **extrato operacional da conta** somente os desembolsos cujo `contract_id` consta nessa lista e seus estornos de auditoria associados. Empréstimos realmente desembolsados com recursos da conta continuam exibidos. `WalletAccountsPage`, `AccountDetailsPage` e `AccountActivityPanel` recebem a mesma lista para manter totais de extrato coerentes com suas linhas. Ao substituir rótulo `Desembolso do contrato`, a categoria legível dos empréstimos em dinheiro passa a `Valor emprestado`.

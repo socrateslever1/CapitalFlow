@@ -33,28 +33,63 @@ export interface InfinitePayCheckoutResponse {
  * 2. Se a Edge Function não estiver implantada ou falhar (404/indisponível),
  *    executa o fallback direto via API /api/infinitepay/checkout do backend Express.
  */
+async function getFreshAccessToken(forceRefresh = false): Promise<string | null> {
+  try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const session = sessionData?.session;
+    const nowSec = Math.floor(Date.now() / 1000);
+    const expiresSoon = !session?.expires_at || session.expires_at - nowSec < 60;
+
+    if (!forceRefresh && session?.access_token && !expiresSoon) {
+      return session.access_token;
+    }
+
+    const { data: refreshed } = await supabase.auth.refreshSession();
+    return refreshed?.session?.access_token || session?.access_token || null;
+  } catch {
+    return null;
+  }
+}
+
 export async function createInfinitePayCheckout(
   input: InfinitePayCheckoutInput
 ): Promise<InfinitePayCheckoutResponse> {
   const profileId = safeUUID(input.profile_id);
 
-  // 1. Tentar Edge Function Supabase
+  // 1. Tentar Edge Function Supabase (com token de sessão fresco e 1 retry automático em UNAUTHORIZED)
   try {
-    const { data, error } = await supabase.functions.invoke('infinitepay-create-checkout', {
-      body: {
-        loan_id: input.loan_id,
-        installment_id: input.installment_id,
-        installment_ids: input.installment_ids || (input.installment_id ? [input.installment_id] : []),
-        amount: input.amount,
-        payer_name: input.payer_name,
-        payer_email: input.payer_email || 'cliente@capitalflow.app',
-        payer_doc: input.payer_doc,
-        payer_phone: input.payer_phone,
-        portal_token: input.portal_token,
-        portal_code: input.portal_code,
-        return_url: input.return_url || (typeof window !== 'undefined' ? window.location.href : undefined),
-      },
-    });
+    const isPortalCall = Boolean(input.portal_token && input.portal_code);
+    const body = {
+      loan_id: input.loan_id,
+      installment_id: input.installment_id,
+      installment_ids: input.installment_ids || (input.installment_id ? [input.installment_id] : []),
+      amount: input.amount,
+      payer_name: input.payer_name,
+      payer_email: input.payer_email || 'cliente@capitalflow.app',
+      payer_doc: input.payer_doc,
+      payer_phone: input.payer_phone,
+      portal_token: input.portal_token,
+      portal_code: input.portal_code,
+      return_url: input.return_url || (typeof window !== 'undefined' ? window.location.href : undefined),
+    };
+
+    const invokeOnce = async (forceRefresh: boolean) => {
+      const accessToken = isPortalCall ? null : await getFreshAccessToken(forceRefresh);
+      return supabase.functions.invoke('infinitepay-create-checkout', {
+        body,
+        ...(accessToken ? { headers: { Authorization: `Bearer ${accessToken}` } } : {}),
+      });
+    };
+
+    let { data, error } = await invokeOnce(false);
+    const isAuthFailure =
+      !isPortalCall &&
+      (data?.code === 'UNAUTHORIZED' ||
+        /unauthorized|invalid token|jwt/i.test(String(data?.error || error?.message || '')));
+
+    if (isAuthFailure) {
+      ({ data, error } = await invokeOnce(true));
+    }
 
     if (!error && data?.ok && data?.checkout_url) {
       return {
@@ -68,6 +103,13 @@ export async function createInfinitePayCheckout(
     // Se o erro foi que a função não existe no Supabase, continua para o fallback local
     const errorMsg = String(error?.message || data?.error || '');
     if (!errorMsg.includes('Failed to send a request') && !errorMsg.includes('NOT_FOUND') && !errorMsg.includes('indisponivel')) {
+      if (data?.code === 'UNAUTHORIZED' || /unauthorized|invalid token/i.test(errorMsg)) {
+        return {
+          ok: false,
+          error: 'Sessão expirada. Atualize a página ou entre novamente para gerar o checkout InfinitePay.',
+          code: 'UNAUTHORIZED',
+        };
+      }
       // Erro de validação de negócio (ex: valor zero)
       if (data?.error) {
         return { ok: false, error: data.error, code: data.code };

@@ -76,6 +76,30 @@ export function getBankVisual(name?: string | null) {
   return { key, name: title, ...base };
 }
 
+type WalletCardVisualInput = {
+  issuer?: string | null;
+  nickname?: string | null;
+  institution_key?: string | null;
+  primary_color?: string | null;
+};
+
+/** Resolves the same issuer palette and gradient for every card preview. */
+export function getWalletCardVisual(card: WalletCardVisualInput, linkedInstitution?: string | null) {
+  const visual = getBankVisual(
+    card.institution_key || linkedInstitution || card.issuer || card.nickname || 'Cartão',
+  );
+  const accent = card.primary_color?.trim() || visual.accent;
+  const start = visual.key === 'bradesco'
+    ? `color-mix(in srgb, ${accent} 68%, #3b071c)`
+    : accent;
+  const end = visual.key === 'bradesco' ? '#2b0819' : visual.secondary;
+  return {
+    ...visual,
+    accent,
+    background: `radial-gradient(circle at 82% 0%, rgba(255,255,255,.14), transparent 38%), linear-gradient(135deg, ${start}, ${end})`,
+  };
+}
+
 type AccountLike = { id: string; nickname: string; bank_name?: string | null; balance?: number };
 type CardLike = { id: string; nickname: string; issuer?: string | null; account_id?: string | null };
 

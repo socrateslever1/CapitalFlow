@@ -178,17 +178,19 @@ serve(async (req) => {
 
     if (!isAuthorized && !isInternalServiceCall) {
       const token = getBearerToken(req);
-      if (!token) return json(req, { ok: false, error: "Unauthorized" }, 401);
+      if (!token) {
+        return json(req, {
+          ok: false,
+          error: "Sessão expirada. Atualize a página e tente novamente.",
+          code: "UNAUTHORIZED",
+        }, 401);
+      }
 
-      const supabaseUser = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-        global: { headers: { Authorization: `Bearer ${token}` } },
-      });
-
-      const { data: authData, error: authErr } = await supabaseUser.auth.getUser();
+      const { data: authData, error: authErr } = await supabaseAdmin.auth.getUser(token);
       if (authErr || !authData?.user?.id) {
         return json(req, {
           ok: false,
-          error: "Unauthorized: invalid token",
+          error: "Sessão expirada ou inválida. Atualize a página e tente novamente.",
           code: "UNAUTHORIZED",
         });
       }

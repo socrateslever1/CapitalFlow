@@ -1,3 +1,27 @@
+## 20/11/2026 — Refinamento do vermelho e das logos dos cartões
+
+- Após feedback visual, escurecido o gradiente do Bradesco para vinho, preservando a cor personalizada quando cadastrada; retomados os brilhos e os aros sutis dos cartões. Logos voltaram ao bloco escuro original, sem a moldura branca aplicada na revisão anterior.
+- `npm run build` concluiu e `git diff --check` passou. Não foram executados testes automatizados nem validação visual no navegador/aparelho; o host do navegador estava indisponível. Avisos de chunk/importação dinâmica permanecem no build.
+- Risco/rollback: alteração somente visual, reversível nos componentes e helper de apresentação do cartão.## 20/11/2026 — Padronização visual dos cartões da carteira
+
+- `BankStack`, cartões compactos do resumo e `VirtualCreditCard` agora usam a mesma paleta por emissor, incluindo a cor personalizada do cartão. As logos usam o mesmo componente com superfície branca, proporção e espaçamento consistentes; removido o quadrado branco duplicado nas miniaturas.
+- Preservadas as cores distintas por instituição (por exemplo, Bradesco, Nu e PicPay), os dados, os handlers e os cálculos. Nenhuma regra financeira ou persistência foi alterada.
+- Evidências: `npm run build` concluiu; `git diff --check` passou; revisão independente dos componentes não encontrou regressões. Não foram executados testes automatizados nem validação visual no navegador/aparelho nesta alteração. Avisos de chunk e importações dinâmicas apareceram no build.
+- Risco/rollback: mudança restrita à apresentação e reversível revertendo os cinco componentes/helpers de UI alterados.## 20/11/2026 — Ajuste de tamanho e distribuição dos botões do contrato
+
+- Em `components/cards/LoanCardComposition/Footer.tsx`, as ações principais agora se reorganizam por largura disponível: mantêm largura equilibrada, quebram em linhas e centralizam itens restantes. Aumentados altura mínima, ícones, texto e espaçamento; o bloco Arquivar/Restaurar permanece separado visualmente e também ganhou alvo de toque maior.
+- Mantidos ordem, handlers, condições, cores semânticas e estados. Nenhuma regra financeira foi alterada.
+- Verificação: detector Impeccable `detect --scope layout` sem ocorrências; `git diff --check` passou; `npm run build` passou (com avisos de chunk/importação dinâmica preexistentes); revisão independente sem achados. O navegador abriu a página do app, mas o cartão dos screenshots não estava aberto no estado necessário para validar esse render.
+## 20/11/2026 — Reorganização dos botões no cartão de grupo
+
+- Em `components/cards/ClientGroupCard.tsx`, a grade dos sete botões passou a usar `auto-fit` por largura real disponível, com largura mínima por ação, espaçamento maior, alvo de pelo menos 48px, ícones e rótulos ampliados. “Venc.”/“Arq.” foram substituídos por “Vencidas”/“Arquivar”; “Unir” virou “Unificar”.
+- A ordem, os handlers, os filtros e os estados desabilitados foram preservados. Nenhuma lógica ou dado financeiro foi alterado.
+- Verificação: detector Impeccable `detect --scope layout` sem ocorrências; `git diff --check` passou. Revisão independente não encontrou problemas no escopo. Não rodei testes; validação visual no navegador ficou indisponível porque o host de navegador estava fora do ar.
+## 20/11/2026 — Remoção do bloco explicativo do cartão de parcela
+
+- A pedido do usuário, removido de `components/cards/components/InstallmentCard.tsx` o bloco azul “Saldo registrado após o último recebimento” e seus parágrafos. Permanecem inalterados o valor exibido da parcela, vencimento, status, ofertas, encargos e ações de pagamento; nenhuma regra ou gravação financeira foi alterada.
+- Atualizado `tests/financial/partial-payment-display.test.ts` para impedir que o bloco removido volte a aparecer.
+- Verificação: `npx tsx --test tests/financial/partial-payment-display.test.ts` passou (6/6); `git diff --check` passou. A suíte geral mostrou falha existente em `tests/audit/business-date-consistency.test.ts:94` (inventário de chamadas a `new Date().toISOString().slice(0, 10)` em outros arquivos). A revisão visual no navegador não foi possível porque o host de navegador estava indisponível.
 ## 20/11/2026 — Reimportação real da fatura Bradesco 4999
 
 - A pedido do usuário, substituída a importação anterior pela leitura atual do PDF `BradescoCartoes2026-11-19.165820.pdf` (`SHA-256 632dc00d98d02570188d6c669c16d212a4c1dfb10aaf9ad2e59db2a2f81033e1`), preservando idempotência e cancelando/recriando somente compras pendentes e não pagas pela RPC autorizada.

@@ -37,7 +37,7 @@ export const BankLogo: React.FC<Props> = ({ name, alternateName, customImage, si
             if (usingCustom) setCustomFailed(true);
             else setLocalFailed(true);
           }}
-          className="h-full w-full object-contain p-0.5"
+          className="h-full w-full object-contain p-1"
         />
       ) : initials ? (
         <span className="text-xs font-extrabold text-emerald-200">{initials}</span>

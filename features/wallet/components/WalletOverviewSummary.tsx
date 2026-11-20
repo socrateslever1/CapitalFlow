@@ -4,7 +4,7 @@ import { PrivateMoney, useFinancialPrivacy } from '../../../contexts/FinancialPr
 import type { PersonalWalletAccount, PersonalWalletCard } from '../../../services/personalWallet.service';
 import { AccountCardStack } from '../../../components/wallet/AccountCardStack';
 import { BankLogo } from '../../../components/wallet/BankLogo';
-import { getBankVisual, getCreditSummary } from '../../../components/wallet/walletPresentation';
+import { getWalletCardVisual, getCreditSummary } from '../../../components/wallet/walletPresentation';
 import { formatMoney } from '../../../utils/formatters';
 import { getCardSummaryDestination } from '../cardSummaryNavigation';
 
@@ -109,23 +109,19 @@ export const WalletOverviewSummary: React.FC<WalletOverviewSummaryProps> = ({
             className="mt-3 flex snap-x snap-mandatory gap-2.5 overflow-x-auto pb-1 [scrollbar-width:thin]">
             {cards.slice(0,4).map(card => {
               const account = accounts.find(item => item.id === card.account_id);
-              const institution = card.institution_key || account?.institution_key ||
-                card.issuer || card.nickname;
-              const visual = getBankVisual(institution);
-              const accent = card.primary_color || visual.accent;
+              const institution = account?.bank_name || card.issuer || card.nickname;
+              const visual = getWalletCardVisual(card, account?.institution_key || account?.bank_name);
               const available = Math.max(0, Number(card.credit_limit) - Number(card.used_limit));
               return (
                 <li key={card.id} className="min-w-0 shrink-0 basis-[min(78%,260px)] snap-start sm:basis-[min(48%,280px)]">
                   <button type="button" onClick={() => onNavigate(getCardSummaryDestination(card.id))}
                     aria-label={privacyHidden ? 'Abrir cartão protegido' : `Abrir cartão ${card.nickname}, final ${card.last_four || 'não informado'}`}
                     className="group relative flex h-[132px] w-full flex-col justify-between overflow-hidden rounded-xl border border-white/15 bg-slate-950 p-3 text-left text-white shadow-sm transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 sm:h-[142px]"
-                    style={{background:`linear-gradient(145deg, ${accent}, #0f172a 88%)`}}>
+                    style={{background: visual.background}}>
                     <span aria-hidden="true" className="pointer-events-none absolute -right-10 -top-16 h-32 w-32 rounded-full border border-white/10"/>
                     <span className="relative flex min-w-0 items-start justify-between gap-2">
                       <span className="flex min-w-0 items-center gap-2">
-                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white/90">
-                          <BankLogo name={institution} alternateName={card.nickname} size="sm"/>
-                        </span>
+                        <BankLogo name={institution} alternateName={card.nickname} size="sm"/>
                         <span className="min-w-0">
                           <strong className="block truncate text-sm font-semibold">{card.nickname}</strong>
                           <span className="block text-[10px] tracking-wider text-white/75">

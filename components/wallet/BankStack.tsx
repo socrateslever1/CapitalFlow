@@ -5,7 +5,7 @@ import { copyCardFieldToClipboard, copyCardLastFourToClipboard } from '../../uti
 import type { PersonalWalletAccount, PersonalWalletCard } from '../../services/personalWallet.service';
 import { formatMoney } from '../../utils/formatters';
 import { BankLogo } from './BankLogo';
-import { getBankVisual } from './walletPresentation';
+import { getWalletCardVisual } from './walletPresentation';
 
 type Props = {
   accounts: PersonalWalletAccount[];
@@ -68,10 +68,8 @@ export const BankStack: React.FC<Props> = ({ accounts, cards, onCard, onEditCard
   const identity = (card: PersonalWalletCard) => {
     const account = accounts.find(item => item.id === card.account_id);
     const issuer = account?.bank_name || card.issuer || card.nickname;
-    const key = card.institution_key || account?.institution_key || issuer;
-    const visual = getBankVisual(key);
-    const accent = card.primary_color || visual.accent;
-    return { issuer, visual, accent };
+    const visual = getWalletCardVisual(card, account?.institution_key || account?.bank_name);
+    return { issuer, visual, accent: visual.accent };
   };
   const front = selected ? identity(selected) : null;
   const available = selected ? Math.max(0, Number(selected.credit_limit) - Number(selected.used_limit)) : 0;
@@ -111,7 +109,7 @@ export const BankStack: React.FC<Props> = ({ accounts, cards, onCard, onEditCard
           <div className="relative w-full" style={{ paddingTop: rear.length * 14 }}>
             {rear.map((card, rearIndex) => {
               const cardIdentity = identity(card);
-              return <button type="button" key={card.id} onClick={() => setSelectedId(card.id)} aria-label={`Selecionar ${card.nickname}`} className="absolute inset-x-0 top-0 mx-auto h-14 rounded-t-2xl border border-white/20 shadow-xl transition-all duration-300 ease-out" style={{ zIndex: rearIndex + 1, width: `${92 + rearIndex * 3}%`, transform: `translateY(${rearIndex * 14}px)`, background: cardIdentity.accent }} />;
+              return <button type="button" key={card.id} onClick={() => setSelectedId(card.id)} aria-label={`Selecionar ${card.nickname}`} className="absolute inset-x-0 top-0 mx-auto h-14 rounded-t-2xl border border-white/20 shadow-xl transition-all duration-300 ease-out" style={{ zIndex: rearIndex + 1, width: `${92 + rearIndex * 3}%`, transform: `translateY(${rearIndex * 14}px)`, background: cardIdentity.visual.background }} />;
             })}
             <div
               className="relative z-30 aspect-[1.586/1] w-full touch-pan-y select-none transition-transform duration-200 motion-reduce:transition-none"
@@ -150,11 +148,12 @@ export const BankStack: React.FC<Props> = ({ accounts, cards, onCard, onEditCard
               }}
             >
               <div className="absolute inset-0 transition-transform duration-500 ease-out motion-reduce:transition-none" style={{ transformStyle: 'preserve-3d', transform: `rotateY(${isFlipped ? 180 : 0}deg)` }}>
-                <div className="absolute inset-0 overflow-hidden rounded-2xl border border-white/25 shadow-2xl" style={{ backfaceVisibility: 'hidden', background: `linear-gradient(125deg,${front!.accent},${front!.visual.secondary})` }}>
+                <div className="absolute inset-0 overflow-hidden rounded-2xl border border-white/25 shadow-2xl" style={{ backfaceVisibility: 'hidden', background: front!.visual.background }}>
+                  <div aria-hidden className="pointer-events-none absolute -right-8 -top-10 h-36 w-36 rounded-full border border-white/10 bg-white/[0.025]" />
                   <div aria-hidden className="absolute -right-7 -top-10 select-none text-7xl font-black text-white/10 sm:text-8xl">{front!.visual.monogram}</div>
                   <div className="relative grid h-full grid-rows-[auto_auto_auto_1fr] gap-2 p-3.5 text-white sm:gap-3 sm:p-5">
                     <div className="flex min-w-0 items-start justify-between gap-3">
-                      <div className="flex min-w-0 items-center gap-2"><span className="rounded-lg bg-white p-0.5"><BankLogo size="sm" name={front!.issuer} alternateName={selected.nickname}/></span><strong className="truncate text-sm">{front!.issuer}</strong></div>
+                      <div className="flex min-w-0 items-center gap-2"><BankLogo size="sm" name={front!.issuer} alternateName={selected.nickname}/><strong className="truncate text-sm">{front!.issuer}</strong></div>
                       <Network brand={selected.brand}/>
                     </div>
                     <div className="flex items-center justify-between gap-3">
@@ -172,7 +171,7 @@ export const BankStack: React.FC<Props> = ({ accounts, cards, onCard, onEditCard
                     </div>
                   </div>
                 </div>
-                <div className="absolute inset-0 overflow-hidden rounded-2xl border border-white/20 text-white shadow-2xl" style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)', background: `linear-gradient(125deg,${front!.accent},${front!.visual.secondary})` }}>
+                <div className="absolute inset-0 overflow-hidden rounded-2xl border border-white/20 text-white shadow-2xl" style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)', background: front!.visual.background }}>
                   <div className="absolute inset-x-0 top-4 h-9 bg-black/90 shadow-inner sm:top-5 sm:h-10" aria-label="Faixa magnética"/>
                   <div className="relative flex h-full flex-col px-3.5 pb-2.5 pt-[3.75rem] sm:px-5 sm:pb-3 sm:pt-[4.35rem]">
                     <div>

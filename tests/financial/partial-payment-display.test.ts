@@ -70,5 +70,5 @@ test('contract and installments use the same reconciled display function, not an
   assert.match(header,/getDisplayedLoanBalance/);
   assert.match(hook,/getDisplayedLoanBalance/);
   assert.match(grid,/getDisplayedInstallmentDebt/);
-  assert.match(card,/Saldo registrado após o último recebimento/);
+  assert.doesNotMatch(card,/Saldo registrado após o último recebimento|Já recebido:|Capital ainda devido:|Encargos ainda registrados:/);
 });

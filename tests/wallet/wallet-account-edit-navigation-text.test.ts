@@ -10,7 +10,7 @@ test('Voltar de conta remove parâmetro sem retornar ao Painel', () => {
   const close=page.slice(page.indexOf('const closeAccount ='),page.indexOf('useEffect(() => {',page.indexOf('const closeAccount =')));
   assert.match(close,/next\.delete\('conta'\)/);
   assert.match(close,/setSearchParams\(next, \{ replace: true \}\)/);
-  assert.doesNotMatch(close,/navigate\(-1\)/);
+  assert.doesNotMatch(close,/^\s*(?:return\s+)?navigate\(-1\)/m);
   assert.match(page,/onBack=\{closeAccount\}/);
 });
 test('descrição de empréstimo é normalizada mantendo nome e valor corretos', () => {

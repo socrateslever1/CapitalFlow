@@ -85,9 +85,9 @@ export const CardEditModal:React.FC<Props>=({card,accounts,onClose,onSaved})=>{
      />
     </div>
     <label className="text-xs text-slate-300">Nome impresso no cartão<input maxLength={120} autoComplete="cc-name" className={field} value={form.cardholder_name} onChange={e=>change('cardholder_name',e.target.value)} placeholder="NOME DO TITULAR"/></label>
-    <div className="grid grid-cols-2 gap-2">
-     <label className="text-xs text-slate-300">Mês da validade<input type="number" min="1" max="12" autoComplete="cc-exp-month" className={field} value={form.expiry_month} onChange={e=>change('expiry_month',e.target.value)} placeholder="MM"/></label>
-     <label className="text-xs text-slate-300">Ano da validade<input type="number" min="2000" max="2200" autoComplete="cc-exp-year" className={field} value={form.expiry_year} onChange={e=>change('expiry_year',e.target.value)} placeholder="AAAA"/></label>
+    <div className="grid grid-cols-2 items-end gap-2 self-start">
+     <label className="flex flex-col justify-between text-xs text-slate-300">Mês da validade<input type="number" min="1" max="12" autoComplete="cc-exp-month" className={field} value={form.expiry_month} onChange={e=>change('expiry_month',e.target.value)} placeholder="MM"/></label>
+     <label className="flex flex-col justify-between text-xs text-slate-300">Ano da validade<input type="number" min="2000" max="2200" autoComplete="cc-exp-year" className={field} value={form.expiry_year} onChange={e=>change('expiry_year',e.target.value)} placeholder="AAAA"/></label>
     </div>
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/70 p-3 sm:col-span-2">
      <div className="space-y-1">

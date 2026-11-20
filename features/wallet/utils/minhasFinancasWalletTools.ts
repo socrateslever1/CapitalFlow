@@ -1,4 +1,4 @@
-import { getInvoiceCycleDates, resolveInvoiceCycleState, type InvoiceCycleState } from '../../../components/wallet/invoiceStatementDomain';
+import { getInvoiceCycleDates, getPurchaseInvoiceMonth, resolveInvoiceCycleState, type InvoiceCycleState } from '../../../components/wallet/invoiceStatementDomain';
 import type { PersonalWalletExpense, PersonalWalletExpenseInstallment } from '../../../services/personalWallet.service';
 import { formatInstallmentBadgeLabel } from './cardInstallmentPlan';
 import { businessDateInManaus } from '../../../utils/businessDate';
@@ -93,14 +93,19 @@ export function resolveInvoiceMonthSelection(
   }
 
   const currentMonth = normalize(referenceDate);
+  const preferredNormalized = normalize(preferredMonth);
+  const anchorMonth =
+    preferredNormalized && currentMonth
+      ? (preferredNormalized >= currentMonth ? preferredNormalized : currentMonth)
+      : preferredNormalized || currentMonth;
   const sorted = [...cycles].sort((a, b) => a.dueMonth.localeCompare(b.dueMonth));
   const openCycles = sorted.filter(cycle => cycle.amount > 0);
-  const currentDue = openCycles.find(cycle => cycle.dueMonth === currentMonth);
-  const recentDue = openCycles.filter(cycle => currentMonth && cycle.dueMonth <= currentMonth).at(-1);
-  const upcomingDue = openCycles.find(cycle => currentMonth && cycle.dueMonth > currentMonth);
-  const calendarCycle = sorted.find(cycle => cycle.dueMonth === currentMonth);
-  return (currentDue || recentDue || upcomingDue || calendarCycle ||
-    sorted.filter(cycle => currentMonth && cycle.dueMonth <= currentMonth).at(-1) ||
+  const currentDue = openCycles.find(cycle => cycle.dueMonth === anchorMonth || cycle.dueMonth === currentMonth);
+  const upcomingDue = openCycles.find(cycle => anchorMonth && cycle.dueMonth > anchorMonth);
+  const recentDue = openCycles.filter(cycle => anchorMonth && cycle.dueMonth <= anchorMonth).at(-1);
+  const calendarCycle = sorted.find(cycle => cycle.dueMonth === anchorMonth || cycle.dueMonth === currentMonth);
+  return (currentDue || upcomingDue || recentDue || calendarCycle ||
+    sorted.filter(cycle => anchorMonth && cycle.dueMonth <= anchorMonth).at(-1) ||
     sorted[0]).dueMonth;
 }
 
@@ -188,6 +193,7 @@ export function checkClosedOrPaidInvoiceWarning(input: {
   dueMonth: string;
   closingDay: number | null;
   dueDay: number | null;
+  expenseDate?: string;
   outstanding?: number;
   paid?: boolean;
   todayIso?: string;
@@ -215,7 +221,11 @@ export function checkClosedOrPaidInvoiceWarning(input: {
     });
   }
 
-  const next = stepInvoiceMonth(normalizedMonth, 1);
+  const steppedNext = stepInvoiceMonth(normalizedMonth, 1);
+  const currentOpenDueMonth = getPurchaseInvoiceMonth(today, input.closingDay, input.dueDay);
+  const next = currentOpenDueMonth > steppedNext.dueMonthIso
+    ? stepInvoiceMonth(currentOpenDueMonth, 0)
+    : steppedNext;
   if (state === 'OPEN') {
     return {
       shouldWarn: false,
@@ -230,11 +240,12 @@ export function checkClosedOrPaidInvoiceWarning(input: {
 
   const stateLabel =
     state === 'PAID' ? 'Paga' : state === 'OVERDUE' ? 'Vencida' : 'Fechada';
-  const closingFormatted = dates.closingDate.split('-').reverse().join('/');
   const message =
     state === 'PAID'
-      ? `Esta fatura já consta como paga. Deseja manter o lançamento nela ou mover para ${next.label}?`
-      : `Esta fatura fechou em ${closingFormatted} (${stateLabel.toLowerCase()}). Compras novas costumam entrar na fatura de ${next.label}.`;
+      ? 'A fatura selecionada já está paga. Se esta compra é antiga, mantenha este ciclo; para uma compra nova, selecione a próxima fatura.'
+      : state === 'OVERDUE'
+        ? 'A fatura selecionada já venceu. Se esta compra é antiga, mantenha este ciclo; para uma compra nova, selecione a próxima fatura.'
+        : 'A fatura selecionada já fechou. Se esta compra é antiga, mantenha este ciclo; para uma compra nova, selecione a próxima fatura.';
 
   return {
     shouldWarn: true,

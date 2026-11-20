@@ -28,14 +28,47 @@ test('wallet cards keeps a visible FAB above the navigation while preserving imp
   assert.match(cards, /<Modal[\s\S]*variant="wallet"[\s\S]*<FlatSmartStatementReader/);
 });
 
-test('document reader keeps local PDF and OFX parsing and explicit cloud opt-in', () => {
+test('document reader keeps local PDF and OFX parsing and disables cloud AI statement reading', () => {
   const reader=read('utils/statementSmartReader.ts');
   const importer=read('components/wallet/FlatSmartStatementReader.tsx');
   assert(reader.includes('parseStatementOfx(file, kind)'));
   assert(reader.includes('parseStatementPdf(file, kind, options?.pdfPassword)'));
-  assert(reader.includes('if (options?.forceAi)'));
+  assert(reader.includes('A leitura de faturas por IA foi desativada'));
   assert(importer.includes('type="password"'));
-  assert(reader.includes('if (options?.forceAi)'));
-  assert(importer.includes('window.confirm('));
-  assert(importer.includes('Ler PDF com IA'));
+  assert(!importer.includes('window.confirm('), 'must not use browser popup');
+  assert(!importer.includes('Ler PDF com IA'), 'cloud AI PDF reading must be disabled');
+  assert(!importer.includes('Ler imagem com IA'), 'cloud AI image reading must be disabled');
+});
+
+test('card invoice review receives card limit and cycle commitments without saving estimates as bank data', () => {
+  const cards = read('features/wallet/pages/WalletCardsPage.tsx');
+  const details = read('components/wallet/CardDetailModal.tsx');
+  const personalWallet = read('pages/PersonalWalletPage.tsx');
+  const nativeInbox = read('features/wallet/NativeWalletFileInbox.tsx');
+  const flatReader = read('components/wallet/FlatSmartStatementReader.tsx');
+  const importer = read('components/wallet/WalletStatementImport.tsx');
+  const preview = read('components/wallet/CardInvoiceSummaryPreview.tsx');
+  const summary = read('utils/cardInvoiceSummary.ts');
+  assert.match(cards, /targetCreditLimit=\{Number\(selected\.credit_limit \|\| 0\) \|\| null\}/);
+  assert.match(cards, /targetEstimatedUsedLimit=\{creditPosition\?\.committedLimit \?\? null\}/);
+  assert.match(cards, /targetEstimatedFutureCommitments=\{creditPosition\?\.futureCommitments \?\? null\}/);
+  assert.match(cards, /targetEstimatedAvailableLimit=\{creditPosition\?\.freeLimit \?\? null\}/);
+  assert.match(details, /targetCreditLimit=\{Number\(card\.credit_limit \|\| 0\) \|\| null\}/);
+  assert.match(details, /targetEstimatedUsedLimit=\{creditPosition\.committedLimit\}/);
+  assert.match(personalWallet, /targetCreditLimit=\{Number\(activeStackCard\.credit_limit \|\| 0\) \|\| null\}/);
+  assert.match(personalWallet, /targetEstimatedUsedLimit=\{activeStackCreditPosition\?\.committedLimit \?\? null\}/);
+  assert.match(nativeInbox, /targetEstimatedAvailableLimit=\{selectedCreditPosition\?\.freeLimit \?\? null\}/);
+  assert.match(flatReader, /suggestedCreditLimit=\{targetCreditLimit\}/);
+  assert.match(flatReader, /estimatedFutureCommitments=\{targetEstimatedFutureCommitments\}/);
+  assert.match(flatReader, /estimatedAvailableLimit=\{targetEstimatedAvailableLimit\}/);
+  assert.match(importer, /suggestedCreditLimit=\{targetCreditLimit\}/);
+  assert.match(importer, /estimatedFutureCommitments=\{targetEstimatedFutureCommitments\}/);
+  assert.match(importer, /estimatedAvailableLimit=\{targetEstimatedAvailableLimit\}/);
+  assert.match(preview, /Disponível estimado/);
+  assert.match(preview, /availableLimitCents === Math\.max\(0, profileLimitCents - usedLimitCents\)/);
+  assert.match(preview, /Parcelas futuras registradas/);
+  assert.doesNotMatch(preview, /estimateMonth === estimatedDueMonth/);
+  assert.doesNotMatch(preview, /Sugerido do cadastro do cartão; confirme com o banco\./);
+  assert.doesNotMatch(preview.slice(preview.indexOf('const submit'), preview.indexOf('const renderAmountField')), /estimatedAvailableLimit|estimatedUsedLimit/);
+  assert.match(summary, /withCardCreditLimitSuggestion/);
 });

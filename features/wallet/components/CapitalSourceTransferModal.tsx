@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowRightLeft, Loader2 } from 'lucide-react';
 import type { CapitalSource } from '../../../types';
 import { personalWalletService, type PersonalWalletAccount } from '../../../services/personalWallet.service';
-import { platformAdminService } from '../../../services/platformAdmin.service';
 import { formatMoney } from '../../../utils/formatters';
 import { generateUUID } from '../../../utils/generators';
 import { parseWalletMoney } from '../utils/parseWalletMoney';
@@ -34,6 +33,7 @@ export const CapitalSourceTransferModal: React.FC<Props> = ({
   const [amountText, setAmountText] = useState('');
   const [working, setWorking] = useState(false);
   const [error, setError] = useState('');
+  const [confirmingAmount, setConfirmingAmount] = useState<number | null>(null);
   const requestId = useRef(generateUUID());
   const busyRef = useRef(false);
 
@@ -41,8 +41,6 @@ export const CapitalSourceTransferModal: React.FC<Props> = ({
     let mounted = true;
     const initialize = async () => {
       try {
-        const permitted = await platformAdminService.isSuperAdmin();
-        if (!permitted) throw new Error('A movimentação de capital exige autorização Master.');
         const snapshot = await personalWalletService.loadOverview();
         if (!mounted) return;
         // Sempre utilizar contas efetivamente visíveis após reinício lógico.
@@ -67,7 +65,7 @@ export const CapitalSourceTransferModal: React.FC<Props> = ({
   const account = destinationAccounts.find(item => item.id === accountId);
   const linkedSource = account?.capital_source_id
     ? sources.find(item => item.id === account.capital_source_id) : null;
-  const clearRequest = () => { requestId.current = generateUUID(); setError(''); };
+  const clearRequest = () => { requestId.current = generateUUID(); setError(''); setConfirmingAmount(null); };
   const formatCentsInput = (value: number) =>
     Math.max(0, Math.round(value * 100) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const applyQuickRatio = (ratio: number) => {
@@ -93,7 +91,12 @@ export const CapitalSourceTransferModal: React.FC<Props> = ({
     }
     const issue = validateCapitalMovement(amount, source, account, destinationAccounts);
     if (issue) { setError(issue); return; }
-    if (!window.confirm(`Mover ${formatMoney(amount)} de ${source!.name} para ${account!.nickname} no CapitalFlow? Esta operação registra somente a movimentação contábil, não envia Pix nem transfere dinheiro no banco.`)) return;
+    if (confirmingAmount !== amount) {
+      setError('');
+      setConfirmingAmount(amount);
+      return;
+    }
+    setConfirmingAmount(null);
     busyRef.current = true; setWorking(true); setError('');
     try {
       await personalWalletService.transferCapitalSourceToAccount({
@@ -109,11 +112,28 @@ export const CapitalSourceTransferModal: React.FC<Props> = ({
   };
 
   return <Modal title="Transferir capital para conta" subtitle="Movimentação contábil interna — não é Pix ou transferência bancária" onClose={working ? () => {} : onClose} busy={working}
-    footer={<button type="button" disabled={!ready || working || !sourceId || !accountId || !amountText.trim()}
-      onClick={() => void confirm()} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:cursor-not-allowed disabled:opacity-50">
-      {working ? <Loader2 size={17} className="animate-spin" /> : <ArrowRightLeft size={17}/>}
-      {working ? 'Confirmando...' : 'Confirmar movimentação'}
-    </button>}>
+    footer={confirmingAmount !== null && source && account ? (
+      <div role="alertdialog" aria-label="Confirmar transferência contábil" className="w-full space-y-2.5 rounded-xl border border-blue-500/40 bg-slate-950 p-3 text-xs text-slate-200">
+        <p className="leading-relaxed">
+          Mover <strong>{formatMoney(confirmingAmount)}</strong> de <strong>{source.name}</strong> para <strong>{account.nickname}</strong> no CapitalFlow? Esta operação registra somente a movimentação contábil, não envia Pix nem transfere dinheiro no banco.
+        </p>
+        <div className="flex items-center justify-end gap-2">
+          <button type="button" disabled={working} onClick={() => setConfirmingAmount(null)} className="min-h-10 rounded-lg border border-slate-700 px-3 py-2 font-semibold text-slate-300 hover:bg-slate-800">
+            Cancelar
+          </button>
+          <button type="button" disabled={working} onClick={() => void confirm()} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 font-bold text-white hover:bg-blue-500">
+            {working ? <Loader2 size={15} className="animate-spin" /> : <ArrowRightLeft size={15} />}
+            {working ? 'Confirmando...' : 'Confirmar transferência'}
+          </button>
+        </div>
+      </div>
+    ) : (
+      <button type="button" disabled={!ready || working || !sourceId || !accountId || !amountText.trim()}
+        onClick={() => void confirm()} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:cursor-not-allowed disabled:opacity-50">
+        {working ? <Loader2 size={17} className="animate-spin" /> : <ArrowRightLeft size={17}/>}
+        {working ? 'Confirmando...' : 'Confirmar movimentação'}
+      </button>
+    )}>
     <div className="space-y-4">
       {loading && <p role="status" className="text-sm text-slate-300">Verificando autorização e saldos...</p>}
       {error && <p role="alert" className="rounded-lg border border-rose-500/30 bg-rose-950/30 p-3 text-sm text-rose-200">{error}</p>}

@@ -161,7 +161,8 @@ export const getEffectiveInvoiceCycles = (
     if (expense.entry_type === 'INVOICE_OVERRIDE') {
       overrides.set(dueMonth, outstanding(installment));
     } else if (installment.status === 'PENDING' && (!openingOverrides.has(dueMonth) || installment.opening_invoice_id !== openingOverrides.get(dueMonth))) {
-      ordinary.set(dueMonth, money((ordinary.get(dueMonth) || 0) + outstanding(installment)));
+      const signed = expense.is_invoice_credit ? -outstanding(installment) : outstanding(installment);
+      ordinary.set(dueMonth, money((ordinary.get(dueMonth) || 0) + signed));
     }
   });
 
@@ -169,9 +170,9 @@ export const getEffectiveInvoiceCycles = (
     .sort()
     .map(dueMonth => ({
       dueMonth,
-      amount: money(overrides.has(dueMonth)
+      amount: Math.max(0, money(overrides.has(dueMonth)
         ? overrides.get(dueMonth)! + (openingOverrides.has(dueMonth) ? ordinary.get(dueMonth) || 0 : 0)
-        : ordinary.get(dueMonth) || 0),
+        : ordinary.get(dueMonth) || 0)),
       hasOverride: overrides.has(dueMonth),
     }));
 };

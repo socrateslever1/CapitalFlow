@@ -17,6 +17,7 @@ import {
   resolveManualInvoiceMonth,
   stepInvoiceMonth,
 } from '../../features/wallet/utils/minhasFinancasWalletTools';
+import { resolveFirstInstallmentMonthLabel } from '../../components/wallet/QuickExpenseModal';
 
 test('compra em andamento (ex: iniciar na parcela 3 de 4 pelo valor da parcela) calcula apenas as parcelas restantes', () => {
   const plan = resolveCardInstallmentPlan({
@@ -137,6 +138,29 @@ test('describeCardCycleDates e checkClosedOrPaidInvoiceWarning alertam faturas f
   });
   assert.equal(warningClosed.shouldWarn, true);
   assert.equal(warningClosed.nextOpenDueMonth, '2026-12-01');
+  assert.match(warningClosed.message, /fatura selecionada .{0,12}fechou/i);
+  assert.match(warningClosed.message, /compra nova, selecione a pr.xima fatura/i);
+  assert.doesNotMatch(warningClosed.message, /2026|24\/01|mar de/);
+
+  const warningOverdue = checkClosedOrPaidInvoiceWarning({
+    dueMonth: '2026-11-01', closingDay: 2, dueDay: 10, todayIso: '2026-11-12',
+  });
+  assert.equal(warningOverdue.state, 'OVERDUE');
+  assert.match(warningOverdue.message, /fatura selecionada .{0,12}venceu/i);
+
+  const warningPaid = checkClosedOrPaidInvoiceWarning({
+    dueMonth: '2026-11-01', closingDay: 2, dueDay: 10, paid: true, todayIso: '2026-11-12',
+  });
+  assert.equal(warningPaid.state, 'PAID');
+  assert.match(warningPaid.message, /fatura selecionada .{0,12}paga/i);
+
+  const historicalPurchase = checkClosedOrPaidInvoiceWarning({
+    dueMonth: '2026-05-01', closingDay: 24, dueDay: 3,
+    expenseDate: '2026-03-29', todayIso: '2026-11-19',
+  });
+  assert.equal(historicalPurchase.state, 'OVERDUE');
+  assert.equal(historicalPurchase.shouldWarn, true);
+  assert.equal(historicalPurchase.nextOpenDueMonth, '2026-12-01');
 });
 
 test('calculateBalanceAdjustment calcula diferença exata (receita ou despesa de ajuste)', () => {
@@ -212,4 +236,37 @@ test('conferência manual aceita mês de primeira fatura sem criar ciclos fictí
   assert.equal(resolveManualInvoiceMonth('2026-12-05', null), null);
   assert.equal(resolveManualInvoiceMonth('', null), null);
   assert.equal(resolveManualInvoiceMonth('0000-12', null), null);
+});
+
+test('fatura atual tem prioridade sobre a primeira fatura vencida ao iniciar a carteira e em lançamentos antigos', () => {
+  const cycles = [
+    { dueMonth: '2026-01-01', amount: 247.72 },
+    { dueMonth: '2026-08-01', amount: 247.72 },
+    { dueMonth: '2026-12-01', amount: 246.04 },
+    { dueMonth: '2027-01-01', amount: 193.55 },
+  ];
+  assert.equal(resolveInvoiceMonthSelection(null, cycles, '2026-12-01', '2026-11-19'), '2026-12-01');
+
+  const withoutCurrentYet = [
+    { dueMonth: '2026-01-01', amount: 247.72 },
+    { dueMonth: '2026-08-01', amount: 247.72 },
+    { dueMonth: '2027-01-01', amount: 193.55 },
+  ];
+  assert.equal(resolveInvoiceMonthSelection(null, withoutCurrentYet, '2026-12-01', '2026-11-19'), '2027-01-01');
+
+  // Compra antiga parcelada lançada em novembro (fatura aberta que fecha 24/11 e vence 03/12) inicia em 2026-12-01, nunca no passado
+  assert.equal(
+    resolveFirstInstallmentMonthLabel('2026-03-29', 24, 3, null, '2026-11-19').dueDateIso,
+    '2026-12-01',
+  );
+  // Variação de ciclo: cartão que fecha dia 25/11 e vence dia 28/11 (mesmo mês)
+  assert.equal(
+    resolveFirstInstallmentMonthLabel('2026-03-29', 25, 28, null, '2026-11-19').dueDateIso,
+    '2026-11-01',
+  );
+  // Variação de ciclo: cartão que já fechou em 10/11 (vence 20/11), próxima fatura aberta vence em 20/12
+  assert.equal(
+    resolveFirstInstallmentMonthLabel('2026-03-29', 10, 20, null, '2026-11-19').dueDateIso,
+    '2026-12-01',
+  );
 });

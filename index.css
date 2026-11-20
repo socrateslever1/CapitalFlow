@@ -19,6 +19,35 @@
   html, body {
     @apply w-full overflow-x-hidden;
     scroll-behavior: smooth;
+    color-scheme: dark;
+  }
+
+  input[type="date"],
+  input[type="month"],
+  input[type="datetime-local"],
+  input[type="time"] {
+    color-scheme: dark;
+  }
+
+  input[type="date"]::-webkit-calendar-picker-indicator,
+  input[type="month"]::-webkit-calendar-picker-indicator,
+  input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+  input[type="time"]::-webkit-calendar-picker-indicator {
+    filter: brightness(0) invert(1);
+    opacity: 0.85;
+    cursor: pointer;
+    transition: opacity 150ms ease, transform 150ms ease;
+  }
+
+  input[type="date"]::-webkit-calendar-picker-indicator:hover,
+  input[type="month"]::-webkit-calendar-picker-indicator:hover,
+  input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover,
+  input[type="time"]::-webkit-calendar-picker-indicator:hover,
+  input[type="date"]:focus-visible::-webkit-calendar-picker-indicator,
+  input[type="month"]:focus-visible::-webkit-calendar-picker-indicator,
+  input[type="datetime-local"]:focus-visible::-webkit-calendar-picker-indicator,
+  input[type="time"]:focus-visible::-webkit-calendar-picker-indicator {
+    opacity: 1;
   }
 
   body {

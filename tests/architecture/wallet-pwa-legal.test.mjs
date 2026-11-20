@@ -55,7 +55,7 @@ test('PWA caches versioned wallet JS/CSS, not session or financial data', () => 
   assert.doesNotMatch(sw, /indexedDB|localStorage|Authorization|\bsupabase\.from\(/);
 });
 
-test('only authorized master preloads wallet view code; no preloading private records', () => {
+test('authenticated users preload wallet view code; no preloading private records in public views', () => {
   const app=read('App.tsx');
   const preload=read('hooks/useWalletPreload.ts');
   assert.match(app, /useWalletPreload\(\{/);
@@ -63,7 +63,7 @@ test('only authorized master preloads wallet view code; no preloading private re
   assert.match(app, /isPublicView/);
   assert.doesNotMatch(app, /localStorage\.setItem.*wallet|indexedDB\.open.*wallet/);
 
-  assert.match(preload, /!isPlatformSuperAdmin \|\| isPublicView/);
+  assert.match(preload, /!userId \|\| !accessChecked \|\| isPublicView/);
   assert.match(preload, /import\('\.\.\/features\/wallet\/WalletModule'\)/);
   assert.match(preload, /import\('\.\.\/features\/wallet\/pages\/WalletOverviewPage'\)/);
   assert.match(preload, /import\('\.\.\/features\/wallet\/services\/walletRepository'\)/);

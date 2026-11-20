@@ -1,3 +1,32 @@
+## 20/11/2026 — Reimportação real da fatura Bradesco 4999
+
+- A pedido do usuário, substituída a importação anterior pela leitura atual do PDF `BradescoCartoes2026-11-19.165820.pdf` (`SHA-256 632dc00d98d02570188d6c669c16d212a4c1dfb10aaf9ad2e59db2a2f81033e1`), preservando idempotência e cancelando/recriando somente compras pendentes e não pagas pela RPC autorizada.
+- Conferência no Supabase `hzchchbxkhryextaymkn`: 90 linhas vinculadas ao cartão Bradesco 4999; 89 compras e 1 crédito de `PAG EUCATUR*Eucat` por -R$ 86,00; total assinado importado **R$ 2.930,88**. O pagamento da fatura anterior de R$ 2.517,55 não foi importado como compra.
+- `private.wallet_effective_cycle_amount` confirmou **R$ 2.930,88** para dezembro/2026. Parcelas futuras pendentes: jan/2027 R$ 695,85; fev R$ 633,57; mar R$ 561,08; abr, mai e jun R$ 495,67 cada; jul R$ 242,72.
+- Migrations remotas confirmadas: `20261120033624_wallet_safe_reimport_invoice_credits` e `20261120034838_wallet_preserve_statement_source_on_reimport`. Revisão independente confirmou o caso de reimportação vinculada; permanece a limitação de que uma linha órfã sem despesa vinculada, se encontrada em outro PDF, pode ser atualizada no lugar em vez de preservada como fonte histórica.
+- Testes após as alterações locais: `npm run test:wallet-statement-import` (69/69), `npm run test:wallet-import-contract` (4/4) e `git diff --check` passaram. `npm run test:quality` falhou em 1 teste: `tests/wallet/wallet-global-privacy.test.tsx:89` espera encontrar `hideFinancialValues ? 'Situação protegida' : label` em `WalletCardsPage`; o gate geral não está aprovado. Sem validação visual no navegador/aparelho nesta execução.
+## 20/11/2026 — Créditos/estornos na fatura, ajuste fino para baixo e geração automática de parcelas futuras (n/m) na importação
+
+- **Migration aplicada no Supabase (`hzchchbxkhryextaymkn`) e versionada em `supabase/migrations/20261120001000_wallet_invoice_credits_and_statement_installments.sql`:**
+  - Adicionada coluna aditiva `is_invoice_credit boolean NOT NULL DEFAULT false` em `public.personal_wallet_expenses` (preservando todas as check constraints `amount > 0` e `entry_type`).
+  - Atualizada `private.wallet_effective_cycle_amount` para abater lançamentos com `is_invoice_credit = true` do total efetivo do ciclo (limitado a `>= 0`).
+  - Atualizada `public.personal_wallet_pay_invoice_partial` para ignorar créditos na alocação de pagamento e encerrar o ciclo quando o saldo efetivo chega a zero.
+  - Criada RPC `public.personal_wallet_create_invoice_credit` para lançar créditos/estornos/ajustes negativos na fatura com idempotência por `request_id`.
+  - Criada sobrecarga de 12 argumentos de `public.personal_wallet_record_card_purchase_atomic` (mantendo a sobrecarga legada de 10 argumentos delegando para ela):
+    - Valores negativos (`p_amount < 0`, exceto pagamentos de fatura anterior filtrados na UI) são gravados como crédito (`is_invoice_credit = true`), abatendo da fatura sem congelar compras futuras.
+    - Compras parceladas (`p_installment_number >= 1` e `p_installment_total > p_installment_number`, fora de detalhamento inicial) geram automaticamente a parcela atual e todas as parcelas restantes nos meses futuros (`p_due_month + 0..(remaining - 1)`), preenchendo **Faturas posteriores** e **Disponível estimado**.
+- **Frontend e serviços (`services/personalWallet.service.ts`, `components/wallet/invoiceStatementDomain.ts`, `components/wallet/CardInvoiceStatement.tsx`, `components/wallet/FlatSmartStatementReader.tsx`, `components/wallet/WalletStatementImport.tsx`, `components/wallet/InvoiceOverrideModal.tsx`, `features/wallet/pages/WalletCardsPage.tsx`):**
+  - Importação de fatura agora seleciona automaticamente compras positivas e créditos/estornos (ex.: `PAG EUCATUR*Eucat -86,00`), mantendo desmarcado apenas pagamento da fatura anterior (`PAGTO ANTECIPADO PIX`), e envia `installmentNumber`/`installmentTotal` para gerar parcelas futuras.
+  - `CardInvoiceStatement` exibe créditos em verde (`− R$ X`) com selo `Crédito / Estorno` e abate corretamente no subtotal da busca.
+  - `InvoiceOverrideModal` ("Ajustar fatura" → `Reajustar por diferença`) agora permite tanto ajustar para cima (`Despesa de ajuste`) quanto para baixo (`Crédito de ajuste`), sem congelar compras futuras.
+- **Testes executados (sem commit ainda, branch `codex/wallet-invoice-purpose-ux-20261119`):**
+  - `npm run lint`: 0 erros.
+  - `npm run test:wallet-statement-import`: 66/66 passaram (incluindo novo teste de crédito + parcelas futuras).
+  - `npm run test:wallet-import-contract`: 4/4 passaram.
+  - `npm run test:wallet-visual-next`: 39/39 passaram.
+  - `npm run test:quality`: falhou em 2 testes pré-existentes da branch (`tests/audit/business-date-consistency.test.ts:94` e `tests/wallet/wallet-global-privacy.test.tsx:77`), não introduzidos por esta alteração.
+- **Limitações:** sem validação visual em aparelho celular físico. Compras parceladas importadas *antes* desta atualização precisam ser excluídas e reimportadas (ou a fatura não paga excluída e reimportada) para que o banco gere as parcelas futuras dos próximos meses.
+
 ## 17/11/2026 — Atualização por gesto no aplicativo
 
 - Adicionado o gesto de puxar para atualizar no contêiner principal autenticado, com indicador discreto para os estados de puxar, soltar e atualizar. O gesto só inicia no topo, com um toque, e é bloqueado em campos editáveis, áreas marcadas, modais, suporte aberto e regiões internas já roladas.
@@ -1215,3 +1244,149 @@ O ícone do olho já acionava o `FinancialPrivacyProvider`, mas os elementos aba
 - **Commit publicado em `origin/main`:** `18d91d12f10470f5add1d0287bf5a0d0e2fdefdc` (`18d91d1`), integrando as correções de vínculo/validação prévia do cartão (PicPay) e o barramento central de sincronização `utils/appSyncEvents.ts`.
 - **Conexões adicionadas:** `useLoanController.ts` (emissão de contrato), `NewAporteModal.tsx` (aporte), `CapitalSourceTransferModal.tsx` (transferência Capital ↔ Carteira), `SourceWalletReferencePanel.tsx` (vínculo de origens) e os modais da Carteira (`QuickExpenseModal`, `QuickIncomeModal`, `AccountActivityPanel`, `AccountMovementModal`, `CardEditModal`) agora propagam `capitalflow:wallet-updated`, `capitalflow:sync-requested` e `capitalflow:source-origins-updated` de forma consistente; `LoanFormFinancialSection.tsx` também ajusta `fundingPaymentMethod` ao alternar entre fonte `CARD` e conta bancária.
 - **Testes e limpeza:** `tests/architecture/app-sync-connections.test.ts` (2/2), `npm run test:quality` completo (`exit code 0`) e `git diff --check`; `.codex-attachments/` e `.impeccable/config.json` excluídos do commit e limpos do working tree. `CHANGELOG.md` atualizado com a entrada correspondente. Sem validação visual em aparelho físico; migration `20261117150000_card_funded_loan_no_account_debit.sql` permanece pendente de `supabase db push` no ambiente remoto.
+
+## 19/11/2026 — Clareza sobre conferência e lançamentos antigos de fatura
+
+- **Causa esclarecida:** a conferência de valores do emissor grava uma referência em `personal_wallet_card_invoice_facts`; isso não cria compra nem altera o total da lista. Em cartões com histórico, para corrigir o total consolidado da fatura, o fluxo é **Ajustar fatura**. O mês selecionado e a data de vencimento agora são validados no formulário para impedir gravação com meses incompatíveis. A UI distingue uma referência salva de uma posição inicial realmente aplicada.
+- **Lançamentos antigos e cartão escolhido:** ao lançar pela pilha ou pela fatura do cartão selecionado, o cartão fica fixo no formulário; o lançamento global ainda permite escolher o cartão. A mensagem de ciclo fechado/vencido não recomenda a próxima fatura quando a data antiga da compra pertence ao ciclo selecionado. A ação explícita foi renomeada para “Selecionar próxima fatura”.
+- **Apresentação:** textos de contexto deixam de repetir o ano ao lado de campos de data; a conferência explica sua finalidade e limites.
+- **Validação:** `npm run test:quality` terminou com exit code 0, incluindo `npm run build`; `npm run test:wallet-visual-next` (39/39), `npm run test:wallet-money-apk` (30/30), `npm run test:wallet-pages` (11/11), testes direcionados de ciclo/conferência (36/36), e `tests/architecture/wallet-expense-sheet-navigation.test.mjs` (4/4). `git diff --check` sem erros. Revisão independente pendente; diff revisado localmente.
+- **Limites e rollback:** sem consultas ou escritas de dados no Supabase nesta etapa; nenhuma RPC, migration, ledger, liquidação, pagamento, estorno ou RLS foi alterada. Sem teste visual em navegador/aparelho físico ou publicação. Mudanças ainda não commitadas, na branch `codex/wallet-invoice-purpose-ux-20261119`; rollback é reversível por revert dos arquivos de UI/testes, sem migração de dados. Alterações preexistentes em `package-lock.json` e `CardEditModal.tsx` foram preservadas e não fazem parte deste escopo.
+
+## 19/11/2026 — Destino padrão de novos lançamentos de cartão e parcelamentos com data antiga
+
+- **Causa confirmada no fluxo:**
+  1. `getCardCreditPosition` usa o primeiro ciclo com saldo como ciclo ativo para preservar o saldo em aberto, e `WalletCardsPage` reutilizava esse mês antigo como fatura selecionada e destino inicial do formulário.
+  2. Em `QuickExpenseModal.tsx`, `resolveFirstInstallmentMonthLabel` calculava `getPurchaseInvoiceMonth(expenseDate, ...)` usando a data histórica da compra (`expenseDate`, ex.: `2026-03-29`) sempre que o modal era aberto sem `initialDueMonth` (como pelo botão flutuante `+`), quando `initialDueMonth` herdado era antigo, ou quando faltava `closing_day`/`due_day`, fazendo compras/parcelamentos antigos caírem em faturas passadas (ex.: maio/agosto) em vez da fatura aberta atual.
+  3. Em `minhasFinancasWalletTools.ts`, `checkClosedOrPaidInvoiceWarning` havia recebido uma exceção que ocultava o alerta quando `purchaseDate < today` coincidia com a fatura antiga da data da compra, e `stepInvoiceMonth(normalizedMonth, 1)` sugeria apenas `mês + 1` (ainda no passado) em vez da fatura aberta atual.
+- **Correção:**
+  - `QuickExpenseModal.tsx` e `QuickWalletActionsModal.tsx` agora ancoram o cálculo padrão da fatura na **fatura aberta atual** (`effectiveCycleDate = expenseDate > today ? expenseDate : today` via `getPurchaseInvoiceMonth`), preservando a `Data da Compra` histórica no registro mas iniciando o lançamento/parcelas na fatura aberta vigente para o fechamento/vencimento daquele cartão (ex.: aberta em novembro com vencimento em dezembro para `fechamento 24 / vencimento 03`), bloqueando herança automática de `initialDueMonth` anterior à fatura aberta atual.
+  - `checkClosedOrPaidInvoiceWarning` volta a alertar qualquer fatura fechada/vencida/paga mesmo para compras com data antiga e direciona o botão `"Selecionar próxima fatura"` diretamente para a fatura aberta atual (`currentOpenDueMonth`).
+  - `resolveInvoiceMonthSelection` prioriza o ciclo da fatura aberta atual ou próximo ciclo ativo (`>= anchorMonth`) antes de recuar para faturas vencidas antigas.
+  - `CardEditModal.tsx`: corrigido o alinhamento horizontal da linha `Limite total` / `Fechamento (dia)` / `Vencimento (dia)` e foco visual dos campos.
+  - `cardInvoiceSummary.ts` e `FlatSmartStatementReader.tsx`: incluídos `Bradesco`, `PicPay`, `Santander`, `Banco do Brasil`, `Inter` e `Caixa` no detector de faturas, priorizando linhas de cabeçalho sobre linhas de transações (`DD/MM`) para impedir falsos positivos quando houver compras em `"Mercado Pago"` ou `"RecargaPay"` dentro da fatura, e diferenciada a mensagem de divergência de banco vs. final de 4 dígitos.
+  - Removidos todos os diálogos nativos do navegador (`window.confirm`) na Carteira (`FlatSmartStatementReader.tsx`, `WalletStatementImport.tsx`, `WalletCapitalLinks.tsx` e `CapitalSourceTransferModal.tsx`), substituídos por cartões de confirmação internos (`role="alertdialog"`) na própria interface.
+  - `index.css` e `index.html`: aplicado `color-scheme: dark` e contraste claro (`filter: brightness(0) invert(1)`) em `::-webkit-calendar-picker-indicator` para todos os campos nativos de data/mês/hora (`date`, `month`, `datetime-local`, `time`).
+  - `hooks/useAppNotifications.ts`: removido o gatilho Realtime de `UPDATE` em `public.parcelas` que disparava `"Ação jurídica pendente"` usando o estado antigo em memória no momento da baixa/pagamento da parcela, e adicionada revogação automática de alertas vinculados a contratos já quitados/arquivados (`PAID`/`QUITADO`/`ENCERRADO`). As notificações residuais de `"Ação jurídica pendente"` de contratos quitados (como Erlivane da Silva Correa) foram marcadas como lidas no Supabase (`public.notificacoes`).
+- **Validação:** `npm run build` (exit 0); `npm run test:wallet-visual-next` (39/39); `npm run test:wallet-pages` (11/11); testes de ciclo/conferência e parcelamento; teste de navegação do formulário; `git diff --check` sem erros.
+- **Aplicação e verificação no Supabase (`hzchchbxkhryextaymkn`):**
+  - Atualizada a função `private.wallet_card_first_due_date(uuid, date, date)` diretamente no banco remoto (e versionada em `supabase/migrations/20261119205000_wallet_card_open_cycle_default.sql`) para calcular a fatura aberta atual (`v_reference_date := greatest(p_expense_date, (now() AT TIME ZONE 'America/Manaus')::date)`) conforme `closing_day` e `due_day` do cartão, impedindo que lançamentos com data de compra no passado recuem para faturas anteriores à fatura aberta vigente.
+  - Atualizado `opening_invoice_month = '2026-12-01'` no cartão Bradesco (`210b85f8-359e-477e-b988-0a21f4cb7735`, `closing_day = 24, due_day = 3`) e validada a função no banco com datas históricas (`2025-12-31`, `2026-03-29`), confirmando retorno `2026-12-01`.
+- **Limites:** sem validação visual em aparelho físico nesta etapa. Rollback reversível pela restauração da função `private.wallet_card_first_due_date` e revert dos arquivos de UI/teste.
+
+## 19/11/2026 — Importação de fatura Bradesco
+
+- **Pedido:** buscar lançamentos na tela de importação e interpretar a estrutura tabular do PDF, mantendo o parcelamento como metadado separado do nome da dívida.
+- **Análise/correção:** o PDF informa data, histórico, moeda de origem, conversão e total em colunas distintas. O parser Bradesco agrupa linhas por posição das colunas, recupera histórico quebrado em mais de uma linha, retira valores de conversão do nome e separa `n/m` em metadados de parcela. Ano ausente nas datas é inferido pela data de referência do extrato e pela sequência dos lançamentos; por exemplo, a compra Shopfacil de 31/12 foi lida como 31/12/2025, R$ 242,72, parcela 11/18.
+- **Interface:** campo de busca filtra por descrição, data, valor, categoria ou parcela; nome e badge de parcelamento permanecem separados.
+- **Validação:** `npm run build`, `npm run test:quality`, `npm run test:wallet-visual-next` (39/39), 14 testes de parser/leitor, 3 testes de contrato de importação e 5 testes de arquitetura da tela aprovados. `git diff --check` sem erros.
+- **Limites/rollback:** nenhuma RPC, migration ou dado do Supabase foi alterado nesta tarefa. Alterações locais reversíveis nos arquivos de parser, tela e testes. Não houve publicação nem validação visual no navegador/aparelho.
+
+## 19/11/2026 — Liberação geral da Minha Carteira e remoção da leitura de faturas por IA
+
+- **Pedido:** liberar a Minha Carteira para todos os usuários autenticados do sistema e remover a leitura de faturas/imagens via IA (mantendo leitura 100% local de OFX e PDF com texto).
+- **Supabase (`hzchchbxkhryextaymkn`, migration `20261119220000_open_personal_wallet_to_all_users.sql`):**
+  - Criada a função `public.can_access_personal_wallet()` (valida `auth.uid() IS NOT NULL` e ausência de bloqueio explícito `ativo = false` em `user_modulos` para `modulo_chave = 'carteira'`).
+  - Atualizadas as 18 policies RLS das tabelas `personal_wallet_*`, `loan_card_wallet_charges` e `payment_charges` (wallet) e as 55 funções/RPCs da Carteira para usar `public.can_access_personal_wallet()`, preservando integralmente o isolamento por `owner_user_id = auth.uid()` / `user_id = auth.uid()`.
+  - `personal_wallet_ensure_default_cash_account()` passou a garantir o registro inicial em `user_modulos` e `capital_source_wallet_origin_access` para novos usuários.
+  - `platform_admin_*`, `ai_assistant_requests`, `feature_registry`, `platform_support_sessions`, `profile_feature_access` e as funções históricas de reconciliação permanecem estritamente restritas a `public.is_platform_super_admin()`.
+- **Frontend:**
+  - `App.tsx`, `hooks/useWalletPreload.ts` e `features/wallet/services/walletRepository.ts`: `MY_WALLET` liberada na navegação, rota `/carteira` e pré-carregamento para todos os usuários autenticados; `PLATFORM_ADMIN` permanece restrita a `isPlatformSuperAdmin`.
+  - `PaymentManagerModal.tsx`, `InstallmentGrid.tsx`, `ModalGroups.tsx`, `CapitalSourceTransferModal.tsx`, `WalletAccountsPage.tsx` e `SourcesPage.tsx`: roteamento opcional de recebimentos/saques e transferência de Capital para contas da Carteira liberados para todos os titulares autenticados, mantendo seleção opcional para não bloquear quem ainda não cadastrou conta.
+  - `FlatSmartStatementReader.tsx`, `WalletStatementImport.tsx` e `utils/statementSmartReader.ts`: removidos os botões e o envio de PDF/imagens para Google Gemini; o leitor opera 100% localmente para OFX e PDF com texto (com suporte a senha local).
+  - `pages/ProfilePage.tsx`, `features/profile/components/ProfileChangelog.tsx`, `src/constants/changelog.ts` e `src/constants/version.ts`: adicionada a seção **Atualizações** no Perfil com histórico estruturado por versão (`v3.5.0`, `v3.4.0`, `v3.3.0`) e filtros por tipo (`Todas`, `Novidades`, `Melhorias`, `Correções`).
+  - `services/localDiagnostics.ts` e `components/system/AdminDiagnostics.tsx`: ampliada a captura segura de frames internos (também no ambiente local de desenvolvimento, removendo query strings e rejeitando domínios externos), adicionados `errorType` por allowlist segura e categorias `Renderização` / `Servidor de dados`, além de redesenho do painel com cards de resumo, filtros por origem e botão **Baixar JSON**.
+- **Limites/rollback:** sem validação visual em aparelho físico nesta etapa. Rollback reversível restaurando a verificação `is_platform_super_admin()` na migration/frontend se necessário.
+
+## 19/11/2026 — Comparação do total apurado na importação de fatura
+
+- **Problema:** a tela mostrava apenas a soma dos itens selecionados. O total da fatura Bradesco aparecia como não identificado quando o PDF separava `Total da Fatura em Real` e o valor por vários elementos da tabela.
+- **Correção:** a importação agora soma compras positivas de todas as linhas lidas, sem depender de busca ou seleção, mostra o valor declarado no PDF e a diferença `fatura − apurado`. O rodapé mantém separado o total selecionado para importar. Valores inválidos suspendem a comparação até serem corrigidos. O resumo Bradesco busca o valor após o rótulo tabular e `PAGTO ANTECIPADO PIX` é reconhecido como pagamento, não compra.
+- **PDF verificado:** 91 linhas extraídas; 90 compras apuradas totalizam R$ 3.102,88; o documento informa R$ 2.930,88; diferença de −R$ 172,00 (a fatura está R$ 172,00 abaixo da soma apurada). A divergência é exibida para conferência, sem correção automática de valores.
+- **Validação:** `npm run test:quality` (exit 0, incluindo build), `npm run test:wallet-visual-next` (39/39), testes direcionados do parser/resumo (23/23) e arquitetura da tela (6/6). Revisor independente não encontrou bloqueadores; a sugestão sobre valores não finitos foi tratada. `git diff --check` sem erros.
+- **Limites/rollback:** sem alteração em RPC, migration, RLS, dados ou total contábil no Supabase. Mudança local na apresentação e leitura do documento; não publicada. Sem validação visual em navegador ou aparelho físico.
+
+## 19/11/2026 — Sugestão de limite cadastrado na conferência de fatura
+
+- **Problema:** o limite total informado no cadastro do cartão aparecia no cartão, mas a conferência da fatura importada mostrava “Não informado” quando o PDF não continha esse dado.
+- **Correção:** os fluxos de importação passam o limite do cartão para a conferência. Se o PDF não declarar limite, o campo recebe o valor cadastrado como sugestão, sem mensagem adicional na interface; um limite explícito do PDF prevalece. O valor só é persistido pela ação existente de salvar a conferência.
+- **Validação:** `npx tsx --test tests/wallet/card-invoice-summary.test.ts` (12/12); `npm run build` (exit 0); `git diff --check` sem erros. `npm run test:quality` permanece com falha em contratos de consentimento/leitura de IA (`tests/wallet/wallet-statement-import-regression.test.ts` e `tests/architecture/wallet-import-contract.test.mjs`), fora da propagação do limite; não declarar o gate completo aprovado.
+- **Limites/rollback:** nenhuma alteração em Supabase, migration, RPC ou dado financeiro. Alteração local reversível nos componentes/utilitários de conferência e testes; não publicada. Sem validação visual em aparelho físico.
+
+## 19/11/2026 — Disponível estimado na conferência da fatura
+
+- **Pedido e aceite:** calcular o crédito restante usando o limite cadastrado menos a fatura atual e as parcelas futuras já registradas na Carteira. O valor aparece como estimativa própria, nunca como campo declarado pelo emissor nem como dado a salvar na conferência.
+- **Implementação:** os leitores de PDF recebem a posição de crédito canônica (`getCardCreditPosition`). A prévia verifica em centavos que `limite − comprometido = disponível` e mostra limite utilizado estimado, parcelas futuras registradas e disponível, mesmo se o PDF não trouxer data de vencimento. Linhas do PDF ainda não importadas são excluídas e indicadas.
+- **Interpretação do PDF Bradesco:** o documento informa o total da fatura e o número/valor da parcela atual, mas não declara um total explícito de todas as parcelas restantes. Por isso a estimativa usa os compromissos já cadastrados no cartão, sem multiplicar valores mensais do PDF e arriscar incluir juros ou arredondamentos incorretos.
+- **Exemplo validado:** limite de R$ 10.000,00 e compromissos de R$ 7.316,49 resultam em disponível estimado de R$ 2.683,51. O limite utilizado e o disponível estimado não são gravados como valores informados pelo banco.
+- **Validação:** posição financeira em centavos (teste específico: R$ 7.316,49 / R$ 2.683,51); testes direcionados (17/17); contrato de importação (4/4); `npm run test:wallet-visual-next` (39/39); `npm run build` concluído com exit 0. Na última execução, `npm run test:quality` parou no `test:ui-copy` por texto técnico já presente em `components/system/AdminDiagnostics.tsx:37` (“Banco ou RPC”), fora do escopo desta mudança. `git diff --check` nos arquivos desta mudança sem erros; a verificação global reporta espaços finais preexistentes em `src/constants/version.ts`, fora do escopo. Hook Impeccable sem problemas determinísticos. Sem validação visual em navegador ou aparelho físico.
+- **Limites/rollback:** alteração reversível apenas de apresentação e passagem de dados; sem Supabase, migrations, RPCs ou mutações de faturas. Não publicada. A estimativa não inclui itens que estejam somente no PDF e ainda não tenham sido importados.
+
+## 19/11/2026 - Classificação local de comerciantes na importação de extratos
+
+- **Pedido:** identificar automaticamente descrições de transporte (Uber, 99, combustível/postos, Eucatur e Transamazônica), alimentação (iFood, 99Food, lanches, churrascarias e restaurantes) e outras categorias conhecidas.
+- **Implementação:** `classifyStatementDescription` tornou-se a regra única para PDF, OFX e normalização de linhas lidas por IA. Regras locais dão precedência quando reconhecem o comerciante; uma categoria já oferecida pelo leitor é mantida somente quando a descrição não é reconhecida. Incluídos também os aliases de saúde, contas da casa, lazer, educação, serviços e compras.
+- **Ambiguidade e privacidade:** ?Mercado Pago? e ?RecargaPay? sem ramo reconhecível ficam em ?Outros?; `Posto de Saúde` permanece em Saúde. Nenhuma descrição ou valor é consultado/enviado pela internet: desconhecidos continuam para revisão manual, e nenhuma categoria cria ou confirma lançamento financeiro.
+- **Validação:** `npm run test:wallet-statement-import` (64/64); `npm run test:quality` (exit 0, incluindo `npm run build` e `npm run test:wallet-visual-next`); `git diff --check` nos arquivos desta tarefa sem erros. Revisão independente sem bloqueadores.
+- **Limites/rollback:** regras determinísticas baseadas no texto impresso pelo emissor podem deixar novos descritores em ?Outros? ou confundir descritores ambíguos. Correção reversível nos leitores e testes, sem alteração de Supabase, migrations, RPC, ledger ou dados. Sem publicação ou validação visual em aparelho físico.
+
+## 19/11/2026 - Seletor de categoria compacto na importação
+
+- **Pedido e decisão visual:** reduzir o seletor de categoria dos itens importados, que ocupava a largura inteira do cartão. A aplicação de Impeccable para a superfície Operate favoreceu densidade e hierarquia estáveis: o lançamento permanece principal e a categoria um controle secundário.
+- **Implementação:** `WalletStatementImport` e `FlatSmartStatementReader` limitam o seletor a 16rem a partir do breakpoint sm; em telas estreitas ele conserva a largura flexível disponível.
+- **Validação:** Impeccable layout detect sem achados e `git diff --check` sem erros nos dois componentes. Não foi aberto um navegador/aparelho para validar a renderização; sem testes de comportamento, Supabase ou publicação nesta alteração visual.
+- **Rollback:** reversãvel restaurando as classes anteriores dos dois seletores.
+
+## 19/11/2026 - Resposta imediata ao excluir item do extrato importado
+
+- **Problema:** a confirmação de exclusão mantinha o modal bloqueado durante `refresh()`, que consulta e reconcilia o snapshot completo da Carteira após o RPC já ter concluído a operação.
+- **Ajuste:** depois da confirmação do servidor, as linhas removidas são ocultadas no estado local e o modal fecha sem aguardar a atualização completa. A atualização continua em segundo plano; falhas mantêm os itens selecionados no modal e exibem a mensagem para nova tentativa. Se a sincronização posterior falhar, a UI informa que a lista pode estar desatualizada.
+- **Validação:** revisão estática do fluxo e `git diff --check`. Não executei testes automatizados nem medi o tempo do RPC real nesta etapa; nenhuma RPC, migration, ledger ou dado foi alterado.
+- **Limite/rollback:** a espera ainda depende do tempo de resposta do RPC de exclusão/cancelamento; o ganho remove a leitura adicional do caminho bloqueante. Reversível no fluxo da página de cartões.
+
+## 19/11/2026 - Reimportação de compra de cartão já existente
+
+- **Pedido e aceite:** itens apagados não devem continuar bloqueando a leitura/importação; se houver uma compra exata ativa, a nova importação deve substituir o registro para o ciclo escolhido, sem duplicar lançamentos. Compras repetidas em linhas diferentes do mesmo arquivo continuam distintas.
+- **Implementação:** leitores e conferência atual ignoram linhas de extrato ligadas a despesas canceladas. No servidor, a origem exata de outro arquivo é reapontada para o novo documento. Compra única, pendente, não paga e fora de posição inicial é cancelada com histórico preservado e recriada no ciclo selecionado; a linha já importada do mesmo documento permanece idempotente. Mais de uma parcela, pagamento ou posição inicial interrompe a substituição. Linhas idênticas separadas do arquivo consomem origens distintas.
+- **Supabase:** schema/RLS de `personal_wallet_statement_rows`, `personal_wallet_expenses` e cartão foram conferidos; advisories de health/performance sem achados nessas tabelas. Migrations aplicadas em `hzchchbxkhryextaymkn`: `20261120000927_wallet_reuse_exact_statement_imports`, `20261120001530_wallet_reimport_card_purchase_in_selected_cycle`, `20261120001804_wallet_reimport_purchase_fresh_request_id` e `20261120002010_wallet_reimport_only_pending_purchase`. RPC final confirmado como executável por `authenticated`, com chave nova para a despesa substituta e guarda de status pendente.
+- **Validação:** `git diff --check` sem erros nos arquivos desta alteração; migrations executadas e assinatura/grants conferidos no Supabase. Testes automatizados não executados nesta etapa; nenhuma validação visual ou publicação do frontend. A revisão independente encontrou e motivou correções para compras repetidas, ciclo pela data de vencimento, unicidade do `request_id` e estado pendente; parecer final sem bloqueadores.
+- **Riscos/limites:** o advisor de segurança do Supabase sinaliza a RPC como `SECURITY DEFINER`; ela valida sessão, acesso à Carteira e propriedade do cartão, e as consultas/mutações são sempre escopadas pelo usuário autenticado. A substituição gera cancelamento histórico e nova compra somente no ciclo selecionado; itens pagos/parcelados/iniciais exigem ajuste manual. As migrations locais anteriores de 19/11 permanecem pendentes no projeto remoto e não foram aplicadas neste escopo.
+
+## 19/11/2026 - Total do banco na fatura do cartão
+
+- **Problema:** o cabeçalho da fatura mostrava apenas a soma das compras registradas, mesmo havendo um total da fatura confirmado pelo banco.
+- **Ajuste:** quando existe uma conferência salva para o mesmo cartão e ciclo, o total do banco passa a aparecer como total principal da fatura; a soma integral das parcelas não canceladas e a diferença em centavos também são exibidas. Consolidações não contam como compras. Sem conferência salva, continua aparecendo o saldo em aberto e a ação existente para informar os valores do emissor. Nenhum fato do banco é somado às compras nem altera saldo/limite.
+- **Validação:** `git diff --check` e revisão estática do caminho de seleção por cartão/ciclo; testes automatizados não executados nesta etapa. Sem deploy ou validação visual em navegador/dispositivo.
+- **Limite/rollback:** diferença entre fatura bancária e compras continua sendo apenas uma comparação de leitura; importação ou liquidação não é criada automaticamente. Reversível restaurando o valor do ciclo no cabeçalho.
+
+## 19/11/2026 - Remover repetição do extrato importado
+
+- **Problema:** a página repetia cada compra já vinculada, apesar de elas aparecerem no extrato da fatura; excluir pela cópia também cancelava a compra.
+- **Ajuste:** a seção agora mantém somente o resumo do PDF e a contagem/total importado. A lista detalhada aparece apenas para linhas sem compra vinculada, que podem ser excluídas como referências sem alterar a fatura. Compras vinculadas são geridas no extrato principal, em um único lugar.
+- **Validação:** revisão estática do fluxo e isolamento de exclusão às linhas sem vínculo; `git diff --check` sem erros. Testes automatizados e validação visual não executados.
+- **Limite/rollback:** a estrutura de referências de importação é preservada; reversível restaurando a listagem completa.
+
+## 19/11/2026 - Centralizar janela de ajuste de fatura no celular
+
+- **Problema:** o modal de ajuste da fatura ficava alinhado ao rodapé em telas estreitas, obrigando o usuário a rolar a tela para chegar aos campos.
+- **Ajuste:** o painel agora é centralizado em todas as larguras, respeita as safe areas e limita a altura; quando o formulário excede o espaço disponível, a rolagem acontece dentro do modal.
+- **Validação:** revisão estática das classes de posicionamento e `git diff --check`; testes automatizados e validação visual em navegador/aparelho não executados. O navegador conectado não permitiu identificar a URL para reprodução.
+- **Limite/rollback:** mudança somente de apresentação; reversível restaurando as classes anteriores em `InvoiceOverrideModal.tsx`.
+
+## 19/11/2026 - Corrigir deslocamento do modal de ajuste de fatura
+
+- **Evidência e causa:** no vídeo enviado, a janela aparece centralizada e depois desce junto com a rolagem da Carteira. As classes de centralização atuavam dentro do contêiner transformado/rolável da página, em vez de usar o viewport.
+- **Ajuste:** renderizar o diálogo em um portal diretamente em `document.body`. O painel continua centralizado e com rolagem interna, mas deixa de herdar o contexto de posicionamento do cartão/página.
+- **Aceite:** ao rolar a Carteira com o modal aberto, o modal permanece no centro visível da tela; conteúdo alto continua rolável dentro do painel.
+- **Validação:** inspeção da gravação antes da correção e revisão estática do ponto de renderização; sem renderização pós-correção nem testes automatizados nesta etapa.
+- **Revisao independente:** parecer favoravel ao portal para o problema de posicionamento, sem bloqueios. Acessibilidade de foco e contencao da rolagem do fundo permanecem limitacoes preexistentes fora deste reparo.
+- **Limite/rollback:** mudança apenas de renderização, reversível retornando a renderização inline em `InvoiceOverrideModal.tsx`.
+
+## 19/11/2026 - Recursos de conferencia bancaria no ajuste da fatura
+
+- **Pedido/aceite:** a janela Ajustar fatura precisava oferecer os mesmos dados do banco disponiveis em Conferir fatura do banco, sem duplicar valor da fatura e vencimento nem misturar referencia do emissor com operacao financeira.
+- **Ajuste:** incluido no mesmo modal o formulario existente de conferencia: limite total/utilizado, pagamento minimo, disponivel informado e parcelas futuras. Valor da fatura e vencimento sao controles unicos compartilhados com o ajuste. A disponibilidade calculada aparece como `limite total - limite utilizado`, mantendo separada a disponibilidade informada pelo banco.
+- **Gravacao:** Salvar valores do banco usa `saveCardInvoiceFacts` e preserva o comportamento de referencia; Salvar correcao mantem os fluxos existentes de ajuste/ledger. Nao houve alteracao em RPC, migration, liquidacao ou regras de fatura.
+- **Revisao independente:** sem bloqueios; confirmou formularios separados, campos compartilhados e chamada explicita a `saveCardInvoiceFacts`. As ressalvas de ciclo vazio e modo durante salvamento foram tratadas desabilitando a acao/campos correspondentes.
+- **Validacao:** revisao estatica de formularios independentes, ciclo passado ao salvamento e sincronizacao dos dois campos compartilhados; `git diff --check` sem erros nos arquivos alterados. Testes automatizados e renderizacao visual nao executados nesta etapa.
+- **Risco/rollback:** os dois salvamentos sao explicitos e separados para evitar gravar referencia como compra/pagamento. Reversivel removendo a secao de conferencia do modal e as propriedades compartilhadas.

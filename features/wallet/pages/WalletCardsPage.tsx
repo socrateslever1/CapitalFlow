@@ -6,7 +6,7 @@ import { useWalletOwnerDefaults } from '../hooks/useWalletOwnerDefaults';
 import { CardCameraScannerModal } from '../../../components/wallet/CardCameraScannerModal';
 import type { UserProfile } from '../../../types';
 import type { PersonalWalletCard, WalletCardInvoiceFacts } from '../../../services/personalWallet.service';
-import type { CardInvoiceSummary } from '../../../utils/cardInvoiceSummary';
+import { issuerMatchesBank, type CardInvoiceSummary } from '../../../utils/cardInvoiceSummary';
 import { CardInvoiceSummaryPreview } from '../../../components/wallet/CardInvoiceSummaryPreview';
 import { personalWalletService } from '../../../services/personalWallet.service';
 import { walletRepository } from '../services/walletRepository';
@@ -58,6 +58,8 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
   const ownerDefaults = useWalletOwnerDefaults(activeUser, creating);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [quickExpenseOpen, setQuickExpenseOpen] = useState(false);
+  const [quickExpenseCardId, setQuickExpenseCardId] = useState<string | null>(null);
+  const [quickExpenseDueMonth, setQuickExpenseDueMonth] = useState<string | null>(null);
   const hideFinancialValues = useFinancialPrivacy();
   const [overriding, setOverriding] = useState(false);
   const [creatingInvoice, setCreatingInvoice] = useState(false);
@@ -87,6 +89,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
   const [initializing, setInitializing] = useState(false);
   const [pendingStatementDeletion, setPendingStatementDeletion] = useState<{ ids: string[]; count: number } | null>(null);
   const [selectedStatementRows, setSelectedStatementRows] = useState<Set<string>>(new Set());
+  const [removedStatementRowIds, setRemovedStatementRowIds] = useState<Set<string>>(new Set());
   const [deletingStatement, setDeletingStatement] = useState(false);
   const [statementDeletionFeedback, setStatementDeletionFeedback] = useState<{ tone: 'success' | 'error'; message: string } | null>(null);
   const [existingOpening, setExistingOpening] = useState(freshCardOpening);
@@ -120,6 +123,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
   };
   const importedStatementRows = selected
     ? data?.statementRows.filter(row => {
+      if (removedStatementRowIds.has(row.id)) return false;
       if (row.target_kind !== 'CARD' || row.target_id !== selected.id) return false;
       if (!row.expense_id) return true;
       return data.expenses.some(expense => expense.id === row.expense_id && expense.status !== 'CANCELED');
@@ -127,22 +131,25 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
     : [];
   const importedStatementTotal = importedStatementRows.reduce((total, row) => total + Number(row.amount || 0), 0);
   const linkedStatementCount = importedStatementRows.filter(row => row.expense_id).length;
-  const unlinkedStatementCount = importedStatementRows.length - linkedStatementCount;
+  const unlinkedStatementRows = importedStatementRows.filter(row => !row.expense_id);
+  const unlinkedStatementCount = unlinkedStatementRows.length;
+  const unlinkedStatementTotal = unlinkedStatementRows.reduce((total, row) => total + Number(row.amount || 0), 0);
   const removeImportedStatementRows = async (rowIds: string[]) => {
     setDeletingStatement(true);
     setStatementDeletionFeedback(null);
     const failedIds = new Set<string>();
     const failureMessages: string[] = [];
     let deletedCount = 0;
+    const deletedRowIds: string[] = [];
     try {
-      const selectedRows = importedStatementRows.filter(item => rowIds.includes(item.id));
-      const unlinkedRows = selectedRows.filter(row => !row.expense_id);
-      const linkedRows = selectedRows.filter(row => row.expense_id);
+      const unlinkedRows = unlinkedStatementRows.filter(item => rowIds.includes(item.id));
       if (unlinkedRows.length) {
         try {
           const removed = await personalWalletService.deleteStatementRows(unlinkedRows.map(row => row.id));
           deletedCount += removed;
-          if (removed !== unlinkedRows.length) {
+          if (removed === unlinkedRows.length) {
+            deletedRowIds.push(...unlinkedRows.map(row => row.id));
+          } else {
             unlinkedRows.forEach(row => failedIds.add(row.id));
             failureMessages.push(`O banco removeu ${removed} de ${unlinkedRows.length} itens selecionados.`);
           }
@@ -151,17 +158,12 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
           failureMessages.push(cause instanceof Error ? cause.message : 'Falha ao excluir itens importados.');
         }
       }
-      for (const row of linkedRows) {
-        try {
-          await personalWalletService.cancelExpense(row.expense_id!, generateUUID());
-          deletedCount += 1;
-        } catch (cause) {
-          failedIds.add(row.id);
-          failureMessages.push(cause instanceof Error ? cause.message : `Falha ao excluir ${row.description}.`);
-        }
+      if (deletedRowIds.length) {
+        setRemovedStatementRowIds(current => new Set([...current, ...deletedRowIds]));
       }
-      await refresh();
-      setPendingStatementDeletion(null);
+      setPendingStatementDeletion(failedIds.size
+        ? { ids: [...failedIds], count: failedIds.size }
+        : null);
       setSelectedStatementRows(failedIds);
       if (failureMessages.length) {
         setStatementDeletionFeedback({
@@ -170,6 +172,14 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
         });
       } else {
         setStatementDeletionFeedback({ tone: 'success', message: `${deletedCount} item(ns) removido(s) do extrato.` });
+      }
+      if (deletedCount > 0 || failedIds.size > 0) {
+        void refresh().catch(() => {
+          setStatementDeletionFeedback(current => current ? {
+            tone: 'error',
+            message: `${current.message} A lista não atualizou; abra a Carteira novamente para sincronizar.`,
+          } : null);
+        });
       }
     } catch (cause) {
       setSelectedStatementRows(new Set(rowIds));
@@ -193,6 +203,27 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
     setSelectedStatementRows(new Set());
     setStatementDeletionFeedback(null);
   }, [selected?.id]);
+  useEffect(() => {
+    const currentRowIds = new Set((data?.statementRows || []).filter(row =>
+      row.target_kind === 'CARD'
+      && row.target_id === selected?.id
+      && !row.expense_id
+    ).map(row => row.id));
+    setRemovedStatementRowIds(current => {
+      const remaining = new Set([...current].filter(id => currentRowIds.has(id)));
+      return remaining.size === current.size ? current : remaining;
+    });
+    setSelectedStatementRows(current => {
+      const remaining = new Set([...current].filter(id => currentRowIds.has(id)));
+      return remaining.size === current.size ? current : remaining;
+    });
+    setPendingStatementDeletion(current => {
+      if (!current) return null;
+      const ids = current.ids.filter(id => currentRowIds.has(id));
+      if (!ids.length) return null;
+      return ids.length === current.ids.length ? current : { ids, count: ids.length };
+    });
+  }, [data?.statementRows, data?.expenses, selected?.id]);
   const creditPosition = useMemo(() => data && selected
     ? getCardCreditPosition(selected, data.expenses, data.installments)
     : null, [data, selected]);
@@ -212,34 +243,38 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
   const statementMonth = resolveInvoiceMonthSelection(
     requestedStatementMonth,
     invoiceCycles,
-    creditPosition?.dueMonth,
+    suggestedNewInvoiceMonth,
   );
   useEffect(() => {
     setStatementMonth(null);
     setInvoiceHistoryOpen(false);
   }, [selected?.id]);
-  const savedInvoiceFacts = invoiceFacts.find(item => item.due_month.slice(0, 7) === statementMonth?.slice(0, 7)) || null;
+  const savedInvoiceFacts = invoiceFacts.find(item => item.card_id === selected?.id && item.due_month.slice(0, 7) === statementMonth?.slice(0, 7)) || null;
   // A conferência manual pode registrar o primeiro mês mesmo sem qualquer ciclo financeiro.
   const editInvoiceMonth = invoiceFactsModalMonth || statementMonth;
-  const editedInvoiceFacts = invoiceFacts.find(item => item.card_id === selected?.id && item.due_month.slice(0, 7) === editInvoiceMonth?.slice(0, 7)) || null;
-  const isCurrentCreditCycle = Boolean(editInvoiceMonth && creditPosition?.dueMonth && editInvoiceMonth.slice(0, 7) === creditPosition.dueMonth.slice(0, 7));
-  const editableInvoiceSummary: CardInvoiceSummary = {
-    institution: (['Nubank', 'Mercado Pago', 'Itaú', 'C6 Bank', 'RecargaPay'] as const).find(
-      name => name === (editedInvoiceFacts?.issuer || selected?.issuer)) || null,
-    cardLastFour: selected?.last_four || null,
-    multipleCards: false,
-    invoiceTotal: editedInvoiceFacts?.invoice_total ?? (isCurrentCreditCycle && Number(selected?.current_bill || 0) > 0 ? Number(selected?.current_bill) : null),
-    minimumPayment: editedInvoiceFacts?.minimum_payment ?? null,
-    creditLimit: editedInvoiceFacts?.credit_limit ?? (selected?.credit_limit != null ? Number(selected.credit_limit) : null),
-    usedLimit: editedInvoiceFacts?.used_limit ?? (isCurrentCreditCycle && Number(creditPosition?.committedLimit || 0) > 0 ? Number(creditPosition?.committedLimit) : null),
-    // Não converter limite total em "disponível informado" quando não houver dado confirmado do emissor.
-    availableLimit: editedInvoiceFacts?.available_limit ?? null,
-    futureInstallments: editedInvoiceFacts?.future_installments ?? (isCurrentCreditCycle && Number(selected?.initial_future_installments_balance || 0) > 0 ? Number(selected?.initial_future_installments_balance) : null),
-    dueDate: editedInvoiceFacts?.due_date ?? (selected && editInvoiceMonth ? getInvoiceCycleDates(editInvoiceMonth, selected.closing_day, selected.due_day).dueDate : null),
-    warnings: [],
+  const invoiceFactsSummaryForMonth = (targetMonth: string | null): CardInvoiceSummary => {
+    const editedInvoiceFacts = invoiceFacts.find(item => item.card_id === selected?.id && item.due_month.slice(0, 7) === targetMonth?.slice(0, 7)) || null;
+    const facts = editedInvoiceFacts;
+    const isCurrentCycle = Boolean(targetMonth && creditPosition?.dueMonth && targetMonth.slice(0, 7) === creditPosition.dueMonth.slice(0, 7));
+    return {
+      institution: (['Nubank', 'Mercado Pago', 'Itaú', 'C6 Bank', 'RecargaPay', 'Bradesco', 'PicPay', 'Santander', 'Banco do Brasil', 'Inter', 'Caixa'] as const).find(
+        name => (facts?.issuer || selected?.issuer) && issuerMatchesBank(facts?.issuer || selected?.issuer, name)) || null,
+      cardLastFour: selected?.last_four || null,
+      multipleCards: false,
+      invoiceTotal: facts?.invoice_total ?? (isCurrentCycle && Number(selected?.current_bill || 0) > 0 ? Number(selected?.current_bill) : null),
+      minimumPayment: facts?.minimum_payment ?? null,
+      creditLimit: facts?.credit_limit ?? (selected?.credit_limit != null ? Number(selected.credit_limit) : null),
+      usedLimit: facts?.used_limit ?? (isCurrentCycle && Number(creditPosition?.committedLimit || 0) > 0 ? Number(creditPosition?.committedLimit) : null),
+      // Limite calculado pela Carteira não é um valor informado pelo emissor.
+      availableLimit: editedInvoiceFacts?.available_limit ?? null,
+      futureInstallments: facts?.future_installments ?? (isCurrentCycle && Number(selected?.initial_future_installments_balance || 0) > 0 ? Number(selected.initial_future_installments_balance) : null),
+      dueDate: facts?.due_date ?? (selected && targetMonth ? getInvoiceCycleDates(targetMonth, selected.closing_day, selected.due_day).dueDate : null),
+      warnings: [],
+    };
   };
-  const saveManualInvoiceFacts = async (summary: CardInvoiceSummary) => {
-    const confirmedDueMonth = resolveManualInvoiceMonth(invoiceFactsModalMonth);
+  const editableInvoiceSummary = invoiceFactsSummaryForMonth(editInvoiceMonth);
+  const saveInvoiceFactsForMonth = async (dueMonth: string, summary: CardInvoiceSummary) => {
+    const confirmedDueMonth = resolveManualInvoiceMonth(dueMonth);
     if (!selected || !confirmedDueMonth)
       throw new Error('Selecione um cartão e um mês de vencimento válido.');
     const confirmed = await personalWalletService.saveCardInvoiceFacts({
@@ -253,12 +288,31 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
     });
     await Promise.all([refreshInvoiceFacts(), refresh()]);
     setStatementMonth(confirmed.due_month);
-    setInvoiceFactsModalMonth(confirmed.due_month);
+    if (invoiceFactsModalOpen) setInvoiceFactsModalMonth(confirmed.due_month);
     return confirmed;
   };
+  const saveManualInvoiceFacts = (summary: CardInvoiceSummary) =>
+    saveInvoiceFactsForMonth(invoiceFactsModalMonth || '', summary);
   const selectedCycle = selected && data
     ? getSelectedInvoiceCycle(selected.id, statementMonth, data.expenses, data.installments)
     : null;
+  const savedInvoiceTotalCents = savedInvoiceFacts?.invoice_total == null
+    ? null : Math.round(Number(savedInvoiceFacts.invoice_total) * 100);
+  const registeredInvoiceBalanceCents = Math.round(Number(selectedCycle?.amount || 0) * 100);
+  const registeredInvoiceTotalCents = useMemo(() => {
+    if (!selected || !data || !statementMonth) return 0;
+    const expensesById = new Map(data.expenses.map(expense => [expense.id, expense]));
+    return data.installments.reduce((total, installment) => {
+      if (installment.status === 'CANCELED') return total;
+      const expense = expensesById.get(installment.expense_id);
+      if (!expense || expense.card_id !== selected.id || expense.status === 'CANCELED' || expense.entry_type === 'INVOICE_OVERRIDE') return total;
+      const dueMonth = String(expense.invoice_due_month || installment.due_month).slice(0, 7);
+      const amountCents = Math.round(Number(installment.amount || 0) * 100);
+      return dueMonth === statementMonth.slice(0, 7) && Number.isFinite(amountCents) ? total + amountCents : total;
+    }, 0);
+  }, [data, selected, statementMonth]);
+  const invoiceTotalDifferenceCents = savedInvoiceTotalCents === null
+    ? null : savedInvoiceTotalCents - registeredInvoiceTotalCents;
   const mayApplySavedIssuerFacts = Boolean(
     selected && savedInvoiceFacts && (selectedCycle?.amount || 0) === 0 &&
     Number(selected.current_bill || 0) === 0 &&
@@ -643,19 +697,25 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
             onSelectionChange={card => setSelectedId(current => current === card?.id ? current : card?.id || null)}
             onCreateCard={() => setCreating(true)}
             onImportStatement={openReader}
-            onNewExpense={card => { setSelectedId(card.id); setQuickExpenseOpen(true); }}
+            onNewExpense={card => {
+              setSelectedId(card.id);
+              setQuickExpenseCardId(card.id);
+              setQuickExpenseDueMonth(getPurchaseInvoiceMonth(businessDateInManaus(), card.closing_day, card.due_day));
+              setQuickExpenseOpen(true);
+            }}
             onPayInvoice={card => { setSelectedId(card.id); setPaying(card); }} />
         </div>
         <div className="min-w-0 space-y-2.5 sm:space-y-3 lg:col-span-7">
           {selected && <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-800 bg-slate-900 px-2.5 py-2">
             <div className="min-w-0">
-              <strong className="block text-xs text-white">Valores informados pelo banco</strong>
+              <strong className="block text-xs text-white">Valores do banco (referência)</strong>
               <p className="mt-1 text-[11px] text-slate-400">
                 {hideFinancialValues ? 'Valores ocultos' : savedInvoiceFacts ? 'Fatura ' + formatMoney(Number(savedInvoiceFacts.invoice_total ?? 0)) +
                   ' · Mínimo ' + (savedInvoiceFacts.minimum_payment === null ? 'não informado' : formatMoney(Number(savedInvoiceFacts.minimum_payment))) +
                   ' · Disponível ' + (savedInvoiceFacts.available_limit === null ? 'não informado' : formatMoney(Number(savedInvoiceFacts.available_limit)))
                   : 'Ainda não conferidos neste ciclo'}
               </p>
+              <p className="mt-1 text-[10px] text-slate-500">O total informado pelo banco fica separado da soma das compras lançadas.</p>
               {invoiceFactsError && <p className="mt-1 text-[11px] text-amber-300">Dados bancários indisponíveis: {invoiceFactsError}</p>}
             </div>
             <button type="button" onClick={() => {
@@ -677,10 +737,20 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
           </button>}
           {issuerCommitFeedback && <p role="status" className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-200">{issuerCommitFeedback}</p>}
           <WalletMetricStrip items={[
-            { label: 'Saldo de fatura registrado', value: formatMoney(selectedCycle?.amount || 0) },
+            { label: savedInvoiceTotalCents === null ? 'Saldo de fatura registrado' : 'Total da fatura (banco)', value: formatMoney((savedInvoiceTotalCents ?? registeredInvoiceBalanceCents) / 100) },
             { label: 'Faturas posteriores', value: formatMoney(selectedFutureCommitments) },
             { label: savedInvoiceFacts?.available_limit == null ? 'Disponível estimado' : 'Disponível informado pelo banco', value: formatMoney(savedInvoiceFacts?.available_limit == null ? (creditPosition?.freeLimit || 0) : Number(savedInvoiceFacts.available_limit)), tone: 'positive' },
           ]} />
+          {invoiceTotalDifferenceCents !== null && <p role="status" className="-mt-1 rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-2 text-[11px] leading-relaxed text-slate-300">
+            {hideFinancialValues ? 'Valores bancários e lançados protegidos.' : <>
+              Compras registradas: <strong className="text-white"><PrivateMoney value={formatMoney(registeredInvoiceTotalCents / 100)} /></strong>.
+              {' '}{invoiceTotalDifferenceCents > 0
+                ? <>Faltam <strong className="text-amber-200"><PrivateMoney value={formatMoney(invoiceTotalDifferenceCents / 100)} /></strong> em lançamentos para alcançar o total informado pelo banco.</>
+                : invoiceTotalDifferenceCents < 0
+                  ? <>Os lançamentos superam o total informado pelo banco em <strong className="text-amber-200"><PrivateMoney value={formatMoney(Math.abs(invoiceTotalDifferenceCents) / 100)} /></strong>.</>
+                  : 'Os lançamentos conferem com o total informado pelo banco.'}
+            </>}
+          </p>}
           {selected && selectedIsOpeningCycle && (Number(selected.initial_future_installments_balance || 0) > 0 || Number(selected.opening_unallocated_amount || 0) > 0) && <p className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-amber-100">
             <PrivateMoney value={formatMoney(Math.max(Number(selected.initial_future_installments_balance || 0), Number(selected.opening_unallocated_amount || 0)))} /> em gastos iniciais ainda sem detalhamento. Esse valor já está incluído no limite usado.
           </p>}
@@ -711,6 +781,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
                     {invoiceCycles.filter(cycle => cycle.dueMonth === statementMonth).map(cycle => {
                       const fact = invoiceFacts.find(item =>
                         item.card_id === selected.id && item.due_month.slice(0, 7) === cycle.dueMonth.slice(0, 7));
+                      const bankInvoiceTotal = fact?.invoice_total == null ? null : Number(fact.invoice_total);
                       const dates = getInvoiceCycleDates(cycle.dueMonth, selected.closing_day, selected.due_day, fact?.due_date);
                       const competence = dates.closingDate.slice(5, 7) + '/' + dates.closingDate.slice(0, 4);
                       const due = dates.dueDate.split('-').reverse().join('/');
@@ -733,9 +804,9 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
                             <span className="mt-1 block text-[11px] text-slate-400">{hideFinancialValues ? 'Vencimento protegido' : 'Vence ' + due}</span>
                           </span>
                           <span className="text-right">
-                            <span className="block whitespace-nowrap text-sm font-bold tabular-nums text-white"><PrivateMoney value={formatMoney(cycle.amount)} /></span>
+                            <span className="block whitespace-nowrap text-sm font-bold tabular-nums text-white"><PrivateMoney value={formatMoney(bankInvoiceTotal ?? cycle.amount)} /></span>
                             <span className={`mt-1 block text-[10px] ${hideFinancialValues ? 'text-slate-400' : status === 'OVERDUE' ? 'text-rose-300' : active ? 'text-blue-300' : 'text-slate-400'}`}>
-                              {hideFinancialValues ? 'Situação protegida' : label}
+                              {hideFinancialValues ? 'Situação protegida' : bankInvoiceTotal === null ? label : `${label} · saldo lançado ${formatMoney(cycle.amount)}`}
                             </span>
                           </span>
                         </button>
@@ -745,7 +816,11 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
                 )}
               </div>
               {selected && <div className="relative flex flex-wrap items-center gap-2">
-                <button type="button" onClick={() => setQuickExpenseOpen(true)}
+                <button type="button" onClick={() => {
+                  setQuickExpenseCardId(selected.id);
+                  setQuickExpenseDueMonth(suggestedNewInvoiceMonth);
+                  setQuickExpenseOpen(true);
+                }}
                   className="min-h-10 rounded-lg bg-blue-600 px-3.5 py-2 text-xs font-bold text-white hover:bg-blue-500">+ Lançar despesa</button>
                 {statementMonth && (
                   <button type="button" onClick={() => setOverriding(true)}
@@ -783,6 +858,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
                 {[...invoiceCycles].reverse().map(cycle => {
                   const fact = invoiceFacts.find(item =>
                     item.card_id === selected.id && item.due_month.slice(0, 7) === cycle.dueMonth.slice(0, 7));
+                  const bankInvoiceTotal = fact?.invoice_total == null ? null : Number(fact.invoice_total);
                   const dates = getInvoiceCycleDates(cycle.dueMonth, selected.closing_day, selected.due_day, fact?.due_date);
                   const competence = dates.closingDate.slice(5, 7) + '/' + dates.closingDate.slice(0, 4);
                   const due = dates.dueDate.split('-').reverse().join('/');
@@ -808,8 +884,8 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
                       <span className="mt-0.5 block text-[11px] text-slate-400">{hideFinancialValues ? 'Vencimento protegido' : 'Vence ' + due}</span>
                     </span>
                     <span className="text-right">
-                      <strong className="block whitespace-nowrap text-xs tabular-nums text-white"><PrivateMoney value={formatMoney(cycle.amount)} /></strong>
-                      <span className="mt-0.5 block text-[10px] text-slate-400">{hideFinancialValues ? 'Situação protegida' : label}</span>
+                      <strong className="block whitespace-nowrap text-xs tabular-nums text-white"><PrivateMoney value={formatMoney(bankInvoiceTotal ?? cycle.amount)} /></strong>
+                      <span className="mt-0.5 block text-[10px] text-slate-400">{hideFinancialValues ? 'Situação protegida' : bankInvoiceTotal === null ? label : `${label} · saldo lançado ${formatMoney(cycle.amount)}`}</span>
                     </span>
                   </button>;
                 })}
@@ -829,12 +905,19 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
                   targetId={selected.id}
                   targetName={selected.nickname}
                   targetIssuer={selected.issuer} targetLastFour={selected.last_four}
-                  existingRows={data.statementRows}
+                  targetCreditLimit={Number(selected.credit_limit || 0) || null}
+                  targetEstimatedUsedLimit={creditPosition?.committedLimit ?? null}
+                  targetEstimatedFutureCommitments={creditPosition?.futureCommitments ?? null}
+                  targetEstimatedAvailableLimit={creditPosition?.freeLimit ?? null}
+                  targetEstimateDueMonth={creditPosition?.dueMonth}
+                  existingRows={importedStatementRows}
                   onSummarySaved={async month => {
                     await Promise.all([refreshInvoiceFacts(), refresh()]);
                     setStatementMonth(month);
                   }}
-                  initialDueMonth={statementMonth}
+                  initialDueMonth={statementMonth || suggestedNewInvoiceMonth}
+                  closingDay={selected.closing_day}
+                  dueDay={selected.due_day}
                   hasOpening={Boolean(selected.initial_balance_occurred_at)}
                   isFlat={true}
                   onClose={() => setFlatReaderOpen(false)}
@@ -863,24 +946,26 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
       {statementDeletionFeedback && <div role="status" className={`rounded-lg border px-3 py-2 text-xs ${statementDeletionFeedback.tone === 'success' ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200' : 'border-rose-500/30 bg-rose-500/10 text-rose-200'}`}>
         {statementDeletionFeedback.message}
       </div>}
-      {selected && importedStatementRows.length > 0 && <section className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
-        <h3 className="text-sm font-bold text-white">Extrato importado do PDF</h3>
-        <p className="mt-1 text-xs text-slate-400">Registros para conferência. Estes itens não são somados novamente ao limite ou à fatura.</p>
-        <div className="mt-3 grid gap-2 sm:grid-cols-3">
-          <div className="rounded-lg border border-slate-800 bg-slate-950 px-3 py-2"><span className="block text-[10px] text-slate-400">Lançamentos</span><strong className="text-sm text-white">{importedStatementRows.length}</strong></div>
-          <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2"><span className="block text-[10px] text-slate-400">Somente conferência</span><strong className="text-sm text-emerald-300">{unlinkedStatementCount}</strong></div>
-          <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/5 px-3 py-2"><span className="block text-[10px] text-slate-400">Vinculados à fatura</span><strong className="text-sm text-cyan-300">{linkedStatementCount}</strong></div>
+      {selected && importedStatementRows.length > 0 && <section className="rounded-xl border border-slate-800 bg-slate-900/70 px-3 py-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-xs text-slate-300"><strong className="text-slate-100">Conferência da importação:</strong> {linkedStatementCount} item(ns) já aparecem no extrato da fatura.</p>
+          <p className="text-[11px] text-slate-400">Total importado: <strong className="text-slate-200"><PrivateMoney value={formatMoney(importedStatementTotal)} /></strong></p>
         </div>
-        <div className="mt-3 flex items-center justify-between rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs"><span className="text-slate-400">Total do extrato importado</span><strong className="text-white"><PrivateMoney value={formatMoney(importedStatementTotal)} /></strong></div>
-        <div className="mt-3 flex items-center justify-between gap-2 rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-[10px] text-slate-400">
-          <button type="button" onClick={() => setSelectedStatementRows(current => current.size === importedStatementRows.length ? new Set() : new Set(importedStatementRows.map(row => row.id)))} className="min-h-8 rounded border border-slate-700 px-2.5 py-1.5 hover:bg-slate-800">{selectedStatementRows.size === importedStatementRows.length ? 'Limpar seleção' : 'Selecionar todos'}</button>
-          <button type="button" disabled={!selectedStatementRows.size} onClick={() => setPendingStatementDeletion({ ids: [...selectedStatementRows], count: selectedStatementRows.size })} className="min-h-8 rounded border border-rose-500/30 px-2.5 py-1.5 font-semibold text-rose-300 disabled:opacity-40">Excluir selecionados ({selectedStatementRows.size})</button>
-        </div>
-        <div className="mt-3 max-h-80 divide-y divide-slate-800 overflow-y-auto">{importedStatementRows.map(row => <article key={row.id} className="flex items-center justify-between gap-3 py-3"><div className="flex min-w-0 items-start gap-2"><input type="checkbox" aria-label={`Selecionar ${row.description}`} className="mt-0.5 h-4 w-4 accent-blue-600" checked={selectedStatementRows.has(row.id)} onChange={() => setSelectedStatementRows(current => { const next = new Set(current); if (next.has(row.id)) next.delete(row.id); else next.add(row.id); return next; })} /><div className="min-w-0"><p className="truncate text-xs font-semibold text-slate-200">{row.description}</p><p className="mt-1 text-[10px] text-slate-400">{row.entry_date.split('-').reverse().join('/')} · {row.category} · {row.expense_id ? 'Vinculado à fatura' : 'Somente importado'}</p></div></div><div className="flex shrink-0 items-center gap-2"><strong className="text-xs text-slate-200"><PrivateMoney value={formatMoney(row.amount)} /></strong><button type="button" onClick={() => setPendingStatementDeletion({ ids: [row.id], count: 1 })} className="min-h-8 rounded border border-rose-500/30 px-2.5 py-1.5 text-[10px] font-semibold text-rose-300 hover:bg-rose-500/10">Excluir</button></div></article>)}</div>
+        {unlinkedStatementCount > 0 && <>
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-800 pt-3">
+            <p className="text-xs text-amber-200">{unlinkedStatementCount} item(ns) somente para conferência · <PrivateMoney value={formatMoney(unlinkedStatementTotal)} /></p>
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={() => setSelectedStatementRows(current => current.size === unlinkedStatementCount ? new Set() : new Set(unlinkedStatementRows.map(row => row.id)))} className="min-h-8 rounded border border-slate-700 px-2.5 py-1.5 text-[10px] text-slate-300 hover:bg-slate-800">{selectedStatementRows.size === unlinkedStatementCount ? 'Limpar seleção' : 'Selecionar todos'}</button>
+              <button type="button" disabled={!selectedStatementRows.size} onClick={() => setPendingStatementDeletion({ ids: [...selectedStatementRows], count: selectedStatementRows.size })} className="min-h-8 rounded border border-rose-500/30 px-2.5 py-1.5 text-[10px] font-semibold text-rose-300 disabled:opacity-40">Excluir ({selectedStatementRows.size})</button>
+            </div>
+          </div>
+          <div className="mt-2 max-h-64 divide-y divide-slate-800 overflow-y-auto">{unlinkedStatementRows.map(row => <article key={row.id} className="flex items-center justify-between gap-3 py-2.5"><div className="flex min-w-0 items-start gap-2"><input type="checkbox" aria-label={`Selecionar ${row.description}`} className="mt-0.5 h-4 w-4 accent-blue-600" checked={selectedStatementRows.has(row.id)} onChange={() => setSelectedStatementRows(current => { const next = new Set(current); if (next.has(row.id)) next.delete(row.id); else next.add(row.id); return next; })} /><div className="min-w-0"><p className="truncate text-xs font-semibold text-slate-200">{row.description}</p><p className="mt-1 text-[10px] text-slate-400">{row.entry_date.split('-').reverse().join('/')} · {row.category} · somente conferência</p></div></div><div className="flex shrink-0 items-center gap-2"><strong className="text-xs text-slate-200"><PrivateMoney value={formatMoney(row.amount)} /></strong><button type="button" onClick={() => setPendingStatementDeletion({ ids: [row.id], count: 1 })} className="min-h-8 rounded border border-rose-500/30 px-2.5 py-1.5 text-[10px] font-semibold text-rose-300 hover:bg-rose-500/10">Excluir</button></div></article>)}</div>
+        </>}
       </section>}
-      {pendingStatementDeletion && <Modal compact title="Excluir item importado?" subtitle="Esta linha será removida apenas do extrato importado." icon={<AlertTriangle size={17} />} onClose={() => { if (!deletingStatement) setPendingStatementDeletion(null); }}>
+      {pendingStatementDeletion && <Modal compact title="Excluir item de conferência?" subtitle="Remove somente a linha não vinculada do registro do PDF; a fatura não muda." icon={<AlertTriangle size={17} />} onClose={() => { if (!deletingStatement) setPendingStatementDeletion(null); }}>
         <div className="space-y-4">
           <p className="text-sm leading-relaxed text-slate-300">Excluir {pendingStatementDeletion.count} item(ns) selecionado(s) do extrato?</p>
+          {statementDeletionFeedback?.tone === 'error' && <p role="alert" className="text-xs text-rose-300">{statementDeletionFeedback.message}</p>}
           <div className="flex flex-col gap-2 sm:flex-row-reverse">
             <button type="button" disabled={deletingStatement} onClick={() => { void removeImportedStatementRows(pendingStatementDeletion.ids); }} className={modalPrimaryActionClass}>{deletingStatement ? 'Excluindo...' : `Excluir ${pendingStatementDeletion.count} item(ns)`}</button>
             <button type="button" disabled={deletingStatement} onClick={() => setPendingStatementDeletion(null)} className={modalSecondaryActionClass}>Manter item</button>
@@ -1055,17 +1140,17 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
           </button>
         </form>}
       </section>}
-      {invoiceFactsModalOpen && selected && <Modal title="Valores reais da fatura"
-        subtitle={selected.nickname + (invoiceFactsModalMonth ? ` · ${invoiceFactsModalMonth.slice(5, 7)}/${invoiceFactsModalMonth.slice(0, 4)}` : '')}
+      {invoiceFactsModalOpen && selected && <Modal title="Conferir fatura do banco"
+        subtitle={selected.nickname}
         busy={invoiceFactsSaving}
         footer={<button type="submit" form="wallet-manual-invoice-form" className={modalPrimaryActionClass}
           disabled={!invoiceFactsModalMonth || invoiceFactsSaving}>
-          {invoiceFactsSaving ? 'Salvando…' : 'Salvar valores conferidos'}
+          {invoiceFactsSaving ? 'Salvando…' : 'Salvar conferência'}
         </button>}
         onClose={() => { if (!invoiceFactsSaving) setInvoiceFactsModalOpen(false); }}>
         <div className="mb-3 rounded-xl border border-slate-700 bg-slate-900/60 p-3">
           <label className="block text-xs font-semibold text-slate-200" htmlFor="manual-invoice-due-month">
-            Mês de vencimento desta fatura
+            Mês de pagamento da fatura
           </label>
           <input id="manual-invoice-due-month" type="month" required
             value={invoiceFactsModalMonth?.slice(0, 7) || ''}
@@ -1074,11 +1159,11 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
               setInvoiceFactsModalMonth(resolveManualInvoiceMonth(value));
             }}
             className="mt-2 min-h-11 w-full min-w-0 rounded-lg border border-slate-600 bg-slate-950 px-3 py-2 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400" />
-          <p className="mt-2 text-xs leading-relaxed text-slate-400">Este mês identifica a fatura que será salva, mesmo sem compras anteriores. O vencimento exato pode ser ajustado abaixo.</p>
+          <p className="mt-2 text-xs leading-relaxed text-slate-400">Escolha o mês em que esta fatura vence. A data exata informada abaixo precisa estar no mesmo mês.</p>
         </div>
         {invoiceFactsModalMonth && <CardInvoiceSummaryPreview
           key={selected.id + ':' + invoiceFactsModalMonth}
-          formId="wallet-manual-invoice-form" inlineSave={false} onSavingChange={setInvoiceFactsSaving}
+          formId="wallet-manual-invoice-form" inlineSave={false} onSavingChange={setInvoiceFactsSaving} dueMonth={invoiceFactsModalMonth}
           summary={editableInvoiceSummary} onSave={saveManualInvoiceFacts} />}
       </Modal>}
       {clearInvoiceConfirm && <Modal title="Excluir fatura não paga?" subtitle={clearInvoiceConfirm.nickname + ' · ' + clearInvoiceConfirm.month.slice(0, 7)} busy={clearingInvoice} onClose={() => !clearingInvoice && setClearInvoiceConfirm(null)}
@@ -1089,8 +1174,14 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
       {editing && <CardEditModal card={editing} accounts={data.accounts} onClose={() => setEditing(null)} onSaved={async () => { await refresh(); }} />}
       {vaultCard && <CardVaultModal card={vaultCard} onClose={() => setVaultCard(null)} onSaved={async () => { await refresh(); }} />}
       {importing && selected && <WalletStatementImport kind="CARD" targetId={selected.id}
-        initialDueMonth={statementMonth} hasOpening={Boolean(selected.initial_balance_occurred_at)}
-        targetName={selected.nickname} targetIssuer={selected.issuer} targetLastFour={selected.last_four} existingRows={data.statementRows} onSummarySaved={async month => {
+        initialDueMonth={statementMonth || suggestedNewInvoiceMonth} hasOpening={Boolean(selected.initial_balance_occurred_at)}
+        targetName={selected.nickname} targetIssuer={selected.issuer} targetLastFour={selected.last_four}
+        targetCreditLimit={Number(selected.credit_limit || 0) || null}
+        targetEstimatedUsedLimit={creditPosition?.committedLimit ?? null}
+        targetEstimatedFutureCommitments={creditPosition?.futureCommitments ?? null}
+        targetEstimatedAvailableLimit={creditPosition?.freeLimit ?? null}
+        targetEstimateDueMonth={creditPosition?.dueMonth}
+        existingRows={importedStatementRows} onSummarySaved={async month => {
           await Promise.all([refreshInvoiceFacts(), refresh()]);
           setStatementMonth(month);
         }} onClose={() => setImporting(false)}
@@ -1106,6 +1197,8 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
         onHandleRemainder={handleInvoiceRemainder} />}
       {(overriding || creatingInvoice) && selected && <InvoiceOverrideModal card={selected}
         isNew={creatingInvoice}
+        invoiceFactsSummaryForMonth={invoiceFactsSummaryForMonth}
+        onSaveInvoiceFacts={saveInvoiceFactsForMonth}
         existingDueMonths={invoiceCycles.map(cycle => cycle.dueMonth)}
         initialDueMonth={creatingInvoice ? suggestedNewInvoiceMonth : (statementMonth || creditPosition?.dueMonth || suggestedNewInvoiceMonth)}
         initialDueDate={creatingInvoice ? null : savedInvoiceFacts?.due_date}
@@ -1122,6 +1215,18 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
             due_date: dueMonth,
             status: 'PENDING',
             installment_count: 1,
+            notes,
+          });
+          await refresh();
+          setStatementMonth(dueMonth);
+        }}
+        onRecordAdjustmentCredit={creatingInvoice ? undefined : async (dueMonth, deltaAmount, notes) => {
+          await personalWalletService.createInvoiceCredit({
+            cardId: selected.id,
+            dueMonth,
+            amount: deltaAmount,
+            description: 'Crédito de ajuste de fatura',
+            expenseDate: businessDateInManaus(),
             notes,
           });
           await refresh();
@@ -1172,9 +1277,10 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
         accounts={data.accounts}
         cards={availableCards}
         defaultMethod="CARD"
-        defaultCardId={selected?.id || null}
-        initialDueMonth={statementMonth}
-        onClose={() => setQuickExpenseOpen(false)}
+        defaultCardId={quickExpenseCardId || selected?.id || null}
+        lockCardSelection={Boolean(quickExpenseCardId)}
+        initialDueMonth={quickExpenseDueMonth || statementMonth}
+        onClose={() => { setQuickExpenseOpen(false); setQuickExpenseCardId(null); setQuickExpenseDueMonth(null); }}
         onSaved={async () => { await refresh(); }} />}
     </>}
   </WalletPageFrame>;

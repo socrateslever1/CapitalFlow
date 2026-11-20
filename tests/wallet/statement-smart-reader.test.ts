@@ -124,6 +124,16 @@ test('Smart Financial Document Dispatcher - despacha OFX automaticamente', async
   assert.equal(res.rows[0].amount, 89.90);
 });
 
+test('OFX merchant categories share transport and food detection', async () => {
+  const content = `<OFX><BANKMSGSRSV1><STMTTRNRS><STMTRS><BANKTRANLIST>
+    <STMTTRN><TRNTYPE>DEBIT<DTPOSTED>20261021120000<TRNAMT>-22.50<FITID>food-1<NAME>99Food pedido</STMTTRN>
+    <STMTTRN><TRNTYPE>DEBIT<DTPOSTED>20261022120000<TRNAMT>-120.00<FITID>bus-1<NAME>EUCATUR PASSAGEM</STMTTRN>
+  </BANKTRANLIST></STMTRS></STMTTRNRS></BANKMSGSRSV1></OFX>`;
+  const file = { name: 'categorias.ofx', type: 'application/x-ofx', arrayBuffer: async () => Buffer.from(content) } as unknown as File;
+  const result = await parseStatementOfx(file, 'CARD');
+  assert.deepEqual(result.rows.map(row => row.category), ['Alimenta\u00e7\u00e3o', 'Transporte']);
+});
+
 test('AI statement rows reject missing structure, impossible dates and invalid amounts', () => {
   assert.throws(() => normalizeAiStatementRows(undefined, 'hash'), /sem transações estruturadas/);
   const normalized = normalizeAiStatementRows([
@@ -136,6 +146,13 @@ test('AI statement rows reject missing structure, impossible dates and invalid a
   assert.equal(normalized.rows[0].date, '2026-10-21');
   assert.equal(normalized.rows[0].amount, 12.35);
   assert.equal(normalized.rows[0].selected, false);
+});
+
+test('known local merchant rules override generic AI category labels', () => {
+  const normalized = normalizeAiStatementRows([
+    { date: '2026-10-21', description: '99Food pedido', amount: 22.5, category: 'Outros' },
+  ], 'hash');
+  assert.equal(normalized.rows[0].category, 'Alimenta\u00e7\u00e3o');
 });
 
 test('Card Clipboard Utility - formata e permite copiar dados do cartão para uso na carteira', async () => {

@@ -105,7 +105,7 @@ test('contract receipts provide an optional destination without changing the def
   assert.doesNotMatch(modal,/select required value=\{receiptDestinationAccountId\}/);
   assert.doesNotMatch(modal,/select required value=\{receiptDestinationSourceId\}/);
   assert.match(modal,/accounts=\{walletAccounts\}/);
-  assert.match(modal,/platformAdminService\.isSuperAdmin\(\)/);
+  assert.match(modal,/walletRepository\.loadOverview\(\)/);
   assert.match(modal,/isWalletReceiptAdmin/);
   assert.match(modal,/animateClose/);
   assert.match(modal,/Total após ajustes/);

@@ -3,26 +3,28 @@ import {
   Sparkles,
   Zap,
   UploadCloud,
-  FileText,
-  Image as ImageIcon,
   CheckCircle2,
   AlertTriangle,
   X,
-  CreditCard,
-  Building2,
-  ChevronDown,
-  ChevronUp,
+  Search,
 } from 'lucide-react';
 import { formatMoney } from '../../utils/formatters';
 import { FinancialCalculatorInput } from '../forms/FinancialCalculatorInput';
 import { parseWalletSignedMoney } from '../../features/wallet/utils/parseWalletMoney';
 import { CardInvoiceSummaryPreview } from './CardInvoiceSummaryPreview';
+import { getInvoiceCycleDates } from './invoiceStatementDomain';
 import { issuerMatchesBank, type CardInvoiceSummary } from '../../utils/cardInvoiceSummary';
 import { detectPreviouslyImported, detectRecoverableStatementRows } from '../../utils/walletStatementDuplicates';
 import type { WalletStatementRow } from '../../services/personalWallet.service';
 import { personalWalletService } from '../../services/personalWallet.service';
 import type { WalletIssuerInvoiceCommit } from '../../services/personalWallet.service';
-import { parseStatementPdf, ParsedStatementRow } from '../../utils/walletStatementPdf';
+import {
+  calculateStatementTotals,
+  isCardInvoicePaymentDescription,
+  matchesStatementRowSearch,
+  parseStatementPdf,
+  ParsedStatementRow,
+} from '../../utils/walletStatementPdf';
 import { generateUUID } from '../../utils/generators';
 import {
   parseSmartFinancialDocument,
@@ -35,9 +37,16 @@ type Props = {
   targetName: string;
   targetIssuer?: string | null;
   targetLastFour?: string | null;
+  targetCreditLimit?: number | null;
+  targetEstimatedUsedLimit?: number | null;
+  targetEstimatedFutureCommitments?: number | null;
+  targetEstimatedAvailableLimit?: number | null;
+  targetEstimateDueMonth?: string | null;
   existingRows?: WalletStatementRow[];
   initialFile?: File;
   initialDueMonth?: string | null;
+  closingDay?: number | null;
+  dueDay?: number | null;
   hasOpening?: boolean;
   onClose?: () => void;
   onImported: () => Promise<void>;
@@ -65,29 +74,34 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
   targetName,
   targetIssuer,
   targetLastFour,
+  targetCreditLimit,
+  targetEstimatedUsedLimit,
+  targetEstimatedFutureCommitments,
+  targetEstimatedAvailableLimit,
+  targetEstimateDueMonth,
   existingRows = [],
   initialFile,
   initialDueMonth,
+  closingDay,
+  dueDay,
   hasOpening = false,
   onClose,
   onImported,
   onSummarySaved,
   isFlat = true,
 }) => {
-  const [mode, setMode] = useState<'NEW' | 'INCLUDED' | 'DOCUMENT' | 'REVIEW'>(
-    hasOpening ? 'REVIEW' : 'NEW'
-  );
+  const [mode, setMode] = useState<'NEW' | 'INCLUDED' | 'DOCUMENT' | 'REVIEW'>('NEW');
   const [dueMonth, setDueMonth] = useState(
     (initialDueMonth || new Date().toLocaleDateString('en-CA')).slice(0, 7)
   );
   const [source, setSource] = useState<File | null>(null);
   const [result, setResult] = useState<SmartStatementParseResult | null>(null);
   const [rows, setRows] = useState<ParsedStatementRow[]>([]);
+  const [rowSearch, setRowSearch] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [finished, setFinished] = useState<number | null>(null);
   const [allowDuplicates, setAllowDuplicates] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
   const [pdfPassword, setPdfPassword] = useState('');
   const [pdfPasswordRequired, setPdfPasswordRequired] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -102,21 +116,21 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
     setSource(null);
     setResult(null);
     setRows([]);
+    setRowSearch('');
     setReviewedRows([]);
     setAllowDuplicates(false);
     setConfirmedOpening(null);
     confirmationAttempt.current = null;
-    setMode(hasOpening ? 'REVIEW' : 'NEW');
+    setMode('NEW');
   }, [kind, targetId]);
   const changeDueMonth = (month: string) => {
-    if (month !== dueMonth) setMode(confirmedOpening?.month === month ? 'INCLUDED'
-      : confirmedOpening ? 'NEW' : hasOpening ? 'REVIEW' : 'NEW');
+    if (month !== dueMonth) setMode(confirmedOpening?.month === month ? 'INCLUDED' : 'NEW');
     setDueMonth(month);
   };
 
   const declaredBank = result?.invoiceSummary?.institution;
   const bankMismatch = kind === 'CARD' && !issuerMatchesBank(targetIssuer, declaredBank || null);
-  const duplicateKeys = detectPreviouslyImported(rows, [...existingRows, ...reviewedRows], kind, targetId);
+  const duplicateKeys = detectPreviouslyImported(rows, [...existingRows, ...reviewedRows], kind, targetId, result?.hash);
   const recoverableKeys = result && kind === 'CARD' && mode !== 'DOCUMENT'
     ? detectRecoverableStatementRows(rows, [...existingRows, ...reviewedRows], kind, targetId, result.hash)
     : new Set<string>();
@@ -149,16 +163,20 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
       setConfirmedOpening({ cardId: targetId, month: referenceMonth });
       if (mode !== 'DOCUMENT') setMode('INCLUDED');
     } else if (referenceMonth !== dueMonth) {
-      setMode(hasOpening ? 'REVIEW' : 'NEW');
+      setMode('NEW');
     }
     await onSummarySaved?.(referenceMonth+'-01');
     return confirmation;
   };
 
   const selectedCount = rows.filter((row) => row.selected).length;
-  const selectedSum = rows
-    .filter((row) => row.selected)
-    .reduce((sum, row) => sum + row.amount, 0);
+  const visibleRows = rows.map((row, index) => ({ row, index }))
+    .filter(({ row }) => matchesStatementRowSearch(row, rowSearch));
+  const invoiceRows = kind === 'CARD'
+    ? rows.filter((row) => !isCardInvoicePaymentDescription(row.description))
+    : rows;
+  const extractedTotals = calculateStatementTotals(invoiceRows, result?.invoiceSummary?.invoiceTotal);
+  const selectedTotals = calculateStatementTotals(rows.filter((row) => row.selected));
 
   const selectedInvalid = rows.some(
     (row) =>
@@ -174,20 +192,20 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
     setSource(fileToProcess);
     setResult(null);
     setRows([]);
+    setRowSearch('');
     setReviewedRows([]);
     setError('');
     setPdfPasswordRequired(false);
     setFinished(null);
-    setShowPreview(false);
-    if ((fileToProcess.type.startsWith('image/') || /\.(png|jpe?g|webp)$/i.test(fileToProcess.name)) && !forceAi) {
-      setError('A imagem fica neste dispositivo até você escolher Ler imagem com IA.');
+    if (fileToProcess.type.startsWith('image/') || /\.(png|jpe?g|webp)$/i.test(fileToProcess.name) || forceAi) {
+      setError('A leitura de faturas por imagem/IA foi desativada. Envie o arquivo PDF original do banco ou OFX.');
       return;
     }
     setBusy(true);
 
     try {
       const parsed = await parseSmartFinancialDocument(fileToProcess, kind, {
-        forceAi, pdfPassword: password, cloudConsent: forceAi,
+        pdfPassword: password,
       });
       setPdfPassword('');
       if (kind === 'CARD' && parsed.invoiceSummary?.dueDate) changeDueMonth(parsed.invoiceSummary.dueDate.slice(0,7));
@@ -195,18 +213,17 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
       const recoverable = detectRecoverableStatementRows(parsed.rows, existingRows, kind, targetId, parsed.hash);
       setRows(parsed.rows.map(row => recoverable.has(row.rowKey)
         ? { ...row, selected: kind === 'CARD' && mode !== 'DOCUMENT' }
-        : detectPreviouslyImported([row], existingRows, kind, targetId).has(row.rowKey)
-          ? { ...row, selected: false } : row));
+        : detectPreviouslyImported([row], existingRows, kind, targetId, parsed.hash).has(row.rowKey)
+          ? { ...row, selected: false }
+          : { ...row, selected: kind === 'CARD' ? !isCardInvoicePaymentDescription(row.description) : true }));
       setAllowDuplicates(false);
 
       if (!parsed.rows.length) {
         setError(
           fileToProcess.name.toLowerCase().endsWith('.pdf')
-            ? 'A leitura local não encontrou compras. Este PDF pode ser digitalizado ou usar um layout não reconhecido. Você pode tentar a leitura com IA abaixo.'
+            ? 'A leitura local não encontrou compras neste PDF. Use o PDF original com texto exportado pelo banco ou o arquivo OFX.'
             : 'Não foram encontradas transações válidas. Confira se o arquivo contém um extrato detalhado.'
         );
-      } else if (parsed.previewUrl) {
-        setShowPreview(true);
       }
     } catch (reason: any) {
       setResult(null);
@@ -250,7 +267,7 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
         kind, targetId, selected.map(row => row.date),
       );
       setReviewedRows(latestRows);
-      const freshDuplicates = detectPreviouslyImported(selected, latestRows, kind, targetId);
+      const freshDuplicates = detectPreviouslyImported(selected, latestRows, kind, targetId, result.hash);
       const recoverable = kind === 'CARD' && mode !== 'DOCUMENT'
         ? detectRecoverableStatementRows(selected, latestRows, kind, targetId, result.hash)
         : new Set<string>();
@@ -258,6 +275,7 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
       // centavos e estabelecimento idênticos exigem confirmação de duplicidade.
       const directDuplicates = selected.filter(row => latestRows.some(previous =>
         previous.target_kind === kind && previous.target_id === targetId
+        && previous.document_hash !== result.hash
         && previous.entry_date === row.date
         && Math.round(Number(previous.amount) * 100) === Math.round(row.amount * 100)
         && String(previous.description).localeCompare(row.description, 'pt-BR', { sensitivity: 'base' }) === 0
@@ -269,13 +287,17 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
       }
       for (const row of selected) {
         if (kind === 'CARD' && mode !== 'DOCUMENT') {
-          if (row.amount <= 0) throw new Error('Desmarque pagamentos e créditos. Registre somente compras positivas como gastos na fatura.');
-          // Uma única transação no banco: linha e compra são gravadas ou ambas falham.
+          if (row.amount <= 0 && isCardInvoicePaymentDescription(row.description)) {
+            throw new Error('Desmarque pagamentos de fatura anterior. Créditos e estornos de compras podem ser importados normalmente.');
+          }
+          // Uma única transação no banco: linha, compra (ou crédito/estorno) e parcelas futuras são gravadas atomicamente.
           await personalWalletService.recordAndImportCardStatementPurchase({
             cardId: targetId, documentHash: result.hash, rowKey: row.rowKey,
             date: row.date, description: row.description, amount: row.amount,
             category: row.category, dueMonth: dueMonth + '-01',
             included: mode === 'INCLUDED', allowDuplicates,
+            installmentNumber: row.installmentNumber,
+            installmentTotal: row.installmentTotal,
           });
         } else {
           await personalWalletService.recordStatementRow({
@@ -301,14 +323,6 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
       setBusy(false);
     }
   };
-
-  const isPdf = source?.type === 'application/pdf' || /\.pdf$/i.test(source?.name || '');
-  const isImage =
-    source?.type.startsWith('image/') ||
-    /\.(png|jpe?g|webp)$/i.test(source?.name || '');
-  const isOfx =
-    source?.name?.toLowerCase().endsWith('.ofx') ||
-    source?.name?.toLowerCase().endsWith('.qfx');
 
   const content = (
     <div className="space-y-4">
@@ -344,42 +358,21 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
         )}
       </div>
 
-      {/* OFX e PDFs nativos são locais, IA só mediante ação explícita. */}
+      {/* OFX e PDFs nativos são 100% locais, sem envio para IA externa. */}
       <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-950/60 px-3 py-2 text-xs text-slate-300">
         <div className="flex items-center gap-2">
           <Zap size={16} className="shrink-0 text-emerald-400" />
           <span>
-            <strong className="text-white">OFX e PDF com texto</strong> · leitura local
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <Sparkles size={16} className="shrink-0 text-indigo-400" />
-          <span>
-            <strong className="text-white">Imagens e PDF digitalizado</strong> · IA opcional
+            <strong className="text-white">OFX e PDF com texto</strong> · leitura 100% local no dispositivo
           </span>
         </div>
       </div>
 
       {/* Configuração de Destino do Cartão */}
       {kind === 'CARD' && (
-        <div className="grid gap-3 rounded-xl border border-slate-800 bg-slate-950/60 p-3 sm:grid-cols-2">
-          <label className="text-xs text-slate-300 font-medium">
-            Como registrar na fatura
-            <select
-              disabled={busy}
-              value={mode}
-              onChange={(event) => setMode(event.target.value as typeof mode)}
-              className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 p-2 text-xs text-white focus:border-cyan-500 focus:outline-none"
-            >
-              <option value="REVIEW" disabled>Escolha como esta fatura afeta o saldo</option>
-              <option value="NEW">Novos gastos — somar ao limite usado da fatura</option>
-              <option value="INCLUDED">Já incluídos na situação inicial da fatura</option>
-              <option value="DOCUMENT">Somente conferência — não alterar limites/saldos</option>
-            </select>
-          </label>
-
-          <label className="text-xs text-slate-300 font-medium">
-            Mês de vencimento
+        <div className="space-y-2 rounded-xl border border-slate-800 bg-slate-950/60 p-3">
+          <label className="block text-xs text-slate-300 font-medium">
+            Mês de vencimento (pagamento)
             <input
               required
               type="month"
@@ -388,12 +381,62 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
               onChange={(event) => changeDueMonth(event.target.value)}
               className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 p-2 text-xs text-white focus:border-cyan-500 focus:outline-none"
             />
+            {(() => {
+              if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(dueMonth) || (!closingDay && !dueDay)) return null;
+              try {
+                const dates = getInvoiceCycleDates(dueMonth + '-01', closingDay ?? null, dueDay ?? null);
+                const closeFmt = `${dates.closingDate.slice(8, 10)}/${dates.closingDate.slice(5, 7)}/${dates.closingDate.slice(0, 4)}`;
+                const dueFmt = `${dates.dueDate.slice(8, 10)}/${dates.dueDate.slice(5, 7)}/${dates.dueDate.slice(0, 4)}`;
+                return (
+                  <span className="mt-1 block text-[11px] font-normal text-slate-400">
+                    Apuração até {closeFmt} · Vence em {dueFmt}
+                  </span>
+                );
+              } catch {
+                return null;
+              }
+            })()}
           </label>
+
+          <details className="pt-1 text-[11px] text-slate-400">
+            <summary className="cursor-pointer font-medium text-slate-400 hover:text-slate-200">
+              Opções avançadas de registro
+            </summary>
+            <label className="mt-2 block text-xs text-slate-300 font-medium">
+              Modo de lançamento
+              <select
+                disabled={busy}
+                value={mode}
+                onChange={(event) => setMode(event.target.value as typeof mode)}
+                className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 p-2 text-xs text-white focus:border-cyan-500 focus:outline-none"
+              >
+                <option value="NEW">Lançar compras na fatura (padrão)</option>
+                <option value="INCLUDED">Detalhar fatura inicial já registrada</option>
+                <option value="DOCUMENT">Somente conferência — não alterar fatura</option>
+              </select>
+            </label>
+          </details>
         </div>
       )}
 
-      {kind === 'CARD' && result?.invoiceSummary && <CardInvoiceSummaryPreview key={result.hash} summary={result.invoiceSummary} onSave={saveSummary} />}
-      {destinationMismatch && <p role="alert" className="text-xs text-rose-300">O banco identificado nesta fatura é diferente do cartão de destino. Selecione o cartão correto.</p>}
+      {kind === 'CARD' && result?.invoiceSummary && <CardInvoiceSummaryPreview key={result.hash} summary={result.invoiceSummary}
+        suggestedCreditLimit={targetCreditLimit}
+        statementRows={rows}
+        suggestedDueDate={(() => {
+          if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(dueMonth) || !dueDay) return null;
+          try { return getInvoiceCycleDates(dueMonth + '-01', closingDay ?? null, dueDay).dueDate; } catch { return null; }
+        })()}
+        estimatedUsedLimit={targetEstimatedUsedLimit}
+        estimatedFutureCommitments={targetEstimatedFutureCommitments}
+        estimatedAvailableLimit={targetEstimatedAvailableLimit} estimatedDueMonth={targetEstimateDueMonth}
+        dueMonth={dueMonth + '-01'} onSave={saveSummary} />}
+      {destinationMismatch && (
+        <p role="alert" className="text-xs text-rose-300">
+          {bankMismatch
+            ? `O banco identificado nesta fatura (${declaredBank}) é diferente do cartão de destino (${targetIssuer || targetName}). Selecione o cartão correto.`
+            : `O final de cartão identificado nesta fatura (•••• ${result?.invoiceSummary?.cardLastFour}) é diferente do final cadastrado neste cartão (•••• ${targetLastFour}). Selecione o cartão correto ou ajuste os 4 últimos dígitos no cadastro do cartão.`}
+        </p>
+      )}
 
       {duplicateKeys.size > 0 && <label className="flex items-start gap-2 text-xs text-amber-200">
         <input type="checkbox" checked={allowDuplicates} onChange={event => setAllowDuplicates(event.target.checked)}/>
@@ -427,7 +470,7 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
             {source ? source.name : 'Arraste ou solte o arquivo aqui'}
           </p>
           <p className="text-xs text-slate-400">
-            Suporta faturas <strong>OFX</strong>, <strong>PDF</strong> ou <strong>Prints de tela / Fotos</strong> (PNG, JPG, WEBP)
+            Suporta faturas e extratos em <strong>OFX</strong> ou <strong>PDF com texto</strong> (leitura local)
           </p>
         </div>
 
@@ -435,7 +478,7 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
           {busy ? 'Processando arquivo...' : 'Selecionar do Computador ou Celular'}
           <input
             type="file"
-            accept=".ofx,.qfx,.pdf,application/pdf,image/png,image/jpeg,image/webp"
+            accept=".ofx,.qfx,.pdf,application/pdf"
             className="sr-only"
             disabled={busy}
             onChange={(e) => {
@@ -454,52 +497,10 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
         </div>
       )}
 
-      {isImage && source && !result && (
-        <button type="button" disabled={busy} onClick={() => {
-          if (!window.confirm('Enviar esta imagem financeira ao Google Gemini para análise? Ela pode conter dados pessoais e bancários. Esta ação pode gerar custos de API.')) return;
-          void handleFileProcess(source, true);
-        }} className="min-h-10 rounded-lg border border-cyan-600/60 px-3 py-2 text-xs font-semibold text-cyan-200 disabled:opacity-40">
-          Ler imagem com IA
-        </button>
-      )}
-
       {finished !== null && (
         <div role="status" className="flex items-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-950/30 p-3 text-sm text-emerald-300">
           <CheckCircle2 size={16} className="text-emerald-400" />
           <span><strong>{finished} lançamento(s)</strong> registrados com sucesso!</span>
-        </div>
-      )}
-
-      {/* Prévia da Imagem (se for print/comprovante) */}
-      {result?.previewUrl && (
-        <div className="rounded-xl border border-slate-800 bg-slate-950 p-2.5">
-          <button
-            type="button"
-            onClick={() => setShowPreview(!showPreview)}
-            className="flex items-center justify-between w-full text-xs text-cyan-400 font-medium"
-          >
-            <span className="flex items-center gap-1.5">
-              <ImageIcon size={14} />
-              {showPreview ? 'Ocultar print da fatura' : 'Ver print da fatura para conferência'}
-            </span>
-            {showPreview ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-          </button>
-          {showPreview && (
-            <div className="mt-2 max-h-56 overflow-auto rounded-lg border border-slate-800 bg-black flex justify-center">
-              <img src={result.previewUrl} alt="Prévia" className="max-w-full object-contain" />
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Envio para IA somente após consentimento explícito. */}
-      {isPdf && source && !busy && (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-cyan-800/50 bg-cyan-950/20 px-3 py-2.5 text-xs text-slate-200">
-          <span className="min-w-0 flex-1">PDF com compras ausentes? A leitura com IA envia o documento ao Google Gemini e pode gerar custos.</span>
-          <button type="button" onClick={() => {
-            if (!window.confirm('Enviar este PDF financeiro ao Google Gemini para análise? O arquivo pode conter dados pessoais e bancários. Esta ação pode gerar custos de API.')) return;
-            void handleFileProcess(source, true);
-          }} className="min-h-10 rounded-lg border border-cyan-600/60 px-3 py-2 font-semibold text-cyan-200 hover:bg-cyan-950/50">Ler PDF com IA</button>
         </div>
       )}
 
@@ -518,8 +519,8 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
       {/* Lista Plana de Lançamentos Extraídos */}
       {result && result.rows.length > 0 && (
         <div className="space-y-3 pt-2">
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-800 bg-slate-950/80 px-3.5 py-2.5 text-xs">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-800 bg-slate-950/80 px-3.5 py-2.5 text-xs">
+            <div className="flex min-w-0 flex-1 items-center gap-2">
               <span className="rounded-md bg-emerald-950 px-2 py-0.5 text-[10px] font-bold text-emerald-400 border border-emerald-800">
                 {result.costLabel}
               </span>
@@ -529,11 +530,23 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
                 </span>
               )}
               <span className="text-slate-400">
-                · {result.rows.length} itens encontrados
+                · {visibleRows.length} de {rows.length} itens
               </span>
             </div>
 
-            <div className="flex items-center gap-3">
+            <label className="order-3 flex min-h-9 basis-full items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-2.5 text-slate-400 sm:order-none sm:basis-64">
+              <Search size={14} aria-hidden="true" />
+              <input
+                type="search"
+                aria-label="Buscar lançamentos por nome, data, valor, categoria ou parcela"
+                placeholder="Buscar lançamento…"
+                value={rowSearch}
+                onChange={event => setRowSearch(event.target.value)}
+                className="min-w-0 flex-1 bg-transparent text-xs text-white outline-none placeholder:text-slate-500"
+              />
+            </label>
+
+            <div className="order-2 flex shrink-0 items-center gap-3 sm:order-none">
               <button
                 type="button"
                 className="text-cyan-400 hover:text-cyan-300 text-xs font-semibold underline"
@@ -561,8 +574,53 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
             </div>
           </div>
 
+          <section
+            aria-label="Comparação do total apurado com a fatura"
+            className="grid grid-cols-1 gap-1.5 rounded-xl border border-slate-800 bg-slate-950/70 px-3.5 py-2.5 text-xs sm:grid-cols-3 sm:gap-3"
+          >
+            <div className="flex items-center justify-between gap-3 sm:block">
+              <div>
+                <span className="text-slate-400">
+                  {kind === 'CARD' ? 'Compras apuradas' : 'Total apurado'} ({invoiceRows.length})
+                </span>
+                {extractedTotals.invalidAmountCount > 0 && (
+                  <p className="text-[10px] text-amber-300">
+                    {extractedTotals.invalidAmountCount} valor(es) inválido(s); corrija para comparar.
+                  </p>
+                )}
+              </div>
+              <strong className={`tabular-nums ${extractedTotals.invalidAmountCount ? 'text-amber-300' : 'text-cyan-300'}`}>
+                {extractedTotals.invalidAmountCount
+                  ? 'Não calculável'
+                  : formatMoney(extractedTotals.extractedTotalCents / 100)}
+              </strong>
+            </div>
+            <div className="flex items-center justify-between gap-3 border-t border-slate-800 pt-1.5 sm:block sm:border-l sm:border-t-0 sm:pl-3 sm:pt-0">
+              <span className="text-slate-400">Total da fatura no PDF</span>
+              <strong className="tabular-nums text-white">
+                {extractedTotals.invoiceTotalCents === null
+                  ? 'Não identificado'
+                  : formatMoney(extractedTotals.invoiceTotalCents / 100)}
+              </strong>
+            </div>
+            <div className="flex items-center justify-between gap-3 border-t border-slate-800 pt-1.5 sm:block sm:border-l sm:pt-0 sm:pl-3">
+              <span className="text-slate-400">Diferença (fatura − apurado)</span>
+              <strong className={`tabular-nums ${extractedTotals.differenceCents === null
+                ? 'text-slate-500'
+                : extractedTotals.differenceCents === 0
+                  ? 'text-emerald-300'
+                  : 'text-amber-300'}`}>
+                {extractedTotals.differenceCents === null
+                  ? '—'
+                  : extractedTotals.differenceCents === 0
+                    ? 'R$ 0,00 · confere'
+                    : `${extractedTotals.differenceCents > 0 ? '+' : '−'}${formatMoney(Math.abs(extractedTotals.differenceCents) / 100)}`}
+              </strong>
+            </div>
+          </section>
+
           <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
-            {rows.map((row, i) => (
+            {visibleRows.map(({ row, index }) => (
               <div
                 key={row.rowKey}
                 className={`grid grid-cols-[auto_1fr] gap-3 rounded-xl border p-2.5 transition ${
@@ -576,8 +634,8 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
                   className="mt-1.5 h-4 w-4 rounded accent-cyan-500 cursor-pointer"
                   checked={row.selected}
                   disabled={busy}
-                  onChange={(e) => revise(i, { selected: e.target.checked })}
-                  aria-label={`Incluir linha ${i + 1}`}
+                  onChange={(e) => revise(index, { selected: e.target.checked })}
+                  aria-label={`Incluir linha ${index + 1}`}
                 />
 
                 <div className="grid min-w-0 gap-2 sm:grid-cols-[115px_1fr_130px]">
@@ -586,7 +644,7 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
                     aria-label="Data"
                     value={row.date}
                     disabled={busy}
-                    onChange={(e) => revise(i, { date: e.target.value })}
+                    onChange={(e) => revise(index, { date: e.target.value })}
                     className="min-w-0 rounded-lg border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-white focus:border-cyan-500 focus:outline-none"
                   />
 
@@ -596,7 +654,7 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
                       value={row.description}
                       disabled={busy}
                       maxLength={240}
-                      onChange={(e) => revise(i, { description: e.target.value })}
+                      onChange={(e) => revise(index, { description: e.target.value })}
                       className="min-w-0 rounded-lg border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-white focus:border-cyan-500 focus:outline-none"
                     />
                     {row.installmentNumber && row.installmentTotal && (
@@ -611,7 +669,7 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
                     aria-label="Valor"
                     className="w-full min-w-0 rounded-lg border border-slate-700 bg-slate-900 px-2 py-1 text-right text-xs font-mono font-bold text-white focus:border-cyan-500 focus:outline-none"
                     disabled={busy} value={row.amount}
-                    onCommit={raw => revise(i, { amount: raw ? parseWalletSignedMoney(raw, 'valor do lançamento') : 0 })}
+                    onCommit={raw => revise(index, { amount: raw ? parseWalletSignedMoney(raw, 'valor do lançamento') : 0 })}
                   />
                     <p className="text-[10px] text-slate-400 mt-0.5">
                       {formatMoney(row.amount)}
@@ -622,9 +680,9 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
                     <span className="text-[10px] text-slate-400 shrink-0">Categoria:</span>
                     <select
                       disabled={busy}
-                      className="w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-200 focus:border-cyan-500 focus:outline-none"
+                      className="w-full min-w-0 sm:max-w-64 rounded-lg border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-200 focus:border-cyan-500 focus:outline-none"
                       value={row.category}
-                      onChange={(e) => revise(i, { category: e.target.value })}
+                      onChange={(e) => revise(index, { category: e.target.value })}
                     >
                       {[...categories, ...extraCategories].map((c) => (
                         <option key={c} value={c}>
@@ -636,7 +694,24 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
                 </div>
               </div>
             ))}
+            {visibleRows.length === 0 && (
+              <p className="rounded-lg border border-dashed border-slate-700 px-3 py-5 text-center text-xs text-slate-400">
+                Nenhum lançamento corresponde à busca.
+              </p>
+            )}
           </div>
+
+          {/* Aviso explícito quando o botão de confirmação estiver bloqueado */}
+          {!busy && selectedCount > 0 && (mode === 'REVIEW' || selectedInvalid) && (
+            <div role="alert" className="flex items-start gap-2 rounded-xl border border-amber-500/40 bg-amber-950/20 px-3 py-2 text-xs text-amber-200">
+              <AlertTriangle size={15} className="shrink-0 text-amber-400 mt-0.5" />
+              <span>
+                {mode === 'REVIEW'
+                  ? 'Para liberar a importação, role até o topo e escolha uma opção em "Como registrar na fatura" (Novos gastos, Já incluídos ou Somente conferência).'
+                  : 'Há lançamento selecionado com data, descrição ou valor inválido. Revise ou desmarque o item para continuar.'}
+              </span>
+            </div>
+          )}
 
           {/* Rodapé de Confirmação */}
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-800 pt-3">
@@ -644,11 +719,9 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
               <span className="text-xs text-slate-400">
                 <strong>{selectedCount}</strong> selecionado(s)
               </span>
-              {selectedCount > 0 && (
-                <span className="text-xs font-mono font-semibold text-cyan-300">
-                  Total: {formatMoney(selectedSum)}
-                </span>
-              )}
+              <span className="text-xs font-mono font-semibold text-cyan-300">
+                Selecionado para importar: {formatMoney(selectedTotals.extractedTotalCents / 100)}
+              </span>
             </div>
 
             <div className="flex gap-2">
@@ -668,7 +741,7 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
                 onClick={save}
                 className="rounded-xl bg-emerald-600 hover:bg-emerald-500 px-4 py-1.5 text-xs font-bold text-white shadow disabled:opacity-40 transition"
               >
-                {busy ? 'Registrando...' : 'Confirmar itens selecionados'}
+                {busy ? 'Registrando...' : 'Confirmar'}
               </button>
             </div>
           </div>

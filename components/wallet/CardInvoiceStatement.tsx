@@ -1,6 +1,6 @@
 import { PrivateMoney } from '../../contexts/FinancialPrivacyContext';
 import React, { useMemo, useRef, useState } from 'react';
-import { AlertTriangle, CalendarDays, FastForward, Pencil, ReceiptText, Tag, Trash2 } from 'lucide-react';
+import { AlertTriangle, CalendarDays, FastForward, Pencil, ReceiptText, Search, Tag, Trash2, X } from 'lucide-react';
 import type { PersonalWalletExpense, PersonalWalletExpenseInstallment, UpdatePersonalWalletExpense } from '../../services/personalWallet.service';
 import { formatMoney } from '../../utils/formatters';
 import { generateUUID } from '../../utils/generators';
@@ -71,10 +71,52 @@ export const CardInvoiceStatement: React.FC<CardInvoiceStatementProps> = ({
   const consolidationRequests = useRef(new Map<string, string>());
   const advanceRequestIds = useRef(new Map<string, string>());
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const [error, setError] = useState('');
   const deleteRequestIds = useRef(new Map<string, string>());
   const entries = useMemo(() => getCardInvoiceEntries(cardId, dueMonth, expenses, installments), [cardId, dueMonth, expenses, installments]);
   const hasOverride = entries.some(entry => entry.expense.entry_type === 'INVOICE_OVERRIDE');
+
+  const normalizedQuery = useMemo(
+    () => searchQuery.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim(),
+    [searchQuery],
+  );
+
+  const visibleEntries = useMemo(() => {
+    if (!normalizedQuery) return entries;
+    return entries.filter(({ expense, installment }) => {
+      const remaining = Number(installment.amount) - Number(installment.paid_amount || 0);
+      const amountBr = remaining.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      const dateBr = expense.expense_date.split('-').reverse().join('/');
+      const badge = formatInstallmentBadgeLabel(expense, installment) || '';
+      const haystack = [
+        expense.entry_type === 'INVOICE_OVERRIDE' ? 'Fatura consolidada' : expense.description,
+        expense.category,
+        expense.expense_date,
+        dateBr,
+        amountBr,
+        String(remaining),
+        badge,
+      ]
+        .join(' ')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase();
+      return haystack.includes(normalizedQuery);
+    });
+  }, [entries, normalizedQuery]);
+
+  const filteredTotal = useMemo(
+    () =>
+      visibleEntries.reduce(
+        (sum, { expense, installment }) => {
+          const remaining = Math.max(0, Number(installment.amount) - Number(installment.paid_amount || 0));
+          return sum + (expense.is_invoice_credit ? -remaining : remaining);
+        },
+        0,
+      ),
+    [visibleEntries],
+  );
 
   const futureInstallmentsByExpenseId = useMemo(() => {
     const map = new Map<string, PersonalWalletExpenseInstallment[]>();
@@ -193,18 +235,56 @@ export const CardInvoiceStatement: React.FC<CardInvoiceStatementProps> = ({
       {openingBalance > 0 && <article className="mt-2 flex items-center justify-between gap-2 rounded-lg bg-slate-900 p-2.5 text-xs"><div><p className="font-semibold text-slate-200">Demais gastos da carga inicial</p><p className="mt-0.5 text-[10px] text-slate-400">Ainda sem detalhamento · fora da fatura deste ciclo</p></div><strong className="shrink-0 text-amber-200"><PrivateMoney value={formatMoney(openingBalance)} /></strong></article>}
 
       {!entries.length ? <p className="mt-2 rounded-lg border border-dashed border-slate-800 px-3 py-3 text-center text-xs text-slate-400">Nenhum lançamento ativo nesta fatura.</p> : (
-        <div className="mt-2 divide-y divide-slate-800/70">
-          {entries.map(({ expense, installment }) => {
+        <>
+          <div className="mt-2.5 flex flex-wrap items-center gap-2">
+            <label className="relative flex min-h-9 min-w-0 flex-1 items-center rounded-lg border border-slate-800 bg-slate-900/90 px-2.5 text-slate-400 focus-within:border-cyan-500/60">
+              <Search size={14} className="shrink-0" aria-hidden="true" />
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                aria-label="Buscar no extrato da fatura por nome, data, valor, categoria ou parcela"
+                placeholder="Buscar compra, data, valor ou categoria…"
+                className="min-w-0 flex-1 bg-transparent px-2 py-1.5 text-xs text-white outline-none placeholder:text-slate-500"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  aria-label="Limpar busca"
+                  className="rounded p-0.5 text-slate-400 hover:bg-slate-800 hover:text-white"
+                >
+                  <X size={13} />
+                </button>
+              )}
+            </label>
+            {normalizedQuery && (
+              <span className="shrink-0 text-[11px] font-semibold tabular-nums text-cyan-300">
+                {visibleEntries.length} de {entries.length} · <PrivateMoney value={formatMoney(filteredTotal)} />
+              </span>
+            )}
+          </div>
+
+          {!visibleEntries.length ? (
+            <p className="mt-2 rounded-lg border border-dashed border-slate-800 px-3 py-4 text-center text-xs text-slate-400">
+              Nenhum lançamento encontrado para "{searchQuery.trim()}".
+            </p>
+          ) : (
+            <div className="mt-2 divide-y divide-slate-800/70">
+              {visibleEntries.map(({ expense, installment }) => {
             const installmentBadge = formatInstallmentBadgeLabel(expense, installment);
             const futurePending = futureInstallmentsByExpenseId.get(expense.id) || [];
-            const canAdvance = Boolean(onAdvanceInstallments && futurePending.length > 0 && expense.entry_type !== 'INVOICE_OVERRIDE');
+            const isCredit = Boolean(expense.is_invoice_credit);
+            const canAdvance = Boolean(onAdvanceInstallments && futurePending.length > 0 && expense.entry_type !== 'INVOICE_OVERRIDE' && !isCredit);
             const isOverride = expense.entry_type === 'INVOICE_OVERRIDE';
+            const remainingAmount = Number(installment.amount) - Number(installment.paid_amount || 0);
             return (
               <article key={installment.id} className={`min-w-0 ${isOverride ? 'my-1 rounded-lg border border-amber-500/30 bg-amber-950/20 px-2.5 py-2' : 'py-2.5'}`}>
                 <div className="flex min-w-0 items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className={`flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm font-semibold ${isOverride ? 'text-amber-200' : 'text-slate-100'}`}>
+                    <p className={`flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm font-semibold ${isOverride ? 'text-amber-200' : isCredit ? 'text-emerald-200' : 'text-slate-100'}`}>
                       <span className="min-w-0 break-words">{isOverride ? 'Fatura consolidada' : expense.description}</span>
+                      {isCredit && <span className="shrink-0 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-bold text-emerald-300">Crédito / Estorno</span>}
                       {installmentBadge && <span className="shrink-0 text-[11px] font-medium text-cyan-300">Parcela {installmentBadge}</span>}
                     </p>
                     <p className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-slate-400">
@@ -212,8 +292,8 @@ export const CardInvoiceStatement: React.FC<CardInvoiceStatementProps> = ({
                       <span aria-hidden="true">·</span><Tag size={12} aria-hidden="true" />{expense.category}
                     </p>
                   </div>
-                  <strong className={`shrink-0 whitespace-nowrap text-sm font-bold tabular-nums ${isOverride ? 'text-amber-200' : 'text-rose-300'}`}>
-                    <PrivateMoney value={formatMoney(Number(installment.amount) - Number(installment.paid_amount || 0))} />
+                  <strong className={`shrink-0 whitespace-nowrap text-sm font-bold tabular-nums ${isOverride ? 'text-amber-200' : isCredit ? 'text-emerald-300' : 'text-rose-300'}`}>
+                    <PrivateMoney value={isCredit ? `− ${formatMoney(remainingAmount)}` : formatMoney(remainingAmount)} />
                   </strong>
                 </div>
                 {isOverride && onCancelConsolidation && <div className="mt-1.5 flex justify-end">
@@ -246,7 +326,9 @@ export const CardInvoiceStatement: React.FC<CardInvoiceStatementProps> = ({
               </article>
             );
           })}
-        </div>
+            </div>
+          )}
+        </>
       )}
       {error && <p role="alert" className="mt-2 text-xs text-rose-300">{error}</p>}
       {editing && <ExpenseEditModal compact expense={editing} onClose={() => setEditing(null)} onSave={onEdit} />}

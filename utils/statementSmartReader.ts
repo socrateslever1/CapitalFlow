@@ -54,12 +54,14 @@ export function normalizeAiStatementRows(rawRows: unknown, hash: string): { rows
     }
     const installmentNumber = Number.isInteger(Number(item?.installmentNumber)) ? Number(item.installmentNumber) : null;
     const installmentTotal = Number.isInteger(Number(item?.installmentTotal)) ? Number(item.installmentTotal) : null;
+    const localCategory = classifyStatementDescription(description);
+    const category = localCategory !== 'Outros' ? localCategory : item.category || localCategory;
     rows.push({
       rowKey: `ai-img-${idx}-${hash.slice(0, 16)}`,
       date: item.date,
       description,
       amount: Math.round(amount * 100) / 100,
-      category: item.category || classifyStatementDescription(description),
+      category,
       confidence: 'REVIEW',
       selected: false, // Always require manual review
       installmentNumber,
@@ -343,7 +345,7 @@ export async function parseSmartFinancialDocument(
     return parseStatementOfx(file, kind);
   }
 
-  // 2. Arquivos de Imagem (Prints de Fatura, Fotos, Comprovantes)
+  // 2. Arquivos de Imagem (desativado: leitura 100% local por OFX ou PDF com texto)
   if (
     fileType.startsWith('image/') ||
     fileName.endsWith('.png') ||
@@ -351,22 +353,13 @@ export async function parseSmartFinancialDocument(
     fileName.endsWith('.jpeg') ||
     fileName.endsWith('.webp')
   ) {
-    if (!options?.cloudConsent) throw new Error('Confirme o envio da imagem financeira para leitura com IA.');
-    return parseStatementImageWithAi(file, kind);
+    throw new Error('A leitura de faturas por imagem/IA foi desativada. Envie o arquivo PDF original do banco ou OFX.');
   }
 
-  // 3. Arquivos PDF (Faturas e Extratos)
+  // 3. Arquivos PDF (Faturas e Extratos — leitura local)
   if (fileType === 'application/pdf' || fileName.endsWith('.pdf')) {
     if (options?.forceAi) {
-      if (!options.cloudConsent) throw new Error('Confirme o envio do PDF financeiro para leitura com IA.');
-      if (file.size > MAX_AI_INLINE_BYTES) throw new Error('Limite de PDF para leitura com IA: 5 MB.');
-      // PDF cloud processing requires explicit confirmation in the importer UI.
-      const cloud = await parseStatementImageWithAi(
-        file.type === 'application/pdf' ? file : new File([file], file.name, {type: 'application/pdf'}),
-        kind,
-      );
-      return {...cloud, sourceType: 'PDF_AI', previewUrl: undefined,
-        costLabel: 'IA Gemini (consulte os custos da API)'};
+      throw new Error('A leitura de faturas por IA foi desativada. Envie o arquivo PDF original do banco ou OFX.');
     }
     const nativeResult = await parseStatementPdf(file, kind, options?.pdfPassword);
     return {
@@ -376,5 +369,5 @@ export async function parseSmartFinancialDocument(
     };
   }
 
-  throw new Error('Formato não suportado. Envie arquivos OFX, PDF, ou imagens de faturas/comprovantes (PNG, JPG, WEBP).');
+  throw new Error('Formato não suportado. Envie arquivos OFX ou PDF com texto exportados pelo banco.');
 }

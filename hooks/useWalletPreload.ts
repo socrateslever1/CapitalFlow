@@ -1,4 +1,4 @@
-﻿import { useEffect } from 'react';
+import { useEffect } from 'react';
 
 type WalletPreloadOptions = {
   userId?: string;
@@ -7,15 +7,15 @@ type WalletPreloadOptions = {
   isPublicView: boolean;
 };
 
-/** Preloads the super-admin wallet after the dashboard becomes usable. */
+/** Preloads the personal wallet after the dashboard becomes usable. */
 export function useWalletPreload({
   userId,
   accessChecked,
-  isPlatformSuperAdmin,
+  isPlatformSuperAdmin: _isPlatformSuperAdmin,
   isPublicView,
 }: WalletPreloadOptions) {
   useEffect(() => {
-    if (!userId || !accessChecked || !isPlatformSuperAdmin || isPublicView) return;
+    if (!userId || !accessChecked || isPublicView) return;
     let cancelled = false;
     let completed = false;
     const preload = () => {
@@ -50,5 +50,5 @@ export function useWalletPreload({
       document.removeEventListener('visibilitychange', onVisibleOrOnline);
       window.removeEventListener('online', onVisibleOrOnline);
     };
-  }, [userId, accessChecked, isPlatformSuperAdmin, isPublicView]);
+  }, [userId, accessChecked, isPublicView]);
 }

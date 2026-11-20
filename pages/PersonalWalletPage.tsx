@@ -43,7 +43,7 @@ import { businessDateInManaus } from '../utils/businessDate';
 import { getBankVisual } from '../components/wallet/walletPresentation';
 import { WalletBalanceOverview } from '../components/wallet/WalletBalanceOverview';
 import { CardInvoiceStatement } from '../components/wallet/CardInvoiceStatement';
-import { getEffectiveInvoiceCycles } from '../components/wallet/invoiceStatementDomain';
+import { getCardCreditPosition, getEffectiveInvoiceCycles } from '../components/wallet/invoiceStatementDomain';
 import { WalletStatementImport } from '../components/wallet/WalletStatementImport';
 import { AccountCardStack } from '../components/wallet/AccountCardStack';
 
@@ -149,6 +149,10 @@ export const PersonalWalletPage: React.FC<PersonalWalletPageProps> = ({ activeUs
   const [selectedCardForEdit, setSelectedCardForEdit] = useState<PersonalWalletCard | null>(null);
   const [activeStackCard, setActiveStackCard] = useState<PersonalWalletCard | null>(null);
   const [selectedCardForInvoice, setSelectedCardForInvoice] = useState<PersonalWalletCard | null>(null);
+  const activeStackCreditPosition = useMemo(
+    () => activeStackCard ? getCardCreditPosition(activeStackCard, data.expenses, data.installments) : null,
+    [activeStackCard, data.expenses, data.installments],
+  );
 
   const pageBack = usePageBack();
 
@@ -487,7 +491,7 @@ export const PersonalWalletPage: React.FC<PersonalWalletPageProps> = ({ activeUs
               type="button"
               onClick={() => openForm('EXPENSE')}
               disabled={!data.accounts.length && !data.cards.length}
-              className="h-8 px-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all shadow-md shadow-blue-600/20 flex items-center gap-1.5 disabled:cursor-not-allowed disabled:bg-slate-800 disabled:text-slate-500 disabled:shadow-none"
+              className="h-8 px-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all shadow-md shadow-blue-600/20 flex items-center gap-1.5 disabled:cursor-not-allowed disabled:bg-slate-800 disabled:text-white disabled:shadow-none"
             >
               <Plus size={14} />
               <span>Nova Despesa</span>
@@ -770,6 +774,12 @@ export const PersonalWalletPage: React.FC<PersonalWalletPageProps> = ({ activeUs
         onClose={() => setSelectedCardForEdit(null)} onSaved={refresh} />}
       {statementImportOpen && activeStackCard && (
         <WalletStatementImport kind="CARD" targetId={activeStackCard.id} targetName={activeStackCard.nickname}
+          targetCreditLimit={Number(activeStackCard.credit_limit || 0) || null}
+          targetEstimatedUsedLimit={activeStackCreditPosition?.committedLimit ?? null}
+          targetEstimatedFutureCommitments={activeStackCreditPosition?.futureCommitments ?? null}
+          targetEstimatedAvailableLimit={activeStackCreditPosition?.freeLimit ?? null}
+          targetEstimateDueMonth={activeStackCreditPosition?.dueMonth}
+          initialDueMonth={activeStackCreditPosition?.dueMonth}
           onClose={() => setStatementImportOpen(false)} onImported={async () => { await refresh(); setStatementImportOpen(false); }} />
       )}
       {/* Modal de Detalhes e Visualização do Cartão */}

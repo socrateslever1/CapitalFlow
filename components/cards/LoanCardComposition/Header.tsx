@@ -373,15 +373,17 @@ export const Header: React.FC<HeaderProps> = ({
 
       <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-end gap-2 border-t border-slate-800/30 pt-2">
         <div className="min-w-0">
-          <div className="flex min-w-0 items-center gap-2">
+          <div className="flex min-w-0 flex-col items-start gap-1">
             <div className="flex shrink-0 items-center gap-0.5 rounded-sm border border-slate-800/50 bg-slate-950/30 px-1.5 py-0.5 text-[7px] font-bold uppercase text-slate-500">
               <Hash size={7} />
               <span>{loan.id.substring(0, 6)}</span>
             </div>
-            <div className="flex min-w-0 items-center gap-1 text-slate-400">
-              <Wallet size={10} className="shrink-0 opacity-60" />
-              <span className="truncate text-[8px] font-black uppercase">{amountSummaryLabel}</span>
-            </div>
+            {!(isExpanded && amountBreakdown.shouldShow) && (
+              <div className="flex min-w-0 items-center gap-1 text-slate-400">
+                <Wallet size={10} className="shrink-0 opacity-60" />
+                <span className="text-[8px] font-black uppercase leading-tight">{amountSummaryLabel}</span>
+              </div>
+            )}
           </div>
         </div>
         
@@ -409,7 +411,7 @@ export const Header: React.FC<HeaderProps> = ({
             {formatMoney(displayAmount, isStealthMode)}
           </span>
           {isExpanded && amountBreakdown.shouldShow && (
-            <div className="mt-1 flex flex-wrap items-center justify-end gap-x-1.5 gap-y-0 text-[8px] font-black uppercase leading-tight text-slate-500 max-w-[190px]">
+            <div className="mt-1 flex flex-wrap items-center justify-end gap-x-1.5 gap-y-0.5 text-[8px] font-black uppercase leading-tight text-slate-500">
               <span>Cap <b className="text-slate-300">{formatMoney(amountBreakdown.capital, isStealthMode)}</b></span>
               <span className="text-slate-700">•</span>
               <span>Encargos <b className={amountBreakdown.juros > ZERO_BALANCE_THRESHOLD ? 'text-rose-400' : 'text-slate-400'}>{formatMoney(amountBreakdown.juros, isStealthMode)}</b></span>

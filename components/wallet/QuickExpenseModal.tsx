@@ -42,6 +42,7 @@ export interface QuickExpenseModalProps {
   defaultMethod?: 'CARD' | 'ACCOUNT';
   initialCardId?: string | null;
   defaultCardId?: string | null;
+  lockCardSelection?: boolean;
   initialAccountId?: string | null;
   defaultAccountId?: string | null;
   initialDueMonth?: string | null;
@@ -84,15 +85,20 @@ const formatMonthLabel = (dueDateIso: string): string => {
     .replace('.', '');
 };
 
-const resolveFirstInstallmentMonthLabel = (
+export const resolveFirstInstallmentMonthLabel = (
   expenseDate: string,
   closingDay?: number | null,
   dueDay?: number | null,
   explicitMonth?: string | null,
+  referenceToday: string = todayIso(),
 ): { dueDateIso: string; monthInputValue: string; label: string } => {
+  const effectiveCycleDate =
+    expenseDate && /^\d{4}-\d{2}-\d{2}$/.test(expenseDate) && expenseDate > referenceToday
+      ? expenseDate
+      : referenceToday;
   const dueDateIso = explicitMonth && /^\d{4}-(0[1-9]|1[0-2])/.test(explicitMonth)
     ? explicitMonth.slice(0, 7) + '-01'
-    : getPurchaseInvoiceMonth(expenseDate || todayIso(), closingDay ?? null, dueDay ?? null);
+    : getPurchaseInvoiceMonth(effectiveCycleDate, closingDay ?? null, dueDay ?? null);
   return { dueDateIso, monthInputValue: dueDateIso.slice(0, 7), label: formatMonthLabel(dueDateIso) };
 };
 
@@ -103,6 +109,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
   defaultMethod,
   initialCardId,
   defaultCardId,
+  lockCardSelection = false,
   initialAccountId,
   defaultAccountId,
   initialDueMonth,
@@ -189,19 +196,40 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
   );
 
   const resolvedCycle = useMemo(() => {
+    const today = todayIso();
+    const currentOpenMonth = getPurchaseInvoiceMonth(
+      today,
+      selectedCard?.closing_day ?? null,
+      selectedCard?.due_day ?? null,
+    );
+    const effectiveCycleDate =
+      expenseDate && /^\d{4}-\d{2}-\d{2}$/.test(expenseDate) && expenseDate > today
+        ? expenseDate
+        : today;
     let inheritedMonth: string | null = null;
-    if (initialDueMonth && selectedCard?.closing_day && selectedCard?.due_day) {
+    if (
+      initialDueMonth &&
+      /^\d{4}-(0[1-9]|1[0-2])/.test(initialDueMonth) &&
+      (!resolvedCardId || selectedCardId === resolvedCardId)
+    ) {
       const candidate = initialDueMonth.slice(0, 7) + '-01';
-      const dates = getInvoiceCycleDates(candidate, selectedCard.closing_day, selectedCard.due_day);
-      if (expenseDate <= dates.closingDate) inheritedMonth = candidate;
+      if (candidate >= currentOpenMonth) {
+        if (selectedCard?.closing_day && selectedCard?.due_day) {
+          const dates = getInvoiceCycleDates(candidate, selectedCard.closing_day, selectedCard.due_day);
+          if (effectiveCycleDate <= dates.closingDate) inheritedMonth = candidate;
+        } else {
+          inheritedMonth = candidate;
+        }
+      }
     }
     return resolveFirstInstallmentMonthLabel(
-      expenseDate,
+      effectiveCycleDate,
       selectedCard?.closing_day,
       selectedCard?.due_day,
       firstInvoiceMonth || inheritedMonth,
+      today,
     );
-  }, [expenseDate, selectedCard?.closing_day, selectedCard?.due_day, firstInvoiceMonth, initialDueMonth]);
+  }, [expenseDate, selectedCard?.closing_day, selectedCard?.due_day, firstInvoiceMonth, initialDueMonth, resolvedCardId, selectedCardId]);
 
   const closedInvoiceWarning = useMemo(() => {
     if (paymentMode !== 'CARD' || !selectedCard) return null;
@@ -209,9 +237,10 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
       dueMonth: resolvedCycle.dueDateIso,
       closingDay: selectedCard.closing_day,
       dueDay: selectedCard.due_day,
+      expenseDate,
       outstanding: Number(selectedCard.current_bill || 0) || 1,
     });
-  }, [paymentMode, selectedCard, resolvedCycle.dueDateIso]);
+  }, [paymentMode, selectedCard, resolvedCycle.dueDateIso, expenseDate]);
 
   const installmentPlan = useMemo(() => {
     const total = paymentMode === 'CARD' && conditionMode === 'INSTALLMENTS'
@@ -609,36 +638,42 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
               <>
                 <div className="sm:col-span-2">
                   <span className={labelClass}>Cartão de Crédito</span>
-                  <div className="mt-1">
-                    <SelectOptionList
-                      ariaLabel="Cartão de Crédito"
-                      value={selectedCardId}
-                      placeholder="Selecione o cartão ativo"
-                      triggerIcon={<CreditCard size={16} className="shrink-0 text-blue-300" />}
-                      options={activeCards.map((card) => {
-                        const available = Math.max(
-                          0,
-                          Number(card.credit_limit || 0) - Number(card.used_limit || 0),
-                        );
-                        return {
-                          value: card.id,
-                          label: `${card.nickname}${card.last_four ? ` •••• ${card.last_four}` : ''}`,
-                          subtitle: 'Limite disponível',
-                          rightValue: formatMoney(available),
-                          icon: <CreditCard size={15} className="text-blue-300" />,
-                        };
-                      })}
-                      onChange={(next) => {
-                        resetIdempotencyKey();
-                        setSelectedCardId(next);
-                      }}
-                    />
-                  </div>
+                  {lockCardSelection ? (
+                    <div className={fieldClass} aria-label="Cartão selecionado">
+                      {selectedCard ? `${selectedCard.nickname} ${selectedCard.last_four ? `•••• ${selectedCard.last_four}` : ''} · Livre: ${formatMoney(Math.max(0, Number(selectedCard.credit_limit || 0) - Number(selectedCard.used_limit || 0)))}` : 'Cartão selecionado indisponível'}
+                    </div>
+                  ) : (
+                    <div className="mt-1">
+                      <SelectOptionList
+                        ariaLabel="Cartão de Crédito"
+                        value={selectedCardId}
+                        placeholder="Selecione o cartão ativo"
+                        triggerIcon={<CreditCard size={16} className="shrink-0 text-blue-300" />}
+                        options={activeCards.map((card) => {
+                          const available = Math.max(
+                            0,
+                            Number(card.credit_limit || 0) - Number(card.used_limit || 0),
+                          );
+                          return {
+                            value: card.id,
+                            label: `${card.nickname}${card.last_four ? ` •••• ${card.last_four}` : ''}`,
+                            subtitle: 'Limite disponível',
+                            rightValue: formatMoney(available),
+                            icon: <CreditCard size={15} className="text-blue-300" />,
+                          };
+                        })}
+                        onChange={(next) => {
+                          resetIdempotencyKey();
+                          setSelectedCardId(next);
+                        }}
+                      />
+                    </div>
+                  )}
                 </div>
 
                 <div className="sm:col-span-2 space-y-3 rounded-2xl border border-slate-800 bg-slate-950/70 p-3.5">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className={labelClass}>Condição e Fatura do Cartão</span>
+                    <span className={labelClass}>Fatura do cartão</span>
                     {/* Seletor rápido de fatura < Mês/Ano > (inspirado no InvoiceMonthField do Minhas Finanças) */}
                     <div className="flex max-w-full items-center gap-1 rounded-xl border border-slate-800 bg-slate-900 px-1 py-1">
                       <button type="button" aria-label="Fatura anterior" onClick={() => {
@@ -668,8 +703,8 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                   </div>
                   {selectedCard && (
                     <p className="text-[11px] text-slate-400">
-                      Fecha {getInvoiceCycleDates(resolvedCycle.dueDateIso, selectedCard.closing_day, selectedCard.due_day).closingDate.split('-').reverse().join('/')}
-                      {' · '}Vence {getInvoiceCycleDates(resolvedCycle.dueDateIso, selectedCard.closing_day, selectedCard.due_day).dueDate.split('-').reverse().join('/')}
+                      Fecha {getInvoiceCycleDates(resolvedCycle.dueDateIso, selectedCard.closing_day, selectedCard.due_day).closingDate.slice(8, 10)}/{getInvoiceCycleDates(resolvedCycle.dueDateIso, selectedCard.closing_day, selectedCard.due_day).closingDate.slice(5, 7)}
+                      {' · '}Vence {getInvoiceCycleDates(resolvedCycle.dueDateIso, selectedCard.closing_day, selectedCard.due_day).dueDate.slice(8, 10)}/{getInvoiceCycleDates(resolvedCycle.dueDateIso, selectedCard.closing_day, selectedCard.due_day).dueDate.slice(5, 7)}
                     </p>
                   )}
 
@@ -687,7 +722,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                         }}
                         className="shrink-0 rounded-lg border border-amber-400/50 bg-amber-500/20 px-2.5 py-1 text-[11px] font-bold text-amber-100 hover:bg-amber-500/30"
                       >
-                        Mover para {closedInvoiceWarning.nextOpenLabel}
+                        Selecionar próxima fatura
                       </button>
                     </div>
                   )}

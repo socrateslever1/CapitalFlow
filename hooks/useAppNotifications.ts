@@ -141,11 +141,30 @@ export const useAppNotifications = ({
     if (
       item.item_type === 'carteira' ||
       item.title.toLowerCase().includes('saldo crítico') ||
-      item.title.toLowerCase().includes('saldo critico')
+      item.title.toLowerCase().includes('saldo critico') ||
+      item.title === 'Ação jurídica pendente' ||
+      item.title === 'Acao juridica pendente'
     ) {
       return true;
     }
     const metadata = item.metadata || {};
+    const targetLoanId = metadata.loan_id || (item.item_type === 'documento' ? item.item_id : null);
+    if (targetLoanId) {
+      const loan = loansRef.current.find((candidate) => candidate.id === targetLoanId);
+      if (loan) {
+        const rawStatus = String(loan.status || '').toUpperCase();
+        if (
+          (loan as any).isArchived ||
+          rawStatus === 'PAID' ||
+          rawStatus === 'QUITADO' ||
+          rawStatus === 'ENCERRADO' ||
+          !isLegallyActionable(loan) ||
+          loanEngine.computeLoanStatus(loan) === 'PAID'
+        ) {
+          return true;
+        }
+      }
+    }
     if (metadata.notification_rule === BILLING_NOTIFICATION_RULE) {
       if (metadata.milestone_date !== todayISO()) return true;
       const loan = loansRef.current.find((candidate) => candidate.id === metadata.loan_id);
@@ -385,18 +404,47 @@ export const useAppNotifications = ({
     };
   }, [notificationProfileId, disabled, flushQueue, mapDbNotification, dismissedMap, showToast, onDataChanged]);
 
-  // Revoga alertas locais de parcelas originais quando o contrato passa a seguir acordo.
+  // Revoga alertas locais quando o contrato é quitado/arquivado ou passa a seguir acordo.
   useEffect(() => {
     if (!loans.length) return;
     const activeLoans = new Map(loans.map((loan) => [loan.id, loan]));
     setNotifications((previous) => {
       const valid = previous.filter((item) => {
+        if (item.title === 'Ação jurídica pendente' || item.title === 'Acao juridica pendente') {
+          const targetDbId = item.dbId || (item.id && item.id.length === 36 ? item.id : null);
+          if (targetDbId) void notificationCenterService.markAsRead(targetDbId);
+          return false;
+        }
+        const targetLoanId = item.metadata?.loan_id || (item.item_type === 'documento' ? item.item_id : null);
+        if (targetLoanId) {
+          const loan = activeLoans.get(targetLoanId);
+          if (loan) {
+            const rawStatus = String(loan.status || '').toUpperCase();
+            const isSettledOrClosed =
+              Boolean((loan as any).isArchived) ||
+              rawStatus === 'PAID' ||
+              rawStatus === 'QUITADO' ||
+              rawStatus === 'ENCERRADO' ||
+              !isLegallyActionable(loan) ||
+              loanEngine.computeLoanStatus(loan) === 'PAID';
+            if (isSettledOrClosed && (item.item_type === 'parcela' || item.item_type === 'documento')) {
+              const targetDbId = item.dbId || (item.id && item.id.length === 36 ? item.id : null);
+              if (targetDbId) void notificationCenterService.markAsRead(targetDbId);
+              return false;
+            }
+          }
+        }
         if (item.metadata?.notification_rule !== BILLING_NOTIFICATION_RULE) return true;
         const loan = activeLoans.get(item.metadata?.loan_id);
         if (!loan) return true;
-        return resolveBillingNotificationInstallments(loan).some((inst) =>
+        const stillOpen = resolveBillingNotificationInstallments(loan).some((inst) =>
           inst.id === item.metadata?.installment_id && inst.dueDate === item.metadata?.due_date
         );
+        if (!stillOpen) {
+          const targetDbId = item.dbId || (item.id && item.id.length === 36 ? item.id : null);
+          if (targetDbId) void notificationCenterService.markAsRead(targetDbId);
+        }
+        return stillOpen;
       });
       return valid.length === previous.length ? previous : valid;
     });
@@ -503,45 +551,6 @@ export const useAppNotifications = ({
               metadata: { loan_id: payload.new.loan_id }
           });
           onDataChanged?.();
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'parcelas',
-          filter: `profile_id=eq.${notificationProfileId}`,
-        },
-        (payload) => {
-          const loan = loansRef.current.find((l) => l.id === payload.new.loan_id);
-          if (
-            loan &&
-            loanEngine.computeLoanStatus(loan) === 'OVERDUE' &&
-            !loan.activeAgreement &&
-            !isDismissed('documento', loan.id)
-          ) {
-            const onClick = () => {
-                setActiveTab('LEGAL');
-                setSelectedLoanId(loan.id);
-            };
-            const dueDate = payload.new.data_vencimento || payload.new.due_date || payload.new.dueDate;
-            const dueText = dueDate ? ` Vencimento: ${formatBRDate(dueDate)}.` : '';
-            const message = `${loan.debtorName} está em atraso e ainda não tem confissão de dívida assinada.${dueText}`;
-            notificationService.notify(
-              'Ação jurídica pendente',
-              message,
-              onClick
-            );
-            addNotification({
-                title: 'Ação jurídica pendente',
-                message,
-                type: 'warning',
-                item_type: 'documento',
-                item_id: loan.id,
-                metadata: { loan_id: loan.id }
-            });
-          }
         }
       )
       .subscribe();

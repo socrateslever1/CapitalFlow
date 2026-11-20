@@ -177,14 +177,8 @@ export const App: React.FC = () => {
     if (location.pathname === processedPathRef.current) return;
 
     if (isWalletPath && activeTab !== 'MY_WALLET') {
-      if (isPlatformSuperAdmin) {
-        processedPathRef.current = location.pathname;
-        setActiveTab('MY_WALLET');
-      } else if (isPlatformAccessChecked) {
-        processedPathRef.current = location.pathname;
-        routerNavigate('/', { replace: true });
-        handleSetActiveTab('DASHBOARD');
-      }
+      processedPathRef.current = location.pathname;
+      setActiveTab('MY_WALLET');
     } else if (contractIdFromUrl && activeTab !== 'CONTRACT_DETAILS') {
       processedPathRef.current = location.pathname;
       ui.setSelectedLoanId(contractIdFromUrl);
@@ -233,13 +227,10 @@ const { loanCtrl, clientCtrl, sourceCtrl, profileCtrl, paymentCtrl, fileCtrl, ai
   controllers;
 
 useEffect(() => {
-  if (isPlatformAccessChecked && !isPlatformSuperAdmin && ['MY_WALLET', 'PLATFORM_ADMIN'].includes(activeTab)) {
-    if (location.pathname === '/carteira' || location.pathname.startsWith('/carteira/')) {
-      routerNavigate('/', { replace: true });
-    }
+  if (isPlatformAccessChecked && !isPlatformSuperAdmin && activeTab === 'PLATFORM_ADMIN') {
     handleSetActiveTab('DASHBOARD');
   }
-}, [activeTab, handleSetActiveTab, isPlatformAccessChecked, isPlatformSuperAdmin, location.pathname, routerNavigate]);
+}, [activeTab, handleSetActiveTab, isPlatformAccessChecked, isPlatformSuperAdmin]);
 
 // O APK já contém todos os arquivos locais; preparar somente os módulos
 // necessários para a primeira abertura. Nenhum saldo, contrato, token ou
@@ -253,14 +244,14 @@ useWalletPreload({
 
 const filterRestrictedTabs = useCallback(
   (tabs: AppTab[]) =>
-    tabs.filter((tab) => isPlatformSuperAdmin || (tab !== 'MY_WALLET' && tab !== 'PLATFORM_ADMIN')),
+    tabs.filter((tab) => isPlatformSuperAdmin || tab !== 'PLATFORM_ADMIN'),
   [isPlatformSuperAdmin]
 );
 
 const visibleNavOrder = filterRestrictedTabs(navOrder);
 const visibleHubOrder = isPlatformSuperAdmin
   ? Array.from(new Set([...hubOrder, 'MY_WALLET' as any, 'PLATFORM_ADMIN' as any]))
-  : filterRestrictedTabs(hubOrder);
+  : Array.from(new Set([...filterRestrictedTabs(hubOrder), 'MY_WALLET' as any]));
 
 const handleOpenClientFromDashboard = useCallback((clientId: string | null | undefined, clientName: string) => {
   const client = (clients as any[]).find((item: any) => item.id === clientId)
@@ -693,7 +684,7 @@ return (
                   </motion.div>
                 )}
 
-                  { activeTab === 'MY_WALLET' && isPlatformSuperAdmin && (
+                  { activeTab === 'MY_WALLET' && (
                     <motion.div
                       key="wallet-view"
                       initial={{ opacity: 0, y: 6 }}

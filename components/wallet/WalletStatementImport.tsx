@@ -8,10 +8,7 @@ import {
   X,
   Sparkles,
   Zap,
-  Image as ImageIcon,
   Check,
-  ChevronDown,
-  ChevronUp,
   Receipt,
   CreditCard,
   Building2,
@@ -25,7 +22,7 @@ import { detectPreviouslyImported, detectRecoverableStatementRows } from '../../
 import type { WalletStatementRow } from '../../services/personalWallet.service';
 import { personalWalletService } from '../../services/personalWallet.service';
 import type { WalletIssuerInvoiceCommit } from '../../services/personalWallet.service';
-import { parseStatementPdf, ParsedStatementRow } from '../../utils/walletStatementPdf';
+import { isCardInvoicePaymentDescription, parseStatementPdf, ParsedStatementRow } from '../../utils/walletStatementPdf';
 import { generateUUID } from '../../utils/generators';
 import {
   parseSmartFinancialDocument,
@@ -38,6 +35,11 @@ type Props = {
   targetName: string;
   targetIssuer?: string | null;
   targetLastFour?: string | null;
+  targetCreditLimit?: number | null;
+  targetEstimatedUsedLimit?: number | null;
+  targetEstimatedFutureCommitments?: number | null;
+  targetEstimatedAvailableLimit?: number | null;
+  targetEstimateDueMonth?: string | null;
   existingRows?: WalletStatementRow[];
   initialDueMonth?: string | null;
   hasOpening?: boolean;
@@ -66,6 +68,11 @@ export const WalletStatementImport: React.FC<Props> = ({
   targetName,
   targetIssuer,
   targetLastFour,
+  targetCreditLimit,
+  targetEstimatedUsedLimit,
+  targetEstimatedFutureCommitments,
+  targetEstimatedAvailableLimit,
+  targetEstimateDueMonth,
   existingRows = [],
   initialDueMonth,
   hasOpening = false,
@@ -86,7 +93,6 @@ export const WalletStatementImport: React.FC<Props> = ({
   const [error, setError] = useState('');
   const [finished, setFinished] = useState<number | null>(null);
   const [allowDuplicates, setAllowDuplicates] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
   const [pdfPassword, setPdfPassword] = useState('');
   const [pdfPasswordRequired, setPdfPasswordRequired] = useState(false);
   const [reviewedRows, setReviewedRows] = useState<WalletStatementRow[]>([]);
@@ -114,7 +120,7 @@ export const WalletStatementImport: React.FC<Props> = ({
 
   const declaredBank = result?.invoiceSummary?.institution;
   const bankMismatch = kind === 'CARD' && !issuerMatchesBank(targetIssuer, declaredBank || null);
-  const duplicateKeys = detectPreviouslyImported(rows, [...existingRows, ...reviewedRows], kind, targetId);
+  const duplicateKeys = detectPreviouslyImported(rows, [...existingRows, ...reviewedRows], kind, targetId, result?.hash);
   const recoverableKeys = result && kind === 'CARD' && mode !== 'DOCUMENT'
     ? detectRecoverableStatementRows(rows, [...existingRows, ...reviewedRows], kind, targetId, result.hash)
     : new Set<string>();
@@ -170,8 +176,8 @@ export const WalletStatementImport: React.FC<Props> = ({
 
   const parse = async (forceAi = false, password?: string) => {
     if (!source) return;
-    if ((source.type.startsWith('image/') || /\.(png|jpe?g|webp)$/i.test(source.name)) && !forceAi) {
-      setError('A imagem fica neste dispositivo até você escolher Ler imagem com IA.');
+    if (source.type.startsWith('image/') || /\.(png|jpe?g|webp)$/i.test(source.name) || forceAi) {
+      setError('A leitura de faturas por imagem/IA foi desativada. Envie o arquivo PDF original do banco ou OFX.');
       return;
     }
     setBusy(true);
@@ -179,9 +185,8 @@ export const WalletStatementImport: React.FC<Props> = ({
     setPdfPasswordRequired(false);
     setFinished(null);
     try {
-      // Processa com o leitor inteligente universal (OFX / PDF / Imagem com IA)
       const parsed = await parseSmartFinancialDocument(source, kind, {
-        forceAi, pdfPassword: password, cloudConsent: forceAi,
+        pdfPassword: password,
       });
       setPdfPassword('');
       if (kind === 'CARD' && parsed.invoiceSummary?.dueDate) changeDueMonth(parsed.invoiceSummary.dueDate.slice(0,7));
@@ -189,18 +194,17 @@ export const WalletStatementImport: React.FC<Props> = ({
       const recoverable = detectRecoverableStatementRows(parsed.rows, existingRows, kind, targetId, parsed.hash);
       setRows(parsed.rows.map(row => recoverable.has(row.rowKey)
         ? { ...row, selected: kind === 'CARD' && mode !== 'DOCUMENT' }
-        : detectPreviouslyImported([row], existingRows, kind, targetId).has(row.rowKey)
-          ? { ...row, selected: false } : row));
+        : detectPreviouslyImported([row], existingRows, kind, targetId, parsed.hash).has(row.rowKey)
+          ? { ...row, selected: false }
+          : { ...row, selected: kind === 'CARD' ? !isCardInvoicePaymentDescription(row.description) : true }));
       setAllowDuplicates(false);
 
       if (!parsed.rows.length) {
         setError(
           source.name.toLowerCase().endsWith('.pdf')
-            ? 'O leitor local não encontrou transações. O PDF pode ser digitalizado ou ter um layout bancário diferente; tente a IA somente se desejar.'
+            ? 'A leitura local não encontrou compras neste PDF. Use o PDF original com texto exportado pelo banco ou o arquivo OFX.'
             : 'Nenhuma transação válida encontrada. Confira se o arquivo exportado contém lançamentos.'
         );
-      } else if (parsed.previewUrl) {
-        setShowPreview(true);
       }
     } catch (reason: any) {
       setResult(null);
@@ -236,7 +240,7 @@ export const WalletStatementImport: React.FC<Props> = ({
         kind, targetId, selected.map(row => row.date),
       );
       setReviewedRows(latestRows);
-      const freshDuplicates = detectPreviouslyImported(selected, latestRows, kind, targetId);
+      const freshDuplicates = detectPreviouslyImported(selected, latestRows, kind, targetId, result.hash);
       const recoverable = kind === 'CARD' && mode !== 'DOCUMENT'
         ? detectRecoverableStatementRows(selected, latestRows, kind, targetId, result.hash)
         : new Set<string>();
@@ -244,6 +248,7 @@ export const WalletStatementImport: React.FC<Props> = ({
       // centavos e estabelecimento idênticos exigem confirmação de duplicidade.
       const directDuplicates = selected.filter(row => latestRows.some(previous =>
         previous.target_kind === kind && previous.target_id === targetId
+        && previous.document_hash !== result.hash
         && previous.entry_date === row.date
         && Math.round(Number(previous.amount) * 100) === Math.round(row.amount * 100)
         && String(previous.description).localeCompare(row.description, 'pt-BR', { sensitivity: 'base' }) === 0
@@ -255,13 +260,17 @@ export const WalletStatementImport: React.FC<Props> = ({
       }
       for (const row of selected) {
         if (kind === 'CARD' && mode !== 'DOCUMENT') {
-          if (row.amount <= 0) throw new Error('Desmarque pagamentos e créditos. Registre somente compras positivas como gastos na fatura.');
-          // Uma única transação no banco: linha e compra são gravadas ou ambas falham.
+          if (row.amount <= 0 && isCardInvoicePaymentDescription(row.description)) {
+            throw new Error('Desmarque pagamentos de fatura anterior. Créditos e estornos de compras podem ser importados normalmente.');
+          }
+          // Uma única transação no banco: linha, compra (ou crédito/estorno) e parcelas futuras são gravadas atomicamente.
           await personalWalletService.recordAndImportCardStatementPurchase({
             cardId: targetId, documentHash: result.hash, rowKey: row.rowKey,
             date: row.date, description: row.description, amount: row.amount,
             category: row.category, dueMonth: dueMonth + '-01',
             included: mode === 'INCLUDED', allowDuplicates,
+            installmentNumber: row.installmentNumber,
+            installmentTotal: row.installmentTotal,
           });
         } else {
           await personalWalletService.recordStatementRow({
@@ -288,8 +297,6 @@ export const WalletStatementImport: React.FC<Props> = ({
     }
   };
 
-  const isPdf = source?.type === 'application/pdf' || /\.pdf$/i.test(source?.name || '');
-  const isImage = source?.type.startsWith('image/') || /\.(png|jpe?g|webp)$/i.test(source?.name || '');
   const isOfx = source?.name?.toLowerCase().endsWith('.ofx') || source?.name?.toLowerCase().endsWith('.qfx');
 
   return (
@@ -312,7 +319,7 @@ export const WalletStatementImport: React.FC<Props> = ({
                   Leitor Inteligente de Faturas e Extratos
                 </h2>
                 <span className="rounded-full bg-cyan-950 px-2 py-0.5 text-[10px] font-semibold text-cyan-300 border border-cyan-800">
-                  OFX / PDF / Imagem
+                  OFX / PDF Local
                 </span>
               </div>
               <p className="text-xs text-slate-400">
@@ -334,25 +341,13 @@ export const WalletStatementImport: React.FC<Props> = ({
         {/* Content */}
         <div className="space-y-4 overflow-y-auto p-4 sm:p-5">
           {/* Banner de Custo & Inteligência */}
-          <div className="grid gap-2 sm:grid-cols-2">
-            <div className="flex items-start gap-2.5 rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-3 text-xs text-emerald-200">
-              <Zap size={18} className="shrink-0 text-emerald-400 mt-0.5" />
-              <div>
-                <strong className="block font-semibold text-emerald-300">
-                  Custo R$ 0,00 (100% Local)
-                </strong>
-                Arquivos <strong>.OFX</strong> e <strong>PDF com texto</strong> são lidos diretamente no seu navegador, sem custo e com total sigilo.
-              </div>
-            </div>
-
-            <div className="flex items-start gap-2.5 rounded-xl border border-indigo-500/30 bg-indigo-950/20 p-3 text-xs text-indigo-200">
-              <Sparkles size={18} className="shrink-0 text-indigo-400 mt-0.5" />
-              <div>
-                <strong className="block font-semibold text-indigo-300">
-                  IA Vision Multimodal (Frações de centavo)
-                </strong>
-                Prints, faturas digitalizadas e fotos de comprovantes podem ser lidos com IA após sua confirmação de envio.
-              </div>
+          <div className="flex items-start gap-2.5 rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-3 text-xs text-emerald-200">
+            <Zap size={18} className="shrink-0 text-emerald-400 mt-0.5" />
+            <div>
+              <strong className="block font-semibold text-emerald-300">
+                Custo R$ 0,00 (100% Local)
+              </strong>
+              Arquivos <strong>.OFX</strong> e <strong>PDF com texto</strong> são lidos diretamente no seu navegador, sem custo e com total sigilo.
             </div>
           </div>
 
@@ -388,7 +383,11 @@ export const WalletStatementImport: React.FC<Props> = ({
             </div>
           )}
 
-          {kind === 'CARD' && result?.invoiceSummary && <CardInvoiceSummaryPreview key={result.hash} summary={result.invoiceSummary} onSave={saveSummary} />}
+      {kind === 'CARD' && result?.invoiceSummary && <CardInvoiceSummaryPreview key={result.hash} summary={result.invoiceSummary}
+        suggestedCreditLimit={targetCreditLimit} estimatedUsedLimit={targetEstimatedUsedLimit}
+        estimatedFutureCommitments={targetEstimatedFutureCommitments}
+        estimatedAvailableLimit={targetEstimatedAvailableLimit} estimatedDueMonth={targetEstimateDueMonth}
+        dueMonth={dueMonth + '-01'} onSave={saveSummary} />}
           {destinationMismatch && <p role="alert" className="text-xs text-rose-300">Banco da fatura diferente do cartão selecionado. Não é seguro alocar automaticamente.</p>}
 
           {duplicateKeys.size > 0 && <label className="flex items-start gap-2 text-xs text-amber-200">
@@ -415,16 +414,16 @@ export const WalletStatementImport: React.FC<Props> = ({
               </div>
               <div className="space-y-1">
                 <span className="text-sm font-semibold text-slate-200">
-                  {source?.name || 'Clique ou arraste a fatura, extrato ou print aqui'}
+                  {source?.name || 'Clique ou arraste a fatura ou extrato aqui'}
                 </span>
                 <p className="text-xs text-slate-400">
-                  Formatos aceitos: <strong>.OFX</strong>, <strong>.PDF</strong>, ou imagens/prints (<strong>PNG, JPG, WEBP</strong>) até 15 MB
+                  Formatos aceitos: <strong>.OFX</strong> ou <strong>.PDF com texto</strong> até 15 MB
                 </p>
               </div>
 
               {source && (
                 <div className="mt-1 flex items-center gap-2 rounded-full bg-slate-800 px-3 py-1 text-xs text-cyan-300 border border-slate-700">
-                  {isOfx ? <Building2 size={14} /> : isImage ? <ImageIcon size={14} /> : <FileText size={14} />}
+                  {isOfx ? <Building2 size={14} /> : <FileText size={14} />}
                   <span>{source.name}</span>
                   <span className="text-slate-400 text-[10px]">({(source.size / 1024).toFixed(1)} KB)</span>
                 </div>
@@ -432,7 +431,7 @@ export const WalletStatementImport: React.FC<Props> = ({
 
               <input
                 type="file"
-                accept=".ofx,.qfx,.pdf,application/pdf,image/png,image/jpeg,image/webp"
+                accept=".ofx,.qfx,.pdf,application/pdf"
                 className="sr-only"
                 disabled={busy}
                 onChange={(e) => {
@@ -444,7 +443,6 @@ export const WalletStatementImport: React.FC<Props> = ({
                   setRows([]);
                   setError('');
                   setFinished(null);
-                  setShowPreview(false);
                 }}
               />
             </label>
@@ -459,7 +457,7 @@ export const WalletStatementImport: React.FC<Props> = ({
                 {busy ? (
                   <>
                     <Sparkles size={16} className="animate-spin" />
-                    Processando com IA / Parser...
+                    Processando arquivo...
                   </>
                 ) : (
                   <>
@@ -468,30 +466,8 @@ export const WalletStatementImport: React.FC<Props> = ({
                   </>
                 )}
               </button>
-
-              {result?.previewUrl && (
-                <button
-                  type="button"
-                  onClick={() => setShowPreview(!showPreview)}
-                  className="flex items-center gap-1.5 text-xs text-cyan-400 hover:text-cyan-300"
-                >
-                  <ImageIcon size={15} />
-                  {showPreview ? 'Ocultar print' : 'Ver print da fatura'}
-                  {showPreview ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                </button>
-              )}
             </div>
           </div>
-
-          {/* Prévia da Imagem / Print */}
-          {showPreview && result?.previewUrl && (
-            <div className="rounded-xl border border-slate-800 bg-slate-950 p-3">
-              <p className="text-[11px] font-semibold text-slate-400 mb-2">Print ou comprovante enviado:</p>
-              <div className="max-h-60 overflow-auto rounded-lg border border-slate-800 bg-black flex justify-center">
-                <img src={result.previewUrl} alt="Prévia da fatura" className="max-w-full object-contain" />
-              </div>
-            </div>
-          )}
 
           {error && (
             <div role="alert" className="flex items-start gap-2.5 rounded-xl border border-rose-500/40 bg-rose-950/20 p-3.5 text-xs text-rose-300">
@@ -500,29 +476,10 @@ export const WalletStatementImport: React.FC<Props> = ({
             </div>
           )}
 
-          {isImage && source && !result && (
-            <button type="button" disabled={busy} onClick={() => {
-              if (!window.confirm('Enviar esta imagem financeira ao Google Gemini para análise? Ela pode conter dados pessoais e bancários. Esta ação pode gerar custos de API.')) return;
-              void parse(true);
-            }} className="min-h-10 rounded-lg border border-cyan-600/60 px-3 py-2 text-xs font-semibold text-cyan-200 disabled:opacity-40">
-              Ler imagem com IA
-            </button>
-          )}
-
           {finished !== null && (
             <div role="status" className="flex items-center gap-2.5 rounded-xl border border-emerald-500/40 bg-emerald-950/30 p-3.5 text-sm text-emerald-300">
               <CheckCircle2 size={18} className="text-emerald-400" />
               <span><strong>{finished} lançamento(s)</strong> registrados com sucesso no sistema!</span>
-            </div>
-          )}
-
-          {isPdf && source && !busy && (
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-cyan-800/50 bg-cyan-950/20 p-3 text-xs text-slate-200">
-              <span className="min-w-0 flex-1">Se a leitura local falhou, a IA pode analisar o PDF. Isso envia o documento ao Google Gemini e pode gerar custos.</span>
-              <button type="button" className="min-h-10 rounded-lg border border-cyan-500/50 px-3 py-2 font-semibold text-cyan-200" onClick={() => {
-                if (!window.confirm('Enviar este PDF financeiro ao Google Gemini? O documento pode conter dados bancários e pessoais. A leitura pode gerar custos de API.')) return;
-                void parse(true);
-              }}>Ler PDF com IA</button>
             </div>
           )}
 
@@ -639,7 +596,7 @@ export const WalletStatementImport: React.FC<Props> = ({
                         <span className="text-[10px] text-slate-400 shrink-0">Categoria:</span>
                         <select
                           disabled={busy}
-                          className="w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-200 focus:border-cyan-500 focus:outline-none"
+                          className="w-full min-w-0 sm:max-w-64 rounded-lg border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-200 focus:border-cyan-500 focus:outline-none"
                           value={row.category}
                           onChange={(e) => revise(i, { category: e.target.value })}
                         >
@@ -686,7 +643,7 @@ export const WalletStatementImport: React.FC<Props> = ({
               onClick={save}
               className="rounded-xl bg-emerald-600 hover:bg-emerald-500 px-5 py-2 text-xs font-bold text-white shadow-lg shadow-emerald-600/20 disabled:opacity-40 transition"
             >
-              {busy ? 'Registrando...' : 'Confirmar itens selecionados'}
+              {busy ? 'Registrando...' : 'Confirmar'}
             </button>
           </div>
         </footer>

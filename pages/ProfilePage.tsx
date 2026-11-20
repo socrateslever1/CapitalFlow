@@ -8,6 +8,7 @@ import {
   DollarSign,
   FileSpreadsheet,
   FileText,
+  History,
   LayoutGrid,
   LogOut,
   Mail,
@@ -33,6 +34,7 @@ import { exportLoansToExcel, exportLoansToCSV } from '../utils/loanExport';
 
 import { useProfilePageLogic } from '../features/profile/hooks/useProfilePageLogic';
 import { ProfileAuditLog } from '../features/profile/components/ProfileAuditLog';
+import { ProfileChangelog } from '../features/profile/components/ProfileChangelog';
 import { ProfileDangerZone } from '../features/profile/components/ProfileDangerZone';
 import { MercadoPagoConfig } from '../features/profile/components/MercadoPagoConfig';
 import { AsaasConfig } from '../features/profile/components/AsaasConfig';
@@ -94,7 +96,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const i18n = useI18n();
 
   const [activeSection, setActiveSection] = useState<
-    'GENERAL' | 'FINANCE' | 'PAYMENTS' | 'EXPORT' | 'DATA' | 'INTERFACE' | 'SECURITY' | 'SYSTEM' | 'DANGER'
+    'GENERAL' | 'FINANCE' | 'PAYMENTS' | 'EXPORT' | 'DATA' | 'INTERFACE' | 'SECURITY' | 'CHANGELOG' | 'SYSTEM' | 'DANGER'
   >('GENERAL');
 
   const [isExportOpen, setIsExportOpen] = useState(false);
@@ -307,6 +309,18 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             >
               <Shield size={16} />
               <span>Segurança & Conta</span>
+            </button>
+
+            <button
+              onClick={() => setActiveSection('CHANGELOG')}
+              className={`w-full px-3 py-2.5 rounded-lg flex items-center gap-2.5 text-xs font-semibold transition-colors ${
+                activeSection === 'CHANGELOG'
+                  ? 'bg-blue-600/15 text-blue-300 border border-blue-500/30'
+                  : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-100 border border-transparent'
+              }`}
+            >
+              <History size={16} />
+              <span>Atualizações</span>
             </button>
           </nav>
 
@@ -980,6 +994,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
               </div>
             </div>
           )}
+
+          {/* CHANGELOG / HISTÓRICO DE ATUALIZAÇÕES */}
+          {activeSection === 'CHANGELOG' && <ProfileChangelog />}
 
           {/* SALVAR */}
           {(activeSection === 'GENERAL' || activeSection === 'FINANCE') && (

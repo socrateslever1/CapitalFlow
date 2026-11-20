@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { CreditCard, DollarSign, FileUp, Image as ImageIcon, Maximize2, Plus, Receipt, RotateCw, X } from 'lucide-react';
 import type { PersonalWalletAccount, PersonalWalletCard, PersonalWalletExpense, PersonalWalletExpenseInstallment, UpdatePersonalWalletExpense, WalletStatementRow } from '../../services/personalWallet.service';
 import { formatMoney } from '../../utils/formatters';
@@ -6,6 +6,7 @@ import { VirtualCreditCard } from './VirtualCreditCard';
 import { WalletStatementImport } from './WalletStatementImport';
 import { CardInvoiceStatement } from './CardInvoiceStatement';
 import { getBankVisual } from './walletPresentation';
+import { getCardCreditPosition } from './invoiceStatementDomain';
 
 export interface CardDetailModalProps {
   card: PersonalWalletCard;
@@ -43,6 +44,10 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
   const [showFullPhoto, setShowFullPhoto] = useState(false);
   const [photoUnavailable, setPhotoUnavailable] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const creditPosition = useMemo(
+    () => getCardCreditPosition(card, expenses, installments),
+    [card, expenses, installments],
+  );
 
   useEffect(() => {
     setPhotoUnavailable(false);
@@ -162,7 +167,14 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
         </div>
       </div>
       {importOpen && onImported && (
-        <WalletStatementImport kind="CARD" targetId={card.id} targetName={card.nickname} onClose={() => setImportOpen(false)} onImported={onImported} />
+        <WalletStatementImport kind="CARD" targetId={card.id} targetName={card.nickname}
+          targetCreditLimit={Number(card.credit_limit || 0) || null}
+          targetEstimatedUsedLimit={creditPosition.committedLimit}
+          targetEstimatedFutureCommitments={creditPosition.futureCommitments}
+          targetEstimatedAvailableLimit={creditPosition.freeLimit}
+          targetEstimateDueMonth={creditPosition.dueMonth}
+          initialDueMonth={creditPosition.dueMonth}
+          onClose={() => setImportOpen(false)} onImported={onImported} />
       )}
     </div>
   );

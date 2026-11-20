@@ -1,6 +1,33 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { parseStatementLines } from '../../utils/walletStatementPdf';
+import { calculateStatementTotals, classifyStatementDescription, groupBradescoStatementRows, matchesStatementRowSearch, parseStatementLines } from '../../utils/walletStatementPdf';
+
+test('statement comparison sums all parsed rows in cents and reports invoice difference', () => {
+  const result = calculateStatementTotals([
+    { amount: 20.10, selected: true },
+    { amount: 0.20, selected: false },
+    { amount: -5.30, selected: false },
+  ], 15.01);
+
+  assert.deepEqual(result, {
+    extractedTotalCents: 1500,
+    invoiceTotalCents: 1501,
+    invalidAmountCount: 0,
+    differenceCents: 1,
+  });
+  assert.deepEqual(calculateStatementTotals([{ amount: 1.23 }]), {
+    extractedTotalCents: 123,
+    invoiceTotalCents: null,
+    invalidAmountCount: 0,
+    differenceCents: null,
+  });
+  assert.deepEqual(calculateStatementTotals([{ amount: Number.NaN }], 10), {
+    extractedTotalCents: 0,
+    invoiceTotalCents: 1000,
+    invalidAmountCount: 1,
+    differenceCents: null,
+  });
+});
 
 test('PDF parser classifies common card statement categories and lowers confidence for unknown merchants', () => {
   const result = parseStatementLines([
@@ -12,6 +39,34 @@ test('PDF parser classifies common card statement categories and lowers confiden
 
   assert.deepEqual(result.rows.map(row => row.category), ['Lazer', 'Saúde', 'Compras', 'Outros']);
   assert.deepEqual(result.rows.map(row => row.confidence), ['HIGH', 'HIGH', 'HIGH', 'REVIEW']);
+});
+
+test('classifies Brazilian transport and food merchants consistently for PDF and other readers', () => {
+  const examples: Array<[string, string]> = [
+    ['UBER TRIP', 'Transporte'],
+    ['99 RIDE', 'Transporte'],
+    ['UBER *EATS', `Alimenta${String.fromCharCode(231)}${String.fromCharCode(227)}o`],
+    ['99*FOOD', `Alimenta${String.fromCharCode(231)}${String.fromCharCode(227)}o`],
+    ['POSTO IPIRANGA GASOLINA', 'Transporte'],
+    ['EUCATUR PASSAGEM', 'Transporte'],
+    ['EXPRESSO TRANSAMAZONICA', 'Transporte'],
+    ['MERCADO PAGO *LOJA', 'Outros'],
+    ['POSTO DE SAUDE MUNICIPAL', `Sa${String.fromCharCode(250)}de`],
+    ['IFOOD', 'Alimenta\u00e7\u00e3o'],
+    ['99FOOD', 'Alimenta\u00e7\u00e3o'],
+    ['LANCHE DO RONNY', 'Alimenta\u00e7\u00e3o'],
+    ['CHURRASCARIA BOI GORDO', 'Alimenta\u00e7\u00e3o'],
+    ['RESTAURANTE CENTRAL', 'Alimenta\u00e7\u00e3o'],
+  ];
+
+  for (const [description, expected] of examples) {
+    assert.equal(classifyStatementDescription(description), expected, `local reader: ${description}`);
+  }
+
+  const parsed = parseStatementLines(examples.map(([description], index) => ({
+    key: String(index), text: `${String(index + 1).padStart(2, '0')}/10/2026 ${description} 12,00`,
+  })), 'CARD');
+  assert.deepEqual(parsed.rows.map(row => row.category), examples.map(([, category]) => category));
 });
 
 test('PDF parser extracts installment metadata without confusing the transaction date', () => {
@@ -107,4 +162,62 @@ test('C6: inclusion of payment is a credit; interest and IOF are charges', () =>
   ], 'CARD');
   assert.deepEqual(result.rows.map(row=>row.amount),[80.06,-704.91,250.46,18.27]);
   assert.deepEqual(result.rows[0] && [result.rows[0].installmentNumber,result.rows[0].installmentTotal],[8,12]);
+});
+
+test('Bradesco history separates installment metadata and removes currency conversion columns', () => {
+  const result = parseStatementLines([
+    { key: 'header', text: 'Data: 19/11/2026 - 17:58' },
+    { key: 'purchase', text: '18/11 KI ANJO BRL 16,00 0,00 R$ 0,00 16,00' },
+    { key: 'wrapped-installment', text: 'PARCELAD 6/12 0,54' },
+    { key: 'old-installment', text: '31/12 PG *SHOPFACIL SA 11/18 BRL 242,72 0,00 R$ 0,00 242,72' },
+    { key: 'older-installment', text: '26/10 MERCADOLIVRE*3PRODUTOS 13/13 BRL 66,61 0,00 R$ 0,00 66,61' },
+  ], 'CARD');
+
+  assert.deepEqual(result.rows.map(row => ({ date: row.date, description: row.description, amount: row.amount,
+    installmentNumber: row.installmentNumber, installmentTotal: row.installmentTotal })), [
+    { date: '2026-11-18', description: 'KI ANJO', amount: 16, installmentNumber: null, installmentTotal: null },
+    { date: '2025-12-31', description: 'PG *SHOPFACIL SA', amount: 242.72, installmentNumber: 11, installmentTotal: 18 },
+    { date: '2025-10-26', description: 'MERCADOLIVRE*3PRODUTOS', amount: 66.61, installmentNumber: 13, installmentTotal: 13 },
+  ]);
+  assert(matchesStatementRowSearch(result.rows[1], 'shopfacil'));
+  assert(matchesStatementRowSearch(result.rows[1], '11/18'));
+  assert(matchesStatementRowSearch(result.rows[1], '242,72'));
+  assert(!matchesStatementRowSearch(result.rows[1], 'uber'));
+});
+
+test('Bradesco early PIX payment is subtracted from the statement total', () => {
+  const result = parseStatementLines([
+    { key: 'header', text: 'Data: 19/11/2026' },
+    { key: 'history', text: 'Histórico de lançamentos' },
+    { key: 'payment', text: '30/10 PAGTO ANTECIPADO PIX BRL 2.517,55 0,00 R$ 0,00 2.517,55' },
+    { key: 'purchase', text: '18/11 DROGARIA BOM PRECO BRL 72,49 0,00 R$ 0,00 72,49' },
+  ], 'CARD');
+
+  assert.deepEqual(result.rows.map(row => [row.description, row.amount]), [
+    ['PAGTO ANTECIPADO PIX', -2517.55],
+    ['DROGARIA BOM PRECO', 72.49],
+  ]);
+});
+
+test('Bradesco table groups wrapped history cells with the matching date and amount row', () => {
+  const item = (str: string, x: number, y: number) => ({ str, transform: [1, 0, 0, 1, x, y, 0] });
+  const grouped = groupBradescoStatementRows([
+    item('23/05', 60, 566.5),
+    item('RECARGAPAY *MANOELSOC 6', 110.5, 573),
+    item('/9', 110.5, 559.5),
+    item('BRL 65,41', 309, 566.5),
+    item('0,00', 420, 566.5),
+    item('R$ 0,00', 470, 566.5),
+    item('65,41', 516, 566.5),
+    item('29/03', 60, 526),
+    item('HIPER DB PARAIBA 8/8', 110.5, 526),
+    item('52,49', 516, 526),
+  ], 5);
+  const result = parseStatementLines(grouped, 'CARD');
+
+  assert.deepEqual(result.rows.map(row => ({ date: row.date, description: row.description, amount: row.amount,
+    installmentNumber: row.installmentNumber, installmentTotal: row.installmentTotal })), [
+    { date: '2026-05-23', description: 'RECARGAPAY *MANOELSOC', amount: 65.41, installmentNumber: 6, installmentTotal: 9 },
+    { date: '2026-03-29', description: 'HIPER DB PARAIBA', amount: 52.49, installmentNumber: 8, installmentTotal: 8 },
+  ]);
 });

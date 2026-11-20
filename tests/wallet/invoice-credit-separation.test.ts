@@ -46,6 +46,30 @@ test('free limit never becomes negative', () => {
   assert.equal(position.committedLimit, 850);
 });
 
+test('available credit subtracts current and future commitments with exact cents', () => {
+  const position = getCardCreditPosition(
+    { id: 'card-1', credit_limit: 10000 },
+    [
+      { id: 'current', card_id: 'card-1', description: 'Fatura atual', amount: 2930.88,
+        category: 'Ajuste de fatura', expense_date: '2026-11-19', due_date: '2026-12-03',
+        status: 'PENDING', installment_count: 1, entry_type: 'INVOICE_OVERRIDE' as const,
+        invoice_due_month: '2026-12-01' },
+      { id: 'future', card_id: 'card-1', description: 'Parcelas futuras', amount: 4385.61,
+        category: 'Compras', expense_date: '2026-11-19', due_date: '2027-01-03',
+        status: 'PENDING', installment_count: 1, entry_type: 'PURCHASE' as const },
+    ],
+    [
+      { id: 'current-i', expense_id: 'current', installment_number: 1, due_month: '2026-12-01',
+        amount: 2930.88, paid_amount: 0, status: 'PENDING' as const },
+      { id: 'future-i', expense_id: 'future', installment_number: 1, due_month: '2027-01-01',
+        amount: 4385.61, paid_amount: 0, status: 'PENDING' as const },
+    ],
+  );
+
+  assert.equal(position.committedLimit, 7316.49);
+  assert.equal(position.freeLimit, 2683.51);
+});
+
 test('selected invoice cycle never inherits the previous invoice amount', () => {
   assert.deepEqual(getSelectedInvoiceCycle('card-1', '2026-11-01', expenses, installments), {
     dueMonth: '2026-11-01',

@@ -38,7 +38,8 @@ test('the editor changes the SAME invoice via one transactional RPC, never a sec
   const sql=readFileSync('supabase/migrations/20261030214000_wallet_correct_invoice_due_cycle.sql','utf8');
   assert.match(component,/Mês de pagamento/);
   assert.match(component,/Data exata de vencimento/);
-  assert.match(component,/Competência \(fechamento\)/);
+  assert.match(component,/Fecha \{shortDate\(dates\.closingDate\)\}/);
+  assert.match(component,/Vence \{shortDate\(dates\.dueDate\)\}/);
   assert.match(component,/hasExistingConsolidation/);
   assert.match(page,/personalWalletService\.correctInvoiceOverride/);
   assert.match(page,/previousDueMonth:\s*selectedCycle\?\.hasOverride/);
@@ -79,4 +80,16 @@ test('primeira fatura permite mês manual sem fatura preexistente nem limite dis
   assert.match(preview, /inlineSave \&\&/);
   assert.match(preview, /onSavingChange\?\.\(true\)/);
   assert.doesNotMatch(page, /if \(!selected \|\| !statementMonth\) throw new Error\('Selecione o cartão e o mês/);
+});
+
+test('conferência da fatura explica quando apenas registra dados e quando inicia a posição do cartão', () => {
+  const page=readFileSync('features/wallet/pages/WalletCardsPage.tsx','utf8');
+  const preview=readFileSync('components/wallet/CardInvoiceSummaryPreview.tsx','utf8');
+  assert.match(page,/Conferir fatura do banco/);
+  assert.match(page,/Mês de pagamento da fatura/);
+  assert.match(preview,/Salve aqui os valores que aparecem no app ou na fatura do banco/);
+  assert.match(preview,/tamb.m podem registrar a posi..o inicial/);
+  assert.match(preview,/não um pagamento/);
+  assert.match(preview,/mês de pagamento selecionado/);
+  assert.doesNotMatch(preview,/não modifica compras, limite bancário ou saldo contábil/);
 });

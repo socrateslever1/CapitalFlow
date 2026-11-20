@@ -291,13 +291,6 @@ export const walletRepository = {
       if (offlineAccess) return offlineAccess;
     }
     try {
-      const { data: isSuperAdmin, error: adminError } = await supabase.rpc('is_platform_super_admin');
-      if (adminError) throw new Error(adminError.message);
-      if (!isSuperAdmin) {
-        const denied = { active: false, settings: {} };
-        accessCache.set(userId, { ...denied, expiresAt: Date.now() + 60_000 });
-        return denied;
-      }
       const { data, error } = await supabase
         .from('user_modulos')
         .select('ativo,configuracoes')
@@ -305,7 +298,7 @@ export const walletRepository = {
         .eq('modulo_chave', 'carteira')
         .maybeSingle();
       if (error) throw new Error(error.message);
-      const result = data ? { active: Boolean(data.ativo), settings: data.configuracoes ?? {} } : { active: false, settings: {} };
+      const result = data ? { active: Boolean(data.ativo), settings: data.configuracoes ?? {} } : { active: true, settings: {} };
       accessCache.set(userId, { ...result, expiresAt: Date.now() + 300_000 });
       if (result.active) {
         lastVerifiedAccess = { userId, ...result };

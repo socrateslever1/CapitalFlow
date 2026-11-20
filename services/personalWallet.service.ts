@@ -150,6 +150,7 @@ export type PersonalWalletExpense = {
   card_id?: string | null;
   notes?: string | null;
   entry_type?: 'PURCHASE' | 'INVOICE_OVERRIDE';
+  is_invoice_credit?: boolean;
   invoice_due_month?: string | null;
   request_id?: string | null;
   mutation_requests?: Record<string, unknown>;
@@ -382,7 +383,14 @@ const personalWalletServiceImpl = {
       .eq('target_kind', kind).eq('target_id', targetId)
       .gte('entry_date', orderedDates[0]).lte('entry_date', orderedDates[orderedDates.length - 1])
       .order('entry_date', { ascending: false }).order('id', { ascending: false }).range(from, to));
-    return result.data;
+    const linkedExpenseIds = [...new Set(result.data.flatMap(row => row.expense_id ? [row.expense_id] : []))];
+    if (!linkedExpenseIds.length) return result.data;
+    const { data: linkedExpenses, error } = await supabase
+      .from('personal_wallet_expenses').select('id,status').in('id', linkedExpenseIds);
+    if (error) throw new Error(error.message);
+    const canceledExpenseIds = new Set((linkedExpenses || [])
+      .filter(expense => expense.status === 'CANCELED').map(expense => expense.id));
+    return result.data.filter(row => !row.expense_id || !canceledExpenseIds.has(row.expense_id));
   },
 
   /**
@@ -671,10 +679,11 @@ const personalWalletServiceImpl = {
     cardId: string; documentHash: string; rowKey: string; date: string;
     description: string; amount: number; category: string;
     dueMonth: string; included: boolean; allowDuplicates?: boolean;
+    installmentNumber?: number | null; installmentTotal?: number | null;
   }): Promise<string> {
-    if (!Number.isFinite(input.amount) || input.amount <= 0 ||
+    if (!Number.isFinite(input.amount) || input.amount === 0 ||
         Math.abs(input.amount * 100 - Math.round(input.amount * 100)) > 0.000001)
-      throw new Error('Valor da compra inválido. Confira os centavos.');
+      throw new Error('Valor do lançamento inválido. Confira os centavos.');
     const { data, error } = await supabase.rpc('personal_wallet_record_card_purchase_atomic', {
       p_card_id: input.cardId, p_document_hash: input.documentHash,
       p_row_key: input.rowKey, p_entry_date: input.date,
@@ -682,11 +691,41 @@ const personalWalletServiceImpl = {
       p_category: input.category, p_due_month: input.dueMonth,
       p_included_in_opening: input.included,
       p_allow_duplicates: input.allowDuplicates === true,
+      p_installment_number: input.installmentNumber ?? null,
+      p_installment_total: input.installmentTotal ?? null,
     });
     if (error) throw new Error(error.code === 'PGRST202'
       ? 'Atualização de segurança da importação ainda não aplicada no banco.' : error.message);
-    if (!data || typeof data !== 'string') throw new Error('O banco não confirmou a gravação atômica da compra.');
+    if (!data || typeof data !== 'string') throw new Error('O banco não confirmou a gravação atômica do lançamento.');
     return data;
+  },
+
+  async createInvoiceCredit(input: {
+    cardId: string;
+    dueMonth: string;
+    amount: number;
+    description?: string;
+    expenseDate?: string;
+    notes?: string;
+  }, requestId = generateUUID()): Promise<string> {
+    if (!input.cardId || !input.dueMonth || !requestId) {
+      throw new Error('Dados obrigatórios do crédito ausentes.');
+    }
+    if (!Number.isFinite(input.amount) || input.amount <= 0 ||
+        Math.abs(input.amount * 100 - Math.round(input.amount * 100)) > 0.000001) {
+      throw new Error('Informe um valor de crédito positivo com até duas casas decimais.');
+    }
+    const { data, error } = await supabase.rpc('personal_wallet_create_invoice_credit', {
+      p_card_id: input.cardId,
+      p_due_month: input.dueMonth,
+      p_amount: input.amount,
+      p_description: input.description?.trim() || 'Crédito / ajuste de fatura',
+      p_expense_date: input.expenseDate || null,
+      p_notes: input.notes?.trim() || null,
+      p_request_id: requestId,
+    });
+    if (error) throw new Error(error.message);
+    return String(data);
   },
 
   async importCardStatementPurchase(rowId: string, dueMonth: string, included: boolean) {

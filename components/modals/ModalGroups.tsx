@@ -1,6 +1,5 @@
 
 import React from 'react';
-import { platformAdminService } from '../../services/platformAdmin.service';
 import { walletRepository } from '../../features/wallet/services/walletRepository';
 import type { PersonalWalletAccount } from '../../services/personalWallet.service';
 import { useModal } from '../../contexts/ModalContext';
@@ -168,17 +167,11 @@ export const FinanceModals = () => {
         setWithdrawWalletMaster(false);
         setWithdrawWalletError('');
         if (activeModal?.type !== 'WITHDRAW') return () => { active = false; };
-        void platformAdminService.isSuperAdmin().then(async allowed => {
-            if (!active || !allowed) return;
-            setWithdrawWalletMaster(true);
-            try {
-                const overview = await walletRepository.loadOverview();
-                if (active) setWithdrawWalletAccounts(overview.accounts.filter(a => !a.archived_at));
-            } catch {
-                if (active) setWithdrawWalletError('Contas indisponíveis. O saque padrão continua disponível.');
-            }
+        setWithdrawWalletMaster(true);
+        void walletRepository.loadOverview().then(overview => {
+            if (active) setWithdrawWalletAccounts(overview.accounts.filter(a => !a.archived_at));
         }).catch(() => {
-            if (active) setWithdrawWalletError('Não foi possível verificar suas contas pessoais.');
+            if (active) setWithdrawWalletError('Contas indisponíveis. O saque padrão continua disponível.');
         });
         return () => { active = false; };
     }, [activeModal?.type]);

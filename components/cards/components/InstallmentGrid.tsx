@@ -20,7 +20,6 @@ import { buildInstallmentReceiptModel, calculatePrincipalReductionForTarget, cal
 import { previewFinancialOperation, type FinancialOperationResult, type FinancialPaymentMethod } from '../../../services/payments/paymentEngineV4';
 import { resolveReceiptDecision, type ReceiptBusinessAction } from '../../../services/payments/receiptDecision';
 import { suggestRenewalDueDate } from '../../../services/payments/paymentRenewalPlan';
-import { platformAdminService } from '../../../services/platformAdmin.service';
 import { walletRepository } from '../../../features/wallet/services/walletRepository';
 import type { PersonalWalletAccount } from '../../../services/personalWallet.service';
 import { filterOperationalSources } from '../../../utils/testSource';
@@ -101,28 +100,19 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
         setWalletReceiptLoadError('');
         if (!selectedInst?.id || !onInstallmentPayment) return () => { mounted = false; };
 
-        void platformAdminService.isSuperAdmin().then(async allowed => {
-            if (!mounted) return;
-            if (!allowed) {
-                setWalletReceiptLoaded(true);
-                return;
-            }
-            setWalletReceiptAllowed(true);
-            try {
-                const snapshot = await walletRepository.loadOverview();
+        setWalletReceiptAllowed(true);
+        void walletRepository.loadOverview()
+            .then(snapshot => {
                 if (mounted) setWalletReceiptAccounts(snapshot.accounts.filter(account => !account.archived_at));
-            } catch {
+            })
+            .catch(() => {
                 if (mounted) {
                     setWalletReceiptLoadError('Não foi possível carregar as contas. O recebimento padrão continua disponível.');
                 }
-            } finally {
+            })
+            .finally(() => {
                 if (mounted) setWalletReceiptLoaded(true);
-            }
-        }).catch(() => {
-            if (!mounted) return;
-            setWalletReceiptLoadError('Não foi possível verificar o acesso às contas pessoais.');
-            setWalletReceiptLoaded(true);
-        });
+            });
         return () => { mounted = false; };
     // Do not depend on the callback identity: dashboard card handlers are
     // recreated on parent renders, which must never erase an account choice.

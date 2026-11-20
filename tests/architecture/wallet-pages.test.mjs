@@ -86,7 +86,7 @@ test('navegação de faturas apresenta linhas compactas e meses efetivamente reg
   assert.match(page, /Fatura {competence}/);
   assert.match(page, /'Vence ' \+ due/);
   assert.match(page, /hideFinancialValues \? 'Vencimento protegido'/);
-  assert.match(page, /hideFinancialValues \? 'Situação protegida' : label/);
+  assert.match(page, /hideFinancialValues \? 'Situação protegida' : /);
   assert.match(page, /Adicionar fatura/);
   assert.match(page, /resolveInvoiceMonthSelection\(/);
   assert.match(page, /dueMonth: statementMonth,/);
@@ -123,5 +123,6 @@ test('extrato do cartão acompanha o scroll da página e evita caixas redundante
   assert.match(statement, /onClick=\{\(\) => setEditing\(expense\)\}/);
   assert.match(statement, /onClick=\{\(\) => \{ setConfirmingDelete\(expense\);/);
   assert.match(statement, /setAdvancingExpense\(expense\)/);
-  assert.match(statement, /PrivateMoney value=\{formatMoney\(Number\(installment.amount\) - Number\(installment.paid_amount \|\| 0\)\)\}/);
+  assert.match(statement, /Number\(installment\.amount\) - Number\(installment\.paid_amount \|\| 0\)/);
+  assert.match(statement, /PrivateMoney value=\{isCredit \? `− \$\{formatMoney\(remainingAmount\)\}` : formatMoney\(remainingAmount\)\}/);
 });

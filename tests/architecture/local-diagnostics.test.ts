@@ -60,3 +60,20 @@ test('classifica erros tratados sem guardar a mensagem e identifica a tela', () 
   log.setSession('master');
   assert.equal(log.list().length, 0, 'sem storage, não deve recuperar mensagens');
 });
+
+test('captura frame interno de desenvolvimento e tipo seguro de erro sem vazar queries', () => {
+  const log = createDiagnostics();
+  log.setSession('master');
+  log.setScreen('DASHBOARD');
+  const err = new TypeError('Cannot read properties of undefined cliente Maria');
+  err.stack =
+    'TypeError: Cannot read properties of undefined\n' +
+    ' at handleClick (http://localhost:3005/components/wallet/CardEditModal.tsx?t=123456:34:12)\n' +
+    ' at https://evil.com/tracker.js:1:1';
+  log.record('react', err);
+  const [entry] = log.list();
+  assert.equal(entry.category, 'Renderização');
+  assert.equal(entry.errorType, 'TypeError');
+  assert.equal(entry.frame, 'components/wallet/CardEditModal.tsx:34:12');
+  assert.ok(!/Maria|123456|evil/.test(log.exportReport()));
+});

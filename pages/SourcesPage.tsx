@@ -14,7 +14,6 @@ import { SourceWalletReferencePanel } from '../components/sources/SourceWalletRe
 import { FinancialCalculatorInput } from '../components/forms/FinancialCalculatorInput';
 import { supabase } from '../lib/supabase';
 import { personalWalletService, type PersonalWalletAccount } from '../services/personalWallet.service';
-import { platformAdminService } from '../services/platformAdmin.service';
 import { CapitalSourceTransferModal } from '../features/wallet/components/CapitalSourceTransferModal';
 import { canMoveCapitalSource, getMovableCapitalTotal } from '../features/wallet/domain/capitalSourceTransfer';
 import { formatMoney } from '../utils/formatters';
@@ -84,9 +83,7 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
     setCanTransferCapital(false);
     setTransferAccounts(null);
     if (activeUser?.id && activeUser.id !== 'DEMO' && !activeUser?.supervisor_id) {
-      void platformAdminService.isSuperAdmin().then(async allowed => {
-        if (!allowed || !active) return;
-        const snapshot = await personalWalletService.loadOverview();
+      void personalWalletService.loadOverview().then(snapshot => {
         if (!active) return;
         setCanTransferCapital(true);
         setTransferAccounts(snapshot.accounts);

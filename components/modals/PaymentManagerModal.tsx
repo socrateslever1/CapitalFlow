@@ -16,7 +16,6 @@ import { useModal } from '../../contexts/ModalContext';
 import { InstallmentPixCopyBox } from './payment/InstallmentPixCopyBox';
 import type { PersonalWalletAccount } from '../../services/personalWallet.service';
 import { walletRepository } from '../../features/wallet/services/walletRepository';
-import { platformAdminService } from '../../services/platformAdmin.service';
 import { filterOperationalSources } from '../../utils/testSource';
 import { ReceiptAccountDestinationList, ReceiptSourceDestinationList } from '../wallet/ReceiptDestinationSelector';
 
@@ -90,40 +89,24 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
     useEffect(() => {
         let active = true;
         setWalletAccountsLoaded(false);
-        setIsWalletReceiptAdmin(false);
+        setIsWalletReceiptAdmin(true);
         setReceiptDestinationAccountId('');
         setReceiptDestinationSourceId('');
         setWalletAccountLoadError('');
         if (!data?.loan?.id) return () => { active = false; };
-        void platformAdminService.isSuperAdmin()
-            .then(async (allowed) => {
+        void walletRepository.loadOverview()
+            .then((snapshot) => {
                 if (!active) return;
-                if (!allowed) {
-                    setWalletAccounts([]);
-                    setIsWalletReceiptAdmin(false);
-                    setWalletAccountsLoaded(true);
-                    return;
-                }
-                setIsWalletReceiptAdmin(true);
-                try {
-                    const snapshot = await walletRepository.loadOverview();
-                    if (!active) return;
-                    setWalletAccounts(snapshot.accounts.filter(account => !account.archived_at));
-                } catch {
-                    if (active) {
-                        setWalletAccounts([]);
-                        setWalletAccountLoadError('Contas indisponíveis. O recebimento padrão continua disponível.');
-                    }
-                } finally {
-                    if (active) setWalletAccountsLoaded(true);
-                }
+                setWalletAccounts(snapshot.accounts.filter(account => !account.archived_at));
             })
             .catch(() => {
-                if (!active) return;
-                setWalletAccounts([]);
-                setIsWalletReceiptAdmin(false);
-                setWalletAccountLoadError('Não foi possível verificar o acesso às contas pessoais.');
-                setWalletAccountsLoaded(true);
+                if (active) {
+                    setWalletAccounts([]);
+                    setWalletAccountLoadError('Contas indisponíveis. O recebimento padrão continua disponível.');
+                }
+            })
+            .finally(() => {
+                if (active) setWalletAccountsLoaded(true);
             });
         return () => { active = false; };
     }, [data?.loan?.id]);

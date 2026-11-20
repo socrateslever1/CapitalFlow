@@ -7,7 +7,6 @@ import { AccountDetailsPage } from '../../../components/wallet/AccountDetailsPag
 import { useWalletSnapshot } from '../hooks/useWalletSnapshot';
 import { WalletPageFrame } from '../components/WalletPageFrame';
 import { CreateAccountModal } from '../../../components/wallet/CreateAccountModal';
-import { platformAdminService } from '../../../services/platformAdmin.service';
 import { buildAccountStatementEntries } from '../../../components/wallet/accountStatementDomain';
 import { formatMoney } from '../../../utils/formatters';
 import { PrivateMoney } from '../../../contexts/FinancialPrivacyContext';
@@ -41,15 +40,8 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
     const [statementSearch, setStatementSearch] = useState('');
     const [showAllStatement, setShowAllStatement] = useState(false);
     useEffect(() => {
-        let mounted = true;
-        setCanTransferCapital(false);
-        if (activeUser?.id) {
-            void platformAdminService.isSuperAdmin()
-                .then(allowed => { if (mounted) setCanTransferCapital(allowed); })
-                .catch(() => { if (mounted) setCanTransferCapital(false); });
-        }
-        return () => { mounted = false; };
-    }, [activeUser?.id]);
+        setCanTransferCapital(Boolean(activeUser?.id && activeUser.id !== 'DEMO' && !activeUser?.supervisor_id));
+    }, [activeUser?.id, activeUser?.supervisor_id]);
 
     const startCreate = (accountType: 'CHECKING' | 'CASH') => {
         setCreateModalType(accountType);

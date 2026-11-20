@@ -49,12 +49,20 @@ export function buildAccountStatementEntries(input: {
   expenses: ExpenseLike[];
   invoicePayments: InvoicePaymentLike[];
   statementRows: StatementRowLike[];
+  cardFundedLoanIds?: readonly string[];
 }): AccountStatementEntry[] {
+  const cardFundedLoanIds = new Set(input.cardFundedLoanIds || []);
+  const isCardFundedAccountingEntry = (operation: OperationLike) =>
+    Boolean(operation.contract_id && cardFundedLoanIds.has(operation.contract_id) &&
+      (operation.operation_type === 'LOAN_DISBURSEMENT' ||
+        (operation.operation_type === 'INCOME' && operation.category === 'Auditoria' &&
+         operation.description.toLocaleLowerCase('pt-BR').includes('estorno: empréstimo financiado no cartão'))));
   const operationRequestIds = new Set(
     input.operations.map(operation => operation.request_id).filter(Boolean),
   );
   const operationEntries = input.operations
     .filter(operation => !operation.voided_at && !operation.voids_operation_id &&
+      !isCardFundedAccountingEntry(operation) &&
       (operation.from_account_id === input.accountId || operation.to_account_id === input.accountId))
     .map(operation => {
       const incoming = operation.to_account_id === input.accountId;
@@ -84,7 +92,7 @@ export function buildAccountStatementEntries(input: {
         category = operation.category || 'Recebimento de contrato';
       } else if (operation.operation_type === 'LOAN_DISBURSEMENT') {
         tag = 'Empréstimo concedido';
-        category = 'Desembolso do contrato';
+        category = 'Valor emprestado';
       } else if (operation.operation_type === 'LOAN_REPAYMENT') {
         tag = 'Parcela recebida';
         category = operation.category || 'Parcela recebida';

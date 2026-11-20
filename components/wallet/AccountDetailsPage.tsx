@@ -46,6 +46,7 @@ type Props = {
   accounts: PersonalWalletAccount[];
   accountOperations: WalletAccountOperation[];
   statementRows: WalletStatementRow[];
+  cardFundedLoanIds?: readonly string[];
   recurringIncomes: WalletRecurringIncome[];
   recurringReceipts: { income_id: string; reference_month: string }[];
   recurringObligations: WalletRecurringObligation[];
@@ -69,7 +70,7 @@ const typeLabels: Record<string, string> = {
 const inputClass = 'w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none focus:border-emerald-500';
 const labelClass = 'block space-y-1 text-xs font-semibold text-slate-300';
 
-export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, expenses, installments, invoicePayments, accountOperations, statementRows, recurringIncomes, recurringReceipts, recurringObligations, onBack, onSaved, ownerName, ownerCity, capitalSources, canTransferCapital = false, profileId, onCreateAccount }) => {
+export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, expenses, installments, invoicePayments, accountOperations, statementRows, cardFundedLoanIds, recurringIncomes, recurringReceipts, recurringObligations, onBack, onSaved, ownerName, ownerCity, capitalSources, canTransferCapital = false, profileId, onCreateAccount }) => {
   const [editing, setEditing] = useState(false);
   const [showMoreActions, setShowMoreActions] = useState(false);
   const [capitalTransferOpen, setCapitalTransferOpen] = useState(false);
@@ -607,7 +608,7 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
 
       <AccountActivityPanel account={account} accounts={accounts}
         operations={accountOperations} statementRows={statementRows}
-        expenses={expenses} invoicePayments={invoicePayments} onSaved={onSaved} />
+        expenses={expenses} invoicePayments={invoicePayments} cardFundedLoanIds={cardFundedLoanIds} onSaved={onSaved} />
 
       <section className="grid gap-4 lg:grid-cols-2" aria-label="Lançamentos fixos desta conta">
         <RecurringIncomePanel

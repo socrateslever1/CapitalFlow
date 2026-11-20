@@ -17,6 +17,7 @@ type Props = {
   accounts: PersonalWalletAccount[];
   operations: WalletAccountOperation[];
   statementRows: WalletStatementRow[];
+  cardFundedLoanIds?: readonly string[];
   expenses: PersonalWalletExpense[];
   invoicePayments: PersonalWalletInvoicePayment[];
   onSaved: () => Promise<void>;
@@ -39,7 +40,7 @@ const tagClass = (tag: string) => {
   if (tag === 'Importado de PDF') return 'border-slate-600 bg-slate-800 text-slate-300';
   return 'border-emerald-700/60 bg-emerald-950/30 text-emerald-200';
 };
-export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operations,statementRows,expenses,invoicePayments,onSaved}) => {
+export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operations,statementRows,expenses,invoicePayments,cardFundedLoanIds,onSaved}) => {
   const [action,setAction]=useState<Action|null>(null);
   const [amount,setAmount]=useState('');
   const [description,setDescription]=useState('');
@@ -70,8 +71,8 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
   const parsedAmount=(() => { try { return parseWalletMoney(amount); } catch { return NaN; } })();
 
   const entries=useMemo(()=>buildAccountStatementEntries({
-    accountId:account.id,accounts,operations,expenses,invoicePayments,statementRows,
-  }),[account.id,accounts,operations,expenses,invoicePayments,statementRows]);
+    accountId:account.id,accounts,operations,expenses,invoicePayments,statementRows,cardFundedLoanIds,
+  }),[account.id,accounts,operations,expenses,invoicePayments,statementRows,cardFundedLoanIds]);
   const filtered=entries.filter(x=>(x.label+' '+x.category+' '+x.tag).toLocaleLowerCase('pt-BR').includes(search.toLocaleLowerCase('pt-BR')));
   const statementTotal=filtered.reduce((total, entry)=>total+Number(entry.amount||0),0);
   const others=accounts.filter(a=>a.id!==account.id);

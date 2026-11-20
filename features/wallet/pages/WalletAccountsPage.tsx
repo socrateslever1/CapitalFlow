@@ -64,6 +64,7 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
         expenses: data.expenses,
         invoicePayments: data.invoicePayments,
         statementRows: data.statementRows,
+        cardFundedLoanIds: data.cardFundedLoanIds,
       }).map(entry => ({
         ...entry,
         key: `${account.id}:${entry.id}`,
@@ -89,7 +90,7 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
     return <WalletPageFrame error={error} loading={loading}>
         {data && (selected ? <AccountDetailsPage account={selected} accounts={data.accounts} cards={data.cards} capitalSources={data.capitalSources}
             expenses={data.expenses} installments={data.installments} invoicePayments={data.invoicePayments} accountOperations={data.accountOperations}
-            statementRows={data.statementRows} recurringIncomes={data.recurringIncomes} recurringReceipts={data.recurringReceipts}
+            statementRows={data.statementRows} cardFundedLoanIds={data.cardFundedLoanIds} recurringIncomes={data.recurringIncomes} recurringReceipts={data.recurringReceipts}
             recurringObligations={data.recurringObligations} onBack={closeAccount} onSaved={async () => { await refresh(); }}
             ownerName={activeUser?.fullName || activeUser?.name} ownerCity={activeUser?.city}
             canTransferCapital={canTransferCapital} profileId={activeUser?.profile_id || activeUser?.id}

@@ -472,6 +472,14 @@ const personalWalletServiceImpl = {
       loadAllWalletRows((from, to) => supabase.from('fontes').select('id,profile_id,name,balance,type,logo_url').is('archived_at', null).order('name', { ascending: true }).order('id').range(from, to)),
       loadAllWalletRows((from, to) => supabase.from('personal_wallet_card_invoice_facts').select('*').order('due_month', { ascending: false }).order('card_id').range(from, to)),
     ]);
+    // Acesso somente leitura, isolado por RLS, para classificar financiamentos por cartão
+    // no extrato bancário. Não remove nem altera operações contábeis.
+    const cardFunding = await loadAllWalletRows((from, to) =>
+      supabase.from('loan_card_wallet_charges')
+        .select('loan_id')
+        .order('loan_id')
+        .range(from, to),
+    );
     // Paginated reads fail by throwing; no partial snapshot is returned.
     const loadedExpenses = filterCurrentWalletRows((expenses.data || []) as PersonalWalletExpense[], walletReset, 'expenses');
     const loadedInstallments = filterCurrentWalletRows((installments.data || []) as PersonalWalletExpenseInstallment[], walletReset, 'installments');
@@ -521,6 +529,7 @@ const personalWalletServiceImpl = {
       installments: loadedInstallments,
       invoicePayments: filterCurrentWalletRows((invoicePayments.data || []) as PersonalWalletInvoicePayment[], walletReset, 'invoicePayments'),
       accountOperations: filterCurrentWalletRows((accountOperations.data || []) as WalletAccountOperation[], walletReset, 'accountOperations'),
+      cardFundedLoanIds: (cardFunding.data || []).map(row => String(row.loan_id)),
       statementRows: filterCurrentWalletRows((statementRows.data || []) as WalletStatementRow[], walletReset, 'statementRows'),
       payables: filterCurrentWalletRows((payables.data || []) as PersonalWalletPayable[], walletReset, 'payables'),
       payablePayments: visiblePayablePayments,

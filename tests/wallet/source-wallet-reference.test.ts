@@ -67,6 +67,6 @@ test('painel distingue fontes de capital de cartões e mostra motivo da origem a
   assert.match(panel, /snapshot\.accounts\.find/);
   assert.match(panel, /const previous = saved\.find/);
   assert.match(panel, /if \(!resource && !previous\) throw new Error/);
-  assert.match(panel, /allocated_amount: previous\?\.allocated_amount \?\? null/);
+  assert.match(panel, /allocated_amount: null/);
   assert.doesNotMatch(panel, /Remova o recurso indisponível antes de salvar/);
 });

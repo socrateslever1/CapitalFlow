@@ -1,5 +1,6 @@
 import { PrivateMoney, useFinancialPrivacy } from '../../contexts/FinancialPrivacyContext';
 import React,{useEffect,useMemo,useState,useRef} from 'react';
+import { createPortal } from 'react-dom';
 import {Building2,CheckCircle2,FileUp,HandCoins,Plus,UserRound,X} from 'lucide-react';
 import {PersonalWalletAccount,PersonalWalletCard,PersonalWalletPayable} from '../../services/personalWallet.service';
 import {formatMoney} from '../../utils/formatters';
@@ -126,7 +127,7 @@ export const WalletPayablesPanel:React.FC<Props>=({payables,accounts,cards,savin
     {listMode==='open'&&!['PAID','CANCELED'].includes(status)&&<button type="button" onClick={()=>start(p)} className="mt-3 w-full rounded-lg bg-emerald-600 py-2.5 text-xs font-bold text-white">Pagar dívida</button>}
    </article>;
   })}</div>}
-  {selected&&<div role="dialog" aria-modal="true" aria-label="Pagar dívida" className="fixed inset-0 z-[2400] flex items-end justify-center bg-slate-950/85 sm:items-center sm:p-4">
+  {selected&&createPortal(<div role="dialog" aria-modal="true" aria-label="Pagar dívida" className="fixed inset-0 z-[2400] flex items-end justify-center bg-slate-950/85 sm:items-center sm:p-4">
    <form onSubmit={submit} className="max-h-[calc(100dvh-1rem)] w-full max-w-md space-y-3 overflow-y-auto overscroll-contain rounded-t-3xl border border-slate-700 bg-slate-900 p-5 pb-8 text-white sm:max-h-[calc(100dvh-2rem)] sm:rounded-3xl">
     <header className="flex items-center justify-between"><div><span className="text-xs text-emerald-400">Registrar pagamento</span><h3 className="text-lg font-bold">{selected.creditor_name}</h3></div><button type="button" aria-label="Fechar" onClick={reset}><X size={18}/></button></header>
     <p className="text-xs text-slate-400">Saldo devedor: <PrivateMoney value={formatMoney(selected.outstanding_balance)} /></p>
@@ -158,6 +159,6 @@ export const WalletPayablesPanel:React.FC<Props>=({payables,accounts,cards,savin
     {error&&<p role="alert" className="text-xs text-rose-300">{error}</p>}
     <button type="submit" disabled={busy||saving} className="w-full rounded-lg bg-emerald-600 p-3 text-sm font-bold text-white disabled:opacity-40">{busy||saving?'Registrando...':'Confirmar pagamento'}</button>
    </form>
-  </div>}
+  </div>,document.body)}
  </div>;
 };

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { businessDateInManaus } from '../../utils/businessDate';
 import {
   FileText,
@@ -299,7 +300,7 @@ export const WalletStatementImport: React.FC<Props> = ({
 
   const isOfx = source?.name?.toLowerCase().endsWith('.ofx') || source?.name?.toLowerCase().endsWith('.qfx');
 
-  return (
+  const dialog = (
     <div
       role="dialog"
       aria-modal="true"
@@ -650,4 +651,5 @@ export const WalletStatementImport: React.FC<Props> = ({
       </section>
     </div>
   );
+  return typeof document === 'undefined' ? dialog : createPortal(dialog, document.body);
 };

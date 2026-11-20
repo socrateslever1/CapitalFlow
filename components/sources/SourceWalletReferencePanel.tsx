@@ -127,7 +127,7 @@ export const SourceWalletReferencePanel: React.FC<Props> = ({ sources, activeUse
         origins.push({
           target_kind: resource?.kind ?? previous!.target_kind,
           target_id: resource?.id ?? previous!.target_id,
-          allocated_amount: previous?.allocated_amount ?? null,
+          allocated_amount: null,
         });
       }
     } catch (cause) {

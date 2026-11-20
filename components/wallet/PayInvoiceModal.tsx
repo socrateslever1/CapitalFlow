@@ -1,4 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Receipt, CheckCircle2, AlertCircle, Loader2, ArrowRight, Layers } from 'lucide-react';
 import { PersonalWalletCard, PersonalWalletAccount } from '../../services/personalWallet.service';
 import { formatMoney } from '../../utils/formatters';
@@ -128,7 +129,7 @@ export const PayInvoiceModal: React.FC<PayInvoiceModalProps> = ({
     }
   };
 
-  return (
+  return createPortal((
     <div role="dialog" aria-modal="true" data-modal-open="true"
       className="fixed inset-0 z-[2000] flex flex-col justify-end sm:justify-center sm:items-center bg-slate-950/85 sm:p-4 backdrop-blur-sm overflow-hidden">
       <div className="w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl overflow-y-auto max-h-[100dvh] sm:max-h-[92dvh]">
@@ -321,5 +322,5 @@ export const PayInvoiceModal: React.FC<PayInvoiceModalProps> = ({
         </form>
       </div>
     </div>
-  );
+  ), document.body);
 };

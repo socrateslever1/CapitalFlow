@@ -294,8 +294,9 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
             <Trash2 size={14} /> Excluir conta
           </button>
           {canTransferCapital && profileId && (
-            <button type="button" onClick={() => setCapitalTransferOpen(true)} disabled={capitalMovable <= 0}
-              className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-blue-500/30 bg-blue-950/25 px-2.5 py-1.5 text-xs font-bold text-blue-200 hover:bg-blue-900/35 disabled:opacity-40">
+            <button type="button" onClick={() => setCapitalTransferOpen(true)}
+              title={capitalMovable <= 0 ? 'Nenhuma fonte do Capital com saldo disponível no momento' : 'Transferir saldo do Capital para esta conta'}
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-blue-500/30 bg-blue-950/25 px-2.5 py-1.5 text-xs font-bold text-blue-200 hover:bg-blue-900/35">
               <ArrowLeftRight size={14} /> Transferir do Capital
             </button>
           )}

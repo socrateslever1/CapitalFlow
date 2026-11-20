@@ -177,17 +177,17 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
                     </section>
                 )}
             </div>
-            {createModalType && (
-                <CreateAccountModal
-                    activeUser={activeUser}
-                    capitalSources={data.capitalSources || []}
-                    existingAccounts={data.accounts}
-                    existingCards={data.cards}
-                    initialAccountType={createModalType}
-                    onClose={() => setCreateModalType(null)}
-                    onSaved={async () => { await refresh(); }}
-                />
-            )}
         </>)}
+        {data && createModalType && (
+            <CreateAccountModal
+                activeUser={activeUser}
+                capitalSources={data.capitalSources || []}
+                existingAccounts={data.accounts}
+                existingCards={data.cards}
+                initialAccountType={createModalType}
+                onClose={() => setCreateModalType(null)}
+                onSaved={async () => { await refresh(); }}
+            />
+        )}
     </WalletPageFrame>;
 };

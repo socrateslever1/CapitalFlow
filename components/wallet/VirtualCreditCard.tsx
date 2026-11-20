@@ -93,8 +93,7 @@ export const VirtualCreditCard: React.FC<VirtualCreditCardProps> = ({
       >
         {/* Camada de brilho / textura reflexiva */}
         <div className={`absolute inset-0 bg-gradient-to-tr ${theme.shine} pointer-events-none`} />
-        <div className="pointer-events-none absolute -right-14 -top-16 h-56 w-56 rounded-full border border-white/10 bg-white/[0.025]" />
-        <div className="absolute -right-20 -top-20 w-56 h-56 bg-white/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="pointer-events-none absolute -right-14 -top-16 h-56 w-56 rounded-full border border-white/10" />
 
         {!isFlipped ? (
           /* FRENTE DO CARTÃO */
@@ -102,7 +101,7 @@ export const VirtualCreditCard: React.FC<VirtualCreditCardProps> = ({
             {/* Topo: Emissor, Banco e Contactless */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <BankLogo size="sm" name={card.institution_key || card.issuer || theme.logoText} alternateName={card.nickname}/>
+                <BankLogo variant="card" size="card" name={card.institution_key || card.issuer || theme.logoText} alternateName={card.nickname}/>
                 <span className="text-[10px] font-bold uppercase tracking-widest text-white/80 bg-black/25 px-2 py-0.5 rounded-full border border-white/15">
                   {card.nickname}
                 </span>

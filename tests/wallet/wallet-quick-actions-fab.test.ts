@@ -8,11 +8,11 @@ const accounts = readFileSync('features/wallet/pages/WalletAccountsPage.tsx', 'u
 const payables = readFileSync('features/wallet/pages/WalletPayablesPage.tsx', 'utf8');
 
 test('o FAB expande para cima com as quatro ações rápidas', () => {
-  for (const label of ['Adicionar cartão', 'Adicionar despesa', 'Adicionar conta', 'Adicionar compromisso']) {
+  for (const label of ['Adicionar cartão', 'Adicionar despesa', 'Adicionar conta', 'Compromisso']) {
     assert.match(fab, new RegExp(label));
   }
   assert.match(fab, /aria-expanded/);
-  assert.match(fab, /right-4 z-40/);
+  assert.match(fab, /right-6 z-\[var\(--z-fab\)\]/);
   assert.match(fab, /onCards/);
   assert.match(fab, /bottom-28/);
   assert.match(fab, /bottom-20/);

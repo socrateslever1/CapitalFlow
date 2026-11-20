@@ -6,12 +6,13 @@ type Props = {
   name?: string | null;
   alternateName?: string | null;
   customImage?: string | null;
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'card' | 'md' | 'lg';
+  variant?: 'default' | 'card';
   className?: string;
   style?: React.CSSProperties;
 };
-const sizes = { sm: 'h-8 w-8', md: 'h-11 w-11', lg: 'h-14 w-14' };
-export const BankLogo: React.FC<Props> = ({ name, alternateName, customImage, size = 'md', className = '', style }) => {
+const sizes = { sm: 'h-8 w-8', card: 'h-9 w-9', md: 'h-11 w-11', lg: 'h-14 w-14' };
+export const BankLogo: React.FC<Props> = ({ name, alternateName, customImage, size = 'md', variant = 'default', className = '', style }) => {
   const [customFailed, setCustomFailed] = useState(false);
   const [localFailed, setLocalFailed] = useState(false);
   const localLogo = resolveBankLogo(name === 'Bradescard' ? 'Bradesco' : name, alternateName);
@@ -23,10 +24,11 @@ export const BankLogo: React.FC<Props> = ({ name, alternateName, customImage, si
   const url = usingCustom ? customImage! : (!localFailed ? localLogo : null);
   const fallbackName = String(name || alternateName || 'Banco').trim();
   const initials = fallbackName.split(/\s+/).filter(Boolean).slice(0, 2).map(t => t[0]).join('').toUpperCase();
+  const isCard = variant === 'card';
   return (
     <div
       style={style}
-      className={`relative flex shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-700/60 bg-slate-800 ${sizes[size]} ${className}`}
+      className={`relative flex shrink-0 items-center justify-center overflow-hidden ${isCard ? 'rounded-lg border-2 border-white bg-slate-950' : 'rounded-xl border border-slate-700/60 bg-slate-800'} ${sizes[size]} ${className}`}
     >
       {url ? (
         <img

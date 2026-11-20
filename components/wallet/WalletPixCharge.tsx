@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { CheckCircle2, Copy, Landmark, Link2, Loader2, QrCode, Share2, X } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { PersonalWalletAccount, personalWalletService } from '../../services/personalWallet.service';
@@ -126,9 +127,9 @@ export const WalletPixCharge: React.FC<Props> = ({
     }
   };
 
-  return <div role={embedded ? 'region' : 'dialog'} aria-modal={embedded ? undefined : 'true'} aria-labelledby="wallet-pix-title"
+  const content = <div role={embedded ? 'region' : 'dialog'} aria-modal={embedded ? undefined : 'true'} aria-labelledby="wallet-pix-title"
     className={embedded ? 'mx-auto w-full max-w-7xl' : 'fixed inset-0 z-[2500] flex items-end justify-center bg-slate-950/85 sm:items-center sm:p-4'}>
-    <section className={`${embedded ? 'rounded-3xl' : 'max-h-[96dvh] rounded-t-3xl sm:rounded-3xl'} w-full space-y-5 overflow-y-auto border border-slate-700 bg-slate-900 p-5 text-white shadow-2xl sm:p-6 lg:p-8`}>
+    <section className={`${embedded ? 'rounded-3xl' : 'max-h-[96dvh] max-w-6xl rounded-t-3xl sm:max-h-[min(90dvh,960px)] sm:rounded-3xl'} w-full space-y-5 overflow-y-auto border border-slate-700 bg-slate-900 p-5 text-white shadow-2xl sm:p-6 lg:p-8`}>
       <header className="flex items-center justify-between gap-3">
         <div><h2 id="wallet-pix-title" className="flex items-center gap-2 text-lg font-bold"><QrCode size={19} className="text-emerald-300"/>Cobrança PIX</h2>
           <p className="mt-1 text-xs text-slate-400">Crie um PIX estático vinculado a uma conta da Carteira.</p></div>
@@ -194,4 +195,5 @@ export const WalletPixCharge: React.FC<Props> = ({
       {error && <p role="alert" className="rounded-lg border border-rose-700/50 bg-rose-950/20 p-3 text-xs text-rose-300">{error}</p>}
     </section>
   </div>;
+  return embedded ? content : createPortal(content, document.body);
 };

@@ -4,11 +4,14 @@ import test from 'node:test';
 
 test('cards page exposes the three credit magnitudes and the manual override action', () => {
   const page = readFileSync('features/wallet/pages/WalletCardsPage.tsx', 'utf8');
-  assert.match(page, /Fatura selecionada/);
+  const modal = readFileSync('components/wallet/InvoiceOverrideModal.tsx', 'utf8');
+  assert.match(page, /label: savedInvoiceTotalCents === null \? 'Saldo de fatura registrado' : 'Total da fatura \(banco\)'/);
   assert.match(page, /Faturas posteriores/);
-  assert.match(page, /Limite disponível/);
-  assert.match(page, /Definir Valor da Fatura/);
+  assert.match(page, /'Disponível estimado' : 'Disponível informado pelo banco'/);
+  assert.match(page, /Ajustar fatura/);
   assert.match(page, /InvoiceOverrideModal/);
+  assert.match(modal, /saveLabel="Salvar valores do banco"/);
+  assert.doesNotMatch(page, /Definir vencimento e valores|Corrigir vencimento e valores/);
 });
 
 test('wallet service dispatches all phase 3 financial writes through RPCs with request ids', () => {

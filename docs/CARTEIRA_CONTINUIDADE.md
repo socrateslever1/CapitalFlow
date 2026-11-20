@@ -1,4 +1,30 @@
-## 20/11/2026 — Refinamento do vermelho e das logos dos cartões
+## 20/11/2026 — Correção dos gates da Carteira e renderização de importação
+
+- `WalletStatementImport` agora usa portal em `document.body` no navegador e retorna o diálogo diretamente quando não existe DOM. Isso evita `ReferenceError` nos ambientes de teste sem navegador sem mudar o comportamento na interface.
+- Atualizados testes de contrato que ainda apontavam para os controles antigos de ajuste de fatura, layout offline, posição/cor do cartão e rótulo do FAB. O teste do cadastro do cartão agora confirma explicitamente que o CVC não é solicitado nem armazenado. Ao salvar vínculos de origem, a alocação manual antiga é zerada (`null`), conforme a regra documentada: a disponibilidade usa o saldo integral atual da conta ou cartão.
+- Evidências: `npm run test:wallet` (335/335), `npm run test:wallet-statement-import` (69/69), testes focados de contratos/UI (24/24), `npm run test:wallet-visual` (2/2), `npm run test:wallet-overview-localization` (2/2), `npm run test:quality` passou e `git diff --check` passou. Build dentro do gate concluiu com avisos de chunk/importações dinâmicas. Sem alteração em RPC, migration ou regras financeiras.
+
+## 20/11/2026 — Idioma da interface limitado a Português (Brasil)
+
+- A seleção de inglês/espanhol foi removida do perfil e da tela de login porque a tradução cobria apenas autenticação e navegação, enquanto o restante da interface permanecia em português. O perfil agora mostra Português (Brasil) como idioma disponível; o login exibe a mesma informação sem controle interativo. O tipo de idioma selecionável foi separado dos locales legados aceitos pelas funções de tradução, para impedir chamadas tipadas a `setLanguage('en'/'es')`.
+- Preferências antigas `en`/`es` (ou códigos inválidos) em `capitalflow:language` são normalizadas para `pt-BR` ao inicializar. O contrato de idioma e os dicionários legados permanecem para compatibilidade interna, mas não há mais caminho de seleção para eles.
+- Critérios observados: um único idioma aparece nos pontos de seleção, idioma antigo volta para pt-BR, `html lang` permanece `pt-BR`. `node scripts/i18n/englishUiText.mjs` encontrou zero texto inglês rastreável; essa varredura não mede a cobertura das traduções EN/ES. `npm run build` concluiu com avisos existentes de chunks/importações dinâmicas. `git diff --check` passou. Testes automatizados não foram executados.
+
+## 20/11/2026 — Remoção do acesso duplicado à conferência da fatura
+
+- Removido o botão superior “Definir/Corrigir vencimento e valores” e seu modal independente em `WalletCardsPage`. O resumo de valores bancários permanece visível; “Ajustar fatura”, abaixo, preserva o fluxo para corrigir a fatura e abrir a conferência dos valores do banco.
+- Revisão independente confirmou que `InvoiceOverrideModal` já salva os valores bancários pelo mesmo callback, sem criar compra ou pagamento; não foi identificada perda de funcionalidade única nem estado sem uso.
+- `npm run build` concluiu e `git diff --check` passou. Sem testes automatizados ou validação visual no navegador nesta alteração.
+## 20/11/2026 — Correção da posição dos diálogos da Carteira
+
+- Causa do PIX no rodapé: `WalletPixCharge` renderizava o overlay fixo dentro da página de detalhes. Ancestrais com transformação/rolagem podiam virar o bloco de referência do `position: fixed`. O diálogo agora usa portal em `document.body`, preservando a versão incorporada da página de Cobrança e o drawer mobile. No desktop, o painel também fica limitado a 90dvh/960px e largura máxima de 6xl, com rolagem interna.
+- A varredura de overlays próprios da Carteira encontrou o mesmo risco em pagamento de fatura, edição de despesa, ações rápidas, formulário de conta, detalhes/scanner do cartão, importação/leitura de extrato, inbox de arquivo, recorrências e pagamento de dívida. Todos foram portados para `document.body`; os que já usavam o `Modal` compartilhado/portal não precisaram de mudança.
+- A busca global deixou três diálogos próprios fora da Carteira sem portal (`TermsAcceptanceModal`, `PlatformAdminPage` e `ExitConfirmDialog`); não há relato ou evidência de que reproduzam o sintoma nesta execução, ficam como candidatos para validação específica. Drawers e estados fixos não modais não foram alterados.
+- Evidências: `npm run build` concluiu, `git diff --check` passou e revisão independente não encontrou problemas nos wrappers/handlers. Sem testes automatizados; navegador indisponível para validação visual. Build manteve avisos existentes de divisão de chunks/importações dinâmicas.
+## 20/11/2026 — Revisão final do ícone e do cartão Bradesco
+
+- O ícone nas três representações passou a ter 36px, marca centralizada em tile marinho com contorno branco e sem placa branca. O cartão Bradesco usa o gradiente vinho escuro da referência (`#9f1239` → `#4c0519`), com aro fino e luz discreta no canto superior.
+- `npm run build` concluiu; `git diff --check` passou. Sem testes automatizados ou validação visual no navegador, cujo host estava indisponível.## 20/11/2026 — Refinamento do vermelho e das logos dos cartões
 
 - Após feedback visual, escurecido o gradiente do Bradesco para vinho, preservando a cor personalizada quando cadastrada; retomados os brilhos e os aros sutis dos cartões. Logos voltaram ao bloco escuro original, sem a moldura branca aplicada na revisão anterior.
 - `npm run build` concluiu e `git diff --check` passou. Não foram executados testes automatizados nem validação visual no navegador/aparelho; o host do navegador estava indisponível. Avisos de chunk/importação dinâmica permanecem no build.

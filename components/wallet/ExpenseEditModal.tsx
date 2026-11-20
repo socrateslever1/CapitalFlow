@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { CalendarDays, Loader2, Save, X } from 'lucide-react';
 import type { PersonalWalletExpense, UpdatePersonalWalletExpense } from '../../services/personalWallet.service';
 import { generateUUID } from '../../utils/generators';
@@ -58,7 +59,7 @@ export const ExpenseEditModal: React.FC<ExpenseEditModalProps> = ({ expense, com
 
   const fieldClass = 'w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20';
 
-  return (
+  return createPortal((
     <div role="dialog" aria-modal="true" aria-labelledby="edit-expense-title" className="fixed inset-0 z-[2200] flex items-end justify-center bg-slate-950/80 backdrop-blur-sm sm:items-center sm:p-4">
       <button type="button" aria-label="Fechar edição" className="absolute inset-0 cursor-default" onClick={() => !saving && onClose()} />
       <form onSubmit={submit} className="relative w-full rounded-t-3xl border border-slate-700 bg-slate-900 p-5 shadow-2xl sm:max-w-md sm:rounded-2xl">
@@ -105,5 +106,5 @@ export const ExpenseEditModal: React.FC<ExpenseEditModalProps> = ({ expense, com
         </button>
       </form>
     </div>
-  );
+  ), document.body);
 };

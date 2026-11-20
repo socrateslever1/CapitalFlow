@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { CreditCard, DollarSign, FileUp, Image as ImageIcon, Maximize2, Plus, Receipt, RotateCw, X } from 'lucide-react';
 import type { PersonalWalletAccount, PersonalWalletCard, PersonalWalletExpense, PersonalWalletExpenseInstallment, UpdatePersonalWalletExpense, WalletStatementRow } from '../../services/personalWallet.service';
 import { formatMoney } from '../../utils/formatters';
@@ -128,7 +129,7 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
     <button type="button" onClick={() => setImportOpen(true)} className="w-full lg:w-auto flex items-center justify-center gap-2 rounded-lg border border-cyan-500/40 bg-cyan-900/20 p-3 text-xs font-bold text-cyan-300"><FileUp size={16}/> Importar PDF da fatura para conferência</button>
   ) : null;
 
-  return (
+  return createPortal((
     <div role="dialog" aria-modal="true" data-modal-open="true" className="fixed inset-0 z-[2000] bg-slate-950/90 backdrop-blur-sm animate-in fade-in lg:p-6">
       <div className="mx-auto flex h-[100dvh] w-full max-w-7xl flex-col overflow-hidden bg-slate-900 shadow-2xl lg:h-[calc(100dvh-3rem)] lg:rounded-2xl lg:border lg:border-slate-800">
         <div className="hidden shrink-0 items-center justify-between border-b border-slate-800 bg-slate-900/95 p-4 lg:flex">
@@ -177,5 +178,5 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
           onClose={() => setImportOpen(false)} onImported={onImported} />
       )}
     </div>
-  );
+  ), document.body);
 };

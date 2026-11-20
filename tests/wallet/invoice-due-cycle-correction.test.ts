@@ -67,16 +67,18 @@ test('overview shows competence by closing date and respects the actual payment 
 test('primeira fatura permite mês manual sem fatura preexistente nem limite disponível inventado', () => {
   const page = readFileSync('features/wallet/pages/WalletCardsPage.tsx', 'utf8');
   const preview = readFileSync('components/wallet/CardInvoiceSummaryPreview.tsx', 'utf8');
+  const modal = readFileSync('components/wallet/InvoiceOverrideModal.tsx', 'utf8');
   assert.equal(resolveManualInvoiceMonth(null, '2026-12-01'), '2026-12-01');
   assert.equal(resolveManualInvoiceMonth('2026-12', null), '2026-12-01');
   assert.equal(resolveManualInvoiceMonth('2026-13', null), null);
   assert.equal(resolveManualInvoiceMonth('2026-12-05', null), null);
-  assert.match(page, /setInvoiceFactsModalMonth\(resolveManualInvoiceMonth\(statementMonth, suggestedNewInvoiceMonth\)\)/);
+  assert.match(page, /initialDueMonth=\{creatingInvoice \? suggestedNewInvoiceMonth/);
   assert.match(page, /dueMonth:\s*confirmedDueMonth/);
   assert.match(page, /availableLimit: editedInvoiceFacts\?\.available_limit \?\? null/);
-  assert.match(page, /type="month" required/);
-  assert.match(page, /form="wallet-manual-invoice-form"/);
-  assert.match(page, /busy=\{invoiceFactsSaving\}/);
+  assert.match(modal, /type="month" required/);
+  assert.match(modal, /setMonth\(next\)/);
+  assert.match(modal, /form id="invoice-override-adjustment-form"/);
+  assert.match(modal, /formId="wallet-invoice-override-facts-form"/);
   assert.match(preview, /inlineSave \&\&/);
   assert.match(preview, /onSavingChange\?\.\(true\)/);
   assert.doesNotMatch(page, /if \(!selected \|\| !statementMonth\) throw new Error\('Selecione o cartão e o mês/);
@@ -85,8 +87,11 @@ test('primeira fatura permite mês manual sem fatura preexistente nem limite dis
 test('conferência da fatura explica quando apenas registra dados e quando inicia a posição do cartão', () => {
   const page=readFileSync('features/wallet/pages/WalletCardsPage.tsx','utf8');
   const preview=readFileSync('components/wallet/CardInvoiceSummaryPreview.tsx','utf8');
-  assert.match(page,/Conferir fatura do banco/);
-  assert.match(page,/Mês de pagamento da fatura/);
+  const modal=readFileSync('components/wallet/InvoiceOverrideModal.tsx','utf8');
+  assert.match(page,/<InvoiceOverrideModal/);
+  assert.match(modal,/Mês de pagamento/);
+  assert.match(modal,/saveLabel="Salvar valores do banco"/);
+  assert.match(modal,/onSave=\{summary=>onSaveInvoiceFacts\(month\+'-01',summary\)\}/);
   assert.match(preview,/Salve aqui os valores que aparecem no app ou na fatura do banco/);
   assert.match(preview,/tamb.m podem registrar a posi..o inicial/);
   assert.match(preview,/não um pagamento/);

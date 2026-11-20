@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, ArrowDownLeft, ArrowRight, CalendarDays, ChevronDown, RefreshCw, Wallet } from 'lucide-react';
+import { AlertTriangle, ArrowDownLeft, ArrowRight, CalendarDays, ChevronDown, RefreshCw } from 'lucide-react';
 import type { CapitalSource, Loan } from '../../../types';
 import { formatMoney } from '../../../utils/formatters';
 import { isTestSource } from '../../../utils/testSource';
@@ -24,12 +24,11 @@ const empty: (month: string) => MonthlyBalance = month => ({
   withdrawal: 0, loss: 0, expense: 0, reversed: 0, count: 0, entries: [],
 });
 
-const Card: React.FC<{title:string; value:number; stealth:boolean; color?:string; description:string}> =
-({title,value,stealth,color='text-white',description}) => (
+const Card: React.FC<{title:string; value:number; stealth:boolean; color?:string}> =
+({title,value,stealth,color='text-white'}) => (
   <div className="min-w-0 rounded-xl border border-slate-700/70 bg-slate-900/65 p-3">
     <p className="text-[10px] font-semibold text-slate-400">{title}</p>
     <p className={`mt-1 break-words text-base font-black tabular-nums sm:text-lg ${color}`}>{formatMoney(value,stealth)}</p>
-    <p className="mt-1 text-[10px] leading-4 text-slate-500">{description}</p>
   </div>
 );
 
@@ -96,12 +95,9 @@ export const MonthlyBalanceReport: React.FC<Props> = ({profileId,loans,sources,i
 
   return <section data-monthly-balance className="min-w-0 rounded-xl border border-slate-700/70 bg-slate-950/60 p-3 sm:p-5">
     <div className="flex flex-wrap items-start justify-between gap-3">
-      <div className="flex min-w-0 items-start gap-2">
+      <div className="flex min-w-0 items-center gap-2">
         <span className="rounded-lg bg-blue-500/10 p-2 text-blue-400"><CalendarDays size={19}/></span>
-        <div>
-          <h2 className="text-base font-bold text-slate-100">{heading}</h2>
-          <p className="mt-0.5 text-xs text-slate-400">Valores registrados por data de movimentação, não saldo da conta.</p>
-        </div>
+        <h2 className="text-base font-bold text-slate-100">{heading}</h2>
       </div>
       <div className="flex items-center gap-2">
         <label className="sr-only" htmlFor={compact?'balance-month-dashboard':'balance-month-reports'}>Mês do balanço</label>
@@ -124,17 +120,12 @@ export const MonthlyBalanceReport: React.FC<Props> = ({profileId,loans,sources,i
           <ArrowDownLeft size={16}/> Total recebido no mês
         </div>
         <p className="mt-1 text-2xl font-black tabular-nums text-white">{money(period.totalReceived)}</p>
-        <p className="mt-1 text-[10px] text-slate-400">Capital recuperado + juros e encargos recebidos, líquidos dos estornos identificados.</p>
       </div>
       <div className="mt-2 grid grid-cols-2 gap-2">
-        <Card title="Capital recuperado" value={period.principal} stealth={isStealthMode}
-          description="Retorno do dinheiro emprestado."/>
-        <Card title="Lucro realizado" value={period.profit} stealth={isStealthMode} color="text-emerald-300"
-          description="Juros e encargos recebidos; não inclui projeções."/>
-        <Card title="Capital emprestado" value={period.lent} stealth={isStealthMode} color="text-amber-300"
-          description="Novo dinheiro colocado nos contratos. Não é prejuízo."/>
-        <Card title="Retiradas do lucro" value={period.withdrawal} stealth={isStealthMode}
-          description="Dinheiro retirado do caixa; não reduz o lucro histórico."/>
+        <Card title="Capital recuperado" value={period.principal} stealth={isStealthMode} />
+        <Card title="Lucro realizado" value={period.profit} stealth={isStealthMode} color="text-emerald-300" />
+        <Card title="Capital emprestado" value={period.lent} stealth={isStealthMode} color="text-amber-300" />
+        <Card title="Retiradas do lucro" value={period.withdrawal} stealth={isStealthMode} />
       </div>
       {(period.loss!==0 || period.expense!==0 || period.unclassified!==0) && <div className="mt-2 rounded-lg border border-amber-500/30 bg-amber-950/20 p-3 text-xs text-amber-200">
         <AlertTriangle size={16} className="mr-2 inline" />
@@ -144,19 +135,15 @@ export const MonthlyBalanceReport: React.FC<Props> = ({profileId,loans,sources,i
       </div>}
       {!compact && <>
         <div className="mt-2 grid grid-cols-2 gap-2">
-          <Card title="Despesas" value={period.expense} stealth={isStealthMode}
-            color="text-rose-300" description="Despesas registradas, distintas de retiradas de lucro."/>
-          <Card title="Perdas reconhecidas" value={period.loss} stealth={isStealthMode}
-            color="text-rose-300" description="Somente baixas efetivas; atrasos não são prejuízo automático."/>
+          <Card title="Despesas" value={period.expense} stealth={isStealthMode} color="text-rose-300" />
+          <Card title="Perdas reconhecidas" value={period.loss} stealth={isStealthMode} color="text-rose-300" />
           <div className="col-span-2">
             <Card title="Resultado após despesas e perdas" value={period.profit-period.expense-period.loss}
-              stealth={isStealthMode} color="text-emerald-300"
-              description="Lucro realizado menos despesas e perdas reconhecidas. Retiradas e novos empréstimos não reduzem o resultado."/>
+              stealth={isStealthMode} color="text-emerald-300" />
           </div>
         </div>
         <div className="mt-4 flex items-center justify-between gap-2">
           <h3 className="text-sm font-semibold text-slate-200">Histórico por mês</h3>
-          <p className="text-[10px] text-slate-500">Sem previsão de juros futuros</p>
         </div>
         <div className="mt-2 max-h-64 overflow-auto rounded-lg border border-slate-800">
           <table className="w-full min-w-[740px] text-left text-xs">
@@ -208,9 +195,6 @@ export const MonthlyBalanceReport: React.FC<Props> = ({profileId,loans,sources,i
             onClick={()=>onOpenLoan(entry.loanId!)}>Ver contrato <ArrowRight size={12}/></button>}
         </article>)}
       </div>}
-      <p className="mt-2 flex items-center gap-1 text-[10px] leading-4 text-slate-500">
-        <Wallet size={12}/> Relatório contábil de recebimentos. Não representa saldo bancário ou conciliação de depósitos.
-      </p>
     </>}
   </section>;
 };

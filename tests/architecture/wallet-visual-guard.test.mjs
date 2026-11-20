@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 const summary = readFileSync('features/wallet/components/WalletOverviewSummary.tsx','utf8');
 const moduleFile = readFileSync('features/wallet/WalletModule.tsx','utf8');
+const presentation = readFileSync('components/wallet/walletPresentation.ts','utf8');
 test('wallet overview uses visual banking cards without altering data contracts', () => {
   assert(summary.includes('snap-x snap-mandatory'));
   assert(summary.includes('h-[132px]'), 'cartão compacto mantém apresentação visual');
@@ -11,7 +12,7 @@ test('wallet overview uses visual banking cards without altering data contracts'
   assert(summary.includes('getCardSummaryDestination(card.id)'));
   assert(summary.includes('formatMoney(available)'));
   assert(summary.includes('card.last_four'));
-  assert(summary.includes('card.primary_color || visual.accent'));
+  assert.match(presentation, /card\.primary_color\?\.trim\(\) \|\| visual\.accent/);
   assert(summary.includes('AccountCardStack compact'));
   assert(moduleFile.includes('<PageHeader'));
 });

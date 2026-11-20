@@ -858,7 +858,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           {/* INTERFACE */}
           {activeSection === 'INTERFACE' && (
             <div className="space-y-6">
-              <LanguageSelector onChanged={message => showToast(message, 'success')} />
+              <LanguageSelector />
               <div className="flex items-center gap-2.5 pt-2 pb-4 border-b border-slate-800/80">
                 <LayoutGrid size={18} className="text-blue-400 shrink-0" />
                 <div>

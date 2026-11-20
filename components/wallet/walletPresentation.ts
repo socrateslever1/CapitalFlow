@@ -89,14 +89,13 @@ export function getWalletCardVisual(card: WalletCardVisualInput, linkedInstituti
     card.institution_key || linkedInstitution || card.issuer || card.nickname || 'Cartão',
   );
   const accent = card.primary_color?.trim() || visual.accent;
-  const start = visual.key === 'bradesco'
-    ? `color-mix(in srgb, ${accent} 68%, #3b071c)`
-    : accent;
-  const end = visual.key === 'bradesco' ? '#2b0819' : visual.secondary;
+  const base = visual.key === 'bradesco' && !card.primary_color?.trim()
+    ? 'linear-gradient(135deg, #9f1239 0%, #881337 55%, #4c0519 100%)'
+    : `linear-gradient(135deg, ${accent}, ${visual.secondary})`;
   return {
     ...visual,
     accent,
-    background: `radial-gradient(circle at 82% 0%, rgba(255,255,255,.14), transparent 38%), linear-gradient(135deg, ${start}, ${end})`,
+    background: `radial-gradient(circle at 84% -4%, rgba(255,255,255,.12), transparent 38%), ${base}`,
   };
 }
 

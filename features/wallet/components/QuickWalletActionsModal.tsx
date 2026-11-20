@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { CreditCard, Landmark, Plus, SlidersHorizontal, Wallet, X, Check } from 'lucide-react';
 import {
   personalWalletService,
@@ -269,7 +270,7 @@ export const QuickWalletActionsModal: React.FC<QuickWalletActionsModalProps> = (
     }
   };
 
-  return (
+  return createPortal((
     <div
       role="dialog"
       aria-modal="true"
@@ -651,5 +652,5 @@ export const QuickWalletActionsModal: React.FC<QuickWalletActionsModalProps> = (
         </footer>
       </div>
     </div>
-  );
+  ), document.body);
 };

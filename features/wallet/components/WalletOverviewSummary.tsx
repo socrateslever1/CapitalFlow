@@ -121,7 +121,7 @@ export const WalletOverviewSummary: React.FC<WalletOverviewSummaryProps> = ({
                     <span aria-hidden="true" className="pointer-events-none absolute -right-10 -top-16 h-32 w-32 rounded-full border border-white/10"/>
                     <span className="relative flex min-w-0 items-start justify-between gap-2">
                       <span className="flex min-w-0 items-center gap-2">
-                        <BankLogo name={institution} alternateName={card.nickname} size="sm"/>
+                        <BankLogo variant="card" name={institution} alternateName={card.nickname} size="card"/>
                         <span className="min-w-0">
                           <strong className="block truncate text-sm font-semibold">{card.nickname}</strong>
                           <span className="block text-[10px] tracking-wider text-white/75">

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   CreditCard,
   ImagePlus,
@@ -578,7 +579,7 @@ export const PersonalWalletPage: React.FC<PersonalWalletPageProps> = ({ activeUs
       </div>
 
       {/* Formulário Modal/Drawer Mobile-First com Rodapé Fixo */}
-      {formMode && (
+      {formMode && createPortal(
         <div
           role="dialog"
           aria-modal="true"
@@ -767,7 +768,8 @@ export const PersonalWalletPage: React.FC<PersonalWalletPageProps> = ({ activeUs
               </div>
             </div>
           </form>
-        </div>
+        </div>,
+        document.body,
       )}
 
       {selectedCardForEdit && <CardEditModal key={selectedCardForEdit.id} card={selectedCardForEdit} accounts={data.accounts}

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Sparkles,
   Zap,
@@ -758,7 +759,7 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
     );
   }
 
-  return (
+  return createPortal((
     <div
       role="dialog"
       aria-modal="true"
@@ -769,5 +770,5 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
         {content}
       </section>
     </div>
-  );
+  ), document.body);
 };

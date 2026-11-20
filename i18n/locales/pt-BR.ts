@@ -5,7 +5,7 @@
  */
 export const ptBR = {
   'language.label': 'Idioma',
-  'language.description': 'Idioma dos menus e das mensagens do sistema. Valores, datas e moeda seguem o padrão brasileiro.',
+  'language.description': 'A interface está disponível somente em Português (Brasil). Valores, datas e moeda seguem o padrão brasileiro.',
   'language.saved': 'Idioma alterado para português.',
   'language.partial': 'As traduções estão sendo ampliadas aos poucos; telas ainda não traduzidas continuam em português.',
 

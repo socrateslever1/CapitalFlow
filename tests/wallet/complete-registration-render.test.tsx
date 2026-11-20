@@ -15,8 +15,9 @@ test('wallet header uses the existing page title, round icon and subtitle patter
 });
 test('full card fields are available and hidden by default without disabled CVC placeholders',()=>{
   const html=renderToStaticMarkup(<CardProtectedFields value={emptyProtectedCard()} onChange={()=>{}}/>);
-  for(const value of ['Número completo','CVC/CVV','Senha para proteger','Confirmar senha','Mostrar número e CVC'])assert.ok(html.includes(value));
+  for(const value of ['Número completo','CVC/CVV não é solicitado nem armazenado','Senha para proteger','Confirmar senha','Mostrar número'])assert.ok(html.includes(value));
   assert.ok(html.includes('type="password"'));assert.ok(!html.includes('readOnly'));
+  assert.doesNotMatch(html, /name=["'][^"']*(?:cvc|cvv)[^"']*["']/i);
 });
 test('shared modal renders one cancel control alongside its save action',()=>{
   const html=renderToStaticMarkup(<Modal title="Novo cartão" onClose={()=>{}} footer={<button type="submit" form="card-test">Salvar cartão</button>}><form id="card-test"/></Modal>);

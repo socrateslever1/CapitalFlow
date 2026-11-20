@@ -149,11 +149,10 @@ export const BankStack: React.FC<Props> = ({ accounts, cards, onCard, onEditCard
             >
               <div className="absolute inset-0 transition-transform duration-500 ease-out motion-reduce:transition-none" style={{ transformStyle: 'preserve-3d', transform: `rotateY(${isFlipped ? 180 : 0}deg)` }}>
                 <div className="absolute inset-0 overflow-hidden rounded-2xl border border-white/25 shadow-2xl" style={{ backfaceVisibility: 'hidden', background: front!.visual.background }}>
-                  <div aria-hidden className="pointer-events-none absolute -right-8 -top-10 h-36 w-36 rounded-full border border-white/10 bg-white/[0.025]" />
-                  <div aria-hidden className="absolute -right-7 -top-10 select-none text-7xl font-black text-white/10 sm:text-8xl">{front!.visual.monogram}</div>
+                  <div aria-hidden className="pointer-events-none absolute -right-8 -top-10 h-36 w-36 rounded-full border border-white/10" />
                   <div className="relative grid h-full grid-rows-[auto_auto_auto_1fr] gap-2 p-3.5 text-white sm:gap-3 sm:p-5">
                     <div className="flex min-w-0 items-start justify-between gap-3">
-                      <div className="flex min-w-0 items-center gap-2"><BankLogo size="sm" name={front!.issuer} alternateName={selected.nickname}/><strong className="truncate text-sm">{front!.issuer}</strong></div>
+                      <div className="flex min-w-0 items-center gap-2"><BankLogo variant="card" size="card" name={front!.issuer} alternateName={selected.nickname}/><strong className="truncate text-sm">{front!.issuer}</strong></div>
                       <Network brand={selected.brand}/>
                     </div>
                     <div className="flex items-center justify-between gap-3">

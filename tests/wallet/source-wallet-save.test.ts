@@ -32,6 +32,7 @@ test('origens antigas não são removidas automaticamente e a distinção de car
   assert.match(editor, /Vínculo antigo mantido/);
   assert.match(editor, /Fontes de capital do tipo cartão/);
   assert.match(editor, /const previous = saved\.find/);
-  assert.match(editor, /allocated_amount: previous\?\.allocated_amount \?\? null/);
+  assert.match(editor, /target_id: resource\?\.id \?\? previous!\.target_id/);
+  assert.match(editor, /allocated_amount: null/);
   assert.doesNotMatch(editor, /Remova o recurso indisponível antes de salvar/);
 });

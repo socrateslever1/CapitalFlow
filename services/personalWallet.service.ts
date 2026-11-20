@@ -566,6 +566,31 @@ const personalWalletServiceImpl = {
     return String(data);
   },
 
+  async editManualAccountOperation(input: {
+    operationId: string;
+    amount: number;
+    description: string;
+    category: string;
+    date: string;
+    requestId: string;
+  }): Promise<string> {
+    if (!Number.isFinite(input.amount) || input.amount <= 0 ||
+        Math.abs(input.amount * 100 - Math.round(input.amount * 100)) > 0.000001) {
+      throw new Error('Valor inválido: utilize até duas casas decimais.');
+    }
+    const { data, error } = await supabase.rpc('personal_wallet_edit_manual_operation', {
+      p_operation_id: input.operationId,
+      p_amount: input.amount,
+      p_description: input.description.trim(),
+      p_category: input.category.trim() || 'Outros',
+      p_operation_date: input.date,
+      p_request_id: input.requestId,
+    });
+    if (error) throw new Error(error.message);
+    if (!data || data !== input.operationId) throw new Error('Edição não confirmada no banco.');
+    return String(data);
+  },
+
   async voidManualAccountOperation(operationId: string): Promise<string> {
     if (!/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(operationId)) {
       throw new Error('Selecione um lançamento válido.');

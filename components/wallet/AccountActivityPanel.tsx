@@ -1,5 +1,5 @@
 import React, { useMemo, useReducer, useRef, useState } from 'react';
-import { ArrowDownLeft, ArrowUpRight, ArrowLeftRight, CreditCard, FileDown, FileUp, History, Plus, Search, Trash2 } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, ArrowLeftRight, CreditCard, FileDown, FileUp, History, Plus, Search, Trash2, Pencil } from 'lucide-react';
 import { PersonalWalletAccount, PersonalWalletExpense, PersonalWalletInvoicePayment, WalletAccountOperation, WalletStatementRow, personalWalletService } from '../../services/personalWallet.service';
 import { formatMoney } from '../../utils/formatters';
 import { generateUUID } from '../../utils/generators';
@@ -58,6 +58,13 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
   const [openingSaving,setOpeningSaving]=useState(false);
   const [openingModalOpen,setOpeningModalOpen]=useState(false);
   const [voidTarget,setVoidTarget]=useState<WalletAccountOperation|null>(null);
+  const [editTarget,setEditTarget]=useState<WalletAccountOperation|null>(null);
+  const [editAmount,setEditAmount]=useState('');
+  const [editDescription,setEditDescription]=useState('');
+  const [editCategory,setEditCategory]=useState('');
+  const [editDate,setEditDate]=useState('');
+  const [editSaving,setEditSaving]=useState(false);
+  const editRequestRef=useRef({signature:'',id:generateUUID()});
   const transactionRef=useRef({signature:'',id:generateUUID()});
   const openingRef=useRef({signature:'',id:generateUUID()});
   const parsedAmount=(() => { try { return parseWalletMoney(amount); } catch { return NaN; } })();
@@ -113,6 +120,44 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
       setSuccess('Saldo inicial registrado de forma auditável.');
     }catch(err:any){setError(err?.message||'Não foi possível registrar o saldo inicial.');}
     finally{setOpeningSaving(false);}
+  };
+  const startEditing = (operation: WalletAccountOperation) => {
+    setEditTarget(operation);
+    setEditAmount(String(operation.amount));
+    setEditDescription(operation.description);
+    setEditCategory(operation.category || 'Outros');
+    setEditDate(operation.operation_date);
+    setError('');
+    setSuccess('');
+  };
+  const saveEdited = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!editTarget || editSaving) return;
+    let value: number;
+    try { value = parseWalletMoney(editAmount,'valor da movimentação'); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : 'Valor inválido.'); return; }
+    if (value <= 0 || !editDescription.trim() || editDescription.trim().length > 240 ||
+        editCategory.trim().length > 100 || !editDate) {
+      setError('Confira o valor, descrição, categoria e data.');
+      return;
+    }
+    const signature=[editTarget.id,value.toFixed(2),editDescription.trim(),editCategory.trim(),editDate].join('|');
+    if (editRequestRef.current.signature !== signature)
+      editRequestRef.current={signature,id:generateUUID()};
+    setEditSaving(true); setError(''); setSuccess('');
+    try {
+      await personalWalletService.editManualAccountOperation({
+        operationId: editTarget.id,amount:value,description:editDescription,
+        category:editCategory,date:editDate,requestId:editRequestRef.current.id,
+      });
+      await onSaved();
+      notifyFinancialDataChanged({wallet:true,capital:Boolean(account.capital_source_id)});
+      setEditTarget(null);
+      editRequestRef.current={signature:'',id:generateUUID()};
+      setSuccess('Lançamento atualizado e saldo confirmado. A revisão ficou registrada para auditoria.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Não foi possível atualizar o lançamento.');
+    } finally { setEditSaving(false); }
   };
   const confirmVoidManual = async (operation: WalletAccountOperation) => {
     if (saving || voidingId) return;
@@ -194,7 +239,7 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
           <input aria-label="Buscar movimentações" className="w-full bg-transparent py-2 text-xs text-white outline-none" placeholder="Buscar descrição ou categoria" value={search} onChange={e=>setSearch(e.target.value)}/>
         </div>
         <div className="flex shrink-0 items-center justify-between gap-3 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs sm:min-w-[220px]">
-          <span className="text-slate-400">Total do extrato{search ? ' filtrado' : ''}</span>
+          <span className="text-slate-400">Resultado das movimentações{search ? ' filtradas' : ''}</span>
           <strong className={`whitespace-nowrap tabular-nums ${statementTotal>=0?'text-emerald-300':'text-rose-300'}`}>{statementTotal>=0?'+':'−'}{formatMoney(Math.abs(statementTotal))}</strong>
         </div>
       </div>
@@ -204,7 +249,13 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
           <div className="min-w-0"><p className="truncate text-xs font-semibold text-white">{m.label}</p><div className="mt-1 flex flex-wrap items-center gap-1.5"><span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${tagClass(m.tag)}`}>{m.tag}</span><span className="text-[11px] text-slate-400">{fmtDate(m.date)} · {m.category}</span></div></div>
           <div className="flex shrink-0 flex-col items-end gap-1">
             <strong className={`text-sm ${m.amount>=0?'text-emerald-300':'text-rose-300'}`}>{m.amount>=0?'+':'−'}{formatMoney(Math.abs(m.amount))}</strong>
-            {canVoid(m.id) && <button type="button" disabled={!!voidingId || saving}
+            {canVoid(m.id) && <button type="button" disabled={!!voidingId || saving || editSaving}
+              onClick={() => { const op=canVoid(m.id); if(op) startEditing(op); }}
+              aria-label={'Editar lançamento ' + m.label}
+              className="inline-flex min-h-8 items-center gap-1 rounded-md px-2 text-[11px] text-blue-300 hover:bg-blue-950/40 disabled:opacity-40">
+              <Pencil size={13}/>Editar
+            </button>}
+            {canVoid(m.id) && <button type="button" disabled={!!voidingId || saving || editSaving}
               onClick={() => { const operation=canVoid(m.id); if(operation){ setError(''); setSuccess(''); setVoidTarget(operation); } }}
               aria-label={'Excluir lançamento ' + m.label}
               className="inline-flex min-h-8 items-center gap-1 rounded-md px-2 text-[11px] text-rose-300 hover:bg-rose-950/40 disabled:opacity-40">
@@ -307,6 +358,33 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
             <label className="text-xs text-slate-300">Valor (R$)<FinancialCalculatorInput required className={input} value={openingAmount} onCommit={setOpeningAmount} fieldLabel="saldo inicial" placeholder="0,00"/></label>
             <label className="text-xs text-slate-300">Data<input required type="date" max={localToday()} className={input} value={openingDate} onChange={e=>setOpeningDate(e.target.value)}/></label>
           </div>
+          {error && <p role="alert" className="rounded-lg border border-rose-700/50 p-3 text-xs text-rose-300">{error}</p>}
+        </form>
+      </Modal>
+    )}
+    {editTarget && (
+      <Modal variant="wallet" size="md" title="Editar movimentação" subtitle={account.nickname}
+        busy={editSaving} onClose={() => { if (!editSaving) {setEditTarget(null);setError('');} }}
+        footer={<button type="submit" form="wallet-edit-operation-form" disabled={editSaving}
+          className={modalPrimaryActionClass}>{editSaving?'Salvando...':'Salvar alterações'}</button>}>
+        <form id="wallet-edit-operation-form" onSubmit={saveEdited} className="space-y-3">
+          <p className="text-xs text-slate-400">Somente lançamento manual. O banco ajustará o saldo pela diferença, preservando o histórico de revisões.</p>
+          <label className="block space-y-1 text-xs text-slate-300">Valor (R$)
+            <FinancialCalculatorInput required className={input} value={editAmount}
+              onCommit={setEditAmount} fieldLabel="valor da movimentação" />
+          </label>
+          <label className="block space-y-1 text-xs text-slate-300">Descrição
+            <input required maxLength={240} className={input} value={editDescription}
+              onChange={e=>setEditDescription(e.target.value)}/>
+          </label>
+          <label className="block space-y-1 text-xs text-slate-300">Categoria
+            <input maxLength={100} className={input} value={editCategory}
+              onChange={e=>setEditCategory(e.target.value)}/>
+          </label>
+          <label className="block space-y-1 text-xs text-slate-300">Data
+            <input required type="date" max={localToday()} className={input}
+              value={editDate} onChange={e=>setEditDate(e.target.value)}/>
+          </label>
           {error && <p role="alert" className="rounded-lg border border-rose-700/50 p-3 text-xs text-rose-300">{error}</p>}
         </form>
       </Modal>

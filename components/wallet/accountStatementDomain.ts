@@ -34,6 +34,14 @@ type StatementRowLike = {
   description: string; amount: number; category: string;
 };
 
+/** Repara descrições legadas em UTF-8 duplamente decodificado sem alterar nomes. */
+export function normalizeWalletStatementDescription(description: string): string {
+  return description
+    .replace(/^EmprÃ©stimo concedido\s*Â·\s*/i, 'Empréstimo · ')
+    .replace(/^Empréstimo concedido\s*[·-]\s*/i, 'Empréstimo · ')
+    .replace(/^Empréstimo\s*·\s*/i, 'Empréstimo · ');
+}
+
 export function buildAccountStatementEntries(input: {
   accountId: string;
   accounts: AccountLike[];
@@ -76,7 +84,7 @@ export function buildAccountStatementEntries(input: {
         category = operation.category || 'Recebimento de contrato';
       } else if (operation.operation_type === 'LOAN_DISBURSEMENT') {
         tag = 'Empréstimo concedido';
-        category = 'Empréstimo concedido';
+        category = 'Desembolso do contrato';
       } else if (operation.operation_type === 'LOAN_REPAYMENT') {
         tag = 'Parcela recebida';
         category = operation.category || 'Parcela recebida';
@@ -95,7 +103,7 @@ export function buildAccountStatementEntries(input: {
       return {
         id: operation.id,
         date: operation.operation_date,
-        label: normalizedLabel,
+        label: normalizeWalletStatementDescription(normalizedLabel),
         category,
         tag,
         amount: incoming ? Number(operation.amount) : -Number(operation.amount),

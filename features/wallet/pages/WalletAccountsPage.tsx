@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { History, Plus, Search } from 'lucide-react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import type { UserProfile } from '../../../types';
 import { AccountCardStack } from '../../../components/wallet/AccountCardStack';
 import { AccountDetailsPage } from '../../../components/wallet/AccountDetailsPage';
@@ -13,7 +13,6 @@ import { PrivateMoney } from '../../../contexts/FinancialPrivacyContext';
 
 export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onNavigate: (path: string) => void }> = ({ activeUser }) => {
     const [searchParams, setSearchParams] = useSearchParams();
-    const navigate = useNavigate();
     const { data, loading, error, refresh } = useWalletSnapshot();
     const selectedId = searchParams.get('conta');
     const openAccount = (id: string) => {
@@ -22,19 +21,18 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
         setSearchParams(next);
     };
     const closeAccount = () => {
-        if (Number(window.history.state?.idx ?? 0) > 0) navigate(-1);
-        else {
-            const next = new URLSearchParams(searchParams);
-            next.delete('conta');
-            setSearchParams(next, { replace: true });
-        }
+        // Não use navigate(-1): a entrada anterior pode ser o Painel.
+        // Remover apenas a seleção mantém a rota e a aba Contas.
+        const next = new URLSearchParams(searchParams);
+        next.delete('conta');
+        setSearchParams(next, { replace: true });
     };
     useEffect(() => {
         if (!selectedId) return;
         const onBack = (event: Event) => { event.preventDefault(); closeAccount(); };
         window.addEventListener('capitalflow:back', onBack);
         return () => window.removeEventListener('capitalflow:back', onBack);
-    }, [selectedId, searchParams, setSearchParams, navigate]);
+    }, [selectedId, searchParams, setSearchParams]);
     const [createModalType, setCreateModalType] = useState<'CHECKING' | 'CASH' | null>(null);
     const [canTransferCapital, setCanTransferCapital] = useState(false);
     const [statementSearch, setStatementSearch] = useState('');

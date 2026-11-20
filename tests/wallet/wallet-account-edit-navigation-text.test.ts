@@ -30,7 +30,7 @@ test('descrição de empréstimo é normalizada mantendo nome e valor corretos',
   assert.equal(entry.length,1);
   assert.equal(entry[0].label,'Empréstimo · Pessoa Exemplo');
   assert.equal(entry[0].tag,'Empréstimo concedido');
-  assert.equal(entry[0].category,'Desembolso do contrato');
+  assert.equal(entry[0].category,'Valor emprestado');
   assert.equal(entry[0].amount,-200);
 });
 test('edição manual exposta somente para operações elegíveis, com calculadora e auditoria', () => {

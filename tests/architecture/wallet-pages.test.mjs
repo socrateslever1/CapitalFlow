@@ -89,7 +89,7 @@ test('navegação de faturas apresenta linhas compactas e meses efetivamente reg
   assert.match(page, /hideFinancialValues \? 'Situação protegida' : /);
   assert.match(page, /Adicionar fatura/);
   assert.match(page, /resolveInvoiceMonthSelection\(/);
-  assert.match(page, /dueMonth: statementMonth,/);
+  assert.match(page, /<CardInvoiceStatement cardId=\{selected\.id\} dueMonth=\{statementMonth\}/);
   assert.match(page, /getInvoiceCycleDates\(/);
 });
 

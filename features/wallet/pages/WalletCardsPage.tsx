@@ -759,7 +759,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
                       const status = cycle.amount <= 0 ? 'REFERENCIA' : resolveInvoiceCycleState({
                         dueMonth: cycle.dueMonth, closingDay: selected.closing_day,
                         dueDay: selected.due_day, outstanding: cycle.amount,
-                        hasCycle: true, exactDueDate: fact?.due_date,
+                        hasCycle: true, exactDueDate: savedInvoiceFacts?.due_date ?? fact?.due_date,
                       });
                       const label = status === 'REFERENCIA' ? 'Sem lançamentos'
                         : status === 'OPEN' ? 'Aberta'

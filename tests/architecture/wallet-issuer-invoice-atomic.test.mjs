@@ -44,9 +44,11 @@ test('bank facts navigate real due-month cycles while preserving distinct financ
   assert.match(domain, /for \(const fact of facts\)/);
   assert.match(domain, /cancelled\.has\(month\)/);
   assert.match(domain, /cycles\.sort\(/);
-  assert.match(page, /Saldo de fatura registrado/);
+  assert.match(page, /aria-label="Outros valores do cartão"/);
+  assert.match(page, /Próximas faturas/);
   assert.match(page, /selectedCycle\?\.amount \|\| 0/);
-  assert.match(page, /Disponível informado pelo banco/);
+  assert.match(page, /Disponível no banco/);
+  assert.match(page, /<details className="rounded-lg border border-slate-800/);
   assert.match(page, /Aplicar valores já salvos à posição do cartão/);
   assert.match(page, /await Promise\.all\(\[refreshInvoiceFacts\(\),\s*refresh\(\)\]\)/);
   assert.match(page, /setStatementMonth\(result\.due_month\)/);

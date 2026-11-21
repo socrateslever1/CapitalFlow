@@ -1,3 +1,12 @@
+## 20/11/2026 — saldo contextual no modal de transferência entre contas
+
+- **Escopo:** `AccountActivityPanel`, entrada monetária compartilhada, prévia pura em centavos e testes. A conta de origem é a mesma exibida em `AccountDetailsPage`, alimentada por `personal_wallet_accounts.balance`.
+- **Interface:** mostra saldo registrado do CapitalFlow no topo da transferência, saldo projetado após digitação/confirmar expressão, aviso de saldo insuficiente; respeita `PrivateMoney` na privacidade global; substitui categoria manual por `Transferência interna` neste tipo de operação e preenche descrição inicial editável.
+- **Segurança:** não consulta diretamente o banco Nubank e não altera saldo por cálculo local. A pré-validação usa o valor carregado, sujeito a desatualização por mudanças concorrentes; a RPC `personal_wallet_record_account_operation` continua validando proprietário, saldo sob lock, centavos, idempotência e duas contas diferentes.
+- **Banco:** inspecionados campos, RLS e definição da RPC no Supabase de produção. Nenhuma migration, alteração de política ou lançamento financeiro nesta tarefa.
+- **Testes adicionados:** `tests/wallet/account-transfer-preview.test.ts` ligado a `test:wallet-visual-next`; cobre centavos, transferência integral, insuficiência e valores inválidos. Execução de testes e validação em dispositivo dependem dos checks verificáveis do GitHub Actions; não foi realizado teste em aparelho físico neste atendimento.
+- **Rollback:** reverter o commit desta alteração em `main` caso o CI identifique incompatibilidade de UI. Não há rollback de dados, pois nenhum dado é modificado por esta correção.
+
 ## 20/11/2026 — conciliação financeira REAL de empréstimos pagos no cartão (Nubank)
 
 **Causa-raiz identificada no Supabase de produção:** o gatilho \`trg_sync_transacao_to_wallet()\` efetivamente instalado era uma versão anterior ao código versionado e debitava \`personal_wallet_accounts.balance\` ao inserir qualquer \`LOAN_INITIAL\`, mesmo em contratos \`funding_payment_method=CREDIT_CARD\` com fonte do tipo \`CARD\`. Havia três desembolsos para o mesmo cliente: R$ 700,00, R$ 200,00 e R$ 200,00; todos tinham compras financeiras correspondentes em \`loan_card_wallet_charges\` e \`personal_wallet_expenses\` (respectivamente R$ 734,93, R$ 209,98 e R$ 209,98; \`account_id\` nulo nas despesas). O primeiro já tinha ajuste e estorno auditável de R$ 700,00; os dois últimos não.

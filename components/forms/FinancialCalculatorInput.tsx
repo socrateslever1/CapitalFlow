@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { parseWalletMoney, parseWalletRate, parseWalletSignedMoney } from '../../features/wallet/utils/parseWalletMoney';
 import { formatLiveBrazilianMoney, formatLiveBrazilianCents, backspaceLiveBrazilianCents, formatPastedBrazilianMoney, formatLiveBrazilianSignedCents, backspaceLiveBrazilianSignedCents, formatMoneyExpressionOperand, insertMoneyExpressionOperator, backspaceMoneyExpressionOperand, normalizePastedMoneyExpression } from '../../features/wallet/utils/liveBrazilianMoneyInput';
 
@@ -6,6 +6,8 @@ type Props = Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChan
   value: string | number | null | undefined;
   type?: 'text' | 'number';
   onCommit?: (value: string) => void;
+  /** Emite o rascunho normalizado para prévias, sem alterar o valor confirmado. */
+  onDraftChange?: (draft: string) => void;
   onChange?: (event: { target: { value: string } }) => void;
   onBlur?: () => void;
   rate?: boolean;
@@ -17,7 +19,7 @@ type Props = Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChan
 
 /** Mantém a expressão local enquanto o usuário digita, sem alimentar fórmulas com texto parcial. */
 export const FinancialCalculatorInput: React.FC<Props> = ({
-  value, onCommit, onChange, onBlur, type: _type, rate = false, signed = false, centsEntry = true, fieldLabel = 'valor', className = '',
+  value, onCommit, onDraftChange, onChange, onBlur, type: _type, rate = false, signed = false, centsEntry = true, fieldLabel = 'valor', className = '',
   onFocus, onKeyDown, onPaste, disabled, ...rest
 }) => {
   const [editing, setEditing] = useState(false);
@@ -25,6 +27,9 @@ export const FinancialCalculatorInput: React.FC<Props> = ({
   const [error, setError] = useState('');
   const [operatorsOpen, setOperatorsOpen] = useState(false);
   const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (editing) onDraftChange?.(draft);
+  }, [draft, editing, onDraftChange]);
   const displayValue = () => {
     const raw = String(value ?? '');
     if (!raw) return raw;

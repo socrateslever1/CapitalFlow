@@ -2,6 +2,8 @@ import React, { useMemo, useReducer, useRef, useState } from 'react';
 import { ArrowDownLeft, ArrowUpRight, ArrowLeftRight, CreditCard, FileDown, FileUp, History, Plus, Search, Trash2, Pencil } from 'lucide-react';
 import { PersonalWalletAccount, PersonalWalletExpense, PersonalWalletInvoicePayment, WalletAccountOperation, WalletStatementRow, personalWalletService } from '../../services/personalWallet.service';
 import { formatMoney } from '../../utils/formatters';
+import { PrivateMoney } from '../../contexts/FinancialPrivacyContext';
+import { getAccountTransferPreview } from '../../features/wallet/domain/accountTransferPreview';
 import { generateUUID } from '../../utils/generators';
 import { FinancialCalculatorInput } from '../forms/FinancialCalculatorInput';
 import { parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
@@ -43,6 +45,7 @@ const tagClass = (tag: string) => {
 export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operations,statementRows,expenses,invoicePayments,cardFundedLoanIds,onSaved}) => {
   const [action,setAction]=useState<Action|null>(null);
   const [amount,setAmount]=useState('');
+  const [transferDraft,setTransferDraft]=useState<string|null>(null);
   const [description,setDescription]=useState('');
   const [categoryState,dispatchCategory]=useReducer(accountCategoryReducer,initialAccountCategorySelection);
   const category=categoryState.value;
@@ -69,6 +72,12 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
   const transactionRef=useRef({signature:'',id:generateUUID()});
   const openingRef=useRef({signature:'',id:generateUUID()});
   const parsedAmount=(() => { try { return parseWalletMoney(amount); } catch { return NaN; } })();
+  const previewAmount=(() => {
+    if (transferDraft===null) return parsedAmount;
+    try { return parseWalletMoney(transferDraft); } catch { return NaN; }
+  })();
+  const transferPreview=getAccountTransferPreview(Number(account.balance),previewAmount);
+  const transferAmountEntered=Boolean((transferDraft??amount).trim());
 
   const entries=useMemo(()=>buildAccountStatementEntries({
     accountId:account.id,accounts,operations,expenses,invoicePayments,statementRows,cardFundedLoanIds,
@@ -79,21 +88,27 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
   const categoryOptions=[...new Set([...commonCategories,...operations.map(operation=>operation.category).filter(Boolean)])];
   const canInitializeOpening=Number(account.balance)===0&&!operations.some(op=>op.from_account_id===account.id||op.to_account_id===account.id);
 
-  const clear=()=>{setAction(null);setAmount('');setDescription('');dispatchCategory({type:'reset'});setDestination('');setError('');};
+  const clear=()=>{setAction(null);setAmount('');setTransferDraft(null);setDescription('');dispatchCategory({type:'reset'});setDestination('');setError('');};
   const submit=async(e:React.FormEvent)=>{
     e.preventDefault();
     if(!action||saving)return;
     if(!Number.isFinite(parsedAmount)||parsedAmount<=0||Math.abs(parsedAmount*100-Math.round(parsedAmount*100))>0.00001){setError('Valor inválido.');return;}
     const toAccount=(action==='INCOME'||action==='RECEIPT')?account.id:action==='TRANSFER'?destination:null;
     const fromAccount=(action==='EXPENSE'||action==='PAYMENT'||action==='TRANSFER')?account.id:null;
-    if(action==='TRANSFER'&&!destination){setError('Selecione uma conta de destino.');return;}
-    const signature=[action,fromAccount,toAccount,parsedAmount.toFixed(2),description,date,category].join(':');
+    if(action==='TRANSFER'){
+      if(!destination||!others.some(item=>item.id===destination)){setError('Selecione uma conta de destino válida.');return;}
+      const currentPreview=getAccountTransferPreview(Number(account.balance),parsedAmount);
+      if(currentPreview.balanceCents===null){setError('Saldo da conta indisponível. Atualize a página antes de transferir.');return;}
+      if(currentPreview.insufficientFunds){setError('O valor da transferência supera o saldo registrado na conta de origem.');return;}
+    }
+    const effectiveCategory=action==='TRANSFER'?'Transferência interna':category;
+    const signature=[action,fromAccount,toAccount,parsedAmount.toFixed(2),description,date,effectiveCategory].join(':');
     if(transactionRef.current.signature!==signature) transactionRef.current={signature,id:generateUUID()};
     setSaving(true);setError('');setSuccess('');
     try{
       await personalWalletService.recordAccountOperation({
         type:action,fromAccountId:fromAccount,toAccountId:toAccount,
-        amount:parsedAmount,description,category,date,requestId:transactionRef.current.id,
+        amount:parsedAmount,description,category:effectiveCategory,date,requestId:transactionRef.current.id,
       });
       notifyFinancialDataChanged({ wallet: true, capital: Boolean(account.capital_source_id) });
       await onSaved();
@@ -216,7 +231,7 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
           ['PAYMENT',CreditCard,'Pagar'],
           ['TRANSFER',ArrowLeftRight,'Transferir'],
         ] as const).map(([value,Icon,label])=>(
-          <button type="button" key={value} onClick={()=>{setAction(value);setError('');setSuccess('');}}
+          <button type="button" key={value} onClick={()=>{setAction(value);setAmount('');setTransferDraft(null);setDescription(value==='TRANSFER'?'Transferência entre contas':'');setDestination('');setError('');setSuccess('');}}
             className={`flex flex-col items-center justify-center gap-2 rounded-xl border px-2 py-4 text-xs font-semibold transition-colors ${action===value?'border-emerald-400 bg-emerald-900/30 text-white':'border-slate-700 bg-slate-950 text-slate-300 hover:border-emerald-500'}`}>
             <Icon size={20} className={value==='EXPENSE'||value==='PAYMENT'?'text-rose-400':'text-emerald-400'}/>{label}
           </button>
@@ -278,7 +293,7 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
           <button
             type="submit"
             form="account-activity-form"
-            disabled={saving}
+            disabled={saving || (action==='TRANSFER' && (transferPreview.balanceCents===null || transferPreview.insufficientFunds))}
             className={modalPrimaryActionClass}
           >
             {saving ? 'Registrando...' : 'Confirmar lançamento'}
@@ -286,13 +301,42 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
         }
       >
         <form id="account-activity-form" onSubmit={submit} className="space-y-3">
-          {action==='TRANSFER' && <p className="text-xs text-amber-300">Transferência contábil entre suas contas cadastradas. Não envia PIX nem transfere valores no banco.</p>}
+          {action==='TRANSFER' && (
+            <>
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-700 bg-slate-950/70 p-3">
+                <div className="min-w-0">
+                  <p className="truncate text-xs font-semibold text-slate-200">Origem: {account.nickname}</p>
+                  <p className="text-[11px] text-slate-400">Saldo registrado no CapitalFlow</p>
+                </div>
+                <strong className="text-base font-extrabold tabular-nums text-emerald-300">
+                  {transferPreview.balanceCents===null ? 'Indisponível' : <PrivateMoney value={formatMoney(transferPreview.balanceCents/100)}/>}
+                </strong>
+              </div>
+              <p className="text-xs text-amber-300">Transferência contábil entre contas cadastradas. Não envia PIX nem movimenta dinheiro no banco.</p>
+            </>
+          )}
           {action==='PAYMENT' && <p className="text-xs text-amber-300">Para quitar fatura de cartão, utilize a opção Faturas. Registrar aqui também causaria débito em duplicidade.</p>}
           {action==='RECEIPT' && <p className="text-xs text-slate-400">Registra o recebimento informado. Não solicita dinheiro nem gera cobrança PIX.</p>}
           <div className="grid gap-3 sm:grid-cols-2">
-            <label className="text-xs text-slate-300">Valor (R$)
-              <FinancialCalculatorInput required className={input} value={amount} onCommit={setAmount} fieldLabel="valor do lançamento" placeholder="0,00"/>
-            </label>
+            <div className="space-y-2">
+              <label className="block text-xs text-slate-300">Valor (R$)
+                <FinancialCalculatorInput required className={input} value={amount}
+                  onCommit={value=>{setAmount(value);setTransferDraft(null);}}
+                  onDraftChange={action==='TRANSFER'?setTransferDraft:undefined}
+                  fieldLabel="valor do lançamento" placeholder="0,00"/>
+              </label>
+              {action==='TRANSFER' && (
+                <div className="flex flex-wrap items-center justify-between gap-1 rounded-lg bg-slate-950/60 px-3 py-2 text-xs">
+                  <span className="text-slate-400">Saldo após transferência</span>
+                  <strong aria-live="polite" className={`tabular-nums ${transferPreview.insufficientFunds?'text-rose-300':'text-slate-100'}`}>
+                    {!transferAmountEntered||transferPreview.remainingCents===null ? '—' : <PrivateMoney value={formatMoney(transferPreview.remainingCents/100)}/>}
+                  </strong>
+                  {transferAmountEntered && transferPreview.insufficientFunds && (
+                    <p role="alert" className="w-full text-[11px] text-rose-300">Saldo insuficiente para esta transferência.</p>
+                  )}
+                </div>
+              )}
+            </div>
             <label className="text-xs text-slate-300">Data
               <input required className={input} type="date" max={localToday()} value={date} onChange={e=>setDate(e.target.value)}/>
             </label>
@@ -313,7 +357,7 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
             <label className="text-xs text-slate-300 sm:col-span-2">Descrição
               <input required maxLength={240} className={input} value={description} onChange={e=>setDescription(e.target.value)} placeholder={action==='TRANSFER'?'Transferência entre contas':'Descreva a movimentação'}/>
             </label>
-            <div className="space-y-1 text-xs text-slate-300 sm:col-span-2">
+            {action!=='TRANSFER' && <div className="space-y-1 text-xs text-slate-300 sm:col-span-2">
               <span className="block">Categoria</span>
               <SelectOptionList
                 ariaLabel="Categoria"
@@ -325,8 +369,8 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
                 ]}
                 onChange={(selected) => dispatchCategory({type:'select',value:selected})}
               />
-            </div>
-            {categoryState.customMode && <label className="text-xs text-slate-300 sm:col-span-2">Nome da categoria
+            </div>}
+            {action!=='TRANSFER' && categoryState.customMode && <label className="text-xs text-slate-300 sm:col-span-2">Nome da categoria
               <input required maxLength={100} className={input} value={category} onChange={e=>dispatchCategory({type:'type',value:e.target.value})} placeholder="Digite a categoria"/>
             </label>}
           </div>

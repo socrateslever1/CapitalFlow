@@ -1,3 +1,11 @@
+## 20/11/2026 — logotipo do cartão ativo no lançamento rápido
+
+- **Causa:** apesar de `selectedCard` estar no estado, o modal utilizava `Receipt` no cabeçalho e `CreditCard` em todos os itens do seletor.
+- **Correção:** `QuickExpenseModal` agora utiliza `BankLogo` com a instituição do cartão (ou da conta vinculada) em seu cabeçalho, lista de cartões e modo bloqueado; quando o cartão é alterado, o ícone acompanha o `selectedCardId`. Para contas, a seleção mostra o logotipo, imagem cadastrada da conta ou ícone de dinheiro para `CASH`.
+- **Privacidade:** não inserir fotos do próprio cartão (`card.image_url`) nos campos de ícone; preservar o padrão de logotipo da carteira.
+- **Escopo:** somente interface, teste de arquitetura e registro de continuidade. Inalterados RPCs, dados, saldos, limite, fatura e lançamento. Nenhuma despesa registrada.
+- **Validação/rollback:** `test:wallet-visual-next` e `test:quality` pelo CI; revisão visual em APK físico pendente. Reverter commit caso o CI falhe.
+
 ## 20/11/2026 — destravar registro de movimentações e sugerir categorias
 
 - **Diagnóstico:** `AccountActivityPanel.submit` aguardava `personalWalletService.recordAccountOperation` e depois `onSaved`, enquanto `notifyFinancialDataChanged({wallet:true})` já disparava o refresh da carteira. O modal permanecia em `Registrando...` até terminar a atualização integral, com consultas redundantes. Consulta read-only ao Supabase não encontrou um lançamento manual de R$ 156,88 descrito como Alimentação no intervalo consultado; isso não comprova o resultado de uma requisição ainda pendente.

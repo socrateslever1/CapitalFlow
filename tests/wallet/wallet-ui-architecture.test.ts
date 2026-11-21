@@ -104,3 +104,15 @@ test('modais da conta exibem contexto unificado, ícone e prévia em todos os fl
   assert.match(accountActivity,/onDraftChange=\{setOperationDraft\}/);
   assert.match(accountActivity,/isDebit && \(balancePreview\.balanceCents===null/);
 });
+
+test('lançamento rápido exibe a instituição vinculada ao cartão selecionado', () => {
+  const quick = readFileSync('components/wallet/QuickExpenseModal.tsx', 'utf8');
+  assert.ok(quick.includes('const QuickCardLogo:'));
+  assert.ok(quick.includes('card.institution_key || linkedAccount?.bank_name || card.issuer'));
+  assert.ok(quick.includes('paymentMode === \'CARD\' && selectedCard'));
+  assert.ok(quick.includes('<QuickCardLogo card={selectedCard} accounts={accounts} />'));
+  assert.ok(quick.includes('icon: <QuickCardLogo card={card} accounts={accounts} />'));
+  assert.ok(quick.includes('<QuickAccountLogo account={selectedAccount} />'));
+  assert.ok(quick.includes('icon: <QuickAccountLogo account={acc} />'));
+  assert.ok(!quick.includes('customImage={card.image_url}'), 'não expor imagem sensível do cartão');
+});

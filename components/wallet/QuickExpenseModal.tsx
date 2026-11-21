@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { localDiagnostics } from '../../services/localDiagnostics';
 import { createPortal } from 'react-dom';
-import { AlertTriangle, Calendar, CheckCircle2, ChevronLeft, ChevronRight, CreditCard, Landmark, Loader2, Receipt, Tag, X } from 'lucide-react';
+import { AlertTriangle, Calendar, CheckCircle2, ChevronLeft, ChevronRight, CreditCard, Landmark, Loader2, Receipt, Tag, Wallet, X } from 'lucide-react';
 import {
   PersonalWalletAccount,
   PersonalWalletCard,
@@ -13,6 +13,7 @@ import { generateUUID } from '../../utils/generators';
 import { parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
 import { FinancialCalculatorInput } from '../forms/FinancialCalculatorInput';
 import { SelectOptionList } from '../ui/SelectOptionList';
+import { BankLogo } from './BankLogo';
 import { notifyFinancialDataChanged } from '../../utils/appSyncEvents';
 import { useModal } from '../../contexts/ModalContext';
 import {
@@ -101,6 +102,23 @@ export const resolveFirstInstallmentMonthLabel = (
     : getPurchaseInvoiceMonth(effectiveCycleDate, closingDay ?? null, dueDay ?? null);
   return { dueDateIso, monthInputValue: dueDateIso.slice(0, 7), label: formatMonthLabel(dueDateIso) };
 };
+
+/** Logotipo bancário cadastrado; não mostra fotografia do cartão. */
+const QuickCardLogo: React.FC<{ card: PersonalWalletCard; accounts: PersonalWalletAccount[] }> = ({ card, accounts }) => {
+  const linkedAccount = accounts.find(account => account.id === card.account_id);
+  return <BankLogo name={card.institution_key || linkedAccount?.bank_name || card.issuer || card.nickname}
+    alternateName={card.issuer || card.nickname} variant="card" size="sm" />;
+};
+
+const QuickAccountLogo: React.FC<{ account: PersonalWalletAccount }> = ({ account }) =>
+  account.account_type === 'CASH' ? (
+    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-700 bg-slate-800">
+      <Wallet size={17} className="text-amber-300" />
+    </span>
+  ) : (
+    <BankLogo name={account.institution_key || account.bank_name} alternateName={account.nickname}
+      customImage={account.image_url} size="sm" />
+  );
 
 export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
   accounts,
@@ -368,9 +386,15 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
         {/* Header */}
         <header className="flex shrink-0 items-center justify-between border-b border-slate-800 p-4 sm:px-5">
           <div className="flex items-center gap-2.5">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500/15 text-blue-400">
-              <Receipt size={18} />
-            </span>
+            {paymentMode === 'CARD' && selectedCard ? (
+              <QuickCardLogo card={selectedCard} accounts={accounts} />
+            ) : paymentMode === 'ACCOUNT' && selectedAccount ? (
+              <QuickAccountLogo account={selectedAccount} />
+            ) : (
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-500/15 text-blue-400">
+                <Receipt size={18} />
+              </span>
+            )}
             <div>
               <h2 id="quick-expense-modal-title" className="text-sm font-black uppercase tracking-wider text-white">
                 Lançamento Rápido de Despesa
@@ -639,8 +663,15 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                 <div className="sm:col-span-2">
                   <span className={labelClass}>Cartão de Crédito</span>
                   {lockCardSelection ? (
-                    <div className={fieldClass} aria-label="Cartão selecionado">
-                      {selectedCard ? `${selectedCard.nickname} ${selectedCard.last_four ? `•••• ${selectedCard.last_four}` : ''} · Livre: ${formatMoney(Math.max(0, Number(selectedCard.credit_limit || 0) - Number(selectedCard.used_limit || 0)))}` : 'Cartão selecionado indisponível'}
+                    <div className={`${fieldClass} flex min-w-0 items-center gap-2.5`} aria-label="Cartão selecionado">
+                      {selectedCard ? (
+                        <>
+                          <QuickCardLogo card={selectedCard} accounts={accounts} />
+                          <span className="min-w-0 flex-1 truncate">
+                            {selectedCard.nickname} {selectedCard.last_four ? `•••• ${selectedCard.last_four}` : ''} · Livre: {formatMoney(Math.max(0, Number(selectedCard.credit_limit || 0) - Number(selectedCard.used_limit || 0)))}
+                          </span>
+                        </>
+                      ) : 'Cartão selecionado indisponível'}
                     </div>
                   ) : (
                     <div className="mt-1">
@@ -659,7 +690,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                             label: `${card.nickname}${card.last_four ? ` •••• ${card.last_four}` : ''}`,
                             subtitle: 'Limite disponível',
                             rightValue: formatMoney(available),
-                            icon: <CreditCard size={15} className="text-blue-300" />,
+                            icon: <QuickCardLogo card={card} accounts={accounts} />,
                           };
                         })}
                         onChange={(next) => {
@@ -859,7 +890,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                       label: acc.nickname,
                       subtitle: 'Saldo disponível',
                       rightValue: formatMoney(Number(acc.balance || 0)),
-                      icon: <Landmark size={15} className="text-blue-300" />,
+                      icon: <QuickAccountLogo account={acc} />,
                     }))}
                     onChange={(next) => {
                       resetIdempotencyKey();

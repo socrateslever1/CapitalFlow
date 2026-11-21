@@ -5,7 +5,7 @@ import type { PersonalWalletExpense, PersonalWalletExpenseInstallment, UpdatePer
 import { formatMoney } from '../../utils/formatters';
 import { generateUUID } from '../../utils/generators';
 import { ExpenseEditModal } from './ExpenseEditModal';
-import { getCardInvoiceEntries, type InvoiceCycleDates, type InvoiceCycleState } from './invoiceStatementDomain';
+import { getCardInvoiceEntries, getInvoiceOpeningBreakdown, type InvoiceCycleDates, type InvoiceCycleState } from './invoiceStatementDomain';
 import { Modal, modalPrimaryActionClass, modalSecondaryActionClass } from '../ui/Modal';
 import { formatInstallmentBadgeLabel } from '../../features/wallet/utils/cardInstallmentPlan';
 import { formatWalletMoneyInput, parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
@@ -77,6 +77,10 @@ export const CardInvoiceStatement: React.FC<CardInvoiceStatementProps> = ({
   const deleteRequestIds = useRef(new Map<string, string>());
   const entries = useMemo(() => getCardInvoiceEntries(cardId, dueMonth, expenses, installments), [cardId, dueMonth, expenses, installments]);
   const hasOverride = entries.some(entry => entry.expense.entry_type === 'INVOICE_OVERRIDE');
+  const openingBreakdown = useMemo(
+    () => getInvoiceOpeningBreakdown(cardId, dueMonth, expenses, installments),
+    [cardId, dueMonth, expenses, installments],
+  );
 
   const normalizedQuery = searchQuery.trim();
   const searchMatches = useMemo(() => createFinancialSearchMatcher(searchQuery), [searchQuery]);
@@ -228,7 +232,25 @@ export const CardInvoiceStatement: React.FC<CardInvoiceStatementProps> = ({
         <div className="flex flex-wrap items-center gap-1.5">{headerAction}<span className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] font-bold text-slate-300">{entries.length}</span></div>
       </header>
 
-      {hasOverride && <p className="mt-2 rounded-lg border border-amber-500/20 bg-amber-500/5 px-2.5 py-1.5 text-[10px] text-amber-100">A fatura inicial já inclui os gastos informados antes dela. Novos gastos entram conforme o ciclo do cartão.</p>}
+      {openingBreakdown && (
+        <div className="mt-2 space-y-1.5 rounded-xl border border-amber-500/25 bg-amber-950/15 p-3 text-xs">
+          <p className="font-semibold text-amber-100">Composição atual da fatura</p>
+          <div className="flex items-center justify-between gap-2 text-slate-300">
+            <span>Saldo registrado na abertura</span>
+            <strong className="tabular-nums text-amber-200"><PrivateMoney value={formatMoney(openingBreakdown.opening)} /></strong>
+          </div>
+          <div className="flex items-center justify-between gap-2 text-slate-300">
+            <span>Movimentações adicionais (líquido)</span>
+            <strong className="tabular-nums text-slate-100"><PrivateMoney value={`${openingBreakdown.subsequent < 0 ? '− ' : '+ '}${formatMoney(Math.abs(openingBreakdown.subsequent))}`} /></strong>
+          </div>
+          <div className="flex items-center justify-between gap-2 border-t border-amber-500/20 pt-2 text-sm font-bold text-white">
+            <span>Total pendente no ciclo</span>
+            <strong className="tabular-nums text-emerald-300"><PrivateMoney value={formatMoney(openingBreakdown.current)} /></strong>
+          </div>
+          <p className="text-[11px] leading-relaxed text-slate-400">O valor da abertura é histórico e não muda. O total do ciclo considera os lançamentos posteriores, sem duplicar os já consolidados.</p>
+        </div>
+      )}
+      {hasOverride && !openingBreakdown && <p className="mt-2 rounded-lg border border-amber-500/20 bg-amber-500/5 px-2.5 py-1.5 text-[10px] text-amber-100">Ajuste consolidado: valor fixado para este ciclo. Consulte o saldo da fatura acima para o total reconhecido.</p>}
       {openingBalance > 0 && <article className="mt-2 flex items-center justify-between gap-2 rounded-lg bg-slate-900 p-2.5 text-xs"><div><p className="font-semibold text-slate-200">Demais gastos da carga inicial</p><p className="mt-0.5 text-[10px] text-slate-400">Ainda sem detalhamento · fora da fatura deste ciclo</p></div><strong className="shrink-0 text-amber-200"><PrivateMoney value={formatMoney(openingBalance)} /></strong></article>}
 
       {!entries.length ? <p className="mt-2 rounded-lg border border-dashed border-slate-800 px-3 py-3 text-center text-xs text-slate-400">Nenhum lançamento ativo nesta fatura.</p> : (
@@ -280,13 +302,14 @@ export const CardInvoiceStatement: React.FC<CardInvoiceStatementProps> = ({
                 <div className="flex min-w-0 items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className={`flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm font-semibold ${isOverride ? 'text-amber-200' : isCredit ? 'text-emerald-200' : 'text-slate-100'}`}>
-                      <span className="min-w-0 break-words">{isOverride ? 'Fatura consolidada' : expense.description}</span>
+                      <span className="min-w-0 break-words">{isOverride && expense.is_opening_summary ? 'Saldo inicial registrado' : isOverride ? 'Ajuste consolidado da fatura' : expense.description}</span>
                       {isCredit && <span className="shrink-0 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-bold text-emerald-300">Crédito / Estorno</span>}
                       {installmentBadge && <span className="shrink-0 text-[11px] font-medium text-cyan-300">Parcela {installmentBadge}</span>}
                     </p>
                     <p className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-slate-400">
                       <CalendarDays size={12} aria-hidden="true" />{expense.expense_date.split('-').reverse().join('/')}
                       <span aria-hidden="true">·</span><Tag size={12} aria-hidden="true" />{expense.category}
+                      {isOverride && expense.is_opening_summary && <span className="text-amber-300">· Saldo de abertura, não o total atual</span>}
                     </p>
                   </div>
                   <strong className={`shrink-0 whitespace-nowrap text-sm font-bold tabular-nums ${isOverride ? 'text-amber-200' : isCredit ? 'text-emerald-300' : 'text-rose-300'}`}>

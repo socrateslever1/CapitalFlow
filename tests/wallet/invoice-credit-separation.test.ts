@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { getCardCreditPosition, getEffectiveInvoiceCycles, getSelectedInvoiceCycle } from '../../components/wallet/invoiceStatementDomain';
+import { getCardCreditPosition, getEffectiveInvoiceCycles, getSelectedInvoiceCycle, getInvoiceOpeningBreakdown } from '../../components/wallet/invoiceStatementDomain';
 
 const card = { id: 'card-1', credit_limit: 2000 };
 const expenses = [
@@ -81,4 +81,29 @@ test('selected invoice cycle never inherits the previous invoice amount', () => 
     amount: 0,
     hasOverride: false,
   });
+});
+
+test('fatura aberta separa o saldo inicial e lançamentos posteriores sem dupla contagem', () => {
+  const opening = { ...expenses[1], id: 'opening', amount: 1007.87, is_opening_summary: true,
+    invoice_due_month: '2026-12-01' };
+  const purchase = { ...expenses[0], id: 'new-purchase', amount: 1695.53, installment_count: 1 };
+  const rows = [
+    { ...installments[3], id: 'open', expense_id: opening.id, due_month: '2026-12-01', amount: 1007.87 },
+    { ...installments[0], id: 'new', expense_id: purchase.id, due_month: '2026-12-01', amount: 1695.53 },
+  ];
+  assert.deepEqual(getInvoiceOpeningBreakdown(card.id, '2026-12-01', [opening,purchase], rows), {
+    opening: 1007.87,
+    subsequent: 1695.53,
+    current: 2703.4,
+  });
+  const covered = { ...rows[1], opening_invoice_id: opening.id };
+  assert.deepEqual(getInvoiceOpeningBreakdown(card.id, '2026-12-01', [opening,purchase], [rows[0], covered]), {
+    opening: 1007.87,
+    subsequent: 0,
+    current: 1007.87,
+  });
+});
+
+test('override regular continua estático, sem ser tratado como saldo inicial dinâmico', () => {
+  assert.equal(getInvoiceOpeningBreakdown(card.id, '2026-10-01', expenses, installments), null);
 });

@@ -1,3 +1,12 @@
+## 20/11/2026 — fontes do contrato com marcas e fatura de abertura dinâmica
+
+- **Escopo:** investigação read-only confirmou `INVOICE_OVERRIDE` inicial de R$ 1.007,87 em dezembro/2026, junto com sete compras posteriores que totalizavam R$ 1.695,53. O total do ciclo é R$ 2.703,40, não uma fatura congelada de R$ 1.007,87. Os sete lançamentos não estão ligados à abertura por `opening_invoice_id`.
+- **Ajuste visual na fatura:** `getInvoiceOpeningBreakdown` usa os ciclos já calculados em `invoiceStatementDomain` para exibir abertura (histórico), movimentações adicionais líquidas e saldo pendente atual. `CardInvoiceStatement` destaca que o registro original é um snapshot, não a fatura atual. Consolidações comuns não são tratadas como saldo de abertura dinâmico.
+- **Ícones de fonte de capital:** `LoanFormFinancialSection` resolve a identidade de fontes com vínculo único de cartão pelo registro autorizado em `capital_source_wallet_references` e dados já carregados de `personal_wallet_cards`. Fonte sem vínculo mostra logo do próprio nome ou imagem configurada, sem inventar vínculo. Contas em dinheiro usam `Wallet`. `SelectOptionList` mantém logotipo também na opção selecionada.
+- **Risco da data do contrato:** a RPC atual `finalize_card_funded_loan_v1` toma `created_at` em vez de `start_date`. Em seis vínculos consultados, duas datas divergiam. Nenhum lançamento retroativo foi alterado: a correção financeira exige transação com verificação de pagamentos, fechamento de ciclo, idempotência, vínculos e auditoria. O cliente também edita `contratos.start_date` sem alterar a compra no cartão. Planejar mudança backend separada.
+- **Não alterado:** saldo, RLS, RPC, contrato, datas históricas, ledger, compras, faturas, Supabase e limitações bancárias. Cobertura por `tests/wallet/invoice-credit-separation.test.ts` e `tests/wallet/wallet-ui-architecture.test.ts`, com validação de CI e revisão mobile necessárias.
+- **Rollback:** reverter este commit de apresentação; não há migração ou reversão de dados.
+
 ## 20/11/2026 — correção do teclado Android na pesquisa de contratos
 
 - **Sintoma:** durante a pesquisa por nome/CPF, Gboard aparece e os FABs fixos (novo contrato, lembretes, suporte) e a navegação inferior continuam cobrindo o formulário e os contratos; o mascote também ocupa a superfície de pesquisa.

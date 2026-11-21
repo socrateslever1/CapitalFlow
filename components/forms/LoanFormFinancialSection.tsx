@@ -2,6 +2,7 @@ import { addCollectionDaysUTC, addDaysUTC, adjustToCollectionDayUTC, normalizeCo
 import React, { useEffect, useMemo, useState } from 'react';
 import { Wallet, CalendarX, Clock, CreditCard, Landmark, CalendarDays, ChevronDown, Plus, Trash2 } from 'lucide-react';
 import { SelectOptionList } from '../ui/SelectOptionList';
+import { BankLogo } from '../wallet/BankLogo';
 import { CapitalSource, LoanBillingModality } from '../../types';
 import { formatMoney, cleanNumberStr } from '../../utils/formatters';
 import { LoanTotalPreview } from './LoanFormFinancialSection.preview';
@@ -75,6 +76,7 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
   // Crédito do cartão é informativo: nunca sobrescrever fontes.balance nem inferir disponibilidade.
   const [cardCreditBySource, setCardCreditBySource] = useState<Record<string, { amount: number | null; cardCount: number; linkCount: number }>>({});
   const [cardCreditStatus, setCardCreditStatus] = useState<'loading' | 'ready' | 'restricted' | 'error'>('loading');
+  const [linkedCardIdentityBySource, setLinkedCardIdentityBySource] = useState<Record<string, { institution: string; nickname: string }>>({});
   const cardSourceIds = sources.filter(source => source.type === 'CARD' || source.type === 'MISTO').map(source => source.id);
   const cardSourceIdsKey = [...cardSourceIds].sort().join(',');
 
@@ -83,6 +85,7 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
     const ids = cardSourceIdsKey ? cardSourceIdsKey.split(',') : [];
     if (!ids.length) {
       setCardCreditBySource({});
+      setLinkedCardIdentityBySource({});
       setCardCreditStatus('ready');
       return;
     }
@@ -104,7 +107,18 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
         if (!active) return;
         const links = (result.data || []) as WalletReference[];
         const positions: Record<string, { amount: number | null; cardCount: number; linkCount: number }> = {};
+        const identities: Record<string, { institution: string; nickname: string }> = {};
         for (const id of ids) {
+          const sourceLinks = links.filter(link => link.source_id === id);
+          if (sourceLinks.length === 1 && sourceLinks[0].target_kind === 'CARD') {
+            const linkedCard = wallet.cards.find(card => card.id === sourceLinks[0].target_id);
+            if (linkedCard) {
+              identities[id] = {
+                institution: linkedCard.institution_key || linkedCard.issuer || linkedCard.nickname,
+                nickname: linkedCard.nickname,
+              };
+            }
+          }
           const display = buildSourceReferenceDisplay(
             links.filter(link => link.source_id === id), wallet.accounts, wallet.cards,
           );
@@ -120,9 +134,10 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
           };
         }
         setCardCreditBySource(positions);
+        setLinkedCardIdentityBySource(identities);
         setCardCreditStatus('ready');
       } catch {
-        if (active) { setCardCreditBySource({}); setCardCreditStatus('error'); }
+        if (active) { setCardCreditBySource({}); setLinkedCardIdentityBySource({}); setCardCreditStatus('error'); }
       }
     };
     void refreshCredit();
@@ -470,13 +485,21 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
                                 : isCard && cardCreditStatus === 'ready'
                                   ? { label: 'Cartão', value: 'Sem cartão' }
                                   : { label: 'Saldo da fonte', value: formatMoney(source.balance) };
-                    const Icon = isCard ? CreditCard : Landmark;
+                    const linkedIdentity = linkedCardIdentityBySource[source.id];
                     return {
                       value: source.id,
                       label: source.name,
                       subtitle: detail.label,
                       rightValue: detail.value,
-                      icon: <Icon size={16} className="text-blue-300" />,
+                      icon: source.type === 'CASH' || source.type === 'CAIXA' || source.type === 'Caixa'
+                        ? <Wallet size={19} className="shrink-0 text-amber-300" />
+                        : <BankLogo
+                            name={linkedIdentity?.institution || source.name}
+                            alternateName={linkedIdentity?.nickname || source.name}
+                            customImage={source.logo_url || null}
+                            size="sm"
+                            variant={isCard ? 'card' : 'default'}
+                          />,
                     };
                   })}
                   onChange={(selectedId) => {

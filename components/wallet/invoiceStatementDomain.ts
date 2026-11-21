@@ -239,3 +239,28 @@ export const getCardInvoiceEntries = (
     .map(installment => ({ expense: expensesById.get(installment.expense_id)!, installment }))
     .sort((left, right) => right.expense.expense_date.localeCompare(left.expense.expense_date));
 };
+
+/**
+ * A abertura da fatura é um snapshot. Nunca substituir ou regravar seu valor
+ * quando novas compras entram: o total vivo já é calculado por ciclo.
+ */
+export const getInvoiceOpeningBreakdown = (
+  cardId: string,
+  dueMonth: string | null | undefined,
+  expenses: PersonalWalletExpense[],
+  installments: PersonalWalletExpenseInstallment[],
+): { opening: number; subsequent: number; current: number } | null => {
+  const opening = getCardInvoiceEntries(cardId, dueMonth, expenses, installments)
+    .find(entry => entry.expense.entry_type === 'INVOICE_OVERRIDE' && entry.expense.is_opening_summary);
+  if (!opening) return null;
+  const amount = Number(opening.installment.amount) - Number(opening.installment.paid_amount || 0);
+  if (!Number.isFinite(amount)) return null;
+  const openingCents = Math.max(0, Math.round(amount * 100));
+  const currentCents = Math.round(getSelectedInvoiceCycle(cardId, dueMonth || '', expenses, installments).amount * 100);
+  if (!Number.isSafeInteger(openingCents) || !Number.isSafeInteger(currentCents)) return null;
+  return {
+    opening: openingCents / 100,
+    subsequent: (currentCents - openingCents) / 100,
+    current: currentCents / 100,
+  };
+};

@@ -116,3 +116,15 @@ test('lançamento rápido exibe a instituição vinculada ao cartão selecionado
   assert.ok(quick.includes('icon: <QuickAccountLogo account={acc} />'));
   assert.ok(!quick.includes('customImage={card.image_url}'), 'não expor imagem sensível do cartão');
 });
+
+test('fonte de capital do contrato mostra logotipo correspondente ao vínculo e atualização no seletor',()=>{
+  const src = readFileSync('components/forms/LoanFormFinancialSection.tsx', 'utf8');
+  assert.match(src, /import \{ BankLogo \} from '\.\.\/wallet\/BankLogo'/);
+  assert.match(src, /sourceLinks\.length === 1 && sourceLinks\[0\]\.target_kind === 'CARD'/);
+  assert.match(src, /linkedCard\.institution_key \|\| linkedCard\.issuer \|\| linkedCard\.nickname/);
+  assert.match(src, /name=\{linkedIdentity\?\.institution \|\| source\.name\}/);
+  assert.match(src, /customImage=\{source\.logo_url \|\| null\}/);
+  assert.match(src, /icon: source\.type === 'CASH'/);
+  const select = readFileSync('components/ui/SelectOptionList.tsx','utf8');
+  assert.match(select, /selectedOption\?\.icon \?\? triggerIcon/);
+});

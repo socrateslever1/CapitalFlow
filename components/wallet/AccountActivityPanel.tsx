@@ -14,6 +14,8 @@ import { SelectOptionList } from '../ui/SelectOptionList';
 import { BankLogo } from './BankLogo';
 import { notifyFinancialDataChanged } from '../../utils/appSyncEvents';
 import { accountCategoryReducer, initialAccountCategorySelection } from './accountCategorySelection';
+import { suggestWalletAccountCategory } from '../../features/wallet/domain/suggestWalletAccountCategory';
+import { withWalletOperationDeadline, WalletOperationTimeoutError } from '../../features/wallet/utils/operationConfirmation';
 
 type Props = {
   account: PersonalWalletAccount;
@@ -56,7 +58,9 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
   const [operationDraft,setOperationDraft]=useState<string|null>(null);
   const [description,setDescription]=useState('');
   const [categoryState,dispatchCategory]=useReducer(accountCategoryReducer,initialAccountCategorySelection);
-  const category=categoryState.value;
+  const [categoryManuallySelected,setCategoryManuallySelected]=useState(false);
+  const suggestedCategory=suggestWalletAccountCategory(description,categoryManuallySelected);
+  const category=suggestedCategory??categoryState.value;
   const [destination,setDestination]=useState('');
   const [date,setDate]=useState(localToday());
   const [importOpen,setImportOpen]=useState(false);
@@ -95,10 +99,10 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
   const filtered=entries.filter(x=>(x.label+' '+x.category+' '+x.tag).toLocaleLowerCase('pt-BR').includes(search.toLocaleLowerCase('pt-BR')));
   const statementTotal=filtered.reduce((total, entry)=>total+Number(entry.amount||0),0);
   const others=accounts.filter(a=>a.id!==account.id);
-  const categoryOptions=[...new Set([...commonCategories,...operations.map(operation=>operation.category).filter(Boolean)])];
+  const categoryOptions=[...new Set([...commonCategories,...operations.map(operation=>operation.category).filter(Boolean),category])];
   const canInitializeOpening=Number(account.balance)===0&&!operations.some(op=>op.from_account_id===account.id||op.to_account_id===account.id);
 
-  const clear=()=>{setAction(null);setAmount('');setOperationDraft(null);setDescription('');dispatchCategory({type:'reset'});setDestination('');setError('');};
+  const clear=()=>{setAction(null);setAmount('');setOperationDraft(null);setDescription('');dispatchCategory({type:'reset'});setCategoryManuallySelected(false);setDestination('');setError('');};
   const submit=async(e:React.FormEvent)=>{
     e.preventDefault();
     if(!action||saving)return;
@@ -117,18 +121,38 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
     const signature=[action,fromAccount,toAccount,parsedAmount.toFixed(2),description,date,effectiveCategory].join(':');
     if(transactionRef.current.signature!==signature) transactionRef.current={signature,id:generateUUID()};
     setSaving(true);setError('');setSuccess('');
+    const requestId=transactionRef.current.id;
     try{
-      await personalWalletService.recordAccountOperation({
-        type:action,fromAccountId:fromAccount,toAccountId:toAccount,
-        amount:parsedAmount,description,category:effectiveCategory,date,requestId:transactionRef.current.id,
-      });
-      notifyFinancialDataChanged({ wallet: true, capital: Boolean(account.capital_source_id) });
-      await onSaved();
+      try {
+        await withWalletOperationDeadline(personalWalletService.recordAccountOperation({
+          type:action,fromAccountId:fromAccount,toAccountId:toAccount,
+          amount:parsedAmount,description,category:effectiveCategory,date,requestId,
+        }),18000);
+      } catch (cause) {
+        if (!(cause instanceof WalletOperationTimeoutError)) throw cause;
+        // A requisição pode ter sido efetivada mesmo após esgotar a espera na interface.
+        // Confirme o mesmo request_id sob RLS, sem criar outra operação ou alterar saldos.
+        let confirmed=false;
+        try {
+          confirmed=await withWalletOperationDeadline(
+            personalWalletService.hasRecordedAccountOperation(requestId),6000,
+          );
+        } catch { /* Resultado inconclusivo: manter request_id para repetição idempotente. */ }
+        if (!confirmed) {
+          setError('Não foi possível confirmar este lançamento. Ele ainda pode ser concluído. Confira o extrato antes de repetir a operação.');
+          notifyFinancialDataChanged({wallet:true});
+          return;
+        }
+      }
+      // A RPC confirmou a escrita. A atualização do extrato é assíncrona e não
+      // pode manter a janela presa em "Registrando..." nem duplicar refreshes.
       transactionRef.current={signature:'',id:generateUUID()};
       clear();
-      setSuccess('Movimentação registrada no extrato e saldo atualizado.');
-    }catch(err:any){setError(err?.message||'Não foi possível registrar a operação.');}
-    finally{setSaving(false);}
+      setSuccess('Movimentação registrada. O extrato e o saldo serão atualizados automaticamente.');
+      notifyFinancialDataChanged({ wallet: true, capital: Boolean(account.capital_source_id) });
+    }catch(err:unknown){
+      setError(err instanceof Error ? err.message : 'Não foi possível registrar a operação.');
+    }finally{setSaving(false);}
   };
   const submitOpening=async(e:React.FormEvent)=>{
     e.preventDefault();
@@ -243,7 +267,7 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
           ['PAYMENT',CreditCard,'Pagar'],
           ['TRANSFER',ArrowLeftRight,'Transferir'],
         ] as const).map(([value,Icon,label])=>(
-          <button type="button" key={value} onClick={()=>{setAction(value);setAmount('');setOperationDraft(null);setDescription(value==='TRANSFER'?'Transferência entre contas':'');setDestination('');setError('');setSuccess('');}}
+          <button type="button" key={value} onClick={()=>{setAction(value);setAmount('');setOperationDraft(null);setDescription(value==='TRANSFER'?'Transferência entre contas':'');dispatchCategory({type:'reset'});setCategoryManuallySelected(false);setDestination('');setError('');setSuccess('');}}
             className={`flex flex-col items-center justify-center gap-2 rounded-xl border px-2 py-4 text-xs font-semibold transition-colors ${action===value?'border-emerald-400 bg-emerald-900/30 text-white':'border-slate-700 bg-slate-950 text-slate-300 hover:border-emerald-500'}`}>
             <Icon size={20} className={value==='EXPENSE'||value==='PAYMENT'?'text-rose-400':'text-emerald-400'}/>{label}
           </button>
@@ -377,8 +401,9 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
                   ...categoryOptions.map((option) => ({ value: option, label: option })),
                   { value: '__custom__', label: 'Outra categoria...' },
                 ]}
-                onChange={(selected) => dispatchCategory({type:'select',value:selected})}
+                onChange={(selected) => {setCategoryManuallySelected(true);dispatchCategory({type:'select',value:selected});}}
               />
+              {suggestedCategory && <p className="text-[11px] text-emerald-300">Categoria sugerida pela descrição. Você pode alterá-la.</p>}
             </div>}
             {action!=='TRANSFER' && categoryState.customMode && <label className="text-xs text-slate-300 sm:col-span-2">Nome da categoria
               <input required maxLength={100} className={input} value={category} onChange={e=>dispatchCategory({type:'type',value:e.target.value})} placeholder="Digite a categoria"/>

@@ -557,6 +557,17 @@ const personalWalletServiceImpl = {
     if (error || data !== true) throw new Error(error?.message || 'Não foi possível restaurar a carteira anterior.');
   },
 
+  /** Verificação read-only do request_id autenticado para confirmar resultados após timeout. */
+  async hasRecordedAccountOperation(requestId: string): Promise<boolean> {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestId)) {
+      throw new Error('Identificador de lançamento inválido.');
+    }
+    const {data,error}=await supabase.from('personal_wallet_account_operations')
+      .select('id').eq('request_id',requestId).limit(1).maybeSingle();
+    if(error) throw new Error(error.message);
+    return Boolean(data?.id);
+  },
+
   async recordAccountOperation(input: RecordWalletOperation) {
     if (!Number.isFinite(input.amount) || input.amount <= 0 || Math.abs(input.amount * 100 - Math.round(input.amount * 100)) > 0.000001) {
       throw new Error('Valor inválido.');

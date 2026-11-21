@@ -1,3 +1,12 @@
+## 20/11/2026 — destravar registro de movimentações e sugerir categorias
+
+- **Diagnóstico:** `AccountActivityPanel.submit` aguardava `personalWalletService.recordAccountOperation` e depois `onSaved`, enquanto `notifyFinancialDataChanged({wallet:true})` já disparava o refresh da carteira. O modal permanecia em `Registrando...` até terminar a atualização integral, com consultas redundantes. Consulta read-only ao Supabase não encontrou um lançamento manual de R$ 156,88 descrito como Alimentação no intervalo consultado; isso não comprova o resultado de uma requisição ainda pendente.
+- **Solução:** após confirmação da RPC, o modal libera os controles, limpa o formulário e usa exclusivamente o evento `wallet-updated` para recarregar a tela. A chamada financeira tem prazo de espera de 18 s; se a resposta for inconclusiva, busca o mesmo `request_id` sob RLS por até 6 s. Sem comprovação de gravação, preserva o formulário e o mesmo ID para repetição idempotente, alerta sobre incerteza e dispara refresh de leitura, sem criar outra escrita.
+- **Categorias:** sugestões locais reaproveitam `classifyStatementDescription` do extrato OFX/PDF; textos reconhecidos atualizam a categoria exibida, mas escolhas manuais permanecem soberanas. Termos ambíguos não geram sugestão e nenhuma categorização grava transação por si só.
+- **Preservado:** tabelas, saldo, RLS, RPC, ledger, parâmetros de valores, contratos, faturas e dados históricos; não houve gravações financeiras de teste. `personalWallet.service.ts` ganhou somente consulta de existência por `request_id` autenticado.
+- **Testes:** contrato de sugestão em `tests/wallet/account-category-selection.test.ts`, prazo de espera em `tests/wallet/operation-confirmation.test.ts` e `test:wallet-visual-next`. Verificar CI/build e APK separadamente. Timeout não prova falha da operação: o usuário deve conferir o extrato antes de tentar novamente.
+- **Rollback:** reverter apenas este commit, sem migração ou alteração de dados.
+
 ## 20/11/2026 — contexto unificado em despesa, pagamento, receita, recebimento e transferência
 
 - **Problema:** os diálogos para Despesa, Pagamento, Receita e Recebimento não tinham logotipo ou saldo visível, embora Transferência tivesse cartão de saldo distinto.

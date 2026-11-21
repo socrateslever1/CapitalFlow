@@ -5,9 +5,9 @@ import test from 'node:test';
 test('cards page exposes the three credit magnitudes and the manual override action', () => {
   const page = readFileSync('features/wallet/pages/WalletCardsPage.tsx', 'utf8');
   const modal = readFileSync('components/wallet/InvoiceOverrideModal.tsx', 'utf8');
-  assert.match(page, /label: savedInvoiceTotalCents === null \? 'Saldo de fatura registrado' : 'Total da fatura \(banco\)'/);
-  assert.match(page, /Faturas posteriores/);
-  assert.match(page, /'Disponível estimado' : 'Disponível informado pelo banco'/);
+  assert.match(page, /formatMoney\(bankInvoiceTotal \?\? cycle\.amount\)/);
+  assert.match(page, /Próximas faturas/);
+  assert.match(page, /'Disponível estimado' : 'Disponível no banco'/);
   assert.match(page, /Ajustar fatura/);
   assert.match(page, /InvoiceOverrideModal/);
   assert.match(modal, /saveLabel="Salvar valores do banco"/);

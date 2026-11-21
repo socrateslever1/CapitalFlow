@@ -20,6 +20,7 @@ import { safeUUID } from '../utils/uuid';
 import { getPaymentGroupKey, groupPaymentReceipts } from '../utils/paymentGroups';
 import { PageHeader } from '../components/ui/PageHeader';
 import { buildFundingCostReport } from '../domain/finance/fundingCostReport';
+import { createFinancialSearchMatcher } from '../features/wallet/utils/financialSearch';
 
 interface FinancialStatementPageProps {
   profileId: string;
@@ -361,15 +362,23 @@ export const FinancialStatementPage: React.FC<FinancialStatementPageProps> = ({
     }));
   }, [periodMovements]);
 
-  const filteredMovements = useMemo(() => {
-    const normalizedSearch = search.trim().toLowerCase();
-    return groupedMovements.filter((movement) => {
-      if (view !== 'ALL' && view !== 'RECEIVABLE' && movement.direction !== view) return false;
-      if (!normalizedSearch) return true;
-      return [movement.debtorName, movement.notes, movement.category, movement.sourceName]
-        .some((value) => String(value || '').toLowerCase().includes(normalizedSearch));
-    });
-  }, [groupedMovements, search, view]);
+  const financialSearchMatches=useMemo(()=>createFinancialSearchMatcher(search),[search]);
+  const filteredMovements=useMemo(()=>
+    groupedMovements.filter(movement=>{
+      if(view!=='ALL'&&view!=='RECEIVABLE'&&movement.direction!==view)return false;
+      return financialSearchMatches({
+        texts:[movement.debtorName,movement.notes,movement.category,movement.sourceName,movement.type,movement.loanId],
+        amounts:[Number(movement.amount),...(movement.receiptParts || []).flatMap(part=>[
+          Number(part.principalDelta),Number(part.interestDelta),Number(part.lateFeeDelta),
+        ])],
+        dates:[movement.date,movement.createdAt],
+      });
+    }),[groupedMovements,financialSearchMatches,view]);
+  const filteredReceivables=useMemo(()=>
+    receivables.filter(({loan,amount})=>financialSearchMatches({
+      texts:[loan.debtorName,loan.id],
+      amounts:[amount],
+    })),[receivables,financialSearchMatches]);
 
   const caixaLivre = operationalSources.find((source) =>
     /caixa livre|lucro|dispon[ií]vel/i.test(source.name || '')
@@ -582,13 +591,13 @@ export const FinancialStatementPage: React.FC<FinancialStatementPageProps> = ({
             </div>
             <label className="flex h-9 items-center gap-2 rounded-md border border-slate-800 bg-slate-900 px-3">
               <Search size={15} className="text-slate-500" />
-              <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar cliente ou fonte" className="w-full bg-transparent text-xs text-white outline-none placeholder:text-slate-600 sm:w-52" />
+              <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar nome, fonte, valor, data ou categoria" className="w-full bg-transparent text-xs text-white outline-none placeholder:text-slate-600 sm:w-52" />
             </label>
           </div>
 
           <div className="divide-y divide-slate-800">
             {view === 'RECEIVABLE' ? (
-              receivables.map(({ loan, amount }) => (
+              filteredReceivables.map(({ loan, amount }) => (
                 <button type="button" key={loan.id} onClick={() => onOpenLoan(loan.id)} className="flex min-h-[72px] w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-slate-900">
                   <div className="min-w-0">
                     <div className="truncate text-xs font-black uppercase text-white">{loan.debtorName}</div>

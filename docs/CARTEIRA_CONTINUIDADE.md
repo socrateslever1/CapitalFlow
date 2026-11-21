@@ -1,3 +1,10 @@
+## 20/11/2026 — busca monetária e textual ampliada em extratos
+
+- **Diagnóstico:** busca no extrato da fatura consultava apenas o valor restante da parcela formatado em texto; não encontrava valores originais da compra, parcela paga nem variantes BRL consistentemente. Extratos individuais e gerais de contas e o extrato financeiro não filtravam valores. Na tela financeira a busca não era aplicada à relação de recebíveis.
+- **Implementação:** função local compartilhada em \`features/wallet/utils/financialSearch.ts\` combina termos sem acento, valores em centavos, sinais (+/-), formatos R$ 700, 700,00, 700.00, 1.700,00 e datas BR/ISO. Ligada a \`CardInvoiceStatement\`, \`AccountActivityPanel\`, \`WalletAccountsPage\` e \`FinancialStatementPage\`. Fatura inclui valor original, parcela, pago, remanescente, descrição, categoria, observações, data e indicador de parcela; o relatório financeiro também filtra recebíveis por nome, identificador e valor.
+- **Preservação:** busca somente nos dados já carregados/autorizados, mantendo a fatura corrente e períodos ativos; não agrega registros de outros cartões/meses, não remove RLS, não cria escrituras financeiras ou altera banco.
+- **Testes:** \`tests/wallet/wallet-financial-search.test.ts\` anexado a \`test:wallet-visual-next\` com cenários de BRL, centavos, acentos, data, sinais e compra parcelada. Verificação por GitHub Actions; teste visual em dispositivo físico não executado. Rollback por revert do commit; sem migration.
+
 ## 20/11/2026 — logotipo do cartão ativo no lançamento rápido
 
 - **Causa:** apesar de `selectedCard` estar no estado, o modal utilizava `Receipt` no cabeçalho e `CreditCard` em todos os itens do seletor.

@@ -10,6 +10,7 @@ import { CreateAccountModal } from '../../../components/wallet/CreateAccountModa
 import { buildAccountStatementEntries } from '../../../components/wallet/accountStatementDomain';
 import { formatMoney } from '../../../utils/formatters';
 import { PrivateMoney } from '../../../contexts/FinancialPrivacyContext';
+import { createFinancialSearchMatcher } from '../utils/financialSearch';
 
 export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onNavigate: (path: string) => void }> = ({ activeUser }) => {
     const [searchParams, setSearchParams] = useSearchParams();
@@ -75,15 +76,13 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
     return merged.sort((a, b) => b.date.localeCompare(a.date));
   }, [data]);
 
-  const filteredStatement = useMemo(() => {
-    const query = statementSearch.trim().toLocaleLowerCase('pt-BR');
-    if (!query) return generalStatement;
-    return generalStatement.filter(entry =>
-      `${entry.label} ${entry.accountNickname} ${entry.category} ${entry.tag}`
-        .toLocaleLowerCase('pt-BR')
-        .includes(query),
-    );
-  }, [generalStatement, statementSearch]);
+  const statementSearchMatches=useMemo(()=>createFinancialSearchMatcher(statementSearch),[statementSearch]);
+  const filteredStatement=useMemo(()=>
+    generalStatement.filter(entry=>statementSearchMatches({
+      texts:[entry.label,entry.accountNickname,entry.category,entry.tag],
+      amounts:[entry.amount],
+      dates:[entry.date],
+    })),[generalStatement,statementSearchMatches]);
 
   const visibleStatement = showAllStatement ? filteredStatement : filteredStatement.slice(0, 20);
 
@@ -130,7 +129,7 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
                             <input
                                 type="search"
                                 aria-label="Buscar no extrato geral"
-                                placeholder="Buscar conta, descrição ou categoria"
+                                placeholder="Buscar conta, valor, descrição, data ou categoria"
                                 value={statementSearch}
                                 onChange={event => setStatementSearch(event.target.value)}
                                 className="w-full bg-transparent py-2 text-xs text-white outline-none placeholder:text-slate-500"
@@ -138,7 +137,7 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
                         </div>
                         {filteredStatement.length === 0 ? (
                             <p className="rounded-lg border border-dashed border-slate-800 px-3 py-4 text-center text-xs text-slate-400">
-                                Nenhuma movimentação encontrada nas contas.
+                                {generalStatement.length ? 'Nenhuma movimentação corresponde à busca.' : 'Nenhuma movimentação encontrada nas contas.'}
                             </p>
                         ) : (
                             <>

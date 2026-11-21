@@ -11,6 +11,7 @@ import { formatInstallmentBadgeLabel } from '../../features/wallet/utils/cardIns
 import { formatWalletMoneyInput, parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
 import { resolveLiveBrazilianCentsChange } from '../../features/wallet/utils/liveBrazilianMoneyInput';
 import { calculateInstallmentAdvancement } from '../../features/wallet/utils/minhasFinancasWalletTools';
+import { createFinancialSearchMatcher } from '../../features/wallet/utils/financialSearch';
 
 export type InstallmentDeleteScope = 'ALL' | 'CURRENT_AND_NEXT' | 'ONLY_CURRENT';
 
@@ -77,34 +78,30 @@ export const CardInvoiceStatement: React.FC<CardInvoiceStatementProps> = ({
   const entries = useMemo(() => getCardInvoiceEntries(cardId, dueMonth, expenses, installments), [cardId, dueMonth, expenses, installments]);
   const hasOverride = entries.some(entry => entry.expense.entry_type === 'INVOICE_OVERRIDE');
 
-  const normalizedQuery = useMemo(
-    () => searchQuery.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim(),
-    [searchQuery],
-  );
+  const normalizedQuery = searchQuery.trim();
+  const searchMatches = useMemo(() => createFinancialSearchMatcher(searchQuery), [searchQuery]);
 
-  const visibleEntries = useMemo(() => {
-    if (!normalizedQuery) return entries;
-    return entries.filter(({ expense, installment }) => {
-      const remaining = Number(installment.amount) - Number(installment.paid_amount || 0);
-      const amountBr = remaining.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-      const dateBr = expense.expense_date.split('-').reverse().join('/');
-      const badge = formatInstallmentBadgeLabel(expense, installment) || '';
-      const haystack = [
+  const visibleEntries = useMemo(() => entries.filter(({ expense, installment }) => {
+    const remaining = Number(installment.amount) - Number(installment.paid_amount || 0);
+    return searchMatches({
+      texts: [
         expense.entry_type === 'INVOICE_OVERRIDE' ? 'Fatura consolidada' : expense.description,
         expense.category,
-        expense.expense_date,
-        dateBr,
-        amountBr,
-        String(remaining),
-        badge,
-      ]
-        .join(' ')
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .toLowerCase();
-      return haystack.includes(normalizedQuery);
+        expense.notes,
+        formatInstallmentBadgeLabel(expense, installment),
+        expense.is_invoice_credit ? 'Crédito Estorno' : 'Compra',
+        String(installment.installment_number),
+        String(expense.installment_count),
+      ],
+      amounts: [
+        expense.is_invoice_credit ? -remaining : remaining,
+        Number(expense.amount),
+        Number(installment.amount),
+        Number(installment.paid_amount || 0),
+      ],
+      dates: [expense.expense_date, installment.due_month],
     });
-  }, [entries, normalizedQuery]);
+  }), [entries, searchMatches]);
 
   const filteredTotal = useMemo(
     () =>
@@ -244,7 +241,7 @@ export const CardInvoiceStatement: React.FC<CardInvoiceStatementProps> = ({
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 aria-label="Buscar no extrato da fatura por nome, data, valor, categoria ou parcela"
-                placeholder="Buscar compra, data, valor ou categoria…"
+                placeholder="Buscar compra, valor, data, categoria ou parcela…"
                 className="min-w-0 flex-1 bg-transparent px-2 py-1.5 text-xs text-white outline-none placeholder:text-slate-500"
               />
               {searchQuery && (

@@ -14,6 +14,7 @@ import { SelectOptionList } from '../ui/SelectOptionList';
 import { BankLogo } from './BankLogo';
 import { notifyFinancialDataChanged } from '../../utils/appSyncEvents';
 import { accountCategoryReducer, initialAccountCategorySelection } from './accountCategorySelection';
+import { createFinancialSearchMatcher } from '../../features/wallet/utils/financialSearch';
 import { suggestWalletAccountCategory } from '../../features/wallet/domain/suggestWalletAccountCategory';
 import { withWalletOperationDeadline, WalletOperationTimeoutError } from '../../features/wallet/utils/operationConfirmation';
 
@@ -96,7 +97,12 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
   const entries=useMemo(()=>buildAccountStatementEntries({
     accountId:account.id,accounts,operations,expenses,invoicePayments,statementRows,cardFundedLoanIds,
   }),[account.id,accounts,operations,expenses,invoicePayments,statementRows,cardFundedLoanIds]);
-  const filtered=entries.filter(x=>(x.label+' '+x.category+' '+x.tag).toLocaleLowerCase('pt-BR').includes(search.toLocaleLowerCase('pt-BR')));
+  const searchMatches=useMemo(()=>createFinancialSearchMatcher(search),[search]);
+  const filtered=entries.filter(entry=>searchMatches({
+    texts:[entry.label,entry.category,entry.tag,account.nickname],
+    amounts:[entry.amount],
+    dates:[entry.date],
+  }));
   const statementTotal=filtered.reduce((total, entry)=>total+Number(entry.amount||0),0);
   const others=accounts.filter(a=>a.id!==account.id);
   const categoryOptions=[...new Set([...commonCategories,...operations.map(operation=>operation.category).filter(Boolean),category])];
@@ -288,14 +294,14 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
       <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center">
         <div className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-slate-700 bg-slate-950 px-3">
           <Search size={15} className="shrink-0 text-slate-500"/>
-          <input aria-label="Buscar movimentações" className="w-full bg-transparent py-2 text-xs text-white outline-none" placeholder="Buscar descrição ou categoria" value={search} onChange={e=>setSearch(e.target.value)}/>
+          <input aria-label="Buscar movimentações" className="w-full bg-transparent py-2 text-xs text-white outline-none" placeholder="Buscar descrição, valor, data ou categoria" value={search} onChange={e=>setSearch(e.target.value)}/>
         </div>
         <div className="flex shrink-0 items-center justify-between gap-3 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs sm:min-w-[220px]">
           <span className="text-slate-400">Resultado das movimentações{search ? ' filtradas' : ''}</span>
           <strong className={`whitespace-nowrap tabular-nums ${statementTotal>=0?'text-emerald-300':'text-rose-300'}`}>{statementTotal>=0?'+':'−'}{formatMoney(Math.abs(statementTotal))}</strong>
         </div>
       </div>
-      {filtered.length===0?<p className="rounded-lg border border-dashed border-slate-700 p-4 text-xs text-slate-400">Ainda não há movimentações operacionais ou importadas nesta conta.</p>:
+      {filtered.length===0?<p className="rounded-lg border border-dashed border-slate-700 p-4 text-xs text-slate-400">{entries.length ? 'Nenhuma movimentação corresponde à busca.' : 'Ainda não há movimentações operacionais ou importadas nesta conta.'}</p>:
       <div className="divide-y divide-slate-800">{filtered.map(m=>(
         <div key={m.id} className="flex items-center justify-between gap-3 py-3">
           <div className="min-w-0"><p className="truncate text-xs font-semibold text-white">{m.label}</p><div className="mt-1 flex flex-wrap items-center gap-1.5"><span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${tagClass(m.tag)}`}>{m.tag}</span><span className="text-[11px] text-slate-400">{fmtDate(m.date)} · {m.category}</span></div></div>

@@ -1,11 +1,11 @@
 import { PrivateMoney } from '../../contexts/FinancialPrivacyContext';
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, CalendarDays, FastForward, Pencil, ReceiptText, Search, Tag, Trash2, X } from 'lucide-react';
 import type { PersonalWalletExpense, PersonalWalletExpenseInstallment, UpdatePersonalWalletExpense } from '../../services/personalWallet.service';
 import { formatMoney } from '../../utils/formatters';
 import { generateUUID } from '../../utils/generators';
 import { ExpenseEditModal } from './ExpenseEditModal';
-import { getCardInvoiceEntries, getInvoiceOpeningBreakdown, type InvoiceCycleDates, type InvoiceCycleState } from './invoiceStatementDomain';
+import { getCardInvoiceEntries, getInvoiceOpeningBreakdown, type InvoiceCycleDates } from './invoiceStatementDomain';
 import { Modal, modalPrimaryActionClass, modalSecondaryActionClass } from '../ui/Modal';
 import { formatInstallmentBadgeLabel } from '../../features/wallet/utils/cardInstallmentPlan';
 import { formatWalletMoneyInput, parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
@@ -37,7 +37,6 @@ type CardInvoiceStatementProps = {
   ) => Promise<void>;
   onCancelConsolidation?: (dueMonth: string, requestId: string) => Promise<void>;
   headerAction?: React.ReactNode;
-  invoiceState?: InvoiceCycleState;
   cycleDates?: InvoiceCycleDates;
   className?: string;
   openingBalance?: number;
@@ -54,7 +53,6 @@ export const CardInvoiceStatement: React.FC<CardInvoiceStatementProps> = ({
   onAdvanceInstallments,
   onCancelConsolidation,
   headerAction,
-  invoiceState,
   cycleDates,
   openingBalance = 0,
   className = '',
@@ -76,11 +74,12 @@ export const CardInvoiceStatement: React.FC<CardInvoiceStatementProps> = ({
   const [error, setError] = useState('');
   const deleteRequestIds = useRef(new Map<string, string>());
   const entries = useMemo(() => getCardInvoiceEntries(cardId, dueMonth, expenses, installments), [cardId, dueMonth, expenses, installments]);
-  const hasOverride = entries.some(entry => entry.expense.entry_type === 'INVOICE_OVERRIDE');
   const openingBreakdown = useMemo(
     () => getInvoiceOpeningBreakdown(cardId, dueMonth, expenses, installments),
     [cardId, dueMonth, expenses, installments],
   );
+  const [showInitialDetails, setShowInitialDetails] = useState(false);
+  useEffect(() => { setShowInitialDetails(false); }, [cardId, dueMonth]);
 
   const normalizedQuery = searchQuery.trim();
   const searchMatches = useMemo(() => createFinancialSearchMatcher(searchQuery), [searchQuery]);
@@ -224,34 +223,49 @@ export const CardInvoiceStatement: React.FC<CardInvoiceStatementProps> = ({
       <header className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h3 id="invoice-statement-title" className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-slate-200"><ReceiptText size={15} className="text-cyan-400" /> Extrato da Fatura</h3>
-          <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[10px] text-slate-400">
-            {dueMonth ? <span>{cycleDates ? `Fecha em ${cycleDates.closingDate.split('-').reverse().join('/')} • Vence em ${cycleDates.dueDate.split('-').reverse().join('/')}` : `Ciclo ${dueMonth.slice(0, 7).split('-').reverse().join('/')}`}</span> : <span>Nenhuma fatura em aberto</span>}
-            {invoiceState && <span className={`rounded-full border px-2 py-0.5 font-bold ${invoiceState === 'OPEN' ? 'border-sky-500/20 bg-sky-500/10 text-sky-400' : invoiceState === 'CLOSED' ? 'border-amber-500/20 bg-amber-500/10 text-amber-400' : invoiceState === 'OVERDUE' ? 'border-rose-500/20 bg-rose-500/10 text-rose-400' : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400'}`}>{invoiceState === 'OPEN' ? 'Aberta' : invoiceState === 'CLOSED' ? 'Fechada' : invoiceState === 'OVERDUE' ? 'Vencida' : 'Paga'}</span>}
-          </div>
+          <p className="mt-0.5 text-[11px] text-slate-400">
+            {cycleDates ? `Fecha ${cycleDates.closingDate.slice(8, 10)}/${cycleDates.closingDate.slice(5, 7)}` : dueMonth ? `Ciclo ${dueMonth.slice(5, 7)}/${dueMonth.slice(0, 4)}` : 'Nenhuma fatura'}
+          </p>
         </div>
-        <div className="flex flex-wrap items-center gap-1.5">{headerAction}<span className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] font-bold text-slate-300">{entries.length}</span></div>
+        <div className="flex items-center gap-2">
+          {(openingBreakdown || openingBalance > 0) && (
+            <button type="button" aria-expanded={showInitialDetails}
+              aria-controls="invoice-initial-details" onClick={() => setShowInitialDetails(value => !value)}
+              className="min-h-9 rounded-md px-2 text-[11px] font-semibold text-slate-300 hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-blue-400">
+              {showInitialDetails ? 'Ocultar detalhes' : 'Detalhes'}
+            </button>
+          )}
+          {headerAction}
+          <span className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] font-bold text-slate-300">{entries.length}</span>
+        </div>
       </header>
 
-      {openingBreakdown && (
-        <div className="mt-2 space-y-1.5 rounded-xl border border-amber-500/25 bg-amber-950/15 p-3 text-xs">
-          <p className="font-semibold text-amber-100">Composição atual da fatura</p>
-          <div className="flex items-center justify-between gap-2 text-slate-300">
-            <span>Saldo registrado na abertura</span>
-            <strong className="tabular-nums text-amber-200"><PrivateMoney value={formatMoney(openingBreakdown.opening)} /></strong>
-          </div>
-          <div className="flex items-center justify-between gap-2 text-slate-300">
-            <span>Movimentações adicionais (líquido)</span>
-            <strong className="tabular-nums text-slate-100"><PrivateMoney value={`${openingBreakdown.subsequent < 0 ? '− ' : '+ '}${formatMoney(Math.abs(openingBreakdown.subsequent))}`} /></strong>
-          </div>
-          <div className="flex items-center justify-between gap-2 border-t border-amber-500/20 pt-2 text-sm font-bold text-white">
-            <span>Total pendente no ciclo</span>
-            <strong className="tabular-nums text-emerald-300"><PrivateMoney value={formatMoney(openingBreakdown.current)} /></strong>
-          </div>
-          <p className="text-[11px] leading-relaxed text-slate-400">O valor da abertura é histórico e não muda. O total do ciclo considera os lançamentos posteriores, sem duplicar os já consolidados.</p>
+      {showInitialDetails && (openingBreakdown || openingBalance > 0) && (
+        <div id="invoice-initial-details" className="mt-2 space-y-2 rounded-lg border border-slate-800 bg-slate-900/65 p-3 text-xs">
+          {openingBreakdown && (
+            <>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-slate-300">Saldo inicial</span>
+                <strong className="tabular-nums text-slate-100"><PrivateMoney value={formatMoney(openingBreakdown.opening)} /></strong>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-slate-300">Após abertura</span>
+                <strong className="tabular-nums text-slate-100"><PrivateMoney value={formatMoney(openingBreakdown.subsequent)} /></strong>
+              </div>
+              <div className="flex items-center justify-between gap-2 border-t border-slate-700 pt-2 font-semibold">
+                <span>Total pendente</span>
+                <strong className="tabular-nums text-emerald-300"><PrivateMoney value={formatMoney(openingBreakdown.current)} /></strong>
+              </div>
+            </>
+          )}
+          {openingBalance > 0 && (
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-slate-300">Saldo inicial fora deste ciclo</span>
+              <strong className="tabular-nums text-amber-200"><PrivateMoney value={formatMoney(openingBalance)} /></strong>
+            </div>
+          )}
         </div>
       )}
-      {hasOverride && !openingBreakdown && <p className="mt-2 rounded-lg border border-amber-500/20 bg-amber-500/5 px-2.5 py-1.5 text-[10px] text-amber-100">Ajuste consolidado: valor fixado para este ciclo. Consulte o saldo da fatura acima para o total reconhecido.</p>}
-      {openingBalance > 0 && <article className="mt-2 flex items-center justify-between gap-2 rounded-lg bg-slate-900 p-2.5 text-xs"><div><p className="font-semibold text-slate-200">Demais gastos da carga inicial</p><p className="mt-0.5 text-[10px] text-slate-400">Ainda sem detalhamento · fora da fatura deste ciclo</p></div><strong className="shrink-0 text-amber-200"><PrivateMoney value={formatMoney(openingBalance)} /></strong></article>}
 
       {!entries.length ? <p className="mt-2 rounded-lg border border-dashed border-slate-800 px-3 py-3 text-center text-xs text-slate-400">Nenhum lançamento ativo nesta fatura.</p> : (
         <>
@@ -309,7 +323,6 @@ export const CardInvoiceStatement: React.FC<CardInvoiceStatementProps> = ({
                     <p className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-slate-400">
                       <CalendarDays size={12} aria-hidden="true" />{expense.expense_date.split('-').reverse().join('/')}
                       <span aria-hidden="true">·</span><Tag size={12} aria-hidden="true" />{expense.category}
-                      {isOverride && expense.is_opening_summary && <span className="text-amber-300">· Saldo de abertura, não o total atual</span>}
                     </p>
                   </div>
                   <strong className={`shrink-0 whitespace-nowrap text-sm font-bold tabular-nums ${isOverride ? 'text-amber-200' : isCredit ? 'text-emerald-300' : 'text-rose-300'}`}>

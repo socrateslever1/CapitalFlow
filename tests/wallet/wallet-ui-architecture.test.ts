@@ -128,3 +128,22 @@ test('fonte de capital do contrato mostra logotipo correspondente ao vínculo e 
   const select = readFileSync('components/ui/SelectOptionList.tsx','utf8');
   assert.match(select, /selectedOption\?\.icon \?\? triggerIcon/);
 });
+
+test('cartão mantém resumo enxuto, explicações opcionais e alertas somente quando necessários',()=>{
+  const statement = readFileSync('components/wallet/CardInvoiceStatement.tsx', 'utf8');
+  const cards = readFileSync('features/wallet/pages/WalletCardsPage.tsx', 'utf8');
+  assert.doesNotMatch(statement, /Demais gastos da carga inicial/);
+  assert.doesNotMatch(statement, /O valor da abertura é histórico e não muda/);
+  assert.doesNotMatch(cards, /em gastos iniciais ainda sem detalhamento/);
+  assert.doesNotMatch(cards, /Saldo de fatura registrado/);
+  assert.doesNotMatch(cards, /<WalletMetricStrip/);
+  assert.match(statement, /aria-expanded=\{showInitialDetails\}/);
+  assert.match(statement, /showInitialDetails && \(openingBreakdown \|\| openingBalance > 0\)/);
+  assert.match(statement, /getInvoiceOpeningBreakdown/);
+  assert.match(cards, /aria-label="Outros valores do cartão"/);
+  assert.match(cards, /<details className="rounded-lg border border-slate-800/);
+  assert.match(cards, /Diferença entre banco e lançamentos/);
+  assert.match(cards, /invoiceTotalDifferenceCents !== 0/);
+  assert.match(cards, /Math\.max\(Number\(selected\.initial_future_installments_balance/);
+  assert.match(cards, /onCancelConsolidation=/);
+});

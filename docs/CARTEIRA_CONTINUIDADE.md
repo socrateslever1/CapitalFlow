@@ -1,3 +1,10 @@
+## 20/11/2026 — extrato de cartões sem textos redundantes
+
+- **Diagnóstico:** na tela PicPay, saldo da fatura repetido no resumo e na fatura; dois avisos sobre o mesmo saldo inicial não detalhado; mensagens extensas de consolidação e cabeçalho do extrato repetindo vencimento e status.
+- **Mudança visual:** `WalletCardsPage` substitui o bloco de três linhas por um indicador horizontal compacto apenas de próximas faturas e disponível. A fatura atual continua exibida na linha da própria fatura. Referências bancárias ficam em `<details>` recolhido. Diferenças com o banco permanecem visíveis somente se não nulas. `CardInvoiceStatement` preserva os registros e operações, mas remove os parágrafos informativos duplicados. O saldo de abertura, movimentos posteriores, total pendente e a abertura fora do ciclo continuam acessíveis pelo botão `Detalhes`, inicialmente fechado. O fechamento é abreviado no cabeçalho. 
+- **Preservação:** `PrivateMoney` em todas as quantias, sem mudanças de estado financeiro, banco, limites, pagamentos, ciclos, consultas, RLS ou lançamentos. Erros da fonte bancária permanecem acessíveis na área de valores do banco. A informação não detalhada é conservada.
+- **Validação:** `tests/wallet/wallet-ui-architecture.test.ts`, `npm run build` e Quality Gates do CI. Inspeção visual do APK não realizada neste fluxo; rollback por revert, sem migrations.
+
 ## 20/11/2026 — fontes do contrato com marcas e fatura de abertura dinâmica
 
 - **Escopo:** investigação read-only confirmou `INVOICE_OVERRIDE` inicial de R$ 1.007,87 em dezembro/2026, junto com sete compras posteriores que totalizavam R$ 1.695,53. O total do ciclo é R$ 2.703,40, não uma fatura congelada de R$ 1.007,87. Os sete lançamentos não estão ligados à abertura por `opening_invoice_id`.

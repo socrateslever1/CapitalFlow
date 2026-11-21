@@ -27,7 +27,6 @@ import { getCardsForDisplay } from '../cardSummaryNavigation';
 import { CardInitialBalancesModal } from '../../../components/wallet/CardInitialBalancesModal';
 import { QuickExpenseModal } from '../components/QuickExpenseModal';
 import { Modal, modalPrimaryActionClass, modalSecondaryActionClass } from '../../../components/ui/Modal';
-import { WalletMetricStrip } from '../../../components/wallet/WalletMetricStrip';
 import { formatWalletMoneyInput, parseWalletMoney } from '../utils/parseWalletMoney';
 import { resolveLiveBrazilianCentsChange, formatPastedBrazilianMoney } from '../utils/liveBrazilianMoneyInput';
 import { buildCardExpenseNotes, parseInstallmentTag, resolveCardInstallmentPlan } from '../utils/cardInstallmentPlan';
@@ -289,7 +288,6 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
     : null;
   const savedInvoiceTotalCents = savedInvoiceFacts?.invoice_total == null
     ? null : Math.round(Number(savedInvoiceFacts.invoice_total) * 100);
-  const registeredInvoiceBalanceCents = Math.round(Number(selectedCycle?.amount || 0) * 100);
   const registeredInvoiceTotalCents = useMemo(() => {
     if (!selected || !data || !statementMonth) return 0;
     const expensesById = new Map(data.expenses.map(expense => [expense.id, expense]));
@@ -350,16 +348,6 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
       ? selected.opening_invoice_month.slice(0, 7) === statementMonth.slice(0, 7)
       : creditPosition?.dueMonth === statementMonth
   ));
-  const selectedInvoiceState = selected && statementMonth
-    ? resolveInvoiceCycleState({
-      dueMonth: statementMonth,
-      closingDay: selected.closing_day,
-      dueDay: selected.due_day,
-      outstanding: selectedCycle?.amount || 0,
-      hasCycle: Boolean(selectedCycle?.amount),
-      exactDueDate: savedInvoiceFacts?.due_date,
-    })
-    : undefined;
   const handleScopedInstallmentDelete = async (
     expense: PersonalWalletExpense,
     targetInstallment: PersonalWalletExpenseInstallment,
@@ -697,19 +685,21 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
             onPayInvoice={card => { setSelectedId(card.id); setPaying(card); }} />
         </div>
         <div className="min-w-0 space-y-2.5 sm:space-y-3 lg:col-span-7">
-          {selected && <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-800 bg-slate-900 px-2.5 py-2">
-            <div className="min-w-0">
-              <strong className="block text-xs text-white">Valores do banco (referência)</strong>
-              <p className="mt-1 text-[11px] text-slate-400">
-                {hideFinancialValues ? 'Valores ocultos' : savedInvoiceFacts ? 'Fatura ' + formatMoney(Number(savedInvoiceFacts.invoice_total ?? 0)) +
-                  ' · Mínimo ' + (savedInvoiceFacts.minimum_payment === null ? 'não informado' : formatMoney(Number(savedInvoiceFacts.minimum_payment))) +
-                  ' · Disponível ' + (savedInvoiceFacts.available_limit === null ? 'não informado' : formatMoney(Number(savedInvoiceFacts.available_limit)))
-                  : 'Ainda não conferidos neste ciclo'}
-              </p>
-              <p className="mt-1 text-[10px] text-slate-500">O total informado pelo banco fica separado da soma das compras lançadas.</p>
-              {invoiceFactsError && <p className="mt-1 text-[11px] text-amber-300">Dados bancários indisponíveis: {invoiceFactsError}</p>}
-            </div>
-          </div>}
+          {selected && (
+            <details className="rounded-lg border border-slate-800 bg-slate-900/50 px-3 py-2 text-xs">
+              <summary className="cursor-pointer font-medium text-slate-400 hover:text-slate-200">Valores do banco</summary>
+              <div className="mt-2 grid gap-1.5 border-t border-slate-800 pt-2 text-slate-300">
+                {savedInvoiceFacts ? (
+                  <>
+                    <div className="flex justify-between gap-2"><span>Fatura</span><strong><PrivateMoney value={savedInvoiceFacts.invoice_total == null ? 'Não informado' : formatMoney(Number(savedInvoiceFacts.invoice_total))} /></strong></div>
+                    <div className="flex justify-between gap-2"><span>Mínimo</span><strong><PrivateMoney value={savedInvoiceFacts.minimum_payment == null ? 'Não informado' : formatMoney(Number(savedInvoiceFacts.minimum_payment))} /></strong></div>
+                    <div className="flex justify-between gap-2"><span>Disponível</span><strong><PrivateMoney value={savedInvoiceFacts.available_limit == null ? 'Não informado' : formatMoney(Number(savedInvoiceFacts.available_limit))} /></strong></div>
+                  </>
+                ) : <span>Ainda não informado.</span>}
+                {invoiceFactsError && <p role="alert" className="text-amber-300">{invoiceFactsError}</p>}
+              </div>
+            </details>
+          )}
           {mayApplySavedIssuerFacts && <p className="text-xs text-amber-200">
             O banco informou uma posição diferente da abertura provisória. Aplicar os valores confirmados
             atualizará a fatura e os compromissos iniciais, sem criar compras individuais.
@@ -720,24 +710,21 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
             {applyingIssuerFacts ? 'Conferindo e aplicando…' : 'Aplicar valores já salvos à posição do cartão'}
           </button>}
           {issuerCommitFeedback && <p role="status" className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-200">{issuerCommitFeedback}</p>}
-          <WalletMetricStrip items={[
-            { label: savedInvoiceTotalCents === null ? 'Saldo de fatura registrado' : 'Total da fatura (banco)', value: formatMoney((savedInvoiceTotalCents ?? registeredInvoiceBalanceCents) / 100) },
-            { label: 'Faturas posteriores', value: formatMoney(selectedFutureCommitments) },
-            { label: savedInvoiceFacts?.available_limit == null ? 'Disponível estimado' : 'Disponível informado pelo banco', value: formatMoney(savedInvoiceFacts?.available_limit == null ? (creditPosition?.freeLimit || 0) : Number(savedInvoiceFacts.available_limit)), tone: 'positive' },
-          ]} />
-          {invoiceTotalDifferenceCents !== null && <p role="status" className="-mt-1 rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-2 text-[11px] leading-relaxed text-slate-300">
-            {hideFinancialValues ? 'Valores bancários e lançados protegidos.' : <>
-              Compras registradas: <strong className="text-white"><PrivateMoney value={formatMoney(registeredInvoiceTotalCents / 100)} /></strong>.
-              {' '}{invoiceTotalDifferenceCents > 0
-                ? <>Faltam <strong className="text-amber-200"><PrivateMoney value={formatMoney(invoiceTotalDifferenceCents / 100)} /></strong> em lançamentos para alcançar o total informado pelo banco.</>
-                : invoiceTotalDifferenceCents < 0
-                  ? <>Os lançamentos superam o total informado pelo banco em <strong className="text-amber-200"><PrivateMoney value={formatMoney(Math.abs(invoiceTotalDifferenceCents) / 100)} /></strong>.</>
-                  : 'Os lançamentos conferem com o total informado pelo banco.'}
-            </>}
-          </p>}
-          {selected && selectedIsOpeningCycle && (Number(selected.initial_future_installments_balance || 0) > 0 || Number(selected.opening_unallocated_amount || 0) > 0) && <p className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-amber-100">
-            <PrivateMoney value={formatMoney(Math.max(Number(selected.initial_future_installments_balance || 0), Number(selected.opening_unallocated_amount || 0)))} /> em gastos iniciais ainda sem detalhamento. Esse valor já está incluído no limite usado.
-          </p>}
+          <div className="grid grid-cols-2 divide-x divide-slate-800 rounded-lg border border-slate-800 bg-slate-900/55 px-2 py-2" role="group" aria-label="Outros valores do cartão">
+            <div className="min-w-0 pr-2">
+              <span className="block truncate text-[11px] text-slate-400">Próximas faturas</span>
+              <strong className="mt-1 block truncate text-sm font-bold tabular-nums text-slate-100"><PrivateMoney value={formatMoney(selectedFutureCommitments)} /></strong>
+            </div>
+            <div className="min-w-0 pl-2">
+              <span className="block truncate text-[11px] text-slate-400">{savedInvoiceFacts?.available_limit == null ? 'Disponível estimado' : 'Disponível no banco'}</span>
+              <strong className="mt-1 block truncate text-sm font-bold tabular-nums text-emerald-300"><PrivateMoney value={formatMoney(savedInvoiceFacts?.available_limit == null ? (creditPosition?.freeLimit || 0) : Number(savedInvoiceFacts.available_limit))} /></strong>
+            </div>
+          </div>
+          {invoiceTotalDifferenceCents !== null && invoiceTotalDifferenceCents !== 0 && (
+            <p role="status" className="text-[11px] text-amber-200">
+              Diferença entre banco e lançamentos: <strong><PrivateMoney value={formatMoney(Math.abs(invoiceTotalDifferenceCents) / 100)} /></strong>.
+            </p>
+          )}
           <div className="min-w-0">
             <div className="mb-3 flex min-w-0 flex-col gap-2">
               <div className="min-w-0">
@@ -913,9 +900,8 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
               </Modal>
             )}
             {selected ? <CardInvoiceStatement cardId={selected.id} dueMonth={statementMonth}
-              openingBalance={selectedIsOpeningCycle ? Number(selected.initial_future_installments_balance || 0) : 0}
+              openingBalance={selectedIsOpeningCycle ? Math.max(Number(selected.initial_future_installments_balance || 0), Number(selected.opening_unallocated_amount || 0)) : 0}
               expenses={data.expenses} installments={data.installments}
-              invoiceState={selectedInvoiceState}
               cycleDates={statementMonth ? getInvoiceCycleDates(statementMonth, selected.closing_day, selected.due_day, savedInvoiceFacts?.due_date) : undefined}
               onEdit={async (input, mutationRequestId) => { await personalWalletService.updateExpense(input, mutationRequestId); await refresh(); }}
               onDelete={async (id, mutationRequestId) => { await personalWalletService.cancelExpense(id, mutationRequestId); await refresh(); }}

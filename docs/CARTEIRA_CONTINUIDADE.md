@@ -1,3 +1,11 @@
+## 20/11/2026 — correção do teclado Android na pesquisa de contratos
+
+- **Sintoma:** durante a pesquisa por nome/CPF, Gboard aparece e os FABs fixos (novo contrato, lembretes, suporte) e a navegação inferior continuam cobrindo o formulário e os contratos; o mascote também ocupa a superfície de pesquisa.
+- **Causa técnica verificada:** `DashboardControls` faz `autoFocus` no campo; `AppShell` mantém `.fab-action-container` e `BottomNav` fixos; `index.css` oculta esses elementos somente em modal/edição de navegação, não quando o teclado de busca está ativo.
+- **Correção:** `index.css` oculta FAB, mascote e barra inferior na largura móvel quando a pesquisa de contratos tem foco, sem alterar navegação desktop. O campo recebe teclado de pesquisa e rótulo acessível. `DashboardControls` escuta mudanças de `visualViewport`, recoloca o campo na área visível, desregistra ouvintes no cleanup, libera o foco com Enter/Escape e quando o teclado é fechado via resize após abrir.
+- **Preservado:** `searchTerm`, filtros, ordenação, permissões, contratos, API, banco, ledger e funções financeiras. Nenhuma alteração ao Android nativo nem ao Supabase.
+- **Validação:** cobertura estática em `tests/architecture/navigation-persistence.test.mjs`, executada em `test:navigation-persistence` pelo Quality Gates. Validação de teclado Gboard em dispositivo físico ainda não realizada. Rollback por revert do commit; nenhum dado foi mutado.
+
 ## 20/11/2026 — busca monetária e textual ampliada em extratos
 
 - **Diagnóstico:** busca no extrato da fatura consultava apenas o valor restante da parcela formatado em texto; não encontrava valores originais da compra, parcela paga nem variantes BRL consistentemente. Extratos individuais e gerais de contas e o extrato financeiro não filtravam valores. Na tela financeira a busca não era aplicada à relação de recebíveis.

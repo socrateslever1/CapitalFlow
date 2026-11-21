@@ -102,6 +102,19 @@
     pointer-events: none;
   }
 
+  /* Pesquisa de contratos no Android: o teclado assume a interação.
+     Oculte exclusivamente controles fixos, sem remover o conteúdo pesquisado
+     ou mudar o layout desktop. O estado volta ao normal no blur. */
+  @media (max-width: 767px) {
+    body:has(input[data-dashboard-contract-search]:focus) .fab-action-container,
+    body:has(input[data-dashboard-contract-search]:focus) .bottom-nav-mobile,
+    body:has(input[data-dashboard-contract-search]:focus) .fab-mascot {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+  }
+
   /* Ao organizar a barra inferior, os botões flutuantes não cobrem Concluir/Cancelar. */
   body:has(.bottom-nav-mobile[data-editing="true"]) .fab-action-container,
   body:has(.bottom-nav-mobile[data-editing="true"]) .fab-mascot {

@@ -45,3 +45,34 @@ test('modo organizar da barra móvel oculta botões flutuantes que cobririam Con
  assert.match(css,/\.bottom-nav-mobile\[data-editing="true"\]\) \.fab-action-container/);
  assert.match(css,/\.bottom-nav-mobile\[data-editing="true"\]\) \.fab-mascot/);
 });
+
+test('busca de contratos no APK não fica encoberta por FAB, mascote ou navegação ao digitar', () => {
+ const controls = read('components/dashboard/DashboardControls.tsx');
+ const css = read('index.css');
+ const shell = read('layout/AppShell.tsx');
+ assert.match(controls, /data-dashboard-contract-search/);
+ assert.match(controls, /inputMode="search"/);
+ assert.match(controls, /enterKeyHint="search"/);
+ assert.match(controls, /onChange=\{e => setSearchTerm\(e\.target\.value\)\}/);
+ assert.match(controls, /onKeyDown=\{event =>/);
+ assert.match(controls, /event\.currentTarget\.blur\(\)/);
+ assert.match(controls, /viewport\?\.addEventListener\('resize', onViewportResize\)/);
+ assert.match(controls, /viewport\?\.removeEventListener\('resize', onViewportResize\)/);
+ assert.match(controls, /input\.scrollIntoView\(\{ block: 'nearest'/);
+ assert.match(css, /@media \(max-width: 767px\)/);
+ for (const className of ['fab-action-container', 'bottom-nav-mobile', 'fab-mascot']) {
+   assert.ok(css.includes('body:has(input[data-dashboard-contract-search]:focus) .' + className));
+ }
+ assert.match(css, /visibility: hidden;\s*pointer-events: none;/);
+ assert.match(shell, /fab-action-container fixed/);
+ assert.match(shell, /<BottomNav/);
+ assert.match(shell, /<MasterMascot/);
+});
+
+test('busca não altera o filtro de contratos no domínio nem executa operações financeiras', () => {
+ const controls = read('components/dashboard/DashboardControls.tsx');
+ const filters = read('domain/filters/loanFilters.ts');
+ assert.match(filters, /\(l\.debtorName \|\| ''\)\.toLowerCase\(\)\.includes\(lower\)/);
+ assert.match(filters, /debtorDocument/);
+ assert.doesNotMatch(controls, /supabase\.(rpc|from)\(/);
+});

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {getAccountTransferPreview} from '../../features/wallet/domain/accountTransferPreview';
+import {getAccountMovementPreview,getAccountTransferPreview} from '../../features/wallet/domain/accountTransferPreview';
 
 test('saldo de origem e projeção usam centavos, sem arredondamento cumulativo',()=>{
   assert.deepEqual(getAccountTransferPreview(1716.21,200.01),{
@@ -29,4 +29,23 @@ test('saldos e valores desconhecidos não produzem projeção fictícia',()=>{
     assert.equal(getAccountTransferPreview(200,invalid).remainingCents,null);
   }
   assert.equal(getAccountTransferPreview(Number.MAX_SAFE_INTEGER,1).balanceCents,null);
+});
+
+test('despesa e pagamento projetam débito, sem perder centavos',()=>{
+  assert.deepEqual(getAccountMovementPreview(3253.83,53.83,'DEBIT'),{
+    balanceCents:325383,remainingCents:320000,insufficientFunds:false,
+  });
+  assert.deepEqual(getAccountMovementPreview(5,5.01,'DEBIT'),{
+    balanceCents:500,remainingCents:-1,insufficientFunds:true,
+  });
+});
+test('receita e recebimento projetam crédito',()=>{
+  assert.deepEqual(getAccountMovementPreview(350,0.01,'CREDIT'),{
+    balanceCents:35000,remainingCents:35001,insufficientFunds:false,
+  });
+  assert.equal(getAccountMovementPreview(0,1.3,'CREDIT').remainingCents,130);
+});
+test('saldo projetado respeita os limites de inteiros seguros',()=>{
+  assert.equal(getAccountMovementPreview(Number.MAX_SAFE_INTEGER/100,1,'CREDIT').remainingCents,null);
+  assert.equal(getAccountMovementPreview(NaN,10,'CREDIT').balanceCents,null);
 });

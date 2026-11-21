@@ -6,14 +6,24 @@ const centsOrNull=(value:number):number|null=>{
   return cents;
 };
 
-export const getAccountTransferPreview=(balance:number,amount:number)=>{
+export type AccountMovementDirection='CREDIT'|'DEBIT';
+
+/** Prévia visual; o servidor valida o saldo autoritativo sob lock. */
+export const getAccountMovementPreview=(balance:number,amount:number,direction:AccountMovementDirection)=>{
   const balanceCents=centsOrNull(balance);
   const amountCents=centsOrNull(amount);
   const validAmount=amountCents!==null&&amountCents>0;
-  const remainingCents=balanceCents!==null&&validAmount?balanceCents-amountCents:null;
+  const projected=balanceCents!==null&&validAmount
+    ? balanceCents+(direction==='CREDIT'?amountCents:-amountCents)
+    : null;
+  const remainingCents=projected!==null&&Number.isSafeInteger(projected)?projected:null;
   return {
     balanceCents,
     remainingCents,
-    insufficientFunds:remainingCents!==null&&remainingCents<0,
+    insufficientFunds:direction==='DEBIT'&&remainingCents!==null&&remainingCents<0,
   };
 };
+
+/** Compatibilidade com as transferências existentes. */
+export const getAccountTransferPreview=(balance:number,amount:number)=>
+  getAccountMovementPreview(balance,amount,'DEBIT');

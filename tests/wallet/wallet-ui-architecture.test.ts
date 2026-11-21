@@ -95,3 +95,12 @@ test('a transferência mostra ícones das contas na origem, destino e após sele
   assert.match(selectOption, /selectedOption\?\.icon \?\? triggerIcon/);
   assert.match(selectOption, /option\.icon &&/);
 });
+
+test('modais da conta exibem contexto unificado, ícone e prévia em todos os fluxos',()=>{
+  assert.match(accountActivity,/icon=\{<AccountOptionIcon account=\{account\} \/>\}/);
+  assert.match(accountActivity,/Saldo disponível na conta/);
+  assert.match(accountActivity,/Registrado no CapitalFlow/);
+  assert.match(accountActivity,/Saldo após \{labels\[action\]/);
+  assert.match(accountActivity,/onDraftChange=\{setOperationDraft\}/);
+  assert.match(accountActivity,/isDebit && \(balancePreview\.balanceCents===null/);
+});

@@ -1,3 +1,11 @@
+## 20/11/2026 — contexto unificado em despesa, pagamento, receita, recebimento e transferência
+
+- **Problema:** os diálogos para Despesa, Pagamento, Receita e Recebimento não tinham logotipo ou saldo visível, embora Transferência tivesse cartão de saldo distinto.
+- **Implementação:** o diálogo comum `AccountActivityPanel` usa `Modal.icon` com `AccountOptionIcon` (logo bancária/imagem personalizada e fallback) e mostra saldo contábil no CapitalFlow em todas as cinco modalidades. Todas passam a mostrar saldo projetado em centavos após o lançamento, respeitando `PrivateMoney` e edição monetária por calculadora.
+- **Segurança:** pré-validação para `EXPENSE`, `PAYMENT` e `TRANSFER` impede saldo insuficiente na UI. A RPC existente continua validando autenticação, proprietário, valor, saldo com lock e idempotência. Receitas e recebimentos exibem somente a projeção, sem registrar novas entradas por esta alteração.
+- **Escopo preservado:** sem SQL, sem alterações no Supabase, sem reclassificação de contas, sem alteração no mecanismo de lançamento e sem duplicar saldo. Regras especiais de faturas e PIX preservadas.
+- **Testes:** `tests/wallet/account-transfer-preview.test.ts` cobre débito/crédito/precisão e `tests/wallet/wallet-ui-architecture.test.ts` cobre a interface unificada; execução de CI e validação em dispositivo devem ser verificadas separadamente. Rollback mediante revert deste commit, sem migração de dados.
+
 ## 20/11/2026 — ícones de contas na transferência interna
 
 - **Diagnóstico:** o seletor compartilhado `SelectOptionList` já suporta `options[].icon` no menu e na opção selecionada, porém `AccountActivityPanel` fornecia somente nome e saldo.

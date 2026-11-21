@@ -1,5 +1,5 @@
 import React, { useMemo, useReducer, useRef, useState } from 'react';
-import { ArrowDownLeft, ArrowUpRight, ArrowLeftRight, CreditCard, FileDown, FileUp, History, Plus, Search, Trash2, Pencil } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, ArrowLeftRight, CreditCard, FileDown, FileUp, History, Plus, Search, Trash2, Pencil, Wallet } from 'lucide-react';
 import { PersonalWalletAccount, PersonalWalletExpense, PersonalWalletInvoicePayment, WalletAccountOperation, WalletStatementRow, personalWalletService } from '../../services/personalWallet.service';
 import { formatMoney } from '../../utils/formatters';
 import { PrivateMoney } from '../../contexts/FinancialPrivacyContext';
@@ -11,6 +11,7 @@ import { WalletStatementImport } from './WalletStatementImport';
 import { buildAccountStatementEntries } from './accountStatementDomain';
 import { Modal, modalPrimaryActionClass } from '../ui/Modal';
 import { SelectOptionList } from '../ui/SelectOptionList';
+import { BankLogo } from './BankLogo';
 import { notifyFinancialDataChanged } from '../../utils/appSyncEvents';
 import { accountCategoryReducer, initialAccountCategorySelection } from './accountCategorySelection';
 
@@ -42,6 +43,13 @@ const tagClass = (tag: string) => {
   if (tag === 'Importado de PDF') return 'border-slate-600 bg-slate-800 text-slate-300';
   return 'border-emerald-700/60 bg-emerald-950/30 text-emerald-200';
 };
+const AccountOptionIcon: React.FC<{ account: PersonalWalletAccount }> = ({ account }) =>
+  account.account_type === 'CASH'
+    ? <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-slate-700/60 bg-slate-800">
+        <Wallet size={17} className="text-amber-300" />
+      </span>
+    : <BankLogo name={account.bank_name || account.institution_key} alternateName={account.nickname} customImage={account.image_url} size="sm" />;
+
 export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operations,statementRows,expenses,invoicePayments,cardFundedLoanIds,onSaved}) => {
   const [action,setAction]=useState<Action|null>(null);
   const [amount,setAmount]=useState('');
@@ -304,9 +312,12 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
           {action==='TRANSFER' && (
             <>
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-700 bg-slate-950/70 p-3">
-                <div className="min-w-0">
-                  <p className="truncate text-xs font-semibold text-slate-200">Origem: {account.nickname}</p>
-                  <p className="text-[11px] text-slate-400">Saldo registrado no CapitalFlow</p>
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <AccountOptionIcon account={account} />
+                  <div className="min-w-0">
+                    <p className="truncate text-xs font-semibold text-slate-200">Origem: {account.nickname}</p>
+                    <p className="text-[11px] text-slate-400">Saldo registrado no CapitalFlow</p>
+                  </div>
                 </div>
                 <strong className="text-base font-extrabold tabular-nums text-emerald-300">
                   {transferPreview.balanceCents===null ? 'Indisponível' : <PrivateMoney value={formatMoney(transferPreview.balanceCents/100)}/>}
@@ -349,6 +360,7 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
                 options={others.map((item) => ({
                   value: item.id,
                   label: item.nickname,
+                  icon: <AccountOptionIcon account={item} />,
                   rightValue: formatMoney(item.balance),
                 }))}
                 onChange={setDestination}

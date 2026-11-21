@@ -7,6 +7,8 @@ const stack = readFileSync('components/wallet/BankStack.tsx', 'utf8');
 const accountStack = readFileSync('components/wallet/AccountCardStack.tsx', 'utf8');
 const overview = readFileSync('features/wallet/pages/WalletOverviewPage.tsx', 'utf8');
 const virtualCard = readFileSync('components/wallet/VirtualCreditCard.tsx', 'utf8');
+const accountActivity = readFileSync('components/wallet/AccountActivityPanel.tsx', 'utf8');
+const selectOption = readFileSync('components/ui/SelectOptionList.tsx', 'utf8');
 
 test('a página não mantém aba ou lista redundante de cartões', () => {
   assert.doesNotMatch(page, /activeTab === ['"]CARDS['"]/);
@@ -81,4 +83,15 @@ test('a página da carteira possui somente pilha, balanço e base operacional po
   assert.doesNotMatch(page, /Cartão selecionado/);
   assert.doesNotMatch(page, /Contas e passivos/);
   assert.doesNotMatch(page, />Em contas</);
+});
+
+test('a transferência mostra ícones das contas na origem, destino e após seleção', () => {
+  assert.match(accountActivity, /const AccountOptionIcon:/);
+  assert.match(accountActivity, /<BankLogo name=\{account\.bank_name \|\| account\.institution_key\}/);
+  assert.match(accountActivity, /customImage=\{account\.image_url\}/);
+  assert.match(accountActivity, /account\.account_type === 'CASH'/);
+  assert.match(accountActivity, /<AccountOptionIcon account=\{account\}/);
+  assert.match(accountActivity, /icon: <AccountOptionIcon account=\{item\}/);
+  assert.match(selectOption, /selectedOption\?\.icon \?\? triggerIcon/);
+  assert.match(selectOption, /option\.icon &&/);
 });

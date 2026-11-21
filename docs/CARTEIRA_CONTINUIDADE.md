@@ -1,3 +1,11 @@
+## 20/11/2026 — ícones de contas na transferência interna
+
+- **Diagnóstico:** o seletor compartilhado `SelectOptionList` já suporta `options[].icon` no menu e na opção selecionada, porém `AccountActivityPanel` fornecia somente nome e saldo.
+- **Mudança de interface:** `AccountActivityPanel` passa a usar `BankLogo` da própria Carteira (com `bank_name`/`institution_key`, `nickname`, imagem personalizada `image_url` e fallback interno) na conta de origem e em cada destino. Contas do tipo `CASH` usam o ícone Wallet existente. Ícones reaparecem também quando a conta de destino já está selecionada.
+- **Escopo preservado:** seletor genérico, contratos, operações, saldos, RPC, RLS, dados e Supabase não foram alterados; nenhuma operação financeira foi executada.
+- **Teste:** contrato de UI adicionado a `tests/wallet/wallet-ui-architecture.test.ts`, executado pelo gate `test:wallet-visual-next`. Verificar visualmente em mobile quando o APK estiver disponível; os testes estáticos não substituem validação em dispositivo físico.
+- **Rollback:** reverter somente este commit de interface se for identificada regressão de renderização.
+
 ## 20/11/2026 — saldo contextual no modal de transferência entre contas
 
 - **Escopo:** `AccountActivityPanel`, entrada monetária compartilhada, prévia pura em centavos e testes. A conta de origem é a mesma exibida em `AccountDetailsPage`, alimentada por `personal_wallet_accounts.balance`.

@@ -72,6 +72,11 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
   const [saving, setSaving] = useState(false);
   const [invoiceFacts, setInvoiceFacts] = useState<WalletCardInvoiceFacts[]>([]);
   const [invoiceFactsError, setInvoiceFactsError] = useState('');
+  const [editingBankAvailable, setEditingBankAvailable] = useState(false);
+  const [bankAvailableDraft, setBankAvailableDraft] = useState('');
+  const [savingBankAvailable, setSavingBankAvailable] = useState(false);
+  const [bankAvailableFeedback, setBankAvailableFeedback] = useState('');
+  const bankAvailableRequest = useRef({ signature: '', id: generateUUID() });
   const [applyingIssuerFacts, setApplyingIssuerFacts] = useState(false);
   const [issuerCommitFeedback, setIssuerCommitFeedback] = useState('');
   const issuerCommitRequest = useRef({ signature: '', id: generateUUID() });
@@ -99,6 +104,11 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
     [availableCards, requestedCardId],
   );
   const selected = availableCards.find(card => card.id === selectedId) || displayedCards[0] || null;
+  useEffect(() => {
+    setEditingBankAvailable(false);
+    setBankAvailableFeedback('');
+  }, [selected?.id, requestedStatementMonth]);
+
   useEffect(() => {
     const cardId = selected?.id;
     if (!cardId) { setInvoiceFacts([]); return; }
@@ -288,20 +298,70 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
     : null;
   const savedInvoiceTotalCents = savedInvoiceFacts?.invoice_total == null
     ? null : Math.round(Number(savedInvoiceFacts.invoice_total) * 100);
-  const registeredInvoiceTotalCents = useMemo(() => {
-    if (!selected || !data || !statementMonth) return 0;
-    const expensesById = new Map(data.expenses.map(expense => [expense.id, expense]));
-    return data.installments.reduce((total, installment) => {
-      if (installment.status === 'CANCELED') return total;
-      const expense = expensesById.get(installment.expense_id);
-      if (!expense || expense.card_id !== selected.id || expense.status === 'CANCELED' || expense.entry_type === 'INVOICE_OVERRIDE') return total;
-      const dueMonth = String(expense.invoice_due_month || installment.due_month).slice(0, 7);
-      const amountCents = Math.round(Number(installment.amount || 0) * 100);
-      return dueMonth === statementMonth.slice(0, 7) && Number.isFinite(amountCents) ? total + amountCents : total;
-    }, 0);
-  }, [data, selected, statementMonth]);
+  // Compare o saldo líquido do ciclo, incluindo créditos e estornos.
+  // A soma bruta superestimava R$ 172,00 quando havia crédito de R$ 86,00.
+  const registeredInvoiceTotalCents = Math.round(Number(selectedCycle?.amount || 0) * 100);
   const invoiceTotalDifferenceCents = savedInvoiceTotalCents === null
     ? null : savedInvoiceTotalCents - registeredInvoiceTotalCents;
+
+  const bankFactLastUpdate = savedInvoiceFacts?.updated_at
+    ? new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Manaus', day: '2-digit', month: '2-digit' })
+      .format(new Date(savedInvoiceFacts.updated_at))
+    : null;
+  const canCorrectBankReference = Boolean(
+    selected && savedInvoiceFacts?.source_type === 'MANUAL' && data?.expenses.some(expense =>
+      expense.card_id === selected.id && expense.status !== 'CANCELED'),
+  );
+  const saveObservedBankAvailable = async () => {
+    if (!selected || !savedInvoiceFacts || !canCorrectBankReference || savingBankAvailable) return;
+    setBankAvailableFeedback('');
+    let amount: number;
+    let limit: number;
+    try {
+      amount = parseWalletMoney(bankAvailableDraft, 'limite disponível');
+      limit = Number(savedInvoiceFacts.credit_limit ?? selected.credit_limit);
+      if (!Number.isFinite(limit) || limit <= 0 || !Number.isSafeInteger(Math.round(limit * 100))
+        || amount > limit) throw new Error('O disponível deve estar entre zero e o limite total.');
+    } catch (err) {
+      setBankAvailableFeedback(err instanceof Error ? err.message : 'Valor inválido.');
+      return;
+    }
+    const limitCents = Math.round(limit * 100);
+    const amountCents = Math.round(amount * 100);
+    const signature = [selected.id, savedInvoiceFacts.due_month, amountCents, savedInvoiceFacts.updated_at].join(':');
+    if (bankAvailableRequest.current.signature !== signature) {
+      bankAvailableRequest.current = { signature, id: generateUUID() };
+    }
+    setSavingBankAvailable(true);
+    try {
+      const result = await personalWalletService.saveCardInvoiceFacts({
+        cardId: selected.id,
+        dueMonth: savedInvoiceFacts.due_month,
+        dueDate: savedInvoiceFacts.due_date,
+        issuer: savedInvoiceFacts.issuer ?? selected.issuer,
+        invoiceTotal: savedInvoiceFacts.invoice_total == null ? null : Number(savedInvoiceFacts.invoice_total),
+        minimumPayment: savedInvoiceFacts.minimum_payment == null ? null : Number(savedInvoiceFacts.minimum_payment),
+        creditLimit: limitCents / 100,
+        usedLimit: (limitCents - amountCents) / 100,
+        availableLimit: amountCents / 100,
+        futureInstallments: savedInvoiceFacts.future_installments == null ? null : Number(savedInvoiceFacts.future_installments),
+        sourceHash: null,
+        sourceType: 'MANUAL',
+      }, bankAvailableRequest.current.id);
+      if (result.financial_applied) {
+        // Esta tela só deve registrar a observação; uma abertura financeira não é esperada.
+        throw new Error('A operação afetou a posição inicial; confira o histórico antes de repetir.');
+      }
+      await Promise.all([refreshInvoiceFacts(), refresh()]);
+      bankAvailableRequest.current = { signature: '', id: generateUUID() };
+      setEditingBankAvailable(false);
+      setBankAvailableFeedback('Referência bancária atualizada. Os lançamentos e os limites calculados não foram alterados.');
+    } catch (error) {
+      setBankAvailableFeedback(error instanceof Error ? error.message : 'Não foi possível salvar a referência.');
+    } finally {
+      setSavingBankAvailable(false);
+    }
+  };
   const mayApplySavedIssuerFacts = Boolean(
     selected && savedInvoiceFacts && (selectedCycle?.amount || 0) === 0 &&
     Number(selected.current_bill || 0) === 0 &&
@@ -671,6 +731,11 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
       <div className="grid gap-3 lg:grid-cols-12">
         <div className="min-w-0 self-start rounded-xl border border-slate-800 bg-slate-900 p-2.5 sm:p-3.5 lg:sticky lg:top-6 lg:col-span-5">
           <BankStack key={requestedCardId || 'all'} accounts={data.accounts} cards={displayedCards}
+            bankLimitReference={selected && savedInvoiceFacts?.available_limit != null ? {
+              cardId: selected.id,
+              amount: Number(savedInvoiceFacts.available_limit),
+              updatedAt: savedInvoiceFacts.updated_at,
+            } : null}
             onAccount={() => { }} onCard={card => setSelectedId(card.id)}
             onEditCard={card => setEditing(card)}
             onSelectionChange={card => setSelectedId(current => current === card?.id ? current : card?.id || null)}
@@ -693,7 +758,42 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
                   <>
                     <div className="flex justify-between gap-2"><span>Fatura</span><strong><PrivateMoney value={savedInvoiceFacts.invoice_total == null ? 'Não informado' : formatMoney(Number(savedInvoiceFacts.invoice_total))} /></strong></div>
                     <div className="flex justify-between gap-2"><span>Mínimo</span><strong><PrivateMoney value={savedInvoiceFacts.minimum_payment == null ? 'Não informado' : formatMoney(Number(savedInvoiceFacts.minimum_payment))} /></strong></div>
-                    <div className="flex justify-between gap-2"><span>Disponível</span><strong><PrivateMoney value={savedInvoiceFacts.available_limit == null ? 'Não informado' : formatMoney(Number(savedInvoiceFacts.available_limit))} /></strong></div>
+                    <div className="flex justify-between gap-2"><span>Disponível informado</span><strong><PrivateMoney value={savedInvoiceFacts.available_limit == null ? 'Não informado' : formatMoney(Number(savedInvoiceFacts.available_limit))} /></strong></div>
+                    {bankFactLastUpdate && <p className="text-[11px] text-slate-500">Referência salva em {bankFactLastUpdate}; não é consulta em tempo real.</p>}
+                    {canCorrectBankReference && !editingBankAvailable && (
+                      <button type="button" onClick={() => {
+                        setBankAvailableDraft(savedInvoiceFacts.available_limit == null ? '' : Number(savedInvoiceFacts.available_limit).toFixed(2).replace('.', ','));
+                        setBankAvailableFeedback('');
+                        setEditingBankAvailable(true);
+                      }} className="min-h-9 self-start rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-semibold text-blue-300 hover:bg-slate-800">
+                        Atualizar disponível
+                      </button>
+                    )}
+                    {canCorrectBankReference && editingBankAvailable && (
+                      <form onSubmit={event => { event.preventDefault(); void saveObservedBankAvailable(); }}
+                        className="space-y-2 rounded-lg border border-slate-700 p-2">
+                        <label className="block space-y-1">
+                          <span className="text-xs text-slate-300">Disponível no aplicativo do banco (R$)</span>
+                          <input type="text" inputMode="decimal" autoComplete="off" required
+                            aria-label="Novo limite disponível informado pelo banco"
+                            value={bankAvailableDraft}
+                            onChange={event => { setBankAvailableDraft(event.target.value); setBankAvailableFeedback(''); }}
+                            className="min-h-10 w-full rounded-lg border border-slate-600 bg-slate-950 px-3 text-sm text-white focus-visible:outline-2 focus-visible:outline-blue-500"
+                            placeholder="0,00" />
+                        </label>
+                        <p className="text-[11px] text-slate-400">Atualiza apenas a referência do banco. Não cria compras nem ajusta o limite contábil.</p>
+                        <div className="flex flex-wrap gap-2">
+                          <button type="submit" disabled={savingBankAvailable}
+                            className="min-h-10 rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white disabled:opacity-50">
+                            {savingBankAvailable ? 'Salvando…' : 'Salvar referência'}
+                          </button>
+                          <button type="button" disabled={savingBankAvailable}
+                            onClick={() => { setEditingBankAvailable(false); setBankAvailableFeedback(''); }}
+                            className="min-h-10 rounded-lg border border-slate-700 px-3 text-xs font-semibold text-slate-200 disabled:opacity-50">Cancelar</button>
+                        </div>
+                      </form>
+                    )}
+                    {bankAvailableFeedback && <p role="status" className="text-[11px] text-amber-200">{bankAvailableFeedback}</p>}
                   </>
                 ) : <span>Ainda não informado.</span>}
                 {invoiceFactsError && <p role="alert" className="text-amber-300">{invoiceFactsError}</p>}
@@ -716,13 +816,13 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
               <strong className="mt-1 block truncate text-sm font-bold tabular-nums text-slate-100"><PrivateMoney value={formatMoney(selectedFutureCommitments)} /></strong>
             </div>
             <div className="min-w-0 pl-2">
-              <span className="block truncate text-[11px] text-slate-400">{savedInvoiceFacts?.available_limit == null ? 'Disponível estimado' : 'Disponível no banco'}</span>
+              <span className="block truncate text-[11px] text-slate-400">{savedInvoiceFacts?.available_limit == null ? 'Disponível estimado' : `Banco · ${bankFactLastUpdate || 'referência'}`}</span>
               <strong className="mt-1 block truncate text-sm font-bold tabular-nums text-emerald-300"><PrivateMoney value={formatMoney(savedInvoiceFacts?.available_limit == null ? (creditPosition?.freeLimit || 0) : Number(savedInvoiceFacts.available_limit))} /></strong>
             </div>
           </div>
           {invoiceTotalDifferenceCents !== null && invoiceTotalDifferenceCents !== 0 && (
             <p role="status" className="text-[11px] text-amber-200">
-              Diferença entre banco e lançamentos: <strong><PrivateMoney value={formatMoney(Math.abs(invoiceTotalDifferenceCents) / 100)} /></strong>.
+              Fatura: diferença para referência bancária: <strong><PrivateMoney value={formatMoney(Math.abs(invoiceTotalDifferenceCents) / 100)} /></strong>.
             </p>
           )}
           <div className="min-w-0">

@@ -7,7 +7,10 @@ test('cards page exposes the three credit magnitudes and the manual override act
   const modal = readFileSync('components/wallet/InvoiceOverrideModal.tsx', 'utf8');
   assert.match(page, /formatMoney\(bankInvoiceTotal \?\? cycle\.amount\)/);
   assert.match(page, /Próximas faturas/);
-  assert.match(page, /'Disponível estimado' : 'Disponível no banco'/);
+  assert.match(page, /'Disponível estimado' : `Banco · /);
+  assert.match(page, /bankLimitReference=/);
+  assert.match(page, /saveObservedBankAvailable/);
+  assert.match(page, /usedLimit: \(limitCents - amountCents\) \/ 100/);
   assert.match(page, /Ajustar fatura/);
   assert.match(page, /InvoiceOverrideModal/);
   assert.match(modal, /saveLabel="Salvar valores do banco"/);

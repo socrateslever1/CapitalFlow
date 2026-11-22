@@ -18,6 +18,7 @@ type Props = {
   onSelectionChange?: (card: PersonalWalletCard | null) => void;
   onNewExpense?: (card: PersonalWalletCard) => void;
   onPayInvoice?: (card: PersonalWalletCard) => void;
+  bankLimitReference?: { cardId: string; amount: number; updatedAt: string } | null;
 };
 
 const Chip = () => <svg viewBox="0 0 42 33" width="36" height="29" aria-label="Chip EMV"><rect x="1" y="1" width="40" height="31" rx="6" fill="#DFC48C" stroke="#977844"/><path d="M14 1v31M28 1v31M1 11h40M1 22h40M14 11h14v11H14z" fill="none" stroke="#977844" strokeWidth="1.5"/></svg>;
@@ -29,7 +30,7 @@ const Network = ({ brand }: { brand: string | null }) => {
   return <span className="text-xs font-bold">{brand || 'CRÉDITO'}</span>;
 };
 
-export const BankStack: React.FC<Props> = ({ accounts, cards, onCard, onEditCard, onCreateCard, onImportStatement, onSelectionChange, onNewExpense, onPayInvoice }) => {
+export const BankStack: React.FC<Props> = ({ accounts, cards, onCard, onEditCard, onCreateCard, onImportStatement, onSelectionChange, onNewExpense, onPayInvoice, bankLimitReference }) => {
   const availableCards = useMemo(() => cards.filter(card => card.status !== 'CANCELED'), [cards]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isFlipped, setIsFlipped] = useState(false);
@@ -72,7 +73,14 @@ export const BankStack: React.FC<Props> = ({ accounts, cards, onCard, onEditCard
     return { issuer, visual, accent: visual.accent };
   };
   const front = selected ? identity(selected) : null;
-  const available = selected ? Math.max(0, Number(selected.credit_limit) - Number(selected.used_limit)) : 0;
+  const hasBankLimit = Boolean(selected && bankLimitReference?.cardId === selected.id &&
+    Number.isFinite(bankLimitReference.amount) && bankLimitReference.amount >= 0);
+  const available = hasBankLimit
+    ? Number(bankLimitReference!.amount)
+    : selected ? Math.max(0, Number(selected.credit_limit) - Number(selected.used_limit)) : 0;
+  const availableLabel = hasBankLimit && bankLimitReference
+    ? `Banco · ${bankLimitReference.updatedAt.slice(8, 10)}/${bankLimitReference.updatedAt.slice(5, 7)}`
+    : 'Limite estimado';
   const maskedNumber = selected?.last_four
     ? `•••• •••• •••• ${selected.last_four}`
     : '•••• •••• •••• ----';
@@ -157,7 +165,7 @@ export const BankStack: React.FC<Props> = ({ accounts, cards, onCard, onEditCard
                     </div>
                     <div className="flex items-center justify-between gap-3">
                       <Chip/>
-                      <div className="min-w-0 text-right"><small className="block text-[10px] font-bold uppercase tracking-wider text-white/80">Limite disponível</small><strong className="block truncate text-sm font-black sm:text-base"><PrivateMoney value={formatMoney(available)} /></strong></div>
+                      <div className="min-w-0 text-right"><small className="block text-[10px] font-bold uppercase tracking-wider text-white/80">{availableLabel}</small><strong className="block truncate text-sm font-black sm:text-base"><PrivateMoney value={formatMoney(available)} /></strong></div>
                       <Wifi size={18} className="shrink-0 rotate-90 opacity-80"/>
                     </div>
                     <button type="button" data-card-section="number" onPointerDown={event => event.stopPropagation()} onClick={event => { void handleCopyField('number', event); }} disabled={!selected.last_four} aria-label="Copiar apenas os quatro últimos dígitos do cartão" title="Copiar final do cartão" className="flex min-h-8 min-w-0 items-center justify-between gap-2 rounded-lg border border-white/15 bg-black/20 px-2.5 py-1.5 text-left transition hover:bg-black/30">

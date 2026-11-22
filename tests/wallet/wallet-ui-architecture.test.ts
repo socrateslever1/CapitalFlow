@@ -142,8 +142,25 @@ test('cartão mantém resumo enxuto, explicações opcionais e alertas somente q
   assert.match(statement, /getInvoiceOpeningBreakdown/);
   assert.match(cards, /aria-label="Outros valores do cartão"/);
   assert.match(cards, /<details className="rounded-lg border border-slate-800/);
-  assert.match(cards, /Diferença entre banco e lançamentos/);
+  assert.match(cards, /Fatura: diferença para referência bancária/);
   assert.match(cards, /invoiceTotalDifferenceCents !== 0/);
   assert.match(cards, /Math\.max\(Number\(selected\.initial_future_installments_balance/);
   assert.match(cards, /onCancelConsolidation=/);
+});
+
+test('cartão não apresenta cálculo como limite real e separa referência bancária autenticada',()=>{
+  const cards = readFileSync('features/wallet/pages/WalletCardsPage.tsx','utf8');
+  const bank = readFileSync('components/wallet/BankStack.tsx','utf8');
+  assert.match(bank, /bankLimitReference\?: \{ cardId: string; amount: number; updatedAt: string \}/);
+  assert.match(bank, /const hasBankLimit = Boolean/);
+  assert.match(bank, /Limite estimado/);
+  assert.match(bank, /Banco · /);
+  assert.match(cards, /const registeredInvoiceTotalCents = Math\.round\(Number\(selectedCycle\?\.amount \|\| 0\) \* 100\)/);
+  assert.match(cards, /saveObservedBankAvailable/);
+  assert.match(cards, /personalWalletService\.saveCardInvoiceFacts/);
+  assert.match(cards, /sourceType: 'MANUAL'/);
+  assert.match(cards, /canCorrectBankReference && editingBankAvailable/);
+  assert.match(cards, /bankFactLastUpdate/);
+  assert.match(cards, /bankAvailableRequest\.current\.signature !== signature/);
+  assert.doesNotMatch(bank, /Limite disponível<\/small>/);
 });

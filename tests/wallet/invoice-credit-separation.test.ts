@@ -107,3 +107,18 @@ test('fatura aberta separa o saldo inicial e lançamentos posteriores sem dupla 
 test('override regular continua estático, sem ser tratado como saldo inicial dinâmico', () => {
   assert.equal(getInvoiceOpeningBreakdown(card.id, '2026-10-01', expenses, installments), null);
 });
+
+test('crédito de R$ 86 não é somado como gasto no alerta de divergência de fatura',()=>{
+  const id='bradesco-test';
+  const purchase = {...expenses[0],id:'debit',card_id:id,amount:3078.90};
+  const credit = {...expenses[0],id:'credit',card_id:id,amount:86,is_invoice_credit:true};
+  const dues=[
+    {...installments[0],id:'b-debit',expense_id:purchase.id,due_month:'2026-12-01',amount:3078.90},
+    {...installments[0],id:'b-credit',expense_id:credit.id,due_month:'2026-12-01',amount:86},
+  ];
+  const registered=Math.round(getSelectedInvoiceCycle(id,'2026-12-01',[purchase,credit],dues).amount*100);
+  const lastBankFact=Math.round(2930.88*100);
+  assert.equal(registered,299290);
+  assert.equal(registered-lastBankFact,6202);
+  assert.notEqual(316490-lastBankFact,6202, 'somar crédito como compra falseia a divergência');
+});

@@ -187,7 +187,6 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         subtitle="Configurações da conta, financeiro, pagamentos e segurança"
       />
 
-      <AndroidQuickAccessSettings />
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5 items-start">
       {/* SIDEBAR */}
       <div className="lg:col-span-3">
@@ -859,6 +858,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           {activeSection === 'INTERFACE' && (
             <div className="space-y-6">
               <LanguageSelector />
+              <AndroidQuickAccessSettings />
               <div className="flex items-center gap-2.5 pt-2 pb-4 border-b border-slate-800/80">
                 <LayoutGrid size={18} className="text-blue-400 shrink-0" />
                 <div>

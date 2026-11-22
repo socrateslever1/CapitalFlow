@@ -21,3 +21,18 @@ test('atalho só abre formulários existentes, depende de autorização atual e 
   assert.doesNotMatch(hook, /createExpense|createAccountMovement|createLoan/);
   assert.match(read('features/wallet/components/WalletExpenseFab.tsx'), /searchParams.delete\('lancamento'\)/);
 });
+
+test('preferências Android ficam compactas, não ocupam o topo do perfil e preservam a ação', () => {
+  const page = read('pages/ProfilePage.tsx');
+  const settings = read('components/settings/AndroidQuickAccessSettings.tsx');
+  assert.doesNotMatch(page, /<AndroidQuickAccessSettings\s*\/>\s*<div className="grid grid-cols-1 lg:grid-cols-12/);
+  assert.match(page, /activeSection === 'INTERFACE'[\s\S]*?<AndroidQuickAccessSettings\s*\/>/);
+  assert.match(settings, /Lançamento rápido/);
+  assert.match(settings, /Notificação Android/);
+  assert.match(settings, /status\.enabled \? 'Desativar' : 'Ativar'/);
+  assert.match(settings, /walletQuickAccess\.setEnabled/);
+  assert.match(settings, /aria-pressed=\{status\.enabled\}/);
+  assert.match(settings, /!status\.permissionGranted/);
+  assert.match(settings, /role="alert"/);
+  assert.doesNotMatch(settings, /O Android pode permitir dispensar|Após reiniciar o aparelho|Sem sobreposição sobre outros apps/);
+});

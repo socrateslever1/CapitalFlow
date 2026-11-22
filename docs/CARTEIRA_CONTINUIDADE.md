@@ -1,3 +1,9 @@
+## 22/11/2026 — Perfil Android: configuração de atalho compacta
+
+- Transferido `AndroidQuickAccessSettings` do topo da página para `Perfil → Preferências & Menus`.
+- Resumo permanente reduzido a `Lançamento rápido`, estado ativado/desativado e botão reversível. Instruções técnicas extensas removidas da interface; detalhes do comportamento e permissões permanecem em `docs/MASTER_DIAGNOSTICS_ANDROID_SHORTCUT.md`. Avisos de permissão e falhas continuam visíveis quando relevantes.
+- Não altera a implementação nativa, permissões, preferência por perfil, notificações, abertura dos formulários, backend ou lançamentos financeiros. Cenários testáveis: estado ativo/inativo, alternância, ausência no perfil web, erros e permissão negada. Verificação visual em aparelho físico permanece pendente até evidência.
+
 ## 22/11/2026 — reparo transacional de empréstimos financiados por cartão
 
 - **Falha confirmada:** função `finalize_card_funded_loan_v1` ativa no Supabase estava na versão antiga, que reduzia `fontes.balance` indevidamente e usava `funding_installments_count` (parcelas do cliente) para dividir compra no cartão. A versão segura no repositório não estava aplicada à produção.

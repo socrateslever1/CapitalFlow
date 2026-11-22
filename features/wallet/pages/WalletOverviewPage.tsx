@@ -162,7 +162,8 @@ const deriveOverview = (snapshot: WalletOverviewSnapshot, today: string) => {
   });
 
   return {
-    accounts, cards, accountBalance, institutionCount: institutionKeys.size,
+    accounts, cards, bankAvailableReferences: snapshot.bankAvailableReferences || [],
+    accountBalance, institutionCount: institutionKeys.size,
     credit, currentInvoiceTotal, balance, upcoming, spending, overdueCount, overdueInvoiceCount, dueSoonCount,
     timelineEvents,
   };
@@ -198,12 +199,14 @@ export const WalletOverviewPage: React.FC<Props> = ({ activeUser, onNavigate }) 
         setToday(businessDateInManaus());
       }
     });
-    walletRepository.loadOverview()
+    // Um resumo em cache é útil para o primeiro quadro, mas ao entrar na
+    // Visão geral os valores devem ser revalidados com a mesma fonte do detalhe.
+    walletRepository.loadOverview({ force: true })
       .then(result => { if (mounted) { setSnapshot(result); setToday(businessDateInManaus()); setError(''); } })
       .catch(reason => {
-        if (mounted && !hasCached) setError(
-          reason instanceof Error ? reason.message : 'Não foi possível carregar a carteira.',
-        );
+        if (mounted) setError(hasCached
+          ? 'Falha ao atualizar. Os valores apresentados podem estar desatualizados.'
+          : reason instanceof Error ? reason.message : 'Não foi possível carregar a carteira.');
       });
     const onChange = () => {
       void refresh().catch(() => {
@@ -252,7 +255,9 @@ export const WalletOverviewPage: React.FC<Props> = ({ activeUser, onNavigate }) 
     className="w-full min-w-0 space-y-4 pb-24 lg:pb-8">
     {error && <div role="alert" className="rounded-xl border border-rose-500/30 bg-rose-950/20 p-3 text-xs text-rose-200">{error}</div>}
 
-    <WalletOverviewSummary accounts={accounts} cards={cards} accountBalance={overview.accountBalance}
+    <WalletOverviewSummary accounts={accounts} cards={cards}
+      bankAvailableReferences={overview.bankAvailableReferences}
+      accountBalance={overview.accountBalance}
       currentInvoiceTotal={overview.currentInvoiceTotal} credit={credit} onNavigate={onNavigate}/>
 
     <WalletSpendingGuide projectedBalance={balance.projectedBalance} creditPercent={credit.percentage}

@@ -153,8 +153,10 @@ test('cartão não apresenta cálculo como limite real e separa referência banc
   const bank = readFileSync('components/wallet/BankStack.tsx','utf8');
   assert.match(bank, /bankLimitReference\?: \{ cardId: string; amount: number; updatedAt: string \}/);
   assert.match(bank, /const hasBankLimit = Boolean/);
-  assert.match(bank, /Limite estimado/);
-  assert.match(bank, /Banco · /);
+  assert.match(bank, /formatCardAvailableOrigin/);
+  const presentation = readFileSync('features/wallet/domain/cardAvailablePresentation.ts','utf8');
+  assert.match(presentation, /Limite estimado/);
+  assert.match(presentation, /Banco · /);
   assert.match(cards, /const registeredInvoiceTotalCents = Math\.round\(Number\(selectedCycle\?\.amount \|\| 0\) \* 100\)/);
   assert.match(cards, /saveObservedBankAvailable/);
   assert.match(cards, /personalWalletService\.saveCardInvoiceFacts/);

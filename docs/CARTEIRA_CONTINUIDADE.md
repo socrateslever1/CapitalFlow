@@ -1,3 +1,11 @@
+## 22/11/2026 — apresentação de saldos entre Visão geral e Cartões; retorno por níveis
+
+- **Diagnóstico validado:** o resumo usava `credit_limit - used_limit` enquanto o cartão selecionado mostrava a última referência de limite disponível no banco. Ex.: Bradesco com disponível estimado de R$ 3.386,87 e referência de banco R$ 2.683,51 (datada, não tempo real). Não alterar nenhum desses valores artificialmente.
+- **Mudança de apresentação:** novo domínio puro `cardAvailablePresentation` seleciona a última referência válida, identifica origem e data e mantém estimativa calculada separada. `WalletOverviewSummary`, `WalletCardsPage`, `BankStack` e `WalletBalanceDock` adotam a mesma regra. O total misto indica banco + estimado; uso percentual é estimado.
+- **Dados e cache:** a consulta rápida de resumo reaproveita a tabela de fatos de fatura já consultada para obter `available_limit` e `updated_at`. A derivação offline mantém os fatos do snapshot completo. Ao abrir a Visão geral há revalidação e aviso explícito para falhas de atualização.
+- **Histórico:** `WalletModule` insere lista de Cartões/Contas antes de abrir detalhe oriundo da Visão geral. Back do Android, botão Voltar e fallback de links profundos retornam primeiro à lista, depois à Visão geral e ao Painel. Preservadas rotas reais do React Router e os seletores por ID.
+- **Validação:** testes de resumo, origem monetária, página e roteamento. Nenhum SQL de escrita, mudança de RLS, saldos, contratos, tarifas ou faturas. Reverter commit em caso de regressão; verificar no Samsung após APK atualizado.
+
 ## 22/11/2026 — notificação Android de lançamento rápido
 
 - Layout nativo compacto; dois atalhos com distinção visual e ícones Android diferentes. Símbolos nos nomes devido à ocultação de ícones dos botões no Android 7+.

@@ -9,6 +9,7 @@ export interface ChangelogRelease {
   version: string;
   /** Commit de alteração de código; não representa, por si só, uma release assinada. */
   commit?: string;
+  codeOnly?: boolean;
   date: string;
   title: string;
   summary: string;
@@ -20,6 +21,18 @@ export interface ChangelogRelease {
  * Adicionar as atualizações mais recentes no topo, mesmo sem nova versão numerada.
  */
 export const SYSTEM_CHANGELOG: ChangelogRelease[] = [
+  {
+    version: '3.5.0',
+    codeOnly: true,
+    date: '22/11/2026',
+    title: 'Valores coerentes e navegação por etapas na Carteira',
+    summary: 'Limites bancários e estimativas identificados corretamente, com Voltar pelo histórico da Carteira.',
+    items: [
+      { kind: 'CORRECAO', text: 'O limite exibido na Visão geral acompanha a referência datada da tela Cartões; sem referência válida, aparece como estimado.' },
+      { kind: 'MELHORIA', text: 'Os totais de cartões identificam quando somam valores informados pelo banco e valores estimados. A Visão geral revalida os dados ao entrar.' },
+      { kind: 'CORRECAO', text: 'Voltar agora percorre cartão, lista de Cartões, Visão geral e Painel. A navegação das contas recebe o mesmo tratamento.' },
+    ],
+  },
   {
     version: '3.5.0',
     commit: '3c297100200e947a3580405779a53ce9d4714b02',

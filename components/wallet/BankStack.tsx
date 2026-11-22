@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, Check, Copy, CreditCard, FileUp, Pencil, Plus, R
 import { copyCardFieldToClipboard, copyCardLastFourToClipboard } from '../../utils/cardClipboard';
 import type { PersonalWalletAccount, PersonalWalletCard } from '../../services/personalWallet.service';
 import { formatMoney } from '../../utils/formatters';
+import { formatCardAvailableOrigin } from '../../features/wallet/domain/cardAvailablePresentation';
 import { BankLogo } from './BankLogo';
 import { getWalletCardVisual } from './walletPresentation';
 
@@ -78,11 +79,10 @@ export const BankStack: React.FC<Props> = ({ accounts, cards, onCard, onEditCard
   const available = hasBankLimit
     ? Number(bankLimitReference!.amount)
     : selected ? Math.max(0, Number(selected.credit_limit) - Number(selected.used_limit)) : 0;
-  const availableLabel = hasBankLimit && bankLimitReference
-    ? `Banco · ${new Intl.DateTimeFormat('pt-BR', {
-        timeZone: 'America/Manaus', day: '2-digit', month: '2-digit',
-      }).format(new Date(bankLimitReference.updatedAt))}`
-    : 'Limite estimado';
+  const availableLabel = formatCardAvailableOrigin(hasBankLimit && bankLimitReference
+    ? { card_id: bankLimitReference.cardId, available_limit: bankLimitReference.amount,
+        updated_at: bankLimitReference.updatedAt }
+    : null);
   const maskedNumber = selected?.last_four
     ? `•••• •••• •••• ${selected.last_four}`
     : '•••• •••• •••• ----';

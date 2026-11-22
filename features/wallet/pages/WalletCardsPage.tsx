@@ -1,6 +1,6 @@
 import { PrivateMoney, useFinancialPrivacy } from '../../../contexts/FinancialPrivacyContext';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { AlertTriangle, ArrowLeft, Camera, CreditCard } from 'lucide-react';
 import { useWalletOwnerDefaults } from '../hooks/useWalletOwnerDefaults';
 import { CardCameraScannerModal } from '../../../components/wallet/CardCameraScannerModal';
@@ -40,9 +40,24 @@ import { WalletBankCombobox } from '../../../components/wallet/WalletBankCombobo
 
 export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavigate: (path: string) => void }> = ({ activeUser }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedCardId = searchParams.get('card');
   const requestedAction = searchParams.get('acao');
+  const closeFocusedCard = () => {
+    if (location.state?.walletDetailFromOverview && Number(window.history.state?.idx ?? 0) > 0) {
+      navigate(-1);
+    } else {
+      // Link direto: retornar primeiro à lista, nunca saltar ao Painel.
+      navigate('/carteira/cartoes', { replace: true });
+    }
+  };
+  useEffect(() => {
+    if (!requestedCardId) return;
+    const onBack = (event: Event) => { event.preventDefault(); closeFocusedCard(); };
+    window.addEventListener('capitalflow:back', onBack);
+    return () => window.removeEventListener('capitalflow:back', onBack);
+  }, [requestedCardId, location.state, navigate]);
   const { data, loading, error, refresh } = useWalletSnapshot();
   const [selectedId, setSelectedId] = useState<string | null>(requestedCardId);
   const [editing, setEditing] = useState<PersonalWalletCard | null>(null);
@@ -716,14 +731,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
 
   return <WalletPageFrame
     error={error} notice={notice} noticeTone={notice.includes('reconhecido com sucesso') ? 'info' : 'error'} loading={loading} onRefresh={() => { void refresh().catch(() => { }); }}>
-    {requestedCardId && <button type="button" onClick={() => {
-      if (Number(window.history.state?.idx ?? 0) > 0) navigate(-1);
-      else {
-        const next = new URLSearchParams(searchParams);
-        next.delete('card');
-        setSearchParams(next, { replace: true });
-      }
-    }}
+    {requestedCardId && <button type="button" onClick={closeFocusedCard}
       className="mb-3 inline-flex min-h-11 items-center rounded-lg px-2 text-sm font-semibold text-slate-200 hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
       <ArrowLeft size={18} className="mr-2" /> Voltar
     </button>}

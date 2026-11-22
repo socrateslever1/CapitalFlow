@@ -416,7 +416,7 @@ const personalWalletServiceImpl = {
           .order('reference_month', { ascending: false }).order('id').range(from, to)),
         // Lightweight invoice metadata: exact issuer due dates may differ from
         // the generic day configured for the card. No PAN or sensitive fields.
-        loadAllWalletRows((from, to) => supabase.from('personal_wallet_card_invoice_facts').select('card_id,due_month,due_date')
+        loadAllWalletRows((from, to) => supabase.from('personal_wallet_card_invoice_facts').select('card_id,due_month,due_date,available_limit,updated_at')
           .order('due_month', { ascending: false }).order('card_id').range(from, to)),
       ]);
     const loadedExpenses = filterCurrentWalletRows((expenses.data || []) as PersonalWalletExpense[], walletReset, 'expenses');
@@ -448,6 +448,12 @@ const personalWalletServiceImpl = {
       recurringIncomes: filterCurrentWalletRows((recurringIncomes.data || []) as WalletRecurringIncome[], walletReset, 'recurringIncomes'),
       recurringReceipts: filterCurrentWalletRows((recurringReceipts.data || []) as WalletRecurringReceipt[], walletReset, 'recurringReceipts'),
       cardInvoiceDates: ((cardInvoiceDates.data || []) as Array<{ card_id: string; due_month: string; due_date: string | null }>).filter(fact => calculatedCards.some(card => card.id === fact.card_id)),
+      // Same issuer reference used by the card details. Optional bank facts
+      // must not be confused with the calculated ledger balance.
+      bankAvailableReferences: ((cardInvoiceDates.data || []) as Array<{
+        card_id: string; due_month: string; available_limit: number | null; updated_at: string;
+      }>).filter(fact => calculatedCards.some(card => card.id === fact.card_id)
+        && fact.available_limit != null),
     };
   },
 

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { History, Plus, Search } from 'lucide-react';
-import { useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import type { UserProfile } from '../../../types';
 import { AccountCardStack } from '../../../components/wallet/AccountCardStack';
 import { AccountDetailsPage } from '../../../components/wallet/AccountDetailsPage';
@@ -14,26 +14,31 @@ import { createFinancialSearchMatcher } from '../utils/financialSearch';
 
 export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onNavigate: (path: string) => void }> = ({ activeUser }) => {
     const [searchParams, setSearchParams] = useSearchParams();
+    const navigate = useNavigate();
+    const location = useLocation();
     const { data, loading, error, refresh } = useWalletSnapshot();
     const selectedId = searchParams.get('conta');
     const openAccount = (id: string) => {
         const next = new URLSearchParams(searchParams);
         next.set('conta', id);
-        setSearchParams(next);
+        setSearchParams(next, { state: { walletAccountFromList: true } });
     };
     const closeAccount = () => {
-        // Não use navigate(-1): a entrada anterior pode ser o Painel.
-        // Remover apenas a seleção mantém a rota e a aba Contas.
-        const next = new URLSearchParams(searchParams);
-        next.delete('conta');
-        setSearchParams(next, { replace: true });
+        // A seleção aberta a partir da lista possui entrada própria no histórico.
+        if (Number(window.history.state?.idx ?? 0) > 0 &&
+            (location.state?.walletDetailFromOverview || location.state?.walletAccountFromList)) {
+            navigate(-1);
+            return;
+        }
+        // Link direto ou navegação sem origem rastreada: retornar à aba Contas.
+        navigate('/carteira/contas', { replace: true });
     };
     useEffect(() => {
         if (!selectedId) return;
         const onBack = (event: Event) => { event.preventDefault(); closeAccount(); };
         window.addEventListener('capitalflow:back', onBack);
         return () => window.removeEventListener('capitalflow:back', onBack);
-    }, [selectedId, searchParams, setSearchParams]);
+    }, [selectedId, location.state, navigate, searchParams, setSearchParams]);
     const [createModalType, setCreateModalType] = useState<'CHECKING' | 'CASH' | null>(null);
     const [canTransferCapital, setCanTransferCapital] = useState(false);
     const [statementSearch, setStatementSearch] = useState('');

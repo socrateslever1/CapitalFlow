@@ -24,3 +24,21 @@ test('ações secundárias da conta ficam recolhidas no celular', () => {
   assert.match(detail, /showMoreActions \? 'col-span-2 grid' : 'hidden'/);
   assert.match(detail, /sm:flex sm:flex-wrap/);
 });
+
+test('voltar na Carteira preserva os níveis entre painel, visão geral, lista e detalhe', () => {
+  const module = read('features/wallet/WalletModule.tsx');
+  const cards = read('features/wallet/pages/WalletCardsPage.tsx');
+  const accounts = read('features/wallet/pages/WalletAccountsPage.tsx');
+  for (const needle of ["route === 'visao-geral'", "walletSectionFromOverview: true",
+    "walletDetailFromOverview: true", "backFromWalletSection",
+    "navigate('/carteira/visao-geral', { replace: true })"]) {
+    assert.ok(module.includes(needle), needle);
+  }
+  assert.ok(cards.includes('const closeFocusedCard = () => {'));
+  assert.ok(cards.includes('walletDetailFromOverview'));
+  assert.ok(cards.includes("navigate('/carteira/cartoes', { replace: true })"));
+  assert.ok(cards.includes("window.addEventListener('capitalflow:back', onBack)"));
+  assert.ok(cards.includes('onClick={closeFocusedCard}'));
+  assert.ok(accounts.includes('walletAccountFromList'));
+  assert.ok(accounts.includes("navigate('/carteira/contas', { replace: true })"));
+});

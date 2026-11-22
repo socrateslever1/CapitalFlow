@@ -82,6 +82,12 @@ export function deriveOverviewFromSnapshot(
     recurringIncomes: full.recurringIncomes,
     recurringReceipts: full.recurringReceipts,
     cardInvoiceDates: resolvedDates,
+    bankAvailableReferences: (full.cardInvoiceFacts || [])
+      .filter(fact => fact.available_limit != null)
+      .map(fact => ({
+        card_id: fact.card_id, due_month: fact.due_month,
+        available_limit: fact.available_limit, updated_at: fact.updated_at,
+      })),
   };
 }
 

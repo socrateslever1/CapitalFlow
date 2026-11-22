@@ -102,7 +102,7 @@ export const ProfileChangelog: React.FC = () => {
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="rounded-md border border-blue-500/30 bg-blue-500/10 px-2.5 py-0.5 font-mono text-xs font-bold text-blue-300">
-                  {release.commit ? `Código ${release.commit.slice(0, 7)}` : `v${release.version}`}
+                  {release.commit ? `Código ${release.commit.slice(0, 7)}` : release.codeOnly ? 'Atualização de código' : `v${release.version}`}
                 </span>
                 {index === 0 && filter === 'TODAS' && (
                   <span className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-300">

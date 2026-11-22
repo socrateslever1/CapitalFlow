@@ -31,7 +31,41 @@ const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUse
   // Sincronização permanece automática; o status não ocupa espaço no cabeçalho.
   useWalletRealtime(access.status === 'active' ? access.userId : null, invalidate);
   const route = getWalletRoute(location.pathname);
-  const go = useCallback((path: string) => navigate(`/carteira/${path}`), [navigate]);
+  // Abertura direta por cartão/conta deve preservar TODOS os níveis no histórico:
+  // Painel → Visão geral → seção → detalhe.
+  const go = useCallback((path: string) => {
+    const target = `/carteira/${path}`;
+    const directCard = path.startsWith('cartoes?card=');
+    const directAccount = path.startsWith('contas?conta=');
+    if (route === 'visao-geral' && (directCard || directAccount)) {
+      navigate(`/carteira/${directCard ? 'cartoes' : 'contas'}`, {
+        state: { walletSectionFromOverview: true },
+      });
+      navigate(target, { state: { walletDetailFromOverview: true } });
+      return;
+    }
+    navigate(target);
+  }, [navigate, route]);
+
+  // Na lista, o botão Voltar do Android sempre retorna à Visão geral:
+  // não reaproveitar uma rota de Painel que não é a tela anterior na Carteira.
+  const backFromWalletSection = useCallback(() => {
+    if (location.state?.walletSectionFromOverview && Number(window.history.state?.idx ?? 0) > 0) {
+      navigate(-1);
+    } else {
+      navigate('/carteira/visao-geral', { replace: true });
+    }
+  }, [location.state, navigate]);
+  useEffect(() => {
+    if ((route !== 'cartoes' && route !== 'contas') || location.search.includes('card=') ||
+      location.search.includes('conta=')) return;
+    const handleBack = (event: Event) => {
+      event.preventDefault();
+      backFromWalletSection();
+    };
+    window.addEventListener('capitalflow:back', handleBack);
+    return () => window.removeEventListener('capitalflow:back', handleBack);
+  }, [route, location.search, backFromWalletSection]);
   const prefetchWallet = useCallback(async (force: boolean) => {
     if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
     setSyncing(true);

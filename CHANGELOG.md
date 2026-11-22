@@ -2,6 +2,18 @@
 
 Registro das alterações entregues ao CapitalFlow. A data identifica a integração no código; a publicação web e a release Android são verificadas separadamente. Novos commits não implicam automaticamente incremento da versão numerada.
 
+## 22/11/2026 — Coerência dos valores e retorno hierárquico na Carteira
+
+**Código:** nova correção na `main`, sem incremento de versão numerada nem alterações de dados financeiros.
+
+- **Valores:** Visão geral, lista de cartões e detalhes reutilizam a mesma referência bancária mais recente, datada, ou o valor estimado quando não há observação válida. Totais mistos são identificados como tal; não substituem reconciliação financeira.
+- **Origem dos dados:** a consulta rápida de Visão geral aproveita a busca já existente de fatos bancários para trazer a referência datada. Ao abrir, revalida o resumo e informa falha se os dados não puderem ser sincronizados. Cache e modo offline preservados.
+- **Navegação:** acesso direto ao cartão ou conta passa por lista de Cartões/Contas no histórico. Voltar no Android e no detalhe retorna à seção, depois à Visão geral, depois ao Painel; deep links sem histórico usam fallback local seguro.
+- **Arquivos:** `features/wallet/domain/cardAvailablePresentation.ts`, `services/personalWallet.service.ts`, `features/wallet/services/walletOfflineStore.ts`, `features/wallet/pages/WalletOverviewPage.tsx`, `features/wallet/components/WalletOverviewSummary.tsx`, `features/wallet/pages/WalletCardsPage.tsx`, `features/wallet/pages/WalletAccountsPage.tsx`, `features/wallet/WalletModule.tsx`, `components/wallet/BankStack.tsx`, `features/wallet/components/WalletBalanceDock.tsx`.
+- **Testes:** `tests/wallet/card-available-presentation.test.ts`, `tests/wallet/wallet-summary-render.test.tsx`, `tests/architecture/wallet-detail-navigation.test.mjs` e regressões de cache/cálculo; execução de CI pendente antes da aprovação.
+
+**Limites:** observação bancária não é consulta em tempo real. Divergências entre o banco e o ledger continuam explicitamente identificadas. Sem alterações de saldos, contratos, parcelas, RLS ou migrações. Teste visual no aparelho ainda pendente.
+
 ## 22/11/2026 — Cartões, empréstimos e lançamento rápido Android
 
 **Status de código:** integrado na `main`; versão exibida no Perfil `3.5.0`. Os commits não representam, isoladamente, novo APK assinado.

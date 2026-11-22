@@ -7,10 +7,13 @@ import { BankLogo } from '../../../components/wallet/BankLogo';
 import { getWalletCardVisual, getCreditSummary } from '../../../components/wallet/walletPresentation';
 import { formatMoney } from '../../../utils/formatters';
 import { getCardSummaryDestination } from '../cardSummaryNavigation';
+import { getCardAvailablePresentation, formatCardAvailableOrigin,
+  type CardBankAvailableReference } from '../domain/cardAvailablePresentation';
 
 type WalletOverviewSummaryProps = {
   accounts: PersonalWalletAccount[];
   cards: PersonalWalletCard[];
+  bankAvailableReferences?: CardBankAvailableReference[];
   accountBalance: number;
   currentInvoiceTotal: number;
   credit: ReturnType<typeof getCreditSummary>;
@@ -23,11 +26,17 @@ type WalletOverviewSummaryProps = {
  * Dados e cálculos continuam vindo do snapshot autoritativo da carteira.
  */
 export const WalletOverviewSummary: React.FC<WalletOverviewSummaryProps> = ({
-  accounts, cards, accountBalance, currentInvoiceTotal, credit, onNavigate,
+  accounts, cards, bankAvailableReferences = [], accountBalance, currentInvoiceTotal, credit, onNavigate,
 }) => {
   const privacyHidden = useFinancialPrivacy();
   const multipleAccounts = accounts.length > 1;
   const multipleCards = cards.length > 1;
+  const displayedLimits = cards.map(card =>
+    getCardAvailablePresentation(card, bankAvailableReferences));
+  const displayedAvailableTotal = displayedLimits.reduce(
+    (total, entry) => total + Math.round(entry.amount * 100), 0) / 100;
+  const hasBankReferences = displayedLimits.some(entry => entry.origin === 'BANK');
+  const hasEstimates = displayedLimits.some(entry => entry.origin === 'ESTIMATED');
 
   return (
     <div className="grid min-w-0 items-start gap-3 xl:grid-cols-12">
@@ -85,13 +94,16 @@ export const WalletOverviewSummary: React.FC<WalletOverviewSummaryProps> = ({
         {multipleCards && (
           <div className="mt-2.5 border-t border-slate-800 pt-2.5">
             <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs text-slate-300">
-              <span>{privacyHidden ? 'Limite consolidado protegido' : `Disponível nos ${cards.length} cartões`}</span>
+              <span>{privacyHidden ? 'Limite consolidado protegido'
+                : hasBankReferences && hasEstimates ? 'Disponível · banco e estimado'
+                : hasBankReferences ? 'Disponível · referências bancárias'
+                : `Disponível nos ${cards.length} cartões · estimado`}</span>
               <strong className="text-sm font-semibold tabular-nums text-emerald-300">
-                <PrivateMoney value={formatMoney(credit.available)}/>
+                <PrivateMoney value={formatMoney(displayedAvailableTotal)}/>
               </strong>
             </div>
             <div className="mt-1.5 flex items-center justify-between text-[11px] text-slate-400">
-              <span>Limite utilizado</span>
+              <span>Uso estimado pelos lançamentos</span>
               <span className="tabular-nums">{privacyHidden ? '••••' : Math.round(credit.percentage) + '%'}</span>
             </div>
             {!privacyHidden && <div role="progressbar" aria-label="Uso consolidado do limite de crédito"
@@ -111,7 +123,8 @@ export const WalletOverviewSummary: React.FC<WalletOverviewSummaryProps> = ({
               const account = accounts.find(item => item.id === card.account_id);
               const institution = account?.bank_name || card.issuer || card.nickname;
               const visual = getWalletCardVisual(card, account?.institution_key || account?.bank_name);
-              const available = Math.max(0, Number(card.credit_limit) - Number(card.used_limit));
+              const availability = getCardAvailablePresentation(card, bankAvailableReferences);
+              const available = availability.amount;
               return (
                 <li key={card.id} className="min-w-0 shrink-0 basis-[min(78%,260px)] snap-start sm:basis-[min(48%,280px)]">
                   <button type="button" onClick={() => onNavigate(getCardSummaryDestination(card.id))}
@@ -133,7 +146,7 @@ export const WalletOverviewSummary: React.FC<WalletOverviewSummaryProps> = ({
                     </span>
                     <span className="relative flex min-w-0 items-end justify-between gap-2">
                       <span className="min-w-0">
-                        <span className="block text-[10px] text-white/75">Limite disponível</span>
+                        <span className="block text-[10px] text-white/75">{formatCardAvailableOrigin(availability.bankReference)}</span>
                         <strong className="block break-words text-base font-semibold tabular-nums">
                           <PrivateMoney value={formatMoney(available)}/>
                         </strong>

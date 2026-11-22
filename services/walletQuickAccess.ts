@@ -1,9 +1,16 @@
 import { Capacitor, registerPlugin } from '@capacitor/core';
-export type QuickAccessStatus = { active: boolean; enabled: boolean; permissionGranted: boolean };
+export type QuickAccessStatus = {
+  active: boolean;
+  enabled: boolean;
+  permissionGranted: boolean;
+  prominent: boolean;
+  priorityAvailable: boolean;
+};
 type QuickAccessPlugin = {
   setSession(args: { profileId: string | null }): Promise<void>;
   getStatus(): Promise<QuickAccessStatus>;
   setEnabled(args: { enabled: boolean }): Promise<QuickAccessStatus>;
+  setProminent(args: { prominent: boolean }): Promise<QuickAccessStatus>;
   consumeAction(): Promise<{ action: string }>;
 };
 export const quickAccessSupported = () => Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';

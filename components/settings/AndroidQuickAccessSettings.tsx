@@ -26,6 +26,19 @@ export function AndroidQuickAccessSettings() {
 
   if (!status?.active) return null;
 
+  const togglePriority = async () => {
+    if (!status?.enabled || busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      setStatus(await walletQuickAccess.setProminent({ prominent: !status.prominent }));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Não foi possível alterar o destaque.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const toggle = async () => {
     setBusy(true);
     setError('');
@@ -58,6 +71,20 @@ export function AndroidQuickAccessSettings() {
           {busy ? 'Atualizando...' : status.enabled ? 'Desativar' : 'Ativar'}
         </button>
       </div>
+      {status.enabled && status.priorityAvailable && (
+        <label className="mt-3 flex cursor-pointer items-center justify-between gap-3 border-t border-slate-800 pt-3">
+          <span className="min-w-0">
+            <span className="block text-xs font-semibold text-slate-200">Destacar notificação</span>
+            <span className="mt-0.5 block text-[11px] leading-relaxed text-slate-400">
+              Tenta deixá-la mais acima, sem som ou vibração. O Android decide a posição.
+            </span>
+          </span>
+          <input type="checkbox" checked={Boolean(status.prominent)} disabled={busy}
+            aria-label="Destacar a notificação de lançamento rápido"
+            onChange={() => { void togglePriority(); }}
+            className="h-5 w-5 shrink-0 accent-blue-500 disabled:opacity-50" />
+        </label>
+      )}
       {!status.permissionGranted && (
         <p className="mt-3 text-xs text-amber-200">Permita notificações nas configurações do Android.</p>
       )}

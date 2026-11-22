@@ -25,6 +25,9 @@ import com.getcapacitor.annotation.PermissionCallback;
 })
 public final class WalletQuickAccessPlugin extends Plugin {
     private static final String CHANNEL = "capitalflow_quick_access";
+    // A prioridade destacada é opt-in: nunca alterar silenciosamente o canal
+    // existente nem contornar bloqueios escolhidos pelo usuário.
+    private static final String PROMINENT_CHANNEL = "capitalflow_quick_access_visible_v1";
     private static final String ACTION = "capitalflow.quick.action";
     private static final String OWNER = "capitalflow.quick.owner";
     private static final int NOTIFICATION_ID = 7103;
@@ -37,12 +40,26 @@ public final class WalletQuickAccessPlugin extends Plugin {
     private boolean permitted() {
         if (!NotificationManagerCompat.from(getContext()).areNotificationsEnabled()) return false;
         if (Build.VERSION.SDK_INT >= 26) {
-            NotificationChannel channel = getContext().getSystemService(NotificationManager.class).getNotificationChannel(CHANNEL);
-            if (channel != null && channel.getImportance() == NotificationManager.IMPORTANCE_NONE) return false;
+            NotificationManager manager = getContext().getSystemService(NotificationManager.class);
+            // Um bloqueio deliberado no canal antigo NÃO deve ser contornado
+            // pela criação do canal de prioridade opcional.
+            NotificationChannel original = manager.getNotificationChannel(CHANNEL);
+            if (original != null && original.getImportance() == NotificationManager.IMPORTANCE_NONE) return false;
+            NotificationChannel selected = manager.getNotificationChannel(activeChannel());
+            if (selected != null && selected.getImportance() == NotificationManager.IMPORTANCE_NONE) return false;
         }
         return Build.VERSION.SDK_INT < 33 || getPermissionState("notifications") == PermissionState.GRANTED;
     }
     private boolean enabled() { return profileId != null && preferences().getBoolean(profileId, false); }
+    private boolean prominent() {
+        return profileId != null && preferences().getBoolean(profileId + ":prominent", false);
+    }
+    private String activeChannel() { return prominent() ? PROMINENT_CHANNEL : CHANNEL; }
+    private JSObject status() {
+        return new JSObject().put("active", profileId != null).put("enabled", enabled())
+            .put("permissionGranted", permitted()).put("prominent", prominent())
+            .put("priorityAvailable", Build.VERSION.SDK_INT >= 26);
+    }
     private void cancel() { NotificationManagerCompat.from(getContext()).cancel(NOTIFICATION_ID); }
     private PendingIntent target(String action, int requestCode) {
         Intent intent = new Intent(getContext(), MainActivity.class);
@@ -56,7 +73,10 @@ public final class WalletQuickAccessPlugin extends Plugin {
         if (!enabled() || !permitted()) { cancel(); return; }
         NotificationManager manager = getContext().getSystemService(NotificationManager.class);
         if (Build.VERSION.SDK_INT >= 26) {
-            NotificationChannel channel = new NotificationChannel(CHANNEL, "Atalhos de lançamento", NotificationManager.IMPORTANCE_LOW);
+            String channelId = activeChannel();
+            int importance = prominent() ? NotificationManager.IMPORTANCE_DEFAULT : NotificationManager.IMPORTANCE_LOW;
+            NotificationChannel channel = new NotificationChannel(channelId,
+                prominent() ? "Atalhos em destaque" : "Atalhos de lançamento", importance);
             channel.setDescription("Acesso opcional aos formulários da Carteira");
             channel.setSound(null, null);
             channel.enableVibration(false);
@@ -64,15 +84,19 @@ public final class WalletQuickAccessPlugin extends Plugin {
             channel.setLockscreenVisibility(Notification.VISIBILITY_SECRET);
             manager.createNotificationChannel(channel);
         }
-        Notification notification = new NotificationCompat.Builder(getContext(), CHANNEL)
-            .setSmallIcon(android.R.drawable.ic_input_add)
-            .setContentTitle("CapitalFlow · Lançamento rápido")
-            .setContentText("Abra o formulário e confirme no aplicativo.")
+        Notification notification = new NotificationCompat.Builder(getContext(), activeChannel())
+            .setSmallIcon(android.R.drawable.ic_menu_edit)
+            .setContentTitle("Lançamento rápido")
+            .setContentText("Escolha uma ação")
             .setContentIntent(target("expense", 7104))
-            .addAction(android.R.drawable.ic_input_add, "Lançar gasto", target("expense", 7104))
-            .addAction(android.R.drawable.ic_input_add, "Registrar entrada", target("income", 7105))
+            // Android 7+ normalmente não mostra ícones gráficos nos botões de
+            // ação. Os símbolos nos rótulos mantêm a distinção visível.
+            .addAction(android.R.drawable.ic_menu_edit, "➖ Lançar gasto", target("expense", 7104))
+            .addAction(android.R.drawable.ic_input_add, "➕ Registrar entrada", target("income", 7105))
+            .setCategory(NotificationCompat.CATEGORY_STATUS)
             .setOngoing(true).setSilent(true).setOnlyAlertOnce(true).setShowWhen(false)
-            .setVisibility(NotificationCompat.VISIBILITY_SECRET).setPriority(NotificationCompat.PRIORITY_LOW)
+            .setVisibility(NotificationCompat.VISIBILITY_SECRET)
+            .setPriority(prominent() ? NotificationCompat.PRIORITY_DEFAULT : NotificationCompat.PRIORITY_LOW)
             .build();
         NotificationManagerCompat.from(getContext()).notify(NOTIFICATION_ID, notification);
     }
@@ -92,8 +116,7 @@ public final class WalletQuickAccessPlugin extends Plugin {
     }
     @PluginMethod
     public void getStatus(PluginCall call) {
-        call.resolve(new JSObject().put("active", profileId != null)
-            .put("enabled", enabled()).put("permissionGranted", permitted()));
+        call.resolve(status());
     }
     @PluginMethod
     public void setEnabled(PluginCall call) {
@@ -119,8 +142,40 @@ public final class WalletQuickAccessPlugin extends Plugin {
         try {
             preferences().edit().putBoolean(profileId, enable).apply();
             show();
-            call.resolve(new JSObject().put("active", true).put("enabled", enabled()).put("permissionGranted", permitted()));
+            call.resolve(status());
         } catch (Exception error) { call.reject("Não foi possível alterar a notificação."); }
+    }
+    @PluginMethod
+    public void setProminent(PluginCall call) {
+        if (profileId == null) { call.reject("Sessão autorizada necessária."); return; }
+        Boolean value = call.getBoolean("prominent");
+        if (value == null) { call.reject("Informe a opção de destaque."); return; }
+        if (value && Build.VERSION.SDK_INT < 26) {
+            call.reject("O destaque exige Android 8 ou superior."); return;
+        }
+        if (value && !permitted()) {
+            call.reject("Notificações bloqueadas. Consulte as configurações do Android."); return;
+        }
+        if (value && Build.VERSION.SDK_INT >= 26) {
+            NotificationChannel priorityChannel = getContext().getSystemService(NotificationManager.class)
+                .getNotificationChannel(PROMINENT_CHANNEL);
+            if (priorityChannel != null && priorityChannel.getImportance() == NotificationManager.IMPORTANCE_NONE) {
+                call.reject("O destaque está bloqueado nas configurações do Android."); return;
+            }
+        }
+        final String key = profileId + ":prominent";
+        final boolean previous = prominent();
+        try {
+            preferences().edit().putBoolean(key, value).commit();
+            cancel(); // Canal e prioridade não podem ser alterados na notificação já publicada.
+            show();
+            call.resolve(status());
+        } catch (Exception error) {
+            preferences().edit().putBoolean(key, previous).commit();
+            cancel();
+            try { show(); } catch (Exception ignored) { /* Preservar erro original */ }
+            call.reject("Não foi possível alterar o destaque.");
+        }
     }
     @PluginMethod
     public void consumeAction(PluginCall call) {

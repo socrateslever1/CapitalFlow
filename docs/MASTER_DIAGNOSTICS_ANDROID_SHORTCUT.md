@@ -7,6 +7,14 @@ Captura erros globais JavaScript, promises não tratadas, `console.error`, bound
 
 Não é um crash reporter nativo nem um diagnóstico definitivo. Não reúne erros de outros usuários/aparelhos nem captura falhas anteriores à autorização. A área de Admin continua usando a autorização existente `is_platform_super_admin`; nenhum papel novo foi criado. Como qualquer dado local do aplicativo, o armazenamento não constitui uma barreira contra quem controla o próprio aparelho.
 
+## Notificação compacta e destaque opcional (22/11/2026)
+
+- Texto nativo simplificado: “Lançamento rápido” e “Escolha uma ação”, sem repetir CapitalFlow no título. Ações com símbolos distintos e ícones nativos diferentes (gasto/entrada); Android 7+ pode ocultar os desenhos nativos, razão para os símbolos nos rótulos.
+- `Perfil > Preferências & Menus > Lançamento rápido` agora contém opção `Destacar notificação` disponível no Android 8+. Ela utiliza canal secundário `capitalflow_quick_access_visible_v1` com importância `DEFAULT`, porém **sem som, vibração, heads-up, lockscreen ou foreground service**. O canal antigo `capitalflow_quick_access` permanece inalterado e a preferência é por perfil.
+- A alteração de canal é explícita e reversível, reaproveitando o identificador de notificação. Se o usuário bloqueou o canal antigo ou o novo, a função respeita o bloqueio e exige ajuste nas configurações do Android. A ordenação final depende do sistema/Samsung e não pode ser garantida como primeiro item.
+- Mantidos os dois PendingIntents imutáveis, exigência de sessão, confirmação dos formulários e cancelamento da notificação ao sair; nenhuma mutação financeira ou alteração de RLS/backend.
+- Testes estáticos de arquitetura e contrato do wrapper, build Android/CI a verificar. Validação visual real em dispositivo físico pendente. Rollback: reverter commit; canal secundário criado permanece apenas nas configurações Android até ser excluído pelo usuário/sistema.
+
 ## Notificação Android
 No Perfil do master, no APK atualizado, ativar **Notificação de lançamento** e conceder a permissão do Android quando solicitada. As ações **Lançar gasto** e **Registrar entrada** abrem os formulários existentes. Nenhum lançamento é confirmado automaticamente.
 

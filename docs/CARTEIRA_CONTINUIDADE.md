@@ -1,3 +1,9 @@
+## 22/11/2026 — notificação Android de lançamento rápido
+
+- Layout nativo compacto; dois atalhos com distinção visual e ícones Android diferentes. Símbolos nos nomes devido à ocultação de ícones dos botões no Android 7+.
+- Destaque **opcional** no perfil, por canal secundário `IMPORTANCE_DEFAULT` silencioso; não usa heads-up/foreground e não pode forçar topo da central de notificações. A opção respeita canais bloqueados e é reversível.
+- Mantidos perfil, intents, autorização, privacidade, confirmação manual e ausência de escrita financeira. Revisar CI e testar no Samsung antes de afirmar fidelidade visual. Reverter commit para rollback.
+
 ## 22/11/2026 — Perfil Android: configuração de atalho compacta
 
 - Transferido `AndroidQuickAccessSettings` do topo da página para `Perfil → Preferências & Menus`.

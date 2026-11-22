@@ -69,7 +69,7 @@ test('destaque da notificação é opt-in por perfil e não ignora canal bloquea
   assert.match(settings, /Destacar notificação/);
   assert.match(settings, /status\.priorityAvailable/);
   assert.match(settings, /walletQuickAccess\.setProminent/);
-  assert.match(settings, /O Android decide a posição/);
+  assert.match(settings, /A posição é definida pelo Android/);
 });
 
 test('canal observável, silêncio condicionado e configurações do Android', () => {

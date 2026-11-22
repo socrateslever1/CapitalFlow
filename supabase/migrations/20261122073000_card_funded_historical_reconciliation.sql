@@ -1,7 +1,6 @@
--- Upgrade seguro do finalizador: sem débito na fonte CARD.
--- Modo histórico: deve existir cobrança bancária com referência, data e valor,
--- validada contra o contrato. Não libera crédito para novas compras.
--- Não atualiza saldos/contratos históricos existentes.
+-- Mantém empréstimos financiados em cartão sem débito na fonte.
+-- Permite reconciliação explícita de cobrança já executada pelo banco.
+-- Não altera dados financeiros existentes.
 create or replace function public.finalize_card_funded_loan_v1(p_loan_id uuid)
 returns uuid language plpgsql security definer set search_path = public, pg_temp
 as $$
@@ -69,7 +68,21 @@ begin
     v_bank_amount_text := v_loan.policies_snapshot->>'cardPurchaseChargedAmount';
     v_bank_date_text := v_loan.policies_snapshot->>'cardPurchaseChargeDate';
     v_bank_reference := btrim(coalesce(v_loan.policies_snapshot->>'cardPurchaseBankReference',''));
-    if v_bank_amount_text is null or v_bank_amount_text !~ '^[0-9]{1,9}(\.[0-9]{1,2})?
+    if v_bank_amount_text is null or v_bank_amount_text !~ '^[0-9]{1,9}(\.[0-9]{1,2})?$'
+      or v_bank_date_text is null or v_bank_date_text !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+      or length(v_bank_reference) not between 8 and 160 then
+      raise exception 'Informe data, valor e identificação da cobrança bancária já realizada.';
+    end if;
+    v_bank_amount := round(v_bank_amount_text::numeric, 2);
+    v_bank_date := v_bank_date_text::date;
+    if v_bank_amount is distinct from v_total then
+      raise exception 'Valor da cobrança bancária diferente do custo financiado.';
+    end if;
+    if v_bank_date > (now() at time zone 'America/Manaus')::date
+      or v_bank_date < (now() at time zone 'America/Manaus')::date - 366 then
+      raise exception 'Data da cobrança bancária fora do período permitido.';
+    end if;
+  end if;
 
   select count(*), (max(target_id::text) filter (where target_kind = 'CARD'))::uuid
     into v_reference_count, v_card_id

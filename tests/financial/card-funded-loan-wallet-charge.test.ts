@@ -301,7 +301,7 @@ test('marcador histórico sem referência ou no futuro não supera bloqueio do b
   await db.exec(`update contratos set policies_snapshot = jsonb_set(policies_snapshot,
     '{cardPurchaseChargeDate}',to_jsonb(to_char(current_date-1,'YYYY-MM-DD'))) where id='${loan}';
     update contratos set policies_snapshot = jsonb_set(policies_snapshot,
-    '{cardPurchaseBankReference}',to_jsonb('PIX')) where id='${loan}';`);
+    '{cardPurchaseBankReference}',to_jsonb('PIX'::text)) where id='${loan}';`);
   await assert.rejects(finalize(),/Informe data, valor e identificação/);
   assert.equal((await rows('select count(*)::integer n from personal_wallet_expenses'))[0].n,0);
 });

@@ -567,7 +567,12 @@ export const contractsService = {
         const issue = checkLinkedCardFunding(links || [], card, safeFloat(loan.fundingTotalPayable) || safeFloat(loan.principal));
         if (issue === 'LINK') throw new Error('Vincule exatamente um cartão da Carteira à fonte antes de emitir o contrato.');
         if (issue === 'CARD') throw new Error('O cartão vinculado está indisponível. Ative-o ou escolha outra fonte.');
-        if (issue === 'LIMIT') throw new Error('Crédito disponível insuficiente para o total financiado. Confira o limite do cartão.');
+        // Uma compra já efetivada pelo banco deve poder ser contabilizada mesmo
+        // durante uma conciliação pendente. O banco validará data, valor, prova
+        // e autorização de SUPER_ADMIN dentro da RPC transacional.
+        if (issue === 'LIMIT' && loan.policiesSnapshot?.cardPurchaseAlreadyCharged !== true) {
+          throw new Error('Crédito disponível insuficiente para o total financiado. Confira o limite do cartão.');
+        }
       }
       if (!existingCardLoan) {
         await runContractMutationWithSchemaFallback({
@@ -635,7 +640,11 @@ export const contractsService = {
           p_loan_id: safeUUID(loanId),
         });
         if (finalizationError) {
-          throw new Error('O contrato pode ter sido gravado, mas o cartão não foi lançado. Confira o vínculo, o limite e o contrato antes de tentar novamente.');
+          const known = String(finalizationError.message || '');
+          if (/Informe data, valor e identificação|Valor da cobrança bancária diferente|Data da cobrança bancária fora|Esta identificação de compra bancária já está|Limite disponível do cartão insuficiente/i.test(known)) {
+            throw new Error('O contrato pode ter sido gravado, mas o cartão não foi lançado. ' + known + ' Confira o contrato antes de tentar novamente.');
+          }
+          throw new Error('O contrato pode ter sido gravado, mas o cartão não foi lançado. Confira os dados, o limite e o contrato antes de tentar novamente.');
         }
       } else if (safeSrcId && !options?.skipTransaction) {
         await adjustSourceBalanceSafe(safeSrcId, -principal);

@@ -74,6 +74,11 @@ export interface LoanPolicy {
   collectionDaysMode?: CollectionDaysMode;
   interestFreeInstallment?: boolean;
   fundingPaymentMethod?: 'CREDIT_CARD' | 'BANK_ACCOUNT_DEBIT';
+  cardPurchaseInstallmentsCount?: number;
+  cardPurchaseAlreadyCharged?: boolean;
+  cardPurchaseChargeDate?: string;
+  cardPurchaseChargedAmount?: string;
+  cardPurchaseBankReference?: string;
 }
 
 /* =====================================================

@@ -112,6 +112,10 @@ export interface LoanFormState {
   fundingPaymentMethod?: 'CREDIT_CARD' | 'BANK_ACCOUNT_DEBIT';
   cardOriginInstallmentMode?: 'SINGLE' | 'INSTALLMENTS';
   cardPurchaseInstallmentsCount?: string;
+  cardPurchaseAlreadyCharged?: boolean;
+  cardPurchaseChargeDate?: string;
+  cardPurchaseChargedAmount?: string;
+  cardPurchaseBankReference?: string;
 }
 
 function calculateFundingTotalFromRate(principal: number, monthlyRatePercent: number, installmentsCount: number): number {
@@ -281,6 +285,18 @@ export const mapFormToLoan = (
       interestFreeInstallment,
       fundingPaymentMethod,
       cardPurchaseInstallmentsCount,
+      ...(!initialData && form.cardPurchaseAlreadyCharged === true && fundingPaymentMethod === 'CREDIT_CARD' ? {
+        cardPurchaseAlreadyCharged: true,
+        cardPurchaseChargeDate: String(form.cardPurchaseChargeDate || ''),
+        cardPurchaseChargedAmount: parseCurrency(form.cardPurchaseChargedAmount || '').toFixed(2),
+        cardPurchaseBankReference: String(form.cardPurchaseBankReference || '').trim(),
+      } : {}),
+      ...(initialData?.policiesSnapshot?.cardPurchaseAlreadyCharged === true ? {
+        cardPurchaseAlreadyCharged: true,
+        cardPurchaseChargeDate: initialData.policiesSnapshot.cardPurchaseChargeDate,
+        cardPurchaseChargedAmount: initialData.policiesSnapshot.cardPurchaseChargedAmount,
+        cardPurchaseBankReference: initialData.policiesSnapshot.cardPurchaseBankReference,
+      } : {}),
     } as any,
 
     startDate: form.startDate,

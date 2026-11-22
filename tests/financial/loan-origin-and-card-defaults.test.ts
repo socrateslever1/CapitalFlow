@@ -129,3 +129,32 @@ test('vínculo e crédito são conferidos antes de gravar um novo contrato no ca
   const serviceSource = readFileSync('services/contracts.service.ts', 'utf8');
   assert.match(serviceSource, /isCardFundedLoan && !existingCardLoan && !options\?\.skipTransaction/);
 });
+
+test('contrato já financiado exige confirmação documental, data e montante bancário coerentes',()=>{
+  const good=buildBaseForm({
+    debtorDocument:'12345678909',
+    cardPurchaseAlreadyCharged:true,
+    cardPurchaseChargeDate: new Date(Date.now()-86400000).toISOString().slice(0,10),
+    cardPurchaseChargedAmount:'734,93',
+    cardPurchaseBankReference:'RecargaPay 20/11 23:28',
+  });
+  const source={id:good.sourceId,type:'CARD',balance:0} as any;
+  assert.equal(validateLoanForm(good,[source],false).isValid,true);
+  assert.equal((mapFormToLoan(good,'10',null,[],[],[],'profile-1').policiesSnapshot as any).cardPurchaseAlreadyCharged,true);
+  assert.equal((mapFormToLoan(good,'10',null,[],[],[],'profile-1').policiesSnapshot as any).cardPurchaseChargedAmount,'734.93');
+  assert.match(validateLoanForm({...good,cardPurchaseChargedAmount:'735,00'},[source],false).error||'',/valor exato/);
+  assert.match(validateLoanForm({...good,cardPurchaseBankReference:'PIX'},[source],false).error||'',/identificação da compra/);
+  assert.match(validateLoanForm({...good,cardPurchaseChargeDate:'2029-01-01'},[source],false).error||'',/data válida/);
+  assert.match(validateLoanForm({...good, fundingPaymentMethod:'BANK_ACCOUNT_DEBIT'},[source],false).error||'',/fonte selecionada é um cartão/);
+});
+test('apenas o modo histórico confirmado dispensa a trava local de limite',()=>{
+  const text=readFileSync('services/contracts.service.ts','utf8');
+  assert.match(text,/issue === 'LIMIT' && loan.policiesSnapshot\?\.cardPurchaseAlreadyCharged !== true/);
+  assert.match(text,/if \(issue === 'LINK'\)/);
+  assert.match(text,/if \(issue === 'CARD'\)/);
+  const section=readFileSync('components/forms/LoanFormFinancialSection.tsx','utf8');
+  assert.match(section,/Compra já realizada e cobrada pelo banco/);
+  assert.match(section,/cardPurchaseChargedAmount/);
+  assert.match(section,/cardPurchaseBankReference/);
+  assert.match(section,/cardPurchaseChargeDate/);
+});

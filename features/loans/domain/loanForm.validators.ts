@@ -77,6 +77,33 @@ export const validateLoanForm = (
     return { isValid: false, error: 'A fonte selecionada é um cartão. Escolha pagamento no cartão ou outra fonte para débito em conta.' };
   }
 
+  if (!isEditing && formData.cardPurchaseAlreadyCharged === true) {
+    if (!selectedSource || !['CARD', 'MISTO'].includes(selectedSource.type)
+      || (formData.fundingPaymentMethod || 'CREDIT_CARD') !== 'CREDIT_CARD'
+      || (formData.fundingAllocations?.length || 0) !== 1) {
+      return { isValid: false, error: 'A compra já cobrada só pode ser registrada com uma fonte vinculada a um único cartão.' };
+    }
+    const chargedAmount = parseCurrency(formData.cardPurchaseChargedAmount || '');
+    const totalFinanced = parseCurrency(formData.fundingTotalPayable || formData.principal);
+    if (!Number.isFinite(chargedAmount) || chargedAmount <= 0
+      || Math.round(chargedAmount * 100) !== Math.round(totalFinanced * 100)) {
+      return { isValid: false, error: 'Informe o valor exato cobrado pelo banco; deve coincidir com o total financiado.' };
+    }
+    const chargedDate = String(formData.cardPurchaseChargeDate || '');
+    const date = new Date(chargedDate + 'T12:00:00Z');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(chargedDate)
+      || !Number.isFinite(date.getTime())
+      || date.toISOString().slice(0, 10) !== chargedDate
+      || date.getTime() > Date.now()
+      || Date.now() - date.getTime() > 367 * 86400000) {
+      return { isValid: false, error: 'Informe uma data válida de compra já realizada nos últimos 366 dias.' };
+    }
+    const bankReference = String(formData.cardPurchaseBankReference || '').trim();
+    if (bankReference.length < 8 || bankReference.length > 160) {
+      return { isValid: false, error: 'Informe uma identificação da compra bancária com 8 a 160 caracteres.' };
+    }
+  }
+
   // A taxa/custo do cartão é opcional: campo vazio equivale a custo zero.
   // Quando houver um total informado, ele nunca pode ser inferior ao capital.
   const hasFundingTotal = String(formData.fundingTotalPayable ?? '').trim() !== '';

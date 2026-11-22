@@ -117,6 +117,7 @@ before(async () => {
   `);
   await db.exec(readFileSync('supabase/migrations/20261117041652_card_funded_loan_wallet_charge.sql', 'utf8'));
   await db.exec(readFileSync('supabase/migrations/20261117150000_card_funded_loan_no_account_debit.sql', 'utf8'));
+  await db.exec(readFileSync('supabase/migrations/20261122073000_card_funded_historical_reconciliation.sql', 'utf8'));
   await db.exec(`
     create trigger trg_sync_transacao_to_wallet
       after insert on public.transacoes
@@ -240,4 +241,67 @@ test('bloqueia falta de vinculo e limite insuficiente sem movimentar valores', a
 test('impede outro usuario de finalizar o contrato', async () => {
   await db.exec(`select set_config('test.user','${otherUser}',false)`);
   await assert.rejects(finalize(), /Somente o administrador principal/);
+});
+
+test('registro histórico já cobrado permite conciliação com limite contábil insuficiente sem debitar novamente a fonte', async () => {
+  await db.exec(`
+    update personal_wallet_cards set used_limit=800,credit_limit=1000 where id='${card}';
+    update contratos set principal=400,funding_total_payable=419.96,
+      policies_snapshot=jsonb_build_object(
+        'cardPurchaseAlreadyCharged',true,
+        'cardPurchaseChargeDate',to_char(current_date-1,'YYYY-MM-DD'),
+        'cardPurchaseChargedAmount','419.96',
+        'cardPurchaseBankReference','RecargaPay compra 23:28 419.96'
+      )
+    where id='${loan}';
+  `);
+  const first=await finalize();
+  const retry=await finalize();
+  assert.equal(first.rows[0].expense_id,retry.rows[0].expense_id);
+  const state=(await rows(`select
+    (select balance::numeric(14,2)::text from fontes where id='${source}') source_balance,
+    (select balance::numeric(14,2)::text from personal_wallet_accounts where id='${cardAccount}') account_balance,
+    (select count(*)::integer from transacoes where loan_id='${loan}' and type='LOAN_INITIAL') count_advance,
+    (select meta->>'source_balance_effect' from transacoes where loan_id='${loan}' and type='LOAN_INITIAL') balance_effect,
+    (select meta->>'card_purchase_already_charged' from transacoes where loan_id='${loan}' and type='LOAN_INITIAL') bank_charged,
+    (select amount::numeric(14,2)::text from personal_wallet_expenses where request_id='${loan}') charge,
+    (select expense_date::text from personal_wallet_expenses where request_id='${loan}') card_date,
+    (select to_char(current_date-1,'YYYY-MM-DD')) expected_date,
+    (select count(*)::integer from loan_card_wallet_charges where loan_id='${loan}') linked
+  `))[0];
+  assert.deepEqual(state,{
+    source_balance:'1016.21',account_balance:'1016.21',
+    count_advance:1,balance_effect:'NONE',bank_charged:'true',
+    charge:'419.96',card_date:state.expected_date,expected_date:state.expected_date,linked:1,
+  });
+});
+
+test('marcador histórico sem valor correto é rejeitado sem gerar movimentação',async()=>{
+  await db.exec(`update personal_wallet_cards set credit_limit=100,used_limit=100 where id='${card}';
+    update contratos set policies_snapshot=jsonb_build_object(
+      'cardPurchaseAlreadyCharged',true,
+      'cardPurchaseChargeDate',to_char(current_date-1,'YYYY-MM-DD'),
+      'cardPurchaseChargedAmount','999.99',
+      'cardPurchaseBankReference','RecargaPay 20/11 23:28'
+    ) where id='${loan}';`);
+  await assert.rejects(finalize(),/Valor da cobrança bancária diferente/);
+  assert.equal((await rows('select count(*)::integer n from loan_card_wallet_charges'))[0].n,0);
+  assert.equal((await rows('select count(*)::integer n from transacoes'))[0].n,0);
+});
+
+test('marcador histórico sem referência ou no futuro não supera bloqueio do banco',async()=>{
+  await db.exec(`update personal_wallet_cards set credit_limit=100,used_limit=100 where id='${card}';
+    update contratos set policies_snapshot=jsonb_build_object(
+      'cardPurchaseAlreadyCharged',true,
+      'cardPurchaseChargeDate',to_char(current_date+1,'YYYY-MM-DD'),
+      'cardPurchaseChargedAmount','734.93',
+      'cardPurchaseBankReference','RecargaPay no futuro'
+    ) where id='${loan}';`);
+  await assert.rejects(finalize(),/Data da cobrança bancária fora/);
+  await db.exec(`update contratos set policies_snapshot = jsonb_set(policies_snapshot,
+    '{cardPurchaseChargeDate}',to_jsonb(to_char(current_date-1,'YYYY-MM-DD'))) where id='${loan}';
+    update contratos set policies_snapshot = jsonb_set(policies_snapshot,
+    '{cardPurchaseBankReference}',to_jsonb('PIX')) where id='${loan}';`);
+  await assert.rejects(finalize(),/Informe data, valor e identificação/);
+  assert.equal((await rows('select count(*)::integer n from personal_wallet_expenses'))[0].n,0);
 });

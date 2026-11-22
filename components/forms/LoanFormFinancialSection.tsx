@@ -513,7 +513,13 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
                         sourceId: index === 0 ? selectedId : current.sourceId,
                         fundingAllocations: next,
                         ...(index === 0 && chosen?.type === 'CARD' ? { fundingPaymentMethod: 'CREDIT_CARD' } : {}),
-                        ...(index === 0 && !cardOrigin ? { fundingPaymentMethod: 'BANK_ACCOUNT_DEBIT' } : {}),
+                        ...(index === 0 && !cardOrigin ? {
+                          fundingPaymentMethod: 'BANK_ACCOUNT_DEBIT',
+                          cardPurchaseAlreadyCharged: false,
+                          cardPurchaseChargeDate: '',
+                          cardPurchaseChargedAmount: '',
+                          cardPurchaseBankReference: '',
+                        } : {}),
                         ...(index === 0 && !cardOrigin && current.billingCycle !== 'INSTALLMENT_FIXED'
                           ? { fundingTotalPayable: '', fundingFeePercent: '' } : {}),
                       };
@@ -545,6 +551,51 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
               ? 'O total financiado será lançado no cartão vinculado e consumirá o crédito disponível após a confirmação.'
               : 'O método selecionado usa o saldo da fonte; o crédito do cartão vinculado não financia este contrato.'}</p>
           </div>}
+          {!isEditing && !hasMultipleSources && chargesLinkedCard && (
+            <div className="space-y-2 rounded-lg border border-slate-700/80 bg-slate-950/45 px-3 py-3">
+              <label className="flex cursor-pointer items-start gap-3 text-xs font-medium text-slate-200">
+                <input type="checkbox" checked={formData.cardPurchaseAlreadyCharged === true}
+                  onChange={(event) => setFormData((current: any) => ({
+                    ...current, cardPurchaseAlreadyCharged: event.target.checked,
+                    ...(!event.target.checked ? {
+                      cardPurchaseChargeDate: '', cardPurchaseChargedAmount: '', cardPurchaseBankReference: '',
+                    } : {}),
+                  }))}
+                  className="mt-0.5 h-4 w-4 shrink-0 accent-blue-500" />
+                <span>Compra já realizada e cobrada pelo banco</span>
+              </label>
+              {formData.cardPurchaseAlreadyCharged === true && (
+                <div className="grid grid-cols-1 gap-3 border-t border-slate-800 pt-3 sm:grid-cols-2">
+                  <label className="block space-y-1 text-xs text-slate-300">
+                    <span>Data da compra no cartão</span>
+                    <input type="date" required value={formData.cardPurchaseChargeDate || ''}
+                      max={toISODateOnlyUTC(new Date())}
+                      onChange={(event) => setFormData((current: any) => ({ ...current, cardPurchaseChargeDate: event.target.value }))}
+                      className={dateInputClass} />
+                  </label>
+                  <label className="block space-y-1 text-xs text-slate-300">
+                    <span>Valor já cobrado pelo cartão (R$)</span>
+                    <FinancialCalculatorInput type="text" centsEntry required
+                      value={formData.cardPurchaseChargedAmount || ''}
+                      onChange={(event) => setFormData((current: any) => ({ ...current, cardPurchaseChargedAmount: event.target.value }))}
+                      className={strongInputClass} placeholder="419,96" />
+                  </label>
+                  <label className="block space-y-1 text-xs text-slate-300 sm:col-span-2">
+                    <span>Identificação da compra no extrato</span>
+                    <input type="text" required minLength={8} maxLength={160}
+                      value={formData.cardPurchaseBankReference || ''}
+                      onChange={(event) => setFormData((current: any) => ({ ...current, cardPurchaseBankReference: event.target.value }))}
+                      className={inputClass} placeholder="RecargaPay 20/11 23:28" />
+                  </label>
+                  <p className="text-[11px] leading-relaxed text-amber-200 sm:col-span-2">
+                    Usar somente se a compra já foi autorizada pelo banco. O registro não solicitará novo crédito:
+                    se o limite contábil estiver errado, a diferença continuará visível até ser conciliada.
+                    Nenhum capital será debitado novamente da fonte vinculada.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
           {!hasMultipleSources && !isCardSource && <p className="ml-2 text-[10px] text-slate-500">O valor do contrato será retirado desta fonte, mesmo que o saldo fique negativo.</p>}
           {hasMultipleSources && <div className={`rounded-lg border p-3 text-[10px] font-black uppercase ${Math.abs(distributedTotal - principalValue) < 0.005 ? 'border-emerald-500/30 bg-emerald-950/20 text-emerald-300' : 'border-amber-500/30 bg-amber-950/20 text-amber-300'}`}>Distribuído: R$ {distributedTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} · Capital: R$ {principalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} · {Math.abs(distributedTotal - principalValue) < 0.005 ? 'Fechado' : 'Ajuste os valores'}</div>}
         </div>

@@ -47,7 +47,9 @@ test('bank facts navigate real due-month cycles while preserving distinct financ
   assert.match(page, /aria-label="Outros valores do cartão"/);
   assert.match(page, /Próximas faturas/);
   assert.match(page, /selectedCycle\?\.amount \|\| 0/);
-  assert.match(page, /Disponível no banco/);
+  assert.match(page, /Disponível informado/);
+  assert.match(page, /Banco · /);
+  assert.match(page, /bankFactLastUpdate/);
   assert.match(page, /<details className="rounded-lg border border-slate-800/);
   assert.match(page, /Aplicar valores já salvos à posição do cartão/);
   assert.match(page, /await Promise\.all\(\[refreshInvoiceFacts\(\),\s*refresh\(\)\]\)/);

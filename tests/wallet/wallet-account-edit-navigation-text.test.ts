@@ -5,12 +5,14 @@ import { buildAccountStatementEntries, normalizeWalletStatementDescription } fro
 
 const repoFile = (path: string) => readFileSync(path,'utf8');
 
-test('Voltar de conta remove parâmetro sem retornar ao Painel', () => {
+test('Voltar de conta preserva o nível da Carteira sem saltar para o Painel', () => {
   const page=repoFile('features/wallet/pages/WalletAccountsPage.tsx');
   const close=page.slice(page.indexOf('const closeAccount ='),page.indexOf('useEffect(() => {',page.indexOf('const closeAccount =')));
-  assert.match(close,/next\.delete\('conta'\)/);
-  assert.match(close,/setSearchParams\(next, \{ replace: true \}\)/);
-  assert.doesNotMatch(close,/^\s*(?:return\s+)?navigate\(-1\)/m);
+  assert.match(close,/walletDetailFromOverview \|\| location\.state\?\.walletAccountFromList/);
+  assert.match(close,/navigate\(-1\)/, 'retorna à lista quando a origem está documentada');
+  assert.match(close,/navigate\('\/carteira\/contas', \{ replace: true \}\)/,
+    'links diretos sem histórico retornam à lista de contas');
+  assert.doesNotMatch(close,/navigate\('\/'/);
   assert.match(page,/onBack=\{closeAccount\}/);
 });
 test('descrição de empréstimo é normalizada mantendo nome e valor corretos', () => {

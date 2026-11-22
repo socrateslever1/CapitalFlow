@@ -61,7 +61,7 @@ test('overview shows competence by closing date and respects the actual payment 
   assert.match(overview,/title: 'Fatura ' \+ card\.nickname \+ ' · competência ' \+ competence/);
   assert.match(overview,/getInvoiceCycleDates\(/);
   assert.match(overview,/snapshot\.cardInvoiceDates/);
-  assert.match(service,/select\('card_id,due_month,due_date'\)/);
+  assert.match(service,/select\('card_id,due_month,due_date,available_limit,updated_at'\)/);
 });
 
 test('primeira fatura permite mês manual sem fatura preexistente nem limite disponível inventado', () => {

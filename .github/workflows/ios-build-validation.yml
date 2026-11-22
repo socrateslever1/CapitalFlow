@@ -1,0 +1,67 @@
+name: CapitalFlow iOS — compilação de validação
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/ios-build-validation.yml'
+      - 'tests/architecture/ios-build-preflight.test.mjs'
+      - 'docs/IOS_CAPACITOR_RELEASE_PLAN.md'
+      - 'capacitor.config.json'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ios-simulator:
+    runs-on: macos-15
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Verificar projeto e requisitos
+        run: |
+          set -euo pipefail
+          xcodebuild -version
+          pod --version
+          node --test tests/architecture/ios-build-preflight.test.mjs
+          npm ci --no-audit --no-fund
+      - name: Compilar o frontend compartilhado
+        run: npm run build
+      - name: Instalar CLI e plataforma iOS na mesma versão do Capacitor Core
+        run: |
+          set -euo pipefail
+          npm install --no-save --package-lock=false --no-audit --no-fund \
+            @capacitor/cli@7.6.10 @capacitor/ios@7.6.10
+          node -e "const c=require('@capacitor/core/package.json').version;const i=require('@capacitor/ios/package.json').version;const cli=require('@capacitor/cli/package.json').version;if(c!==i||i!==cli)throw new Error('Versões Capacitor incompatíveis: '+[c,i,cli].join(', '))"
+      - name: Gerar projeto nativo iOS e sincronizar recursos web
+        run: |
+          set -euo pipefail
+          npx --no-install cap add ios
+          npx --no-install cap sync ios
+          test -f ios/App/App.xcworkspace/contents.xcworkspacedata
+          test -f ios/App/App.xcodeproj/project.pbxproj
+      - name: Compilar para simulador, sem assinatura de distribuição
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -workspace ios/App/App.xcworkspace \
+            -scheme App \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/capitalflow-ios-derived" \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+      - name: Informar limitação da compilação
+        run: |
+          echo "Validação de build iOS para simulador concluída."
+          echo "Isto NÃO produz IPA assinada ou aplicativo TestFlight/App Store."

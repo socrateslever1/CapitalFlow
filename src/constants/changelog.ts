@@ -25,6 +25,17 @@ export const SYSTEM_CHANGELOG: ChangelogRelease[] = [
     version: '3.5.0',
     codeOnly: true,
     date: '22/11/2026',
+    title: 'Destaque de notificações Android',
+    summary: 'Ajuste do destaque e acesso à prioridade definida no aparelho.',
+    items: [
+      { kind: 'CORRECAO', text: 'O destaque da notificação não é mais silenciado artificialmente pelo próprio aplicativo.' },
+      { kind: 'MELHORIA', text: 'O Perfil informa a importância da notificação e abre sua configuração no Android.' },
+    ],
+  },
+  {
+    version: '3.5.0',
+    codeOnly: true,
+    date: '22/11/2026',
     title: 'Valores coerentes e navegação por etapas na Carteira',
     summary: 'Limites bancários e estimativas identificados corretamente, com Voltar pelo histórico da Carteira.',
     items: [

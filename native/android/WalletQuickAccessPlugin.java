@@ -8,6 +8,8 @@ import android.app.PendingIntent;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Build;
+import android.provider.Settings;
+import android.net.Uri;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 import com.getcapacitor.JSObject;
@@ -55,10 +57,18 @@ public final class WalletQuickAccessPlugin extends Plugin {
         return profileId != null && preferences().getBoolean(profileId + ":prominent", false);
     }
     private String activeChannel() { return prominent() ? PROMINENT_CHANNEL : CHANNEL; }
+    private int currentChannelImportance() {
+        if (Build.VERSION.SDK_INT < 26) return -1;
+        NotificationManager manager = getContext().getSystemService(NotificationManager.class);
+        if (manager == null) return -1;
+        NotificationChannel channel = manager.getNotificationChannel(activeChannel());
+        return channel == null ? -1 : channel.getImportance();
+    }
     private JSObject status() {
         return new JSObject().put("active", profileId != null).put("enabled", enabled())
             .put("permissionGranted", permitted()).put("prominent", prominent())
-            .put("priorityAvailable", Build.VERSION.SDK_INT >= 26);
+            .put("priorityAvailable", Build.VERSION.SDK_INT >= 26)
+            .put("channelImportance", currentChannelImportance());
     }
     private void cancel() { NotificationManagerCompat.from(getContext()).cancel(NOTIFICATION_ID); }
     private PendingIntent target(String action, int requestCode) {
@@ -94,7 +104,7 @@ public final class WalletQuickAccessPlugin extends Plugin {
             .addAction(android.R.drawable.ic_menu_edit, "➖ Lançar gasto", target("expense", 7104))
             .addAction(android.R.drawable.ic_input_add, "➕ Registrar entrada", target("income", 7105))
             .setCategory(NotificationCompat.CATEGORY_STATUS)
-            .setOngoing(true).setSilent(true).setOnlyAlertOnce(true).setShowWhen(false)
+            .setOngoing(true).setSilent(!prominent()).setOnlyAlertOnce(true).setShowWhen(false)
             .setVisibility(NotificationCompat.VISIBILITY_SECRET)
             .setPriority(prominent() ? NotificationCompat.PRIORITY_DEFAULT : NotificationCompat.PRIORITY_LOW)
             .build();
@@ -175,6 +185,32 @@ public final class WalletQuickAccessPlugin extends Plugin {
             cancel();
             try { show(); } catch (Exception ignored) { /* Preservar erro original */ }
             call.reject("Não foi possível alterar o destaque.");
+        }
+    }
+    @PluginMethod
+    public void openNotificationSettings(PluginCall call) {
+        if (profileId == null) { call.reject("Sessão autorizada necessária."); return; }
+        Intent intent;
+        if (Build.VERSION.SDK_INT >= 26) {
+            intent = new Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS);
+            intent.putExtra(Settings.EXTRA_APP_PACKAGE, getContext().getPackageName());
+            intent.putExtra(Settings.EXTRA_CHANNEL_ID, activeChannel());
+        } else {
+            intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                Uri.parse("package:" + getContext().getPackageName()));
+        }
+        try {
+            getActivity().startActivity(intent);
+            call.resolve();
+        } catch (Exception error) {
+            try {
+                Intent fallback = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    Uri.parse("package:" + getContext().getPackageName()));
+                getActivity().startActivity(fallback);
+                call.resolve();
+            } catch (Exception secondError) {
+                call.reject("Não foi possível abrir as configurações de notificações.");
+            }
         }
     }
     @PluginMethod

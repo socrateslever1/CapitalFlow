@@ -5,12 +5,14 @@ export type QuickAccessStatus = {
   permissionGranted: boolean;
   prominent: boolean;
   priorityAvailable: boolean;
+  channelImportance: number;
 };
 type QuickAccessPlugin = {
   setSession(args: { profileId: string | null }): Promise<void>;
   getStatus(): Promise<QuickAccessStatus>;
   setEnabled(args: { enabled: boolean }): Promise<QuickAccessStatus>;
   setProminent(args: { prominent: boolean }): Promise<QuickAccessStatus>;
+  openNotificationSettings(): Promise<void>;
   consumeAction(): Promise<{ action: string }>;
 };
 export const quickAccessSupported = () => Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';

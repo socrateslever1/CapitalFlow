@@ -47,7 +47,7 @@ test('notificação enxuta mantém dois atalhos distintos, sem texto duplicado o
   assert.match(java, /target\("expense", 7104\)/);
   assert.match(java, /target\("income", 7105\)/);
   assert.match(java, /setCategory\(NotificationCompat\.CATEGORY_STATUS\)/);
-  assert.match(java, /setSilent\(true\)/);
+  assert.ok(java.includes(".setOngoing(true).setSilent(!prominent())"));
   assert.match(java, /setOnlyAlertOnce\(true\)/);
   assert.doesNotMatch(java, /IMPORTANCE_HIGH|PRIORITY_HIGH|setFullScreenIntent|setSound\([^n]/);
 });
@@ -70,4 +70,23 @@ test('destaque da notificação é opt-in por perfil e não ignora canal bloquea
   assert.match(settings, /status\.priorityAvailable/);
   assert.match(settings, /walletQuickAccess\.setProminent/);
   assert.match(settings, /O Android decide a posição/);
+});
+
+test('canal observável, silêncio condicionado e configurações do Android', () => {
+  const java = read('native/android/WalletQuickAccessPlugin.java');
+  const service = read('services/walletQuickAccess.ts');
+  const settings = read('components/settings/AndroidQuickAccessSettings.tsx');
+  for (const needle of [
+    'setSilent(!prominent())',
+    'currentChannelImportance()',
+    'ACTION_CHANNEL_NOTIFICATION_SETTINGS',
+    'EXTRA_CHANNEL_ID, activeChannel()',
+    'ACTION_APPLICATION_DETAILS_SETTINGS'
+  ]) assert.ok(java.includes(needle), needle);
+  assert.doesNotMatch(java, /IMPORTANCE_HIGH|PRIORITY_HIGH|startForegroundService|setFullScreenIntent/);
+  assert.ok(service.includes('openNotificationSettings(): Promise<void>'));
+  assert.ok(service.includes('channelImportance: number'));
+  assert.ok(settings.includes('walletQuickAccess.openNotificationSettings()'));
+  assert.ok(settings.includes('Ajustar prioridade no Android'));
+  assert.ok(settings.includes('status.channelImportance'));
 });

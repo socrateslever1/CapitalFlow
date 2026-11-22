@@ -26,6 +26,18 @@ export function AndroidQuickAccessSettings() {
 
   if (!status?.active) return null;
 
+  const openAndroidPrioritySettings = async () => {
+    if (busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      await walletQuickAccess.openNotificationSettings();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Não foi possível abrir as configurações do Android.');
+    } finally {
+      setBusy(false);
+    }
+  };
   const togglePriority = async () => {
     if (!status?.enabled || busy) return;
     setBusy(true);
@@ -76,7 +88,7 @@ export function AndroidQuickAccessSettings() {
           <span className="min-w-0">
             <span className="block text-xs font-semibold text-slate-200">Destacar notificação</span>
             <span className="mt-0.5 block text-[11px] leading-relaxed text-slate-400">
-              Tenta deixá-la mais acima, sem som ou vibração. O Android decide a posição.
+              Solicita destaque sem som ou vibração. A posição é definida pelo Android.
             </span>
           </span>
           <input type="checkbox" checked={Boolean(status.prominent)} disabled={busy}
@@ -84,6 +96,25 @@ export function AndroidQuickAccessSettings() {
             onChange={() => { void togglePriority(); }}
             className="h-5 w-5 shrink-0 accent-blue-500 disabled:opacity-50" />
         </label>
+      )}
+      {status.enabled && status.priorityAvailable && (
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-800 pt-3">
+          <span className="text-[11px] text-slate-400">
+            Importância do canal: {status.channelImportance === 0 ? 'Bloqueada'
+              : status.channelImportance >= 4 ? 'Alta'
+              : status.channelImportance === 3 ? 'Normal'
+              : status.channelImportance >= 1 ? 'Baixa'
+              : 'Não configurada'}
+          </span>
+          <button type="button" disabled={busy}
+            onClick={() => { void openAndroidPrioritySettings(); }}
+            className="min-h-11 rounded-lg border border-blue-500/40 px-3 text-xs font-semibold text-blue-200 hover:bg-blue-500/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-400 disabled:opacity-50">
+            Ajustar prioridade no Android
+          </button>
+          <p className="w-full text-[11px] leading-relaxed text-slate-500">
+            A ordenação depende das configurações do celular; o aplicativo não pode fixar notificações no topo.
+          </p>
+        </div>
       )}
       {!status.permissionGranted && (
         <p className="mt-3 text-xs text-amber-200">Permita notificações nas configurações do Android.</p>

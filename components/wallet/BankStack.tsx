@@ -79,7 +79,9 @@ export const BankStack: React.FC<Props> = ({ accounts, cards, onCard, onEditCard
     ? Number(bankLimitReference!.amount)
     : selected ? Math.max(0, Number(selected.credit_limit) - Number(selected.used_limit)) : 0;
   const availableLabel = hasBankLimit && bankLimitReference
-    ? `Banco · ${bankLimitReference.updatedAt.slice(8, 10)}/${bankLimitReference.updatedAt.slice(5, 7)}`
+    ? `Banco · ${new Intl.DateTimeFormat('pt-BR', {
+        timeZone: 'America/Manaus', day: '2-digit', month: '2-digit',
+      }).format(new Date(bankLimitReference.updatedAt))}`
     : 'Limite estimado';
   const maskedNumber = selected?.last_four
     ? `•••• •••• •••• ${selected.last_four}`

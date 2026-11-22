@@ -24,6 +24,13 @@
 - Verifique mudanças anteriores com `git diff` e testes de arquitetura/financeiros/UX pertinentes.
 - Qualquer painel financeiro assistivo deve ser READ_ONLY, com legenda clara sobre origem, intervalo e precisão dos valores.
 
+## Registro obrigatório de mudanças
+- Toda alteração integrada que afete comportamento, interface, API, Android, Supabase ou regras de domínio deve atualizar **os dois registros no mesmo commit**: `CHANGELOG.md` (técnico, com referências e estados verificados) e `src/constants/changelog.ts` (resumo legível em Perfil → Atualizações).
+- Entradas novas no topo, por data, classificadas como novidade, melhoria ou correção. Não expor dados financeiros, nomes ou identificadores de clientes.
+- Não tratar commit, build debug ou CI verde como nova versão numerada ou APK assinado; versão só muda quando o processo de versionamento/publicação correspondente for executado.
+- `docs/CARTEIRA_CONTINUIDADE.md` é histórico técnico complementar: **não substitui** os dois logs. Atualizações apenas de testes/documentação podem ser agrupadas ao registro funcional associado.
+- Se uma alteração ficar sem registro, regularizar retrospectivamente indicando os commits comprovados, sem inventar evidência de testes.
+
 ## Entrega
 - Antes do merge, executar `npm run test:quality`, `npm run test:wallet-visual-next` e testes relevantes.
 - Falhas de segurança/dependências são reportadas; não declarar todos os gates aprovados se o Quality Gates estiver vermelho.

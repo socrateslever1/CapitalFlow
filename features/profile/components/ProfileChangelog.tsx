@@ -57,7 +57,7 @@ export const ProfileChangelog: React.FC = () => {
               Histórico de Atualizações
             </h3>
             <p className="text-xs text-slate-400">
-              Acompanhe as novidades, melhorias e correções entregues em cada versão do sistema.
+              Atualizações de código por data. A versão numerada aparece separadamente.
             </p>
           </div>
         </div>
@@ -96,13 +96,13 @@ export const ProfileChangelog: React.FC = () => {
       <div className="space-y-4">
         {visibleReleases.map((release, index) => (
           <article
-            key={release.version}
+            key={`${release.version}-${release.date}-${release.commit || "release"}`}
             className="rounded-xl border border-slate-800 bg-slate-950/70 p-4 sm:p-5 space-y-3"
           >
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="rounded-md border border-blue-500/30 bg-blue-500/10 px-2.5 py-0.5 font-mono text-xs font-bold text-blue-300">
-                  v{release.version}
+                  {release.commit ? `Código ${release.commit.slice(0, 7)}` : `v${release.version}`}
                 </span>
                 {index === 0 && filter === 'TODAS' && (
                   <span className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-300">

@@ -7,6 +7,8 @@ export interface ChangelogItem {
 
 export interface ChangelogRelease {
   version: string;
+  /** Commit de alteração de código; não representa, por si só, uma release assinada. */
+  commit?: string;
   date: string;
   title: string;
   summary: string;
@@ -15,9 +17,80 @@ export interface ChangelogRelease {
 
 /**
  * Registro oficial de atualizações exibido na área de Perfil.
- * Sempre adicionar novas versões no topo desta lista.
+ * Adicionar as atualizações mais recentes no topo, mesmo sem nova versão numerada.
  */
 export const SYSTEM_CHANGELOG: ChangelogRelease[] = [
+  {
+    version: '3.5.0',
+    commit: '3c297100200e947a3580405779a53ce9d4714b02',
+    date: '22/11/2026',
+    title: 'Cartões, empréstimos e atalhos do Android',
+    summary: 'Conciliação de compras já feitas no cartão, informações bancárias mais claras e notificação de lançamento rápido simplificada.',
+    items: [
+      {
+        kind: 'CORRECAO',
+        text: 'Empréstimos financiados por cartão não descontam novamente o capital da fonte. Compras já cobradas podem ser registradas mediante data, valor e identificação bancária.',
+      },
+      {
+        kind: 'MELHORIA',
+        text: 'O limite informado pelo banco tem data e identificação próprias e não é confundido com o limite estimado pelos lançamentos.',
+      },
+      {
+        kind: 'CORRECAO',
+        text: 'Diferenças de fatura passam a descontar créditos e estornos, sem contá-los como novas compras.',
+      },
+      {
+        kind: 'MELHORIA',
+        text: 'Lançamento rápido foi movido para Preferências & Menus. A notificação Android agora tem texto reduzido, ações distintas e destaque opcional silencioso.',
+      },
+    ],
+  },
+  {
+    version: '3.5.0',
+    commit: 'dd4cd9b8c76ae05e72697cbffde913402f665bbd',
+    date: '21/11/2026',
+    title: 'Pesquisa, faturas e cartões mais organizados',
+    summary: 'Busca mais abrangente e menos informações repetidas na Carteira, com ajustes para utilização no Android.',
+    items: [
+      {
+        kind: 'MELHORIA',
+        text: 'Extratos permitem buscar valores e datas. Pesquisa de contratos foi ajustada para não ficar encoberta pelo teclado no Android.',
+      },
+      {
+        kind: 'MELHORIA',
+        text: 'Fatura atual em destaque; dados secundários recolhidos em Detalhes e Valores do banco.',
+      },
+      {
+        kind: 'CORRECAO',
+        text: 'Logotipos de bancos e cartões reaproveitados nos seletores e lançamentos; transferências exibem conta de origem e saldo.',
+      },
+      {
+        kind: 'CORRECAO',
+        text: 'Registro manual de despesas com tratamento de espera e sugestões de categoria pela descrição.',
+      },
+    ],
+  },
+  {
+    version: '3.5.0',
+    commit: '66972c275',
+    date: '20/11/2026',
+    title: 'Organização e conciliação da Carteira',
+    summary: 'Aprimoramentos de navegação, extratos e tratamento auditável de operações financiadas por cartão.',
+    items: [
+      {
+        kind: 'MELHORIA',
+        text: 'Navegação entre contas, revisão de descrições financeiras e edição com histórico.',
+      },
+      {
+        kind: 'CORRECAO',
+        text: 'Desembolsos financiados por cartão não devem aparecer como gastos de conta bancária.',
+      },
+      {
+        kind: 'CORRECAO',
+        text: 'Mecanismos auditáveis para tratar débitos duplicados relacionados a empréstimos financiados no cartão.',
+      },
+    ],
+  },
   {
     version: '3.5.0',
     date: '19/11/2026',

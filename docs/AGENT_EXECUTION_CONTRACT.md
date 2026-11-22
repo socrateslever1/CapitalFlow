@@ -9,6 +9,7 @@ O prompt original do proprietário é a especificação, nunca texto de interfac
 3. **Revisor independente:** pessoa ou outro agente com contexto separado compara o diff com os critérios originais, funcionalidades preservadas, cenários negativos e isolamento de perfis. Deve gerar parecer verificável; autodeclaração não substitui revisão.
 4. **QA e Segurança:** executar testes direcionados, npm run test:quality e testes adicionais de RLS, centavos, concorrência, idempotência, falhas de rede e rollback quando o escopo exigir.
 5. **Gate de integração:** abrir PR com escopo, aceite, evidências reais e riscos. O CI rejeita a documentação ausente/incompleta; a proteção da branch deve exigir checks aprovados e revisor independente antes de merge. Verificar a versão publicada web/APK antes de declarar entrega.
+6. **Rastreabilidade da entrega:** registrar cada mudança funcional no mesmo commit em `CHANGELOG.md` e `src/constants/changelog.ts` (Perfil → Atualizações). Diferenciar versão numerada, commit de código, deploy web, Android debug e APK assinado. `docs/CARTEIRA_CONTINUIDADE.md` não substitui o log de mudanças.
 
 ## Regras para fluxos financeiros
 - Distinguir evento financeiro, fonte de capital, conta da Minha Carteira e saldo declarado.

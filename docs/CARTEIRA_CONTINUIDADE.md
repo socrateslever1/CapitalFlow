@@ -1611,3 +1611,19 @@ O ícone do olho já acionava o `FinancialPrivacyProvider`, mas os elementos aba
 - **Revisao independente:** sem bloqueios; confirmou formularios separados, campos compartilhados e chamada explicita a `saveCardInvoiceFacts`. As ressalvas de ciclo vazio e modo durante salvamento foram tratadas desabilitando a acao/campos correspondentes.
 - **Validacao:** revisao estatica de formularios independentes, ciclo passado ao salvamento e sincronizacao dos dois campos compartilhados; `git diff --check` sem erros nos arquivos alterados. Testes automatizados e renderizacao visual nao executados nesta etapa.
 - **Risco/rollback:** os dois salvamentos sao explicitos e separados para evitar gravar referencia como compra/pagamento. Reversivel removendo a secao de conferencia do modal e as propriedades compartilhadas.
+
+## 23/11/2026 — hierarquia do cabeçalho de composição de empréstimo
+
+- **Alteração:** em `components/cards/LoanCardComposition/Header.tsx`, identificador e resumo do empréstimo ficam numa faixa; o valor em destaque fica alinhado em coluna própria; ao expandir, Capital, Encargos e Original aparecem em blocos legíveis.
+- **Invariantes:** somente apresentação. Não altera fórmulas, parcelas, juros, persistência ou dados financeiros.
+- **Validação:** revisão do diff, `git diff --check` e gates do projeto após combinar com a correção do PWA; teste visual manual em dispositivo não realizado.
+- **Rollback:** reverter o commit de apresentação e seus registros de changelog.
+
+## 23/11/2026 — PWA: falha de cache não deve bloquear páginas
+
+- **Sintoma investigado:** erro genérico ao carregar determinadas páginas, incluindo Administração, compatível com falha de importação dinâmica de chunk.
+- **Causa no código:** a estratégia `immutable-assets` do service worker propagava erros de `CacheStorage.match`, `open` e `put`. Se o armazenamento local falhasse (por exemplo, quota), uma resposta de rede válida não chegava ao navegador.
+- **Correção:** falhas ao consultar ou gravar cache são tratadas como falha de otimização; o service worker tenta a rede e devolve a resposta sem exigir que o cache funcione. Escopo restrito aos assets estáticos imutáveis.
+- **Cobertura e evidência:** teste de regressão reproduz quota excedida ao gravar o chunk da Administração e erro ao ler CacheStorage. `npm run test:wallet-pwa-legal` (7/7), `npm run build`, `npm run test:quality`, `npm run test:wallet-visual-next` (62/62), inspeção local dos 73 assets JS/CSS (200), revisão independente e `git diff --check` passaram.
+- **Limitações:** não houve inspeção do PWA instalado, diagnóstico de sessão real do usuário nem teste visual em aparelho. A correção elimina o bloqueio causado por falha do CacheStorage, mas não confirma por si só que esse foi o evento observado em produção. Build reportou avisos preexistentes de imports e chunks grandes.
+- **Escopo/rollback:** frontend e teste; sem mudanças de navegação, API, dados, Supabase ou domínio financeiro. Reversão localizada em `public/service-worker.js` e no teste de arquitetura.

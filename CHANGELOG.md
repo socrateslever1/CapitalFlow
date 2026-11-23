@@ -1,5 +1,13 @@
 # Changelog
 
+## 23/11/2026 — Melhorar a leitura do cabeçalho de empréstimos
+
+**Código em revisão.** O resumo de capital, encargos e valor original foi reorganizado em blocos próprios quando o cartão está expandido; identificador e valor principal permanecem em áreas separadas. Alteração de apresentação no componente `LoanCardComposition/Header.tsx`; sem mudança de cálculo ou persistência.
+
+## 23/11/2026 — Corrigir carregamento de telas no PWA
+
+**Código em revisão.** Falhas no CacheStorage ao procurar ou gravar um chunk JavaScript não bloqueiam mais a resposta da rede. Isso evita que quota cheia ou erro local de cache impeça a abertura de páginas carregadas sob demanda, incluindo Administração. Cobertura de regressão adicionada para falhas de leitura e gravação. `npm run test:wallet-pwa-legal`, `npm run build` e `npm run test:quality` passaram; revisão independente sem bloqueios. Não houve validação no PWA instalado ou em dispositivo. Sem alterações financeiras, Supabase, dados ou rotas.
+
 Registro das alterações entregues ao CapitalFlow. A data identifica a integração no código; a publicação web e a release Android são verificadas separadamente. Novos commits não implicam automaticamente incremento da versão numerada.
 
 ## 22/11/2026 — Evitar oscilação entre limite estimado e referência bancária

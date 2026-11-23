@@ -24,6 +24,26 @@ export const SYSTEM_CHANGELOG: ChangelogRelease[] = [
   {
     version: '3.5.0',
     codeOnly: true,
+    date: '23/11/2026',
+    title: 'Resumo mais legível nos cartões de empréstimo',
+    summary: 'Capital, encargos e valor original aparecem em áreas próprias no cartão expandido.',
+    items: [
+      { kind: 'MELHORIA', text: 'O cabeçalho separa os valores do resumo e deixa o principal mais fácil de localizar.' },
+    ],
+  },
+  {
+    version: '3.5.0',
+    codeOnly: true,
+    date: '23/11/2026',
+    title: 'Carregamento mais resiliente no PWA',
+    summary: 'Falhas no cache local não impedem mais abrir páginas online.',
+    items: [
+      { kind: 'CORRECAO', text: 'Páginas carregadas sob demanda continuam abrindo quando o navegador não consegue ler ou gravar um arquivo no cache.' },
+    ],
+  },
+  {
+    version: '3.5.0',
+    codeOnly: true,
     date: '22/11/2026',
     title: 'Limite bancário estável na Carteira',
     summary: 'Evita exibir um limite estimado temporário ao abrir o cartão.',

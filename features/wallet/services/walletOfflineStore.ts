@@ -86,7 +86,8 @@ export function deriveOverviewFromSnapshot(
       .filter(fact => fact.available_limit != null)
       .map(fact => ({
         card_id: fact.card_id, due_month: fact.due_month,
-        available_limit: fact.available_limit, observed_at: fact.observed_at, updated_at: fact.updated_at,
+        available_limit: fact.available_limit, available_observed_at: fact.available_observed_at,
+        observed_at: fact.observed_at, updated_at: fact.updated_at,
       })),
   };
 }

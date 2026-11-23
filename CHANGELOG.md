@@ -2,6 +2,10 @@
 
 Registro das alterações entregues ao CapitalFlow. A data identifica a integração no código; a publicação web e a release Android são verificadas separadamente. Novos commits não implicam automaticamente incremento da versão numerada.
 
+## 23/11/2026 — Âncora exclusiva do limite informado pelo banco
+
+O campo `available_observed_at` registra somente a confirmação efetiva do `available_limit`, mediante trigger em `INSERT` ou `UPDATE OF available_limit`. Corrigir somente data/total de fatura não altera essa âncora. Referências legadas com data sem integridade verificável não recebem abatimentos automáticos até confirmação bancária; dados legados com `observed_at=updated_at` recebem migração de metadados sem mudança financeira. Aplicação remota da migração, testes e revisão independentes devem ser verificados antes da integração.
+
 ## 23/11/2026 — Revisão independente: correção da âncora bancária e eventos Realtime
 
 - O `updated_at` da linha de referência é a âncora usada na projeção: a RPC escreve o novo `available_limit` e o novo `updated_at` conjuntamente, enquanto `observed_at` preserva a data original da criação da linha. Isso impede descontar de novo compras já incorporadas numa correção bancária.

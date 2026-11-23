@@ -75,6 +75,7 @@ test('visão geral mostra o mesmo saldo projetado a partir da referência e novo
     accounts={accounts} cards={[card]}
     bankAvailableReferences={[{
       card_id:'projection-card',available_limit:2683.51,
+      available_observed_at:'2026-11-20T02:48:29Z',
       observed_at:'2026-11-20T02:48:29Z',updated_at:'2026-11-20T02:48:29Z',
     }]}
     ledger={{ expenses:[{

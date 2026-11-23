@@ -7,6 +7,8 @@ export type CardBankAvailableReference = {
   updated_at: string;
   /** When the issuer amount was observed; distinct from subsequent row edits. */
   observed_at?: string | null;
+  /** Timestamp specifically associated with available_limit; NOT invoice row updates. */
+  available_observed_at?: string | null;
   due_month?: string;
 };
 
@@ -63,17 +65,19 @@ export function getCardAvailablePresentation(
     fact.available_limit != null && Number.isFinite(Number(fact.available_limit)) &&
     Number(fact.available_limit) >= 0 &&
     typeof fact.updated_at === 'string' && Number.isFinite(Date.parse(fact.updated_at)))
-    .sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at) ||
+    .sort((a, b) => Date.parse(b.available_observed_at || b.observed_at || b.updated_at) -
+      Date.parse(a.available_observed_at || a.observed_at || a.updated_at) ||
       String(b.due_month || '').localeCompare(String(a.due_month || '')))[0] ?? null;
   if (!bankReference) return {
     amount: estimatedAmount, estimatedAmount, origin: 'ESTIMATED', bankReference: null,
     movementSinceBank: 0, purchasesSinceBank: 0, creditsSinceBank: 0, paymentsSinceBank: 0,
   };
-  // A saved issuer value and its updated_at are written together by the
-  // authenticated issuer-confirmation RPC, including ON CONFLICT updates.
-  // observed_at belongs to the original row insertion and MUST NOT anchor
-  // a bank value that was subsequently corrected.
-  const observation = bankReference.updated_at;
+  // The invoice's updated_at also changes when ONLY due dates or invoice totals
+  // are edited. Never use it to re-anchor the bank's available_limit. An
+  // explicit column is stamped on INSERT/UPDATE OF available_limit only.
+  // Null on legacy ambiguous rows is fail-closed: show the historical bank
+  // reference without inventing subsequent adjustments.
+  const observation = bankReference.available_observed_at || null;
   const bankDay = manausDay(observation);
   // If the observation date cannot be established or the ledger is not yet
   // complete, preserve the dated reference instead of manufacturing a delta.
@@ -120,6 +124,6 @@ export function formatCardAvailableOrigin(
   if (!reference) return 'Limite estimado';
   const date = new Intl.DateTimeFormat('pt-BR', {
     timeZone: 'America/Manaus', day: '2-digit', month: '2-digit',
-  }).format(new Date(reference.updated_at));
+  }).format(new Date(reference.available_observed_at || reference.observed_at || reference.updated_at));
   return origin === 'BANK_ADJUSTED' ? 'Projetado · ' + date : 'Banco · ' + date;
 }

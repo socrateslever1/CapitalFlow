@@ -36,7 +36,8 @@ test('zero do banco é um número real, não ausência',()=>{
 
 test('Bradesco: 8 purchases since 19/11 automatically reduce dated bank reference to R$ 2.515,99', () => {
   const snapshot = { card_id:'card-1', available_limit:2683.51,
-    observed_at:'2026-11-20T02:48:29.887Z', updated_at:'2026-11-20T02:48:29.887Z' };
+    observed_at:'2026-11-20T02:48:29.887Z',
+    available_observed_at:'2026-11-20T02:48:29.887Z', updated_at:'2026-11-20T02:48:29.887Z' };
   const ledger = {
     expenses: [11.50,27,67,6.60,6.30,33.90,5.50,9.72].map((amount,index) => ({
       card_id:'card-1',amount,expense_date:index<3?'2026-11-22':'2026-11-20',
@@ -52,7 +53,8 @@ test('Bradesco: 8 purchases since 19/11 automatically reduce dated bank referenc
 });
 
 test('ignore backdated imports, voids, opening summaries and invoice overrides', () => {
-  const facts=[{card_id:'card-1',available_limit:2000,observed_at:'2026-11-20T02:48:29Z',updated_at:'2026-11-20T02:48:29Z'}];
+  const facts=[{card_id:'card-1',available_limit:2000,observed_at:'2026-11-20T02:48:29Z',
+    available_observed_at:'2026-11-20T02:48:29Z',updated_at:'2026-11-20T02:48:29Z'}];
   const result=getCardAvailablePresentation(card,facts,{
     expenses:[
       {card_id:'card-1',amount:500,expense_date:'2026-11-16',status:'PENDING'},
@@ -69,7 +71,8 @@ test('ignore backdated imports, voids, opening summaries and invoice overrides',
 });
 
 test('payments and issuer credits restore availability exactly once in cents', () => {
-  const fact={card_id:'card-1',available_limit:120,observed_at:'2026-11-20T02:48:29Z',updated_at:'2026-11-20T02:48:29Z'};
+  const fact={card_id:'card-1',available_limit:120,observed_at:'2026-11-20T02:48:29Z',
+    available_observed_at:'2026-11-20T02:48:29Z',updated_at:'2026-11-20T02:48:29Z'};
   const result=getCardAvailablePresentation(card,[fact],{
     expenses:[
       {card_id:'card-1',amount:22.01,expense_date:'2026-11-21',status:'PENDING'},
@@ -88,7 +91,8 @@ test('payments and issuer credits restore availability exactly once in cents', (
 });
 
 test('bank observation cannot be applied when ledger is not loaded; zero and no reference stay distinct', () => {
-  const fact={card_id:'card-1',available_limit:0,observed_at:'2026-11-20T02:48:29Z',updated_at:'2026-11-20T02:48:29Z'};
+  const fact={card_id:'card-1',available_limit:0,observed_at:'2026-11-20T02:48:29Z',
+    available_observed_at:'2026-11-20T02:48:29Z',updated_at:'2026-11-20T02:48:29Z'};
   assert.equal(getCardAvailablePresentation(card,[fact]).amount,0);
   assert.equal(getCardAvailablePresentation(card,[fact],{ expenses:[],invoicePayments:[] }).origin,'BANK');
   assert.equal(getCardAvailablePresentation(card,[],{ expenses:[],invoicePayments:[] }).origin,'ESTIMATED');
@@ -96,19 +100,48 @@ test('bank observation cannot be applied when ledger is not loaded; zero and no 
 });
 
 
-test('re-confirming a bank value moves its projection baseline to updated_at, not immutable observed_at', () => {
+test('re-confirming a bank value advances available_observed_at, not immutable observed_at', () => {
   const card={id:'c',credit_limit:1000,used_limit:500};
   const expenses=[{card_id:'c',amount:100,expense_date:'2026-11-21',status:'PENDING'}];
   const observation={
     card_id:'c',available_limit:500,observed_at:'2026-11-20T02:48:29Z',
+    available_observed_at:'2026-11-20T02:48:29Z',
     updated_at:'2026-11-20T02:48:29Z',
   };
   assert.equal(getCardAvailablePresentation(card,[observation],{expenses,invoicePayments:[]}).amount,400);
   // The issuer re-observed R$ 400 on 23/11. Subtracting the 21/11 charge
   // again would display R$ 300 and incorrectly debit the card twice.
-  const corrected={...observation,available_limit:400,updated_at:'2026-11-23T12:00:00Z'};
+  const corrected={...observation,available_limit:400,
+    available_observed_at:'2026-11-23T12:00:00Z',updated_at:'2026-11-23T12:00:00Z'};
   const fresh=getCardAvailablePresentation(card,[corrected],{expenses,invoicePayments:[]});
   assert.equal(fresh.amount,400);
   assert.equal(fresh.purchasesSinceBank,0);
   assert.equal(formatCardAvailableOrigin(fresh.bankReference),'Banco · 23/11');
+});
+
+test('invoice-only corrections do not reset the bank observation baseline', () => {
+  const card={id:'c',credit_limit:1000,used_limit:500};
+  const expenses=[{card_id:'c',amount:100,expense_date:'2026-11-21',status:'PENDING'}];
+  const fact={
+    card_id:'c',available_limit:500,
+    observed_at:'2026-11-20T02:48:29Z',
+    available_observed_at:'2026-11-20T02:48:29Z',
+    updated_at:'2026-11-23T12:00:00Z', // only invoice metadata changed
+  };
+  const projection=getCardAvailablePresentation(card,[fact],{ expenses,invoicePayments:[] });
+  assert.equal(projection.amount,400);
+  assert.equal(projection.purchasesSinceBank,100);
+  assert.equal(formatCardAvailableOrigin(projection.bankReference,projection.origin),'Projetado · 19/11');
+});
+
+test('legacy bank values without provable available_observed_at are not auto-debited', () => {
+  const card={id:'c',credit_limit:1000,used_limit:500};
+  const facts=[{card_id:'c',available_limit:500,observed_at:'2026-11-20T02:48:29Z',
+    updated_at:'2026-11-23T12:00:00Z',available_observed_at:null}];
+  const result=getCardAvailablePresentation(card,facts,{expenses:[{
+    card_id:'c',amount:100,expense_date:'2026-11-21',status:'PENDING',
+  }],invoicePayments:[]});
+  assert.equal(result.amount,500);
+  assert.equal(result.origin,'BANK');
+  assert.equal(result.purchasesSinceBank,0);
 });

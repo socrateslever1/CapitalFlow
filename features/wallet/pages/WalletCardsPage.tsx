@@ -178,10 +178,18 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
     const generation = ++invoiceFactsRequestGeneration.current;
     const cardId = selected.id;
     const source = data?.cardInvoiceFacts;
-    const items = await walletRepository.loadCardInvoiceFacts(cardId);
-    if (generation !== invoiceFactsRequestGeneration.current) return;
-    setFetchedInvoiceFacts({ cardId, source, outcome: 'READY', facts: items });
-    setInvoiceFactsError('');
+    try {
+      const items = await walletRepository.loadCardInvoiceFacts(cardId);
+      if (generation !== invoiceFactsRequestGeneration.current) return;
+      setFetchedInvoiceFacts({ cardId, source, outcome: 'READY', facts: items });
+      setInvoiceFactsError('');
+    } catch (cause) {
+      if (generation === invoiceFactsRequestGeneration.current) {
+        setFetchedInvoiceFacts({ cardId, source, outcome: 'ERROR', facts: [] });
+        setInvoiceFactsError(cause instanceof Error ? cause.message : 'Não foi possível consultar os dados bancários.');
+      }
+      throw cause;
+    }
   };
   const importedStatementRows = selected
     ? data?.statementRows.filter(row => {

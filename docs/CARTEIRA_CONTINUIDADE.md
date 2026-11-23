@@ -1611,3 +1611,10 @@ O ícone do olho já acionava o `FinancialPrivacyProvider`, mas os elementos aba
 - **Revisao independente:** sem bloqueios; confirmou formularios separados, campos compartilhados e chamada explicita a `saveCardInvoiceFacts`. As ressalvas de ciclo vazio e modo durante salvamento foram tratadas desabilitando a acao/campos correspondentes.
 - **Validacao:** revisao estatica de formularios independentes, ciclo passado ao salvamento e sincronizacao dos dois campos compartilhados; `git diff --check` sem erros nos arquivos alterados. Testes automatizados e renderizacao visual nao executados nesta etapa.
 - **Risco/rollback:** os dois salvamentos sao explicitos e separados para evitar gravar referencia como compra/pagamento. Reversivel removendo a secao de conferencia do modal e as propriedades compartilhadas.
+
+## 23/11/2026 — hierarquia do cabeçalho de composição de empréstimo
+
+- **Alteração:** em `components/cards/LoanCardComposition/Header.tsx`, identificador e resumo do empréstimo ficam numa faixa; o valor em destaque fica alinhado em coluna própria; ao expandir, Capital, Encargos e Original aparecem em blocos legíveis.
+- **Invariantes:** somente apresentação. Não altera fórmulas, parcelas, juros, persistência ou dados financeiros.
+- **Validação:** revisão do diff, `git diff --check` e gates do projeto após combinar com a correção do PWA; teste visual manual em dispositivo não realizado.
+- **Rollback:** reverter o commit de apresentação e seus registros de changelog.

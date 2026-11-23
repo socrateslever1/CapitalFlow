@@ -1,5 +1,9 @@
 # Changelog
 
+## 23/11/2026 — Melhorar a leitura do cabeçalho de empréstimos
+
+**Código em revisão.** O resumo de capital, encargos e valor original foi reorganizado em blocos próprios quando o cartão está expandido; identificador e valor principal permanecem em áreas separadas. Alteração de apresentação no componente `LoanCardComposition/Header.tsx`; sem mudança de cálculo ou persistência.
+
 Registro das alterações entregues ao CapitalFlow. A data identifica a integração no código; a publicação web e a release Android são verificadas separadamente. Novos commits não implicam automaticamente incremento da versão numerada.
 
 ## 22/11/2026 — Evitar oscilação entre limite estimado e referência bancária

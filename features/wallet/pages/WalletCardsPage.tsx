@@ -94,6 +94,9 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
     facts: WalletCardInvoiceFacts[];
   } | null>(null);
   const [invoiceFactsError, setInvoiceFactsError] = useState('');
+  // Shared between automatic fetch and manual refresh. A late request cannot
+  // overwrite facts belonging to a newer snapshot or selected card.
+  const invoiceFactsRequestGeneration = useRef(0);
   const [editingBankAvailable, setEditingBankAvailable] = useState(false);
   const [bankAvailableDraft, setBankAvailableDraft] = useState('');
   const [savingBankAvailable, setSavingBankAvailable] = useState(false);
@@ -141,26 +144,42 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
   }, [selected?.id, requestedStatementMonth]);
 
   useEffect(() => {
+    const generation = ++invoiceFactsRequestGeneration.current;
     const cardId = selected?.id;
-    if (!cardId) { setInvoiceFactsError(''); return; }
+    if (!cardId) {
+      setFetchedInvoiceFacts(null);
+      setInvoiceFactsError('');
+      return;
+    }
     const source = data?.cardInvoiceFacts;
     let active = true;
     setInvoiceFactsError('');
     walletRepository.loadCardInvoiceFacts(cardId).then(items => {
-      if (active) setFetchedInvoiceFacts({ cardId, source, outcome: 'READY', facts: items });
+      if (active && generation === invoiceFactsRequestGeneration.current) {
+        setFetchedInvoiceFacts({ cardId, source, outcome: 'READY', facts: items });
+      }
     }).catch(cause => {
-      if (active) {
+      if (active && generation === invoiceFactsRequestGeneration.current) {
         setFetchedInvoiceFacts({ cardId, source, outcome: 'ERROR', facts: [] });
         setInvoiceFactsError(cause instanceof Error ? cause.message : 'Não foi possível consultar os dados bancários.');
       }
     });
-    return () => { active = false; };
+    return () => {
+      active = false;
+      if (generation === invoiceFactsRequestGeneration.current) {
+        invoiceFactsRequestGeneration.current += 1;
+      }
+    };
   }, [selected?.id, data?.cardInvoiceFacts]);
+  // Also invalidate an in-flight manual refresh if the page unmounts.
+  useEffect(() => () => { invoiceFactsRequestGeneration.current += 1; }, []);
   const refreshInvoiceFacts = async () => {
     if (!selected) return;
+    const generation = ++invoiceFactsRequestGeneration.current;
     const cardId = selected.id;
     const source = data?.cardInvoiceFacts;
     const items = await walletRepository.loadCardInvoiceFacts(cardId);
+    if (generation !== invoiceFactsRequestGeneration.current) return;
     setFetchedInvoiceFacts({ cardId, source, outcome: 'READY', facts: items });
     setInvoiceFactsError('');
   };

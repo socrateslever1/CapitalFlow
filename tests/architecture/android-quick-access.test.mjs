@@ -121,3 +121,10 @@ test('estado do canal atualizado após retorno do Android, sem sobrescrever resp
   const shell = read('scripts/android/apply-native-shell.py');
   assert.doesNotMatch(shell, /BOOT_COMPLETED|RECEIVE_BOOT_COMPLETED/);
 });
+
+test('manual Android descreve corretamente as três ações e privacidade na tela bloqueada', () => {
+  const guide = read('docs/MASTER_DIAGNOSTICS_ANDROID_SHORTCUT.md');
+  assert.match(guide, /três ações previstas \(abrir Carteira, lançar gasto e registrar entrada\)/);
+  assert.match(guide, /VISIBILITY_SECRET/);
+  assert.doesNotMatch(guide, /aceita apenas as duas ações previstas/);
+});

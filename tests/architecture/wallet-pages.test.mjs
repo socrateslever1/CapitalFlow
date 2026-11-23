@@ -126,3 +126,15 @@ test('extrato do cartão acompanha o scroll da página e evita caixas redundante
   assert.match(statement, /Number\(installment\.amount\) - Number\(installment\.paid_amount \|\| 0\)/);
   assert.match(statement, /PrivateMoney value=\{isCredit \? `− \$\{formatMoney\(remainingAmount\)\}` : formatMoney\(remainingAmount\)\}/);
 });
+
+test('bank credit limit does not flash estimate while per-card facts are unresolved', () => {
+  const page = read('features/wallet/pages/WalletCardsPage.tsx');
+  const stack = read('components/wallet/BankStack.tsx');
+  assert.match(page, /resolveCardInvoiceFactsView/);
+  assert.match(page, /data\?\.cardInvoiceFacts/);
+  assert.match(page, /getCardAvailablePresentation\(selected, invoiceFacts\)/);
+  assert.match(page, /bankLimitStatus=\{bankLimitStatus\}/);
+  assert.match(page, /bankAvailableReferences=\{data\.cardInvoiceFacts\}/);
+  assert.doesNotMatch(page, /\[invoiceFacts, setInvoiceFacts\] = useState/);
+  assert.match(stack, /limitState === 'READY' \? formatMoney\(available\) : '—'/);
+});

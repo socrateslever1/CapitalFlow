@@ -1,3 +1,11 @@
+## 22/11/2026 — apresentação estável dos limites nos cartões
+
+- **Evidência:** Bradesco mostra primeiro R$ 3.386,87 como estimativa e depois R$ 2.683,51 como referência bancária, sem nenhuma alteração financeira entre as capturas.
+- **Causa:** `WalletCardsPage` começa com `invoiceFacts=[]` e consulta as referências bancárias separadamente, mesmo quando `WalletSnapshot.cardInvoiceFacts` já as contém. `BankStack` então recai na estimativa durante a espera.
+- **Correção:** as referências do snapshot completo são usadas no primeiro render; a consulta individual posterior é associada à identidade do cartão e do snapshot, ignorando resultado assíncrono antigo. Um único cálculo de apresentação alimenta o cartão e o resumo, como na Visão geral. Ausência de referência é distinguida de leitura pendente ou falha de rede. A troca de cartão usa imediatamente sua referência já em memória.
+- **Escopo:** frontend e testes somente; nenhum saldo, limite, fatura, ledger, contrato, migração, RPC ou política RLS alterados.
+- **Validação requerida:** testes unitários, arquitetura, Quality Gates, revisão independente, Android debug e inspeção visual do aplicativo; não afirmar publicação antes de verificar release.
+
 ## 22/11/2026 — auditoria complementar dos atalhos e atualização de canal
 
 - **Toque no corpo:** o clique antes abria o formulário de gasto mesmo com instrução "Escolha uma ação". Agora abre somente `/carteira/visao-geral` com ação nativa `wallet` autenticada, isolada dos botões de gasto e entrada.

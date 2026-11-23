@@ -25,6 +25,18 @@ export const SYSTEM_CHANGELOG: ChangelogRelease[] = [
     version: '3.5.0',
     codeOnly: true,
     date: '23/11/2026',
+    title: 'Confirmações seguras e limites sincronizados',
+    summary: 'O limite projetado mantém a data correta após correções de fatura, repetições de confirmação e mudanças de cartão.',
+    items: [
+      { kind: 'CORRECAO', text: 'Repetir a mesma confirmação bancária não reinicia os abatimentos realizados depois da referência.' },
+      { kind: 'CORRECAO', text: 'Corrigir somente uma fatura não altera a data-base do limite; o disponível permanece coerente entre Visão geral e Cartões.' },
+      { kind: 'MELHORIA', text: 'O cartão apresenta o valor e a legenda da mesma referência, mesmo após atualizar os dados.' },
+    ],
+  },
+  {
+    version: '3.5.0',
+    codeOnly: true,
+    date: '23/11/2026',
     title: 'Limite projetado após os lançamentos',
     summary: 'Visão geral e Cartões calculam automaticamente a disponibilidade a partir da referência bancária e das compras posteriores.',
     items: [

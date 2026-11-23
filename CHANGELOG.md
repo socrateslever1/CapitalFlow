@@ -2,6 +2,10 @@
 
 Registro das alterações entregues ao CapitalFlow. A data identifica a integração no código; a publicação web e a release Android são verificadas separadamente. Novos commits não implicam automaticamente incremento da versão numerada.
 
+## 23/11/2026 — Registro sincronizado no Perfil e no changelog
+
+Correções das confirmações repetidas, âncora temporal exclusiva da referência e legenda consistente registradas também em `src/constants/changelog.ts`, para exibição ao usuário em Perfil → Atualizações. Nenhum campo financeiro ou lançamento foi modificado por esta regularização.
+
 ## 23/11/2026 — Revisão: repetição segura e legenda consistente no cartão
 
 O gatilho do banco só avança `available_observed_at` quando o disponível efetivamente muda; repetir a gravação do mesmo valor preserva a âncora e evita conceder limite novamente por replay. No carrossel, a legenda acompanha a referência utilizada pelo cálculo efetivamente exibido, inclusive quando a busca individual traz dados mais novos do que o cache. Esse é um ajuste de apresentação e metadados, sem escrita financeira.

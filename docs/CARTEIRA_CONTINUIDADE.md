@@ -1,3 +1,18 @@
+## 22/11/2026 — auditoria complementar dos atalhos e atualização de canal
+
+- **Toque no corpo:** o clique antes abria o formulário de gasto mesmo com instrução "Escolha uma ação". Agora abre somente `/carteira/visao-geral` com ação nativa `wallet` autenticada, isolada dos botões de gasto e entrada.
+- **Retorno ao Android:** a tela de Preferências consulta o estado no `focus`, `pageshow` e `visibilitychange` visível, descartando respostas atrasadas concorrentes ao alterar as preferências. Quando bloqueada pelo sistema, a indicação não diz indevidamente "Ativada".
+- **Reinício:** sem receiver de `BOOT_COMPLETED` intencionalmente; o atalho não é recriado fora de sessão validada. Após autenticação o módulo nativo reaplica as preferências por perfil. Não usar foreground service artificial.
+- **Invariantes:** sem mudanças de banco, cartões, lançamentos, contas, RLS, autenticação ou fluxo financeiro; notificação acionada por intent imutável, autorizada e consumida uma vez. Testes de arquitetura acrescidos; validação da versão assinada e teste no Samsung seguem obrigatórios.
+
+## 22/11/2026 — melhoria do destaque da notificação no Android
+
+- **Evidência:** captura no Samsung mostra o CapitalFlow abaixo de outras notificações. Não comprova isoladamente que o usuário ativou o modo destacado ou qual ordenação está selecionada.
+- **Falha do código:** canal normal `IMPORTANCE_LOW`; canal opcional `IMPORTANCE_DEFAULT`; `setSilent(true)` em ambos forçava silenciamento também no destaque.
+- **Implementação:** `setSilent(!prominent())` com canal de destaque padrão sem som e sem vibração, respeitando bloqueios do sistema. API nativa `openNotificationSettings` abre o canal efetivo em Configurações ou as informações do aplicativo como fallback. `getStatus` devolve a importância real do canal e o Perfil a apresenta.
+- **Limite:** nenhuma API de aplicativo pode garantir primeira posição no painel. Ordenação por horário/prioridade é preferência do Samsung e prevalece sobre a solicitação de destaque.
+- **Segurança e QA:** sem mudança de contratos, ledger, contas, banco, RLS, notificações financeiras ou privilégios especiais; preservar duas ações autenticadas. Exigir `npm run test:master-tools`, `npm run test:quality`, revisor independente e teste no dispositivo. Rollback por reversão do commit único.
+
 ## 22/11/2026 — apresentação de saldos entre Visão geral e Cartões; retorno por níveis
 
 - **Diagnóstico validado:** o resumo usava `credit_limit - used_limit` enquanto o cartão selecionado mostrava a última referência de limite disponível no banco. Ex.: Bradesco com disponível estimado de R$ 3.386,87 e referência de banco R$ 2.683,51 (datada, não tempo real). Não alterar nenhum desses valores artificialmente.

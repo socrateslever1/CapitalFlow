@@ -145,5 +145,8 @@ test('a slower manual fact refresh cannot replace the current card generation', 
   assert.match(cards, /const generation = \+\+invoiceFactsRequestGeneration\.current/g);
   assert.match(cards, /generation === invoiceFactsRequestGeneration\.current/);
   assert.match(cards, /if \(generation !== invoiceFactsRequestGeneration\.current\) return/);
+  const manualRefresh = cards.slice(cards.indexOf('const refreshInvoiceFacts = async'), cards.indexOf('const importedStatementRows ='));
+  assert.match(manualRefresh, /catch \(cause\)/);
+  assert.match(manualRefresh, /outcome: 'ERROR'/);
   assert.match(cards, /invoiceFactsRequestGeneration\.current \+= 1/);
 });

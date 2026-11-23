@@ -138,7 +138,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
   const availablePresentation = selected && data ? getCardAvailablePresentation(selected, invoiceFacts,
     { expenses: data.expenses, invoicePayments: data.invoicePayments }) : null;
   const bankLimitStatus: 'LOADING' | 'READY' | 'ERROR' =
-    availablePresentation?.origin === 'BANK' ? 'READY' : invoiceFactsView.status;
+    availablePresentation?.bankReference ? 'READY' : invoiceFactsView.status;
   useEffect(() => {
     setEditingBankAvailable(false);
     setBankAvailableFeedback('');

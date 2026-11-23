@@ -94,3 +94,21 @@ test('bank observation cannot be applied when ledger is not loaded; zero and no 
   assert.equal(getCardAvailablePresentation(card,[],{ expenses:[],invoicePayments:[] }).origin,'ESTIMATED');
   assert.equal(getCardAvailablePresentation(card,[fact],{expenses:[{card_id:'card-1',amount:5,expense_date:'2026-11-21',status:'PENDING'}],invoicePayments:[]}).amount,0);
 });
+
+
+test('re-confirming a bank value moves its projection baseline to updated_at, not immutable observed_at', () => {
+  const card={id:'c',credit_limit:1000,used_limit:500};
+  const expenses=[{card_id:'c',amount:100,expense_date:'2026-11-21',status:'PENDING'}];
+  const observation={
+    card_id:'c',available_limit:500,observed_at:'2026-11-20T02:48:29Z',
+    updated_at:'2026-11-20T02:48:29Z',
+  };
+  assert.equal(getCardAvailablePresentation(card,[observation],{expenses,invoicePayments:[]}).amount,400);
+  // The issuer re-observed R$ 400 on 23/11. Subtracting the 21/11 charge
+  // again would display R$ 300 and incorrectly debit the card twice.
+  const corrected={...observation,available_limit:400,updated_at:'2026-11-23T12:00:00Z'};
+  const fresh=getCardAvailablePresentation(card,[corrected],{expenses,invoicePayments:[]});
+  assert.equal(fresh.amount,400);
+  assert.equal(fresh.purchasesSinceBank,0);
+  assert.equal(formatCardAvailableOrigin(fresh.bankReference),'Banco · 23/11');
+});

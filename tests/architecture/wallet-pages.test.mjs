@@ -151,3 +151,9 @@ test('a slower manual fact refresh cannot replace the current card generation', 
   assert.match(manualRefresh, /outcome: 'ERROR'/);
   assert.match(cards, /invoiceFactsRequestGeneration\.current \+= 1/);
 });
+
+test('a bank-adjusted snapshot is ready before the per-card fetch resolves', () => {
+  const page=read('features/wallet/pages/WalletCardsPage.tsx');
+  assert.match(page, /availablePresentation\?\.bankReference \? 'READY' : invoiceFactsView\.status/);
+  assert.doesNotMatch(page, /availablePresentation\?\.origin === 'BANK' \? 'READY'/);
+});

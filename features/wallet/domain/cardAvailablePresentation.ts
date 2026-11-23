@@ -69,7 +69,11 @@ export function getCardAvailablePresentation(
     amount: estimatedAmount, estimatedAmount, origin: 'ESTIMATED', bankReference: null,
     movementSinceBank: 0, purchasesSinceBank: 0, creditsSinceBank: 0, paymentsSinceBank: 0,
   };
-  const observation = bankReference.observed_at || bankReference.updated_at;
+  // A saved issuer value and its updated_at are written together by the
+  // authenticated issuer-confirmation RPC, including ON CONFLICT updates.
+  // observed_at belongs to the original row insertion and MUST NOT anchor
+  // a bank value that was subsequently corrected.
+  const observation = bankReference.updated_at;
   const bankDay = manausDay(observation);
   // If the observation date cannot be established or the ledger is not yet
   // complete, preserve the dated reference instead of manufacturing a delta.

@@ -2,6 +2,13 @@
 
 Registro das alterações entregues ao CapitalFlow. A data identifica a integração no código; a publicação web e a release Android são verificadas separadamente. Novos commits não implicam automaticamente incremento da versão numerada.
 
+## 23/11/2026 — Revisão independente: correção da âncora bancária e eventos Realtime
+
+- O `updated_at` da linha de referência é a âncora usada na projeção: a RPC escreve o novo `available_limit` e o novo `updated_at` conjuntamente, enquanto `observed_at` preserva a data original da criação da linha. Isso impede descontar de novo compras já incorporadas numa correção bancária.
+- Um limite ajustado a partir de referência em memória permanece pronto enquanto o detalhe do cartão recarrega; o resumo deixa de voltar transitoriamente a “—”.
+- A tabela `personal_wallet_card_invoice_facts` passa a integrar, de forma idempotente, a publicação `supabase_realtime`. RLS de SELECT por proprietário já existente é preservada; nenhuma alteração nas políticas ou registros financeiros.
+- Os três achados da revisão Codex foram endereçados em código e migration; validação dos testes, aplicação da migration remota, publicação do APK e verificação independente final permanecem etapas separadas.
+
 ## 23/11/2026 — Disponível do cartão projetado após lançamentos
 
 **Alteração em revisão:** o valor de referência bancária é histórico e passa a ser reconciliado em tempo de leitura com compras efetivas posteriores à data observada (Manaus), créditos e pagamentos posteriores. Compras antigas importadas depois da observação não são descontadas novamente. Um único motor de apresentação atende à Visão geral, cartão detalhado, carrossel e dock. Referência original permanece disponível em "Valores do banco". Eventos Supabase de fatos bancários e retorno do Android revalidam automaticamente o snapshot; sem escrita ou alteração de limite contábil, faturas, SQL, RLS, ledger ou contratos. Observações do próprio dia sem horário da compra continuam não reconciliadas por segurança. Validar no CI e Samsung antes de declarar atualização concluída.

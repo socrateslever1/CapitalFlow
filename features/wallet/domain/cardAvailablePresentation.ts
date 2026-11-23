@@ -120,6 +120,6 @@ export function formatCardAvailableOrigin(
   if (!reference) return 'Limite estimado';
   const date = new Intl.DateTimeFormat('pt-BR', {
     timeZone: 'America/Manaus', day: '2-digit', month: '2-digit',
-  }).format(new Date(reference.observed_at || reference.updated_at));
+  }).format(new Date(reference.updated_at));
   return origin === 'BANK_ADJUSTED' ? 'Projetado · ' + date : 'Banco · ' + date;
 }

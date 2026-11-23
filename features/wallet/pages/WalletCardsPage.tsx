@@ -859,7 +859,32 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
                     {bankAvailableFeedback && <p role="status" className="text-[11px] text-amber-200">{bankAvailableFeedback}</p>}
                   </>
                 ) : <span>Ainda não informado.</span>}
-                {invoiceFactsError && <p role="alert" className="text-amber-300">{invoiceFactsError}</p>}
+                {availablePresentation?.bankReference && (
+                  <div className="mt-2 grid gap-1.5 border-t border-slate-700 pt-2" aria-label="Conciliação do limite disponível">
+                    <div className="flex justify-between gap-2">
+                      <span>Referência bancária ({formatCardAvailableOrigin(availablePresentation.bankReference)})</span>
+                      <strong><PrivateMoney value={formatMoney(Number(availablePresentation.bankReference.available_limit))} /></strong>
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      <span>Compras posteriores</span>
+                      <strong>− <PrivateMoney value={formatMoney(availablePresentation.purchasesSinceBank)} /></strong>
+                    </div>
+                    {availablePresentation.creditsSinceBank > 0 && <div className="flex justify-between gap-2">
+                      <span>Créditos posteriores</span>
+                      <strong>+ <PrivateMoney value={formatMoney(availablePresentation.creditsSinceBank)} /></strong>
+                    </div>}
+                    {availablePresentation.paymentsSinceBank > 0 && <div className="flex justify-between gap-2">
+                      <span>Pagamentos posteriores</span>
+                      <strong>+ <PrivateMoney value={formatMoney(availablePresentation.paymentsSinceBank)} /></strong>
+                    </div>}
+                    <div className="flex justify-between gap-2 border-t border-slate-700 pt-1 font-semibold text-emerald-200">
+                      <span>Disponível projetado</span>
+                      <strong><PrivateMoney value={formatMoney(availablePresentation.amount)} /></strong>
+                    </div>
+                    <p className="text-[11px] text-slate-400">Projeção pelos lançamentos registrados, não consulta ao banco em tempo real.</p>
+                  </div>
+                )}
+                {invoiceFactsError && <p role="alert" className="text-amber-300">{invoiceFactsError}</p>
               </div>
             </details>
           )}

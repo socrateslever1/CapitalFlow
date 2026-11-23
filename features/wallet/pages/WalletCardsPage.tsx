@@ -184,10 +184,10 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
       setFetchedInvoiceFacts({ cardId, source, outcome: 'READY', facts: items });
       setInvoiceFactsError('');
     } catch (cause) {
-      if (generation === invoiceFactsRequestGeneration.current) {
-        setFetchedInvoiceFacts({ cardId, source, outcome: 'ERROR', facts: [] });
-        setInvoiceFactsError(cause instanceof Error ? cause.message : 'Não foi possível consultar os dados bancários.');
-      }
+      // A rejected request from an older generation cannot revive a stale error.
+      if (generation !== invoiceFactsRequestGeneration.current) return;
+      setFetchedInvoiceFacts({ cardId, source, outcome: 'ERROR', facts: [] });
+      setInvoiceFactsError(cause instanceof Error ? cause.message : 'Não foi possível consultar os dados bancários.');
       throw cause;
     }
   };

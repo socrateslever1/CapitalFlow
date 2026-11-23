@@ -15,6 +15,9 @@ REVOKE ALL ON private.wallet_bank_confirmation_requests FROM PUBLIC,anon,authent
 
 -- Preserve original function validation, ledger policy and permissions,
 -- only guarding replay and stamping explicit NEW available observations.
+-- Live Supabase function was compared with the original repository migration:
+-- its single authorization refinement uses can_access_personal_wallet().
+-- Retain that effective live check, not the older super-admin-only predicate.
 -- Confirmed bank observations AND (only for a card with no financial history)
 -- its opening financial position: one transaction, one authenticated request.
 -- Reuses existing canonical opening RPC / ledger, never posts extracted purchases.
@@ -47,7 +50,7 @@ declare
   v_bank_prior private.wallet_bank_confirmation_requests%rowtype;
   v_response jsonb;
 begin
-  if v_owner is null or not public.is_platform_super_admin()
+  if v_owner is null or not public.can_access_personal_wallet()
     or not exists (
       select 1 from public.user_modulos m
       where m.user_id = v_owner and m.modulo_chave = 'carteira' and m.ativo

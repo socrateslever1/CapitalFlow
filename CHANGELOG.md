@@ -2,6 +2,10 @@
 
 Registro das alterações entregues ao CapitalFlow. A data identifica a integração no código; a publicação web e a release Android são verificadas separadamente. Novos commits não implicam automaticamente incremento da versão numerada.
 
+## 23/11/2026 — Compatibilidade com a autorização vigente no Supabase
+
+A definição da RPC ativa foi comparada com o código-fonte original, linha por linha após normalização. A diferença era a regra de acesso atual: `can_access_personal_wallet()`, preservada na nova definição. A troca não reintroduz a verificação histórica restrita a superadministradores e não afrouxa as políticas RLS das tabelas financeiras.
+
 ## 23/11/2026 — Confirmações bancárias com idempotência por requisição
 
 O banco conserva a identidade e o conteúdo de cada confirmação em tabela privada, rejeita reuso da mesma chave com dados diferentes e evita reexecutar o upsert quando a resposta anterior se perdeu. Confirmações novas do mesmo valor podem renovar a data de referência sem reprocessar operações anteriores. A RPC mantém as validações de autorização e a trava transacional originais; referências antigas sem data verificável não apresentam descontos zero como se calculados.

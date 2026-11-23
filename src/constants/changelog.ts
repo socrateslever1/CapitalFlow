@@ -25,6 +25,16 @@ export const SYSTEM_CHANGELOG: ChangelogRelease[] = [
     version: '3.5.0',
     codeOnly: true,
     date: '23/11/2026',
+    title: 'Autorização preservada nas confirmações',
+    summary: 'A confirmação bancária mantém a mesma permissão de acesso à Carteira já vigente no Supabase.',
+    items: [
+      { kind: 'CORRECAO', text: 'A nova confirmação de limites preserva a autorização atual dos usuários sem introduzir restrições de versões antigas.' },
+    ],
+  },
+  {
+    version: '3.5.0',
+    codeOnly: true,
+    date: '23/11/2026',
     title: 'Confirmações bancárias sem duplicidade',
     summary: 'Novas confirmações e retransmissões têm comportamentos diferentes, com registro seguro por operação.',
     items: [

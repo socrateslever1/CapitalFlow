@@ -884,7 +884,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
                     <p className="text-[11px] text-slate-400">Projeção pelos lançamentos registrados, não consulta ao banco em tempo real.</p>
                   </div>
                 )}
-                {invoiceFactsError && <p role="alert" className="text-amber-300">{invoiceFactsError}</p>
+                {invoiceFactsError && <p role="alert" className="text-amber-300">{invoiceFactsError}</p>}
               </div>
             </details>
           )}

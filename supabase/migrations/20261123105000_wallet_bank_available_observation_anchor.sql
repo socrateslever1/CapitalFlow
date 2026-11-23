@@ -23,6 +23,10 @@ BEGIN
   IF TG_OP = 'INSERT' THEN
     NEW.available_observed_at :=
       CASE WHEN NEW.available_limit IS NULL THEN NULL ELSE now() END;
+  ELSIF NEW.available_observed_at IS DISTINCT FROM OLD.available_observed_at
+    AND NEW.available_observed_at IS NOT NULL THEN
+    -- Only an idempotency-checked, NEW issuer confirmation sets this explicitly.
+    NEW.available_observed_at := now();
   ELSIF NEW.available_limit IS DISTINCT FROM OLD.available_limit THEN
     NEW.available_observed_at :=
       CASE WHEN NEW.available_limit IS NULL THEN NULL ELSE now() END;

@@ -869,6 +869,11 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
                       <span>Referência bancária ({formatCardAvailableOrigin(availablePresentation.bankReference)})</span>
                       <strong><PrivateMoney value={formatMoney(Number(availablePresentation.bankReference.available_limit))} /></strong>
                     </div>
+                    {!availablePresentation.projectionAvailable ? (
+                      <p role="status" className="text-[11px] text-amber-200">
+                        Esta referência histórica não possui data confiável do disponível. Os abatimentos posteriores não foram calculados; informe novamente o limite do banco para estabelecer uma nova referência.
+                      </p>
+                    ) : (<>
                     <div className="flex justify-between gap-2">
                       <span>Compras posteriores</span>
                       <strong>− <PrivateMoney value={formatMoney(availablePresentation.purchasesSinceBank)} /></strong>
@@ -886,6 +891,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
                       <strong><PrivateMoney value={formatMoney(availablePresentation.amount)} /></strong>
                     </div>
                     <p className="text-[11px] text-slate-400">Projeção pelos lançamentos registrados, não consulta ao banco em tempo real.</p>
+                    </>)}
                   </div>
                 )}
                 {invoiceFactsError && <p role="alert" className="text-amber-300">{invoiceFactsError}</p>}

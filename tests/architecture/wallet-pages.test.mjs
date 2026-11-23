@@ -166,3 +166,9 @@ test('card carousel label uses the same resolved issuer reference as the amount'
   assert.match(stack, /resolvedIssuer\?\.origin \|\| displayProjection\?\.origin/);
   assert.match(stack, /formatCardAvailableOrigin\(labelReference, labelOrigin\)/);
 });
+
+test('legacy issuer data with uncertain time cannot display an invented projection', () => {
+  const page=read('features/wallet/pages/WalletCardsPage.tsx');
+  assert.match(page,/!availablePresentation\.projectionAvailable/);
+  assert.match(page,/Os abatimentos posteriores não foram calculados/);
+});

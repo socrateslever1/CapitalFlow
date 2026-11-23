@@ -155,3 +155,26 @@ test('the issuer available-observation trigger preserves a confirmed anchor on a
   assert.match(sql, /NEW\.available_observed_at := OLD\.available_observed_at/);
   assert.match(sql, /UPDATE OF available_limit/);
 });
+
+test('an unanchored legacy bank value never claims later movements were zero', () => {
+  const card={id:'legacy',credit_limit:1000,used_limit:500};
+  const reference={card_id:'legacy',available_limit:500,
+    observed_at:'2026-11-20T02:48:29Z',updated_at:'2026-11-23T12:00:00Z',
+    available_observed_at:null};
+  const p=getCardAvailablePresentation(card,[reference],{
+    expenses:[{card_id:'legacy',amount:100,expense_date:'2026-11-21',status:'PENDING'}],
+    invoicePayments:[],
+  });
+  assert.equal(p.projectionAvailable,false);
+  assert.equal(p.origin,'BANK');
+  assert.equal(p.amount,500);
+});
+
+test('new bank operations are durably deduplicated before the issuer upsert', () => {
+  const sql=readFileSync('supabase/migrations/20261123111500_wallet_bank_available_idempotent_confirmation.sql','utf8');
+  assert.match(sql,/PRIMARY KEY\(owner_user_id,card_id,request_id\)/);
+  assert.match(sql,/v_bank_prior\.facts is distinct from p_facts/);
+  assert.match(sql,/return v_bank_prior\.result \|\| jsonb_build_object/);
+  assert.match(sql,/available_observed_at=excluded\.available_observed_at/);
+  assert.match(sql,/private\.wallet_bank_confirmation_requests/);
+});

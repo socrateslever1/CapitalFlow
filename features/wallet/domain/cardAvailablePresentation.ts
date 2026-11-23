@@ -29,6 +29,8 @@ export type CardAvailablePresentation = {
   purchasesSinceBank: number;
   creditsSinceBank: number;
   paymentsSinceBank: number;
+  /** Whether subsequent ledger movements could actually be reconciled. */
+  projectionAvailable: boolean;
 };
 const cents = (amount: number) => Math.round(amount * 100);
 const finiteMoney = (value: unknown) => typeof value === 'number' || typeof value === 'string'
@@ -71,6 +73,7 @@ export function getCardAvailablePresentation(
   if (!bankReference) return {
     amount: estimatedAmount, estimatedAmount, origin: 'ESTIMATED', bankReference: null,
     movementSinceBank: 0, purchasesSinceBank: 0, creditsSinceBank: 0, paymentsSinceBank: 0,
+    projectionAvailable: false,
   };
   // The invoice's updated_at also changes when ONLY due dates or invoice totals
   // are edited. Never use it to re-anchor the bank's available_limit. An
@@ -85,6 +88,7 @@ export function getCardAvailablePresentation(
     amount: cents(Number(bankReference.available_limit)) / 100,
     estimatedAmount, origin: 'BANK', bankReference,
     movementSinceBank: 0, purchasesSinceBank: 0, creditsSinceBank: 0, paymentsSinceBank: 0,
+    projectionAvailable: false,
   };
   let purchaseCents = 0, creditCents = 0, paymentCents = 0;
   for (const entry of ledger.expenses) {
@@ -114,6 +118,7 @@ export function getCardAvailablePresentation(
     purchasesSinceBank: purchaseCents / 100,
     creditsSinceBank: creditCents / 100,
     paymentsSinceBank: paymentCents / 100,
+    projectionAvailable: true,
   };
 }
 

@@ -25,6 +25,17 @@ export const SYSTEM_CHANGELOG: ChangelogRelease[] = [
     version: '3.5.0',
     codeOnly: true,
     date: '23/11/2026',
+    title: 'Confirmações bancárias sem duplicidade',
+    summary: 'Novas confirmações e retransmissões têm comportamentos diferentes, com registro seguro por operação.',
+    items: [
+      { kind: 'CORRECAO', text: 'Repetir uma confirmação bancária não reinicia abatimentos nem altera novamente a referência.' },
+      { kind: 'CORRECAO', text: 'Referências antigas sem data comprovada indicam que a projeção está indisponível, sem informar falsos abatimentos zero.' },
+    ],
+  },
+  {
+    version: '3.5.0',
+    codeOnly: true,
+    date: '23/11/2026',
     title: 'Confirmações seguras e limites sincronizados',
     summary: 'O limite projetado mantém a data correta após correções de fatura, repetições de confirmação e mudanças de cartão.',
     items: [

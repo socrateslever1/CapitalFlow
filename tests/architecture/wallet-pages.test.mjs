@@ -132,7 +132,8 @@ test('bank credit limit does not flash estimate while per-card facts are unresol
   const stack = read('components/wallet/BankStack.tsx');
   assert.match(page, /resolveCardInvoiceFactsView/);
   assert.match(page, /data\?\.cardInvoiceFacts/);
-  assert.match(page, /getCardAvailablePresentation\(selected, invoiceFacts\)/);
+  assert.match(page, /getCardAvailablePresentation\(selected, invoiceFacts,/);
+  assert.match(page, /expenses: data\.expenses, invoicePayments: data\.invoicePayments/);
   assert.match(page, /bankLimitStatus=\{bankLimitStatus\}/);
   assert.match(page, /bankAvailableReferences=\{data\.cardInvoiceFacts\}/);
   assert.doesNotMatch(page, /\[invoiceFacts, setInvoiceFacts\] = useState/);

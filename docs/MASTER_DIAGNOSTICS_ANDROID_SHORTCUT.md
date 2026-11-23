@@ -18,7 +18,7 @@ Não é um crash reporter nativo nem um diagnóstico definitivo. Não reúne err
 ## Notificação Android
 No Perfil do master, no APK atualizado, ativar **Notificação de lançamento** e conceder a permissão do Android quando solicitada. As ações **Lançar gasto** e **Registrar entrada** abrem os formulários existentes. Nenhum lançamento é confirmado automaticamente.
 
-A notificação usa canal de baixa importância no modo normal e canal de importância padrão no modo destacado, criados sem som ou vibração. Preferências do Android prevalecem; não há sobreposição, valores ou exibição na tela bloqueada. A preferência é por perfil; sair remove a notificação. Não intercepta links de navegadores. Usa intents explícitos/imutáveis, aceita apenas as duas ações previstas e descarta ações de outro perfil.
+A notificação usa canal de baixa importância no modo normal e canal de importância padrão no modo destacado, criados sem som ou vibração. Preferências do Android prevalecem; não há sobreposição nem valores na notificação; o conteúdo é ocultado na tela bloqueada por `VISIBILITY_SECRET`. A preferência é por perfil; sair remove a notificação. Não intercepta links de navegadores. Usa intents explícitos/imutáveis, aceita somente as três ações previstas (abrir Carteira, lançar gasto e registrar entrada) e descarta ações de outro perfil.
 
 Android 13+ exige permissão de notificações. O canal também pode ser bloqueado nas configurações do sistema. Android 14+ pode permitir dispensar notificações contínuas. Não há serviço de primeiro plano ou inicialização no boot; após reiniciar o aparelho, abrir/autenticar o CapitalFlow restaura a opção habilitada. Não promete permanência contra force-stop ou restrições do fabricante.
 

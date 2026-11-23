@@ -114,8 +114,8 @@ export function formatCardAvailableOrigin(
   origin: CardAvailablePresentation['origin'] = reference ? 'BANK' : 'ESTIMATED',
 ): string {
   if (!reference) return 'Limite estimado';
-  const label = ' · ' + new Intl.DateTimeFormat('pt-BR', {
+  const date = new Intl.DateTimeFormat('pt-BR', {
     timeZone: 'America/Manaus', day: '2-digit', month: '2-digit',
   }).format(new Date(reference.observed_at || reference.updated_at));
-  return origin === 'BANK_ADJUSTED' ? 'Projetado' + label : 'Banco' + label;
+  return origin === 'BANK_ADJUSTED' ? 'Projetado · ' + date : 'Banco · ' + date;
 }

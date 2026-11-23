@@ -24,6 +24,17 @@ export const SYSTEM_CHANGELOG: ChangelogRelease[] = [
   {
     version: '3.5.0',
     codeOnly: true,
+    date: '23/11/2026',
+    title: 'Limite projetado após os lançamentos',
+    summary: 'Visão geral e Cartões calculam automaticamente a disponibilidade a partir da referência bancária e das compras posteriores.',
+    items: [
+      { kind: 'CORRECAO', text: 'Compras, créditos e pagamentos posteriores são considerados sem descontar novamente importações antigas.' },
+      { kind: 'MELHORIA', text: 'Todas as telas compartilham a mesma projeção; a referência original continua identificada pela data do banco.' },
+    ],
+  },
+  {
+    version: '3.5.0',
+    codeOnly: true,
     date: '22/11/2026',
     title: 'Limite bancário estável na Carteira',
     summary: 'Evita exibir um limite estimado temporário ao abrir o cartão.',

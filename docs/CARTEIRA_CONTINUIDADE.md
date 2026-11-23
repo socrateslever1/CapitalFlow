@@ -1,3 +1,13 @@
+## 23/11/2026 — projeção automática do disponível nos cartões
+
+- **Evidência em Supabase, somente leitura:** Bradesco final 4999 tem referência bancária R$ 2.683,51 observada na noite de 19/11 (Manaus); oito compras efetivas datadas de 20 a 22/11 somam R$ 167,52, sem créditos ou pagamentos posteriores. Disponível projetado de R$ 2.515,99.
+- **Falha anterior:** `getCardAvailablePresentation` sempre preferia o limite da referência histórica, sem considerar os lançamentos; a Visão geral, o cartão e o resumo repetiam o número defasado, mesmo após novas compras.
+- **Motor único:** `getCardAvailablePresentation(card, bankFacts, { expenses, invoicePayments })` aplica compras não canceladas, créditos de fatura e pagamentos posteriores ao dia/instante observado; valores são inteiros em centavos; despesas importadas com data anterior, ajustes de fatura e lançamentos de abertura são excluídos. Ausência de referência mantém estimativa contábil identificada. Todas as páginas recebem o mesmo snapshot e a mesma política.
+- **Tempos:** utiliza `observed_at` da referência (em Manaus), não data de inserção da despesa. Compras no mesmo dia do registro bancário não são inferidas sem timestamp efetivo; cabe reconciliação explícita. Importações históricas do dia seguinte com data retroativa não alteram a projeção.
+- **Sincronização automática:** a alteração em compras e fatos bancários dispara invalidação via `useWalletRealtime`; ao retomar o aplicativo, revalidação compensatória quando eventos de background podem ter sido perdidos. UI e cache offline preservados; datas e valores de referência ficam visíveis.
+- **Escopo:** nenhum `UPDATE`, `INSERT`, `DELETE`, RPC de escrita, migração, política RLS ou ajuste de saldos/limites foi executado; somente apresentação, consultas existentes, campos de observação e testes.
+- **Verificações:** Quality Gates, cenários de reembolso/pagamento e revisão independente antes do merge; teste físico Samsung após APK assinado.
+
 ## 22/11/2026 — apresentação estável dos limites nos cartões
 
 - **Evidência:** Bradesco mostra primeiro R$ 3.386,87 como estimativa e depois R$ 2.683,51 como referência bancária, sem nenhuma alteração financeira entre as capturas.

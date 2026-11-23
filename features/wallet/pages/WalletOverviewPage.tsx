@@ -163,6 +163,7 @@ const deriveOverview = (snapshot: WalletOverviewSnapshot, today: string) => {
 
   return {
     accounts, cards, bankAvailableReferences: snapshot.bankAvailableReferences || [],
+    ledger: { expenses: snapshot.expenses, invoicePayments: snapshot.invoicePayments },
     accountBalance, institutionCount: institutionKeys.size,
     credit, currentInvoiceTotal, balance, upcoming, spending, overdueCount, overdueInvoiceCount, dueSoonCount,
     timelineEvents,
@@ -256,7 +257,7 @@ export const WalletOverviewPage: React.FC<Props> = ({ activeUser, onNavigate }) 
     {error && <div role="alert" className="rounded-xl border border-rose-500/30 bg-rose-950/20 p-3 text-xs text-rose-200">{error}</div>}
 
     <WalletOverviewSummary accounts={accounts} cards={cards}
-      bankAvailableReferences={overview.bankAvailableReferences}
+      bankAvailableReferences={overview.bankAvailableReferences} ledger={overview.ledger}
       accountBalance={overview.accountBalance}
       currentInvoiceTotal={overview.currentInvoiceTotal} credit={credit} onNavigate={onNavigate}/>
 

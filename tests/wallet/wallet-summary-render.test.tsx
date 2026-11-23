@@ -67,3 +67,22 @@ test('limite do banco na visão geral coincide com a referência exibida em Cart
   assert.ok(page.includes('Disponível · banco e estimado'));
   assert.ok(page.includes('1.320,51'));
 });
+
+
+test('visão geral mostra o mesmo saldo projetado a partir da referência e novos lançamentos', () => {
+  const card={...cards[0],id:'projection-card',last_four:'4999'};
+  const page=renderToStaticMarkup(<WalletOverviewSummary
+    accounts={accounts} cards={[card]}
+    bankAvailableReferences={[{
+      card_id:'projection-card',available_limit:2683.51,
+      observed_at:'2026-11-20T02:48:29Z',updated_at:'2026-11-20T02:48:29Z',
+    }]}
+    ledger={{ expenses:[{
+      card_id:'projection-card',amount:167.52,expense_date:'2026-11-22',status:'PENDING',
+    }], invoicePayments:[] }}
+    accountBalance={123.45} currentInvoiceTotal={100}
+    credit={getCreditSummary([card])} onNavigate={()=>{}} />);
+  assert.ok(page.includes('2.515,99'));
+  assert.ok(page.includes('Projetado · 19/11'));
+  assert.ok(!page.includes('2.683,51'));
+});

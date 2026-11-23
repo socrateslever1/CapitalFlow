@@ -135,7 +135,8 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
     [selected?.id, data?.cardInvoiceFacts, fetchedInvoiceFacts],
   );
   const invoiceFacts = invoiceFactsView.facts;
-  const availablePresentation = selected ? getCardAvailablePresentation(selected, invoiceFacts) : null;
+  const availablePresentation = selected && data ? getCardAvailablePresentation(selected, invoiceFacts,
+    { expenses: data.expenses, invoicePayments: data.invoicePayments }) : null;
   const bankLimitStatus: 'LOADING' | 'READY' | 'ERROR' =
     availablePresentation?.origin === 'BANK' ? 'READY' : invoiceFactsView.status;
   useEffect(() => {
@@ -790,11 +791,12 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
         <div className="min-w-0 self-start rounded-xl border border-slate-800 bg-slate-900 p-2.5 sm:p-3.5 lg:sticky lg:top-6 lg:col-span-5">
           <BankStack key={requestedCardId || 'all'} accounts={data.accounts} cards={displayedCards}
             bankAvailableReferences={data.cardInvoiceFacts}
+            bankLedger={{ expenses: data.expenses, invoicePayments: data.invoicePayments }}
             bankLimitStatusCardId={selected?.id || null}
             bankLimitStatus={bankLimitStatus}
             bankLimitReference={selected && availablePresentation?.bankReference ? {
               cardId: selected.id,
-              amount: Number(availablePresentation.bankReference.available_limit),
+              amount: availablePresentation.amount,
               updatedAt: availablePresentation.bankReference.updated_at,
             } : null}
             onAccount={() => { }} onCard={card => setSelectedId(card.id)}
@@ -880,7 +882,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
               <span className="block truncate text-[11px] text-slate-400">{bankLimitStatus === 'LOADING'
                 ? 'Conferindo referência bancária'
                 : bankLimitStatus === 'ERROR' ? 'Referência indisponível'
-                  : formatCardAvailableOrigin(availablePresentation?.bankReference || null)}</span>
+                  : formatCardAvailableOrigin(availablePresentation?.bankReference || null, availablePresentation?.origin)}</span>
               <strong className="mt-1 block truncate text-sm font-bold tabular-nums text-emerald-300">
                 <PrivateMoney value={bankLimitStatus === 'READY' && availablePresentation
                   ? formatMoney(availablePresentation.amount) : '—'} />

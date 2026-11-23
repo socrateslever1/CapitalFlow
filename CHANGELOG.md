@@ -2,6 +2,10 @@
 
 Registro das alterações entregues ao CapitalFlow. A data identifica a integração no código; a publicação web e a release Android são verificadas separadamente. Novos commits não implicam automaticamente incremento da versão numerada.
 
+## 23/11/2026 — Disponível do cartão projetado após lançamentos
+
+**Alteração em revisão:** o valor de referência bancária é histórico e passa a ser reconciliado em tempo de leitura com compras efetivas posteriores à data observada (Manaus), créditos e pagamentos posteriores. Compras antigas importadas depois da observação não são descontadas novamente. Um único motor de apresentação atende à Visão geral, cartão detalhado, carrossel e dock. Referência original permanece disponível em "Valores do banco". Eventos Supabase de fatos bancários e retorno do Android revalidam automaticamente o snapshot; sem escrita ou alteração de limite contábil, faturas, SQL, RLS, ledger ou contratos. Observações do próprio dia sem horário da compra continuam não reconciliadas por segurança. Validar no CI e Samsung antes de declarar atualização concluída.
+
 ## 22/11/2026 — Evitar oscilação entre limite estimado e referência bancária
 
 **Código em revisão.** A tela Cartões usa imediatamente as referências existentes no snapshot da Carteira e não apresenta uma estimativa provisória enquanto a leitura específica do cartão estiver pendente. Resultados atrasados são isolados por cartão e geração do snapshot; cartão e resumo compartilham a seleção de referência da Visão geral. Estados de ausência, consulta e falha são distintos. Nenhum dado, limite, fatura, pagamento, contrato, RLS ou migração foi modificado. Testes e revisão independente são necessários antes do merge.

@@ -1,3 +1,10 @@
+## 22/11/2026 — auditoria complementar dos atalhos e atualização de canal
+
+- **Toque no corpo:** o clique antes abria o formulário de gasto mesmo com instrução "Escolha uma ação". Agora abre somente `/carteira/visao-geral` com ação nativa `wallet` autenticada, isolada dos botões de gasto e entrada.
+- **Retorno ao Android:** a tela de Preferências consulta o estado no `focus`, `pageshow` e `visibilitychange` visível, descartando respostas atrasadas concorrentes ao alterar as preferências. Quando bloqueada pelo sistema, a indicação não diz indevidamente "Ativada".
+- **Reinício:** sem receiver de `BOOT_COMPLETED` intencionalmente; o atalho não é recriado fora de sessão validada. Após autenticação o módulo nativo reaplica as preferências por perfil. Não usar foreground service artificial.
+- **Invariantes:** sem mudanças de banco, cartões, lançamentos, contas, RLS, autenticação ou fluxo financeiro; notificação acionada por intent imutável, autorizada e consumida uma vez. Testes de arquitetura acrescidos; validação da versão assinada e teste no Samsung seguem obrigatórios.
+
 ## 22/11/2026 — melhoria do destaque da notificação no Android
 
 - **Evidência:** captura no Samsung mostra o CapitalFlow abaixo de outras notificações. Não comprova isoladamente que o usuário ativou o modo destacado ou qual ordenação está selecionada.

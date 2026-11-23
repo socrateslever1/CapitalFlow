@@ -97,8 +97,8 @@ public final class WalletQuickAccessPlugin extends Plugin {
         Notification notification = new NotificationCompat.Builder(getContext(), activeChannel())
             .setSmallIcon(android.R.drawable.ic_menu_edit)
             .setContentTitle("Lançamento rápido")
-            .setContentText("Escolha uma ação")
-            .setContentIntent(target("expense", 7104))
+            .setContentText("Toque para abrir a carteira")
+            .setContentIntent(target("wallet", 7106))
             // Android 7+ normalmente não mostra ícones gráficos nos botões de
             // ação. Os símbolos nos rótulos mantêm a distinção visível.
             .addAction(android.R.drawable.ic_menu_edit, "➖ Lançar gasto", target("expense", 7104))
@@ -220,7 +220,7 @@ public final class WalletQuickAccessPlugin extends Plugin {
         String owner = intent.getStringExtra(OWNER);
         intent.removeExtra(ACTION);
         intent.removeExtra(OWNER);
-        boolean valid = profileId != null && profileId.equals(owner) && ("expense".equals(action) || "income".equals(action));
+        boolean valid = profileId != null && profileId.equals(owner) && ("wallet".equals(action) || "expense".equals(action) || "income".equals(action));
         call.resolve(new JSObject().put("action", valid ? action : ""));
     }
 }

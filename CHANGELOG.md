@@ -2,6 +2,10 @@
 
 Registro das alterações entregues ao CapitalFlow. A data identifica a integração no código; a publicação web e a release Android são verificadas separadamente. Novos commits não implicam automaticamente incremento da versão numerada.
 
+## 22/11/2026 — Fluxo dos atalhos e estado do canal Android
+
+**Implementação em revisão:** o toque no corpo da notificação abre a Visão geral, enquanto os botões exclusivos continuam abrindo, respectivamente, gastos e entradas. O estado do canal é reconsultado ao retornar das configurações do Android, com proteção contra respostas atrasadas; bloqueio do sistema não aparece falsamente como "Ativada". O reinício não publica ações antes da autenticação. Sem serviços permanentes ou mudanças em Supabase, saldos, RLS ou contratos. Teste no aparelho, revisão independente e publicação assinada requerem evidência separada.
+
 ## 22/11/2026 — Ajuste do destaque de notificações Android
 
 **Código em revisão (não implica APK publicado).** A notificação do lançamento rápido em modo destacado deixa de aplicar `setSilent(true)` incondicional; o modo normal continua de baixa importância e silencioso. Preservados o canal secundário de importância padrão, a ausência de som e vibração, a permissão e os canais bloqueados pelo usuário. O Perfil passa a exibir a importância efetiva do canal e abrir as configurações nativas para ajuste de prioridade. O Android/One UI decide a ordem final. Sem alterações financeiras, backend, RLS ou de permissão adicional. Testes automatizados e revisão independente pendentes de comprovação pelo CI.

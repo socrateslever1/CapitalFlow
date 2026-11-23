@@ -25,6 +25,17 @@ export const SYSTEM_CHANGELOG: ChangelogRelease[] = [
     version: '3.5.0',
     codeOnly: true,
     date: '22/11/2026',
+    title: 'Atalhos Android e leitura do estado',
+    summary: 'Toque na notificação abre a Carteira; botões lançam gasto ou entrada.',
+    items: [
+      { kind: 'CORRECAO', text: 'O toque fora dos dois atalhos abre a Visão geral da Carteira, não o formulário de despesa.' },
+      { kind: 'MELHORIA', text: 'A situação do canal é reconsultada ao voltar do Android e informa quando as notificações estiverem bloqueadas.' },
+    ],
+  },
+  {
+    version: '3.5.0',
+    codeOnly: true,
+    date: '22/11/2026',
     title: 'Destaque de notificações Android',
     summary: 'Ajuste do destaque e acesso à prioridade definida no aparelho.',
     items: [

@@ -26,7 +26,10 @@ export function useMasterTools(authorizedProfile: string | null, accessResolved:
         window.dispatchEvent(new Event('capitalflow:quick-access-ready'));
         if (!authorizedProfile) return;
         const {action} = await walletQuickAccess.consumeAction();
-        if (active && (action === 'expense' || action === 'income')) {
+        if (!active) return;
+        if (action === 'wallet') {
+          navigateRef.current('/carteira/visao-geral');
+        } else if (action === 'expense' || action === 'income') {
           navigateRef.current(`/carteira?lancamento=${action}`);
         }
       } catch (error) { localDiagnostics.record('runtime', error); }

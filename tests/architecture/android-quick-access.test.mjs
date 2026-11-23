@@ -40,10 +40,11 @@ test('preferências Android ficam compactas, não ocupam o topo do perfil e pres
 test('notificação enxuta mantém dois atalhos distintos, sem texto duplicado ou interrupção', () => {
   const java = read('native/android/WalletQuickAccessPlugin.java');
   assert.match(java, /setContentTitle\("Lançamento rápido"\)/);
-  assert.match(java, /setContentText\("Escolha uma ação"\)/);
+  assert.match(java, /setContentText\("Toque para abrir a carteira"\)/);
   assert.doesNotMatch(java, /setContentTitle\("CapitalFlow · Lançamento rápido"\)/);
   assert.match(java, /ic_menu_edit, "➖ Lançar gasto"/);
   assert.match(java, /ic_input_add, "➕ Registrar entrada"/);
+  assert.match(java, /target\("wallet", 7106\)/);
   assert.match(java, /target\("expense", 7104\)/);
   assert.match(java, /target\("income", 7105\)/);
   assert.match(java, /setCategory\(NotificationCompat\.CATEGORY_STATUS\)/);
@@ -89,4 +90,34 @@ test('canal observável, silêncio condicionado e configurações do Android', (
   assert.ok(settings.includes('walletQuickAccess.openNotificationSettings()'));
   assert.ok(settings.includes('Ajustar prioridade no Android'));
   assert.ok(settings.includes('status.channelImportance'));
+});
+
+test('toque no corpo abre a Carteira e não inicia gasto inadvertidamente', () => {
+  const native = read('native/android/WalletQuickAccessPlugin.java');
+  const hook = read('hooks/useMasterTools.ts');
+  assert.match(native, /setContentIntent\(target\("wallet", 7106\)\)/);
+  assert.doesNotMatch(native, /setContentIntent\(target\("expense", 7104\)\)/);
+  assert.match(native, /"wallet"\.equals\(action\) \|\| "expense"\.equals\(action\) \|\| "income"\.equals\(action\)/);
+  assert.match(native, /profileId != null && profileId\.equals\(owner\)/);
+  assert.match(native, /removeExtra\(ACTION\)/);
+  assert.match(native, /removeExtra\(OWNER\)/);
+  assert.match(hook, /action === 'wallet'/);
+  assert.match(hook, /navigateRef\.current\('\/carteira\/visao-geral'\)/);
+  assert.match(hook, /action === 'expense' \|\| action === 'income'/);
+});
+
+test('estado do canal atualizado após retorno do Android, sem sobrescrever resposta mais recente', () => {
+  const settings = read('components/settings/AndroidQuickAccessSettings.tsx');
+  const hook = read('hooks/useMasterTools.ts');
+  const native = read('native/android/WalletQuickAccessPlugin.java');
+  assert.match(settings, /document\.addEventListener\('visibilitychange', onVisible\)/);
+  assert.match(settings, /window\.addEventListener\('pageshow', refresh\)/);
+  assert.match(settings, /request === lastStatusRequest\.current/);
+  assert.match(settings, /lastStatusRequest\.current \+= 1/);
+  assert.match(settings, /Bloqueada no Android/);
+  assert.match(hook, /if \(!authorizedProfile\) return/);
+  assert.match(native, /if \(!enabled\(\) \|\| !permitted\(\)\) \{ cancel\(\); return; \}/);
+  assert.match(native, /cancel\(\);\s*\/\/ Clear stale intents on logout/);
+  const shell = read('scripts/android/apply-native-shell.py');
+  assert.doesNotMatch(shell, /BOOT_COMPLETED|RECEIVE_BOOT_COMPLETED/);
 });

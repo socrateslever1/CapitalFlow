@@ -1,26 +1,38 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { quickAccessSupported, walletQuickAccess, type QuickAccessStatus } from '../../services/walletQuickAccess';
 
 export function AndroidQuickAccessSettings() {
   const [status, setStatus] = useState<QuickAccessStatus | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const lastStatusRequest = useRef(0);
 
   useEffect(() => {
     if (!quickAccessSupported()) return;
     let active = true;
     const refresh = () => {
+      const request = ++lastStatusRequest.current;
       void walletQuickAccess.getStatus()
-        .then(value => { if (active) setStatus(value); })
+        .then(value => {
+          if (active && request === lastStatusRequest.current) setStatus(value);
+        })
         .catch(() => {});
+    };
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') refresh();
     };
     refresh();
     window.addEventListener('capitalflow:quick-access-ready', refresh);
     window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('pageshow', refresh);
     return () => {
       active = false;
+      lastStatusRequest.current += 1;
       window.removeEventListener('capitalflow:quick-access-ready', refresh);
       window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('pageshow', refresh);
     };
   }, []);
 
@@ -43,7 +55,9 @@ export function AndroidQuickAccessSettings() {
     setBusy(true);
     setError('');
     try {
-      setStatus(await walletQuickAccess.setProminent({ prominent: !status.prominent }));
+      const next = await walletQuickAccess.setProminent({ prominent: !status.prominent });
+      lastStatusRequest.current += 1;
+      setStatus(next);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Não foi possível alterar o destaque.');
     } finally {
@@ -55,7 +69,9 @@ export function AndroidQuickAccessSettings() {
     setBusy(true);
     setError('');
     try {
-      setStatus(await walletQuickAccess.setEnabled({ enabled: !status.enabled }));
+      const next = await walletQuickAccess.setEnabled({ enabled: !status.enabled });
+      lastStatusRequest.current += 1;
+      setStatus(next);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Não foi possível alterar a notificação.');
     } finally {
@@ -69,7 +85,7 @@ export function AndroidQuickAccessSettings() {
         <div className="min-w-0">
           <h3 id="quick-access-heading" className="text-sm font-semibold text-slate-100">Lançamento rápido</h3>
           <p className="mt-1 text-xs text-slate-400">
-            Notificação Android · {status.enabled ? 'Ativada' : 'Desativada'}
+            Notificação Android · {status.enabled ? (status.permissionGranted ? 'Ativada' : 'Bloqueada no Android') : 'Desativada'}
           </p>
         </div>
         <button

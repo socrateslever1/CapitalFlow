@@ -34,6 +34,16 @@ export const SYSTEM_CHANGELOG: ChangelogRelease[] = [
   {
     version: '3.5.0',
     codeOnly: true,
+    date: '23/11/2026',
+    title: 'Carregamento mais resiliente no PWA',
+    summary: 'Falhas no cache local não impedem mais abrir páginas online.',
+    items: [
+      { kind: 'CORRECAO', text: 'Páginas carregadas sob demanda continuam abrindo quando o navegador não consegue ler ou gravar um arquivo no cache.' },
+    ],
+  },
+  {
+    version: '3.5.0',
+    codeOnly: true,
     date: '22/11/2026',
     title: 'Limite bancário estável na Carteira',
     summary: 'Evita exibir um limite estimado temporário ao abrir o cartão.',

@@ -1618,3 +1618,12 @@ O ícone do olho já acionava o `FinancialPrivacyProvider`, mas os elementos aba
 - **Invariantes:** somente apresentação. Não altera fórmulas, parcelas, juros, persistência ou dados financeiros.
 - **Validação:** revisão do diff, `git diff --check` e gates do projeto após combinar com a correção do PWA; teste visual manual em dispositivo não realizado.
 - **Rollback:** reverter o commit de apresentação e seus registros de changelog.
+
+## 23/11/2026 — PWA: falha de cache não deve bloquear páginas
+
+- **Sintoma investigado:** erro genérico ao carregar determinadas páginas, incluindo Administração, compatível com falha de importação dinâmica de chunk.
+- **Causa no código:** a estratégia `immutable-assets` do service worker propagava erros de `CacheStorage.match`, `open` e `put`. Se o armazenamento local falhasse (por exemplo, quota), uma resposta de rede válida não chegava ao navegador.
+- **Correção:** falhas ao consultar ou gravar cache são tratadas como falha de otimização; o service worker tenta a rede e devolve a resposta sem exigir que o cache funcione. Escopo restrito aos assets estáticos imutáveis.
+- **Cobertura e evidência:** teste de regressão reproduz quota excedida ao gravar o chunk da Administração e erro ao ler CacheStorage. `npm run test:wallet-pwa-legal` (7/7), `npm run build`, `npm run test:quality`, `npm run test:wallet-visual-next` (62/62), inspeção local dos 73 assets JS/CSS (200), revisão independente e `git diff --check` passaram.
+- **Limitações:** não houve inspeção do PWA instalado, diagnóstico de sessão real do usuário nem teste visual em aparelho. A correção elimina o bloqueio causado por falha do CacheStorage, mas não confirma por si só que esse foi o evento observado em produção. Build reportou avisos preexistentes de imports e chunks grandes.
+- **Escopo/rollback:** frontend e teste; sem mudanças de navegação, API, dados, Supabase ou domínio financeiro. Reversão localizada em `public/service-worker.js` e no teste de arquitetura.

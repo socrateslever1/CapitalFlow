@@ -168,3 +168,61 @@ test('service worker caches all static routes, reports completion and retries a 
   assert.equal(counts.get('/assets/wallet-12345678.js'), 2);
   for (const file of targets) assert.ok(stored.has(file), 'asset not cached: ' + file);
 });
+
+test('service worker still serves a page chunk when caching its network response fails', async () => {
+  const handlers = new Map();
+  const worker = {
+    location: { origin: 'https://capitalflow.example' },
+    addEventListener: (name, listener) => { handlers.set(name, listener); },
+  };
+  vm.runInNewContext(read('public/service-worker.js'), {
+    self: worker, URL, Response, fetch: async () => new Response('admin module', { status: 200 }),
+    caches: {
+      match: async () => undefined,
+      open: async () => ({ put: async () => { throw new DOMException('Storage full', 'QuotaExceededError'); } }),
+    },
+    console, Promise, Set, Map,
+  });
+
+  let responsePromise;
+  handlers.get('fetch')({
+    request: new Request('https://capitalflow.example/assets/PlatformAdminPage-12345678.js'),
+    respondWith: (promise) => { responsePromise = promise; },
+  });
+
+  const response = await responsePromise;
+  assert.equal(response.status, 200);
+  assert.equal(await response.text(), 'admin module');
+});
+
+test('service worker fetches a page chunk when CacheStorage cannot be read', async () => {
+  const handlers = new Map();
+  let networkRequests = 0;
+  const worker = {
+    location: { origin: 'https://capitalflow.example' },
+    addEventListener: (name, listener) => { handlers.set(name, listener); },
+  };
+  vm.runInNewContext(read('public/service-worker.js'), {
+    self: worker, URL, Response,
+    fetch: async () => {
+      networkRequests += 1;
+      return new Response('reports module', { status: 200 });
+    },
+    caches: {
+      match: async () => { throw new DOMException('Storage unavailable', 'InvalidStateError'); },
+      open: async () => ({ put: async () => undefined }),
+    },
+    console, Promise, Set, Map,
+  });
+
+  let responsePromise;
+  handlers.get('fetch')({
+    request: new Request('https://capitalflow.example/assets/ReportsPage-12345678.js'),
+    respondWith: (promise) => { responsePromise = promise; },
+  });
+
+  const response = await responsePromise;
+  assert.equal(response.status, 200);
+  assert.equal(await response.text(), 'reports module');
+  assert.equal(networkRequests, 1);
+});

@@ -25,6 +25,17 @@ export const SYSTEM_CHANGELOG: ChangelogRelease[] = [
     version: '3.5.0',
     codeOnly: true,
     date: '22/11/2026',
+    title: 'Limite bancário estável na Carteira',
+    summary: 'Evita exibir um limite estimado temporário ao abrir o cartão.',
+    items: [
+      { kind: 'CORRECAO', text: 'Referência bancária já registrada aparece desde o primeiro carregamento do cartão.' },
+      { kind: 'MELHORIA', text: 'Na ausência de referência em cache, a tela informa que está conferindo antes de apresentar estimativas.' },
+    ],
+  },
+  {
+    version: '3.5.0',
+    codeOnly: true,
+    date: '22/11/2026',
     title: 'Atalhos Android e leitura do estado',
     summary: 'Toque na notificação abre a Carteira; botões lançam gasto ou entrada.',
     items: [

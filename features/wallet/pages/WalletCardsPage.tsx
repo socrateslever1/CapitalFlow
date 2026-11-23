@@ -37,6 +37,8 @@ import type { InstallmentDeleteScope } from '../../../components/wallet/CardInvo
 import type { InvoiceRemainderAction } from '../../../components/wallet/PayInvoiceModal';
 import { CardVaultModal } from '../../../components/wallet/CardVaultModal';
 import { WalletBankCombobox } from '../../../components/wallet/WalletBankCombobox';
+import { getCardAvailablePresentation, formatCardAvailableOrigin } from '../domain/cardAvailablePresentation';
+import { resolveCardInvoiceFactsView } from '../domain/cardInvoiceFactsView';
 
 export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavigate: (path: string) => void }> = ({ activeUser }) => {
   const navigate = useNavigate();
@@ -85,8 +87,16 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
   const clearInvoiceRequest = useRef({ signature: '', id: generateUUID() });
   const [requestedStatementMonth, setStatementMonth] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [invoiceFacts, setInvoiceFacts] = useState<WalletCardInvoiceFacts[]>([]);
+  const [fetchedInvoiceFacts, setFetchedInvoiceFacts] = useState<{
+    cardId: string;
+    source: readonly WalletCardInvoiceFacts[] | undefined;
+    outcome: 'READY' | 'ERROR';
+    facts: WalletCardInvoiceFacts[];
+  } | null>(null);
   const [invoiceFactsError, setInvoiceFactsError] = useState('');
+  // Shared between automatic fetch and manual refresh. A late request cannot
+  // overwrite facts belonging to a newer snapshot or selected card.
+  const invoiceFactsRequestGeneration = useRef(0);
   const [editingBankAvailable, setEditingBankAvailable] = useState(false);
   const [bankAvailableDraft, setBankAvailableDraft] = useState('');
   const [savingBankAvailable, setSavingBankAvailable] = useState(false);
@@ -119,27 +129,67 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
     [availableCards, requestedCardId],
   );
   const selected = availableCards.find(card => card.id === selectedId) || displayedCards[0] || null;
+  // Reuse the bank facts from the complete (owner-scoped) snapshot immediately.
+  const invoiceFactsView = useMemo(
+    () => resolveCardInvoiceFactsView(selected?.id || null, data?.cardInvoiceFacts, fetchedInvoiceFacts),
+    [selected?.id, data?.cardInvoiceFacts, fetchedInvoiceFacts],
+  );
+  const invoiceFacts = invoiceFactsView.facts;
+  const availablePresentation = selected ? getCardAvailablePresentation(selected, invoiceFacts) : null;
+  const bankLimitStatus: 'LOADING' | 'READY' | 'ERROR' =
+    availablePresentation?.origin === 'BANK' ? 'READY' : invoiceFactsView.status;
   useEffect(() => {
     setEditingBankAvailable(false);
     setBankAvailableFeedback('');
   }, [selected?.id, requestedStatementMonth]);
 
   useEffect(() => {
+    const generation = ++invoiceFactsRequestGeneration.current;
     const cardId = selected?.id;
-    if (!cardId) { setInvoiceFacts([]); return; }
+    if (!cardId) {
+      setFetchedInvoiceFacts(null);
+      setInvoiceFactsError('');
+      return;
+    }
+    const source = data?.cardInvoiceFacts;
     let active = true;
     setInvoiceFactsError('');
     walletRepository.loadCardInvoiceFacts(cardId).then(items => {
-      if (active) setInvoiceFacts(items);
-    }).catch(error => {
-      if (active) { setInvoiceFacts([]); setInvoiceFactsError(error instanceof Error ? error.message : 'Não foi possível consultar os dados bancários.'); }
+      if (active && generation === invoiceFactsRequestGeneration.current) {
+        setFetchedInvoiceFacts({ cardId, source, outcome: 'READY', facts: items });
+      }
+    }).catch(cause => {
+      if (active && generation === invoiceFactsRequestGeneration.current) {
+        setFetchedInvoiceFacts({ cardId, source, outcome: 'ERROR', facts: [] });
+        setInvoiceFactsError(cause instanceof Error ? cause.message : 'Não foi possível consultar os dados bancários.');
+      }
     });
-    return () => { active = false; };
-  }, [selected?.id]);
+    return () => {
+      active = false;
+      if (generation === invoiceFactsRequestGeneration.current) {
+        invoiceFactsRequestGeneration.current += 1;
+      }
+    };
+  }, [selected?.id, data?.cardInvoiceFacts]);
+  // Also invalidate an in-flight manual refresh if the page unmounts.
+  useEffect(() => () => { invoiceFactsRequestGeneration.current += 1; }, []);
   const refreshInvoiceFacts = async () => {
     if (!selected) return;
-    setInvoiceFacts(await walletRepository.loadCardInvoiceFacts(selected.id));
-    setInvoiceFactsError('');
+    const generation = ++invoiceFactsRequestGeneration.current;
+    const cardId = selected.id;
+    const source = data?.cardInvoiceFacts;
+    try {
+      const items = await walletRepository.loadCardInvoiceFacts(cardId);
+      if (generation !== invoiceFactsRequestGeneration.current) return;
+      setFetchedInvoiceFacts({ cardId, source, outcome: 'READY', facts: items });
+      setInvoiceFactsError('');
+    } catch (cause) {
+      // A rejected request from an older generation cannot revive a stale error.
+      if (generation !== invoiceFactsRequestGeneration.current) return;
+      setFetchedInvoiceFacts({ cardId, source, outcome: 'ERROR', facts: [] });
+      setInvoiceFactsError(cause instanceof Error ? cause.message : 'Não foi possível consultar os dados bancários.');
+      throw cause;
+    }
   };
   const importedStatementRows = selected
     ? data?.statementRows.filter(row => {
@@ -739,10 +789,13 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
       <div className="grid gap-3 lg:grid-cols-12">
         <div className="min-w-0 self-start rounded-xl border border-slate-800 bg-slate-900 p-2.5 sm:p-3.5 lg:sticky lg:top-6 lg:col-span-5">
           <BankStack key={requestedCardId || 'all'} accounts={data.accounts} cards={displayedCards}
-            bankLimitReference={selected && savedInvoiceFacts?.available_limit != null ? {
+            bankAvailableReferences={data.cardInvoiceFacts}
+            bankLimitStatusCardId={selected?.id || null}
+            bankLimitStatus={bankLimitStatus}
+            bankLimitReference={selected && availablePresentation?.bankReference ? {
               cardId: selected.id,
-              amount: Number(savedInvoiceFacts.available_limit),
-              updatedAt: savedInvoiceFacts.updated_at,
+              amount: Number(availablePresentation.bankReference.available_limit),
+              updatedAt: availablePresentation.bankReference.updated_at,
             } : null}
             onAccount={() => { }} onCard={card => setSelectedId(card.id)}
             onEditCard={card => setEditing(card)}
@@ -824,8 +877,14 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
               <strong className="mt-1 block truncate text-sm font-bold tabular-nums text-slate-100"><PrivateMoney value={formatMoney(selectedFutureCommitments)} /></strong>
             </div>
             <div className="min-w-0 pl-2">
-              <span className="block truncate text-[11px] text-slate-400">{savedInvoiceFacts?.available_limit == null ? 'Disponível estimado' : `Banco · ${bankFactLastUpdate || 'referência'}`}</span>
-              <strong className="mt-1 block truncate text-sm font-bold tabular-nums text-emerald-300"><PrivateMoney value={formatMoney(savedInvoiceFacts?.available_limit == null ? (creditPosition?.freeLimit || 0) : Number(savedInvoiceFacts.available_limit))} /></strong>
+              <span className="block truncate text-[11px] text-slate-400">{bankLimitStatus === 'LOADING'
+                ? 'Conferindo referência bancária'
+                : bankLimitStatus === 'ERROR' ? 'Referência indisponível'
+                  : formatCardAvailableOrigin(availablePresentation?.bankReference || null)}</span>
+              <strong className="mt-1 block truncate text-sm font-bold tabular-nums text-emerald-300">
+                <PrivateMoney value={bankLimitStatus === 'READY' && availablePresentation
+                  ? formatMoney(availablePresentation.amount) : '—'} />
+              </strong>
             </div>
           </div>
           {invoiceTotalDifferenceCents !== null && invoiceTotalDifferenceCents !== 0 && (

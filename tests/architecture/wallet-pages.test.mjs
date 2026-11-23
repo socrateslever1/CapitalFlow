@@ -126,3 +126,27 @@ test('extrato do cartão acompanha o scroll da página e evita caixas redundante
   assert.match(statement, /Number\(installment\.amount\) - Number\(installment\.paid_amount \|\| 0\)/);
   assert.match(statement, /PrivateMoney value=\{isCredit \? `− \$\{formatMoney\(remainingAmount\)\}` : formatMoney\(remainingAmount\)\}/);
 });
+
+test('bank credit limit does not flash estimate while per-card facts are unresolved', () => {
+  const page = read('features/wallet/pages/WalletCardsPage.tsx');
+  const stack = read('components/wallet/BankStack.tsx');
+  assert.match(page, /resolveCardInvoiceFactsView/);
+  assert.match(page, /data\?\.cardInvoiceFacts/);
+  assert.match(page, /getCardAvailablePresentation\(selected, invoiceFacts\)/);
+  assert.match(page, /bankLimitStatus=\{bankLimitStatus\}/);
+  assert.match(page, /bankAvailableReferences=\{data\.cardInvoiceFacts\}/);
+  assert.doesNotMatch(page, /\[invoiceFacts, setInvoiceFacts\] = useState/);
+  assert.match(stack, /limitState === 'READY' \? formatMoney\(available\) : '—'/);
+});
+
+test('a slower manual fact refresh cannot replace the current card generation', () => {
+  const cards = read('features/wallet/pages/WalletCardsPage.tsx');
+  assert.match(cards, /const invoiceFactsRequestGeneration = useRef\(0\)/);
+  assert.match(cards, /const generation = \+\+invoiceFactsRequestGeneration\.current/g);
+  assert.match(cards, /generation === invoiceFactsRequestGeneration\.current/);
+  assert.match(cards, /if \(generation !== invoiceFactsRequestGeneration\.current\) return/);
+  const manualRefresh = cards.slice(cards.indexOf('const refreshInvoiceFacts = async'), cards.indexOf('const importedStatementRows ='));
+  assert.match(manualRefresh, /catch \(cause\)/);
+  assert.match(manualRefresh, /outcome: 'ERROR'/);
+  assert.match(cards, /invoiceFactsRequestGeneration\.current \+= 1/);
+});

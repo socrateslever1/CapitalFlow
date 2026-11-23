@@ -48,7 +48,9 @@ test('bank facts navigate real due-month cycles while preserving distinct financ
   assert.match(page, /Próximas faturas/);
   assert.match(page, /selectedCycle\?\.amount \|\| 0/);
   assert.match(page, /Disponível informado/);
-  assert.match(page, /Banco · /);
+  assert.match(page, /formatCardAvailableOrigin\(availablePresentation\?\.bankReference/);
+  const presentation = read('features/wallet/domain/cardAvailablePresentation.ts');
+  assert.match(presentation, /'Banco · '/);
   assert.match(page, /bankFactLastUpdate/);
   assert.match(page, /<details className="rounded-lg border border-slate-800/);
   assert.match(page, /Aplicar valores já salvos à posição do cartão/);

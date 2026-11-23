@@ -24,6 +24,61 @@ export const SYSTEM_CHANGELOG: ChangelogRelease[] = [
   {
     version: '3.5.0',
     codeOnly: true,
+    date: '23/11/2026',
+    title: 'Pagamentos e cartão acima do limite',
+    summary: 'Pagamentos só liberam limite depois de compensar eventual excesso anterior.',
+    items: [
+      { kind: 'CORRECAO', text: 'O disponível projetado considera o valor excedido na referência bancária antes de somar pagamentos posteriores.' },
+      { kind: 'MELHORIA', text: 'Quando a referência não informa os dados necessários para conferir o excesso, o aplicativo não apresenta crédito livre presumido.' },
+    ],
+  },
+  {
+    version: '3.5.0',
+    codeOnly: true,
+    date: '23/11/2026',
+    title: 'Autorização preservada nas confirmações',
+    summary: 'A confirmação bancária mantém a mesma permissão de acesso à Carteira já vigente no Supabase.',
+    items: [
+      { kind: 'CORRECAO', text: 'A nova confirmação de limites preserva a autorização atual dos usuários sem introduzir restrições de versões antigas.' },
+    ],
+  },
+  {
+    version: '3.5.0',
+    codeOnly: true,
+    date: '23/11/2026',
+    title: 'Confirmações bancárias sem duplicidade',
+    summary: 'Novas confirmações e retransmissões têm comportamentos diferentes, com registro seguro por operação.',
+    items: [
+      { kind: 'CORRECAO', text: 'Repetir uma confirmação bancária não reinicia abatimentos nem altera novamente a referência.' },
+      { kind: 'CORRECAO', text: 'Referências antigas sem data comprovada indicam que a projeção está indisponível, sem informar falsos abatimentos zero.' },
+    ],
+  },
+  {
+    version: '3.5.0',
+    codeOnly: true,
+    date: '23/11/2026',
+    title: 'Confirmações seguras e limites sincronizados',
+    summary: 'O limite projetado mantém a data correta após correções de fatura, repetições de confirmação e mudanças de cartão.',
+    items: [
+      { kind: 'CORRECAO', text: 'Repetir a mesma confirmação bancária não reinicia os abatimentos realizados depois da referência.' },
+      { kind: 'CORRECAO', text: 'Corrigir somente uma fatura não altera a data-base do limite; o disponível permanece coerente entre Visão geral e Cartões.' },
+      { kind: 'MELHORIA', text: 'O cartão apresenta o valor e a legenda da mesma referência, mesmo após atualizar os dados.' },
+    ],
+  },
+  {
+    version: '3.5.0',
+    codeOnly: true,
+    date: '23/11/2026',
+    title: 'Limite projetado após os lançamentos',
+    summary: 'Visão geral e Cartões calculam automaticamente a disponibilidade a partir da referência bancária e das compras posteriores.',
+    items: [
+      { kind: 'CORRECAO', text: 'Compras, créditos e pagamentos posteriores são considerados sem descontar novamente importações antigas.' },
+      { kind: 'MELHORIA', text: 'Todas as telas compartilham a mesma projeção; a referência original continua identificada pela data do banco.' },
+    ],
+  },
+  {
+    version: '3.5.0',
+    codeOnly: true,
     date: '22/11/2026',
     title: 'Limite bancário estável na Carteira',
     summary: 'Evita exibir um limite estimado temporário ao abrir o cartão.',

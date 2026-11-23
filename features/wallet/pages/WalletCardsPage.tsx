@@ -135,9 +135,10 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
     [selected?.id, data?.cardInvoiceFacts, fetchedInvoiceFacts],
   );
   const invoiceFacts = invoiceFactsView.facts;
-  const availablePresentation = selected ? getCardAvailablePresentation(selected, invoiceFacts) : null;
+  const availablePresentation = selected && data ? getCardAvailablePresentation(selected, invoiceFacts,
+    { expenses: data.expenses, invoicePayments: data.invoicePayments }) : null;
   const bankLimitStatus: 'LOADING' | 'READY' | 'ERROR' =
-    availablePresentation?.origin === 'BANK' ? 'READY' : invoiceFactsView.status;
+    availablePresentation?.bankReference ? 'READY' : invoiceFactsView.status;
   useEffect(() => {
     setEditingBankAvailable(false);
     setBankAvailableFeedback('');
@@ -790,11 +791,16 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
         <div className="min-w-0 self-start rounded-xl border border-slate-800 bg-slate-900 p-2.5 sm:p-3.5 lg:sticky lg:top-6 lg:col-span-5">
           <BankStack key={requestedCardId || 'all'} accounts={data.accounts} cards={displayedCards}
             bankAvailableReferences={data.cardInvoiceFacts}
+            bankLedger={{ expenses: data.expenses, invoicePayments: data.invoicePayments }}
             bankLimitStatusCardId={selected?.id || null}
             bankLimitStatus={bankLimitStatus}
+            bankLimitPresentation={selected && availablePresentation?.bankReference ? {
+              origin: availablePresentation.origin,
+              reference: availablePresentation.bankReference,
+            } : null}
             bankLimitReference={selected && availablePresentation?.bankReference ? {
               cardId: selected.id,
-              amount: Number(availablePresentation.bankReference.available_limit),
+              amount: availablePresentation.amount,
               updatedAt: availablePresentation.bankReference.updated_at,
             } : null}
             onAccount={() => { }} onCard={card => setSelectedId(card.id)}
@@ -857,6 +863,39 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
                     {bankAvailableFeedback && <p role="status" className="text-[11px] text-amber-200">{bankAvailableFeedback}</p>}
                   </>
                 ) : <span>Ainda não informado.</span>}
+                {availablePresentation?.bankReference && (
+                  <div className="mt-2 grid gap-1.5 border-t border-slate-700 pt-2" aria-label="Conciliação do limite disponível">
+                    <div className="flex justify-between gap-2">
+                      <span>Referência bancária ({formatCardAvailableOrigin(availablePresentation.bankReference)})</span>
+                      <strong><PrivateMoney value={formatMoney(Number(availablePresentation.bankReference.available_limit))} /></strong>
+                    </div>
+                    {!availablePresentation.projectionAvailable ? (
+                      <p role="status" className="text-[11px] text-amber-200">
+                        {availablePresentation.projectionUnavailableReason === 'MISSING_EXCESS'
+                          ? 'Esta referência informa zero disponível, mas não comprova quanto do limite estava excedido. Pagamentos posteriores não podem ser apresentados como crédito livre sem os valores utilizados e totais do banco.'
+                          : 'Esta referência histórica não possui data confiável do disponível. Os abatimentos posteriores não foram calculados; informe novamente o limite do banco para estabelecer uma nova referência.'}
+                      </p>
+                    ) : (<>
+                    <div className="flex justify-between gap-2">
+                      <span>Compras posteriores</span>
+                      <strong>− <PrivateMoney value={formatMoney(availablePresentation.purchasesSinceBank)} /></strong>
+                    </div>
+                    {availablePresentation.creditsSinceBank > 0 && <div className="flex justify-between gap-2">
+                      <span>Créditos posteriores</span>
+                      <strong>+ <PrivateMoney value={formatMoney(availablePresentation.creditsSinceBank)} /></strong>
+                    </div>}
+                    {availablePresentation.paymentsSinceBank > 0 && <div className="flex justify-between gap-2">
+                      <span>Pagamentos posteriores</span>
+                      <strong>+ <PrivateMoney value={formatMoney(availablePresentation.paymentsSinceBank)} /></strong>
+                    </div>}
+                    <div className="flex justify-between gap-2 border-t border-slate-700 pt-1 font-semibold text-emerald-200">
+                      <span>Disponível projetado</span>
+                      <strong><PrivateMoney value={formatMoney(availablePresentation.amount)} /></strong>
+                    </div>
+                    <p className="text-[11px] text-slate-400">Projeção pelos lançamentos registrados, não consulta ao banco em tempo real.</p>
+                    </>)}
+                  </div>
+                )}
                 {invoiceFactsError && <p role="alert" className="text-amber-300">{invoiceFactsError}</p>}
               </div>
             </details>
@@ -880,7 +919,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
               <span className="block truncate text-[11px] text-slate-400">{bankLimitStatus === 'LOADING'
                 ? 'Conferindo referência bancária'
                 : bankLimitStatus === 'ERROR' ? 'Referência indisponível'
-                  : formatCardAvailableOrigin(availablePresentation?.bankReference || null)}</span>
+                  : formatCardAvailableOrigin(availablePresentation?.bankReference || null, availablePresentation?.origin)}</span>
               <strong className="mt-1 block truncate text-sm font-bold tabular-nums text-emerald-300">
                 <PrivateMoney value={bankLimitStatus === 'READY' && availablePresentation
                   ? formatMoney(availablePresentation.amount) : '—'} />

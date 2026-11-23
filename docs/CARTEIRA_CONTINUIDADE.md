@@ -1,3 +1,19 @@
+## 23/11/2026 — caso de cartão originalmente acima do limite
+
+- **Risco identificado em revisão:** banco com limite R$ 1.000, utilizado R$ 1.100 e disponível zero, após pagar R$ 50 continua com crédito livre zero; não pode mostrar R$ 50 como novo disponível.
+- **Correção:** a função compartilhada deduz o excesso `max(0,bank.used_limit-bank.credit_limit)` da projeção depois dos movimentos, em centavos. Dados de limite total/utilizado são capturados no mesmo fato bancário datado e passam pelo overview/cache. Se a referência mostra zero disponível e faltam esses dados para compensar um movimento positivo, retorna `MISSING_EXCESS` e a UI informa indisponibilidade da projeção.
+- **Escopo:** nenhum lançamento, fatura, regra de aprovação de crédito ou valor financeiro persistido foi modificado. Cenários de excesso antes/depois de pagamentos e referência incompleta cobertos nos testes.
+
+## 23/11/2026 — projeção automática do disponível nos cartões
+
+- **Evidência em Supabase, somente leitura:** Bradesco final 4999 tem referência bancária R$ 2.683,51 observada na noite de 19/11 (Manaus); oito compras efetivas datadas de 20 a 22/11 somam R$ 167,52, sem créditos ou pagamentos posteriores. Disponível projetado de R$ 2.515,99.
+- **Falha anterior:** `getCardAvailablePresentation` sempre preferia o limite da referência histórica, sem considerar os lançamentos; a Visão geral, o cartão e o resumo repetiam o número defasado, mesmo após novas compras.
+- **Motor único:** `getCardAvailablePresentation(card, bankFacts, { expenses, invoicePayments })` aplica compras não canceladas, créditos de fatura e pagamentos posteriores ao dia/instante observado; valores são inteiros em centavos; despesas importadas com data anterior, ajustes de fatura e lançamentos de abertura são excluídos. Ausência de referência mantém estimativa contábil identificada. Todas as páginas recebem o mesmo snapshot e a mesma política.
+- **Tempos:** utiliza exclusivamente `available_observed_at`, carimbado em nova confirmação com request_id ainda não consumido. A RPC guarda a operação em tabela privada e nunca reprocessa replay, mesmo quando o valor do banco é igual. Correções de fatura não renovam a âncora. Repetições da mesma confirmação não renovam a data, e corrigir apenas `due_date`, `invoice_total` ou `updated_at` também não a altera. Registros históricos com datas originais iguais são retrocompatíveis; outros sem evidência inequívoca ficam não reconciliados até próxima observação bancária. Compras no mesmo dia do registro bancário não são inferidas sem timestamp efetivo; cabe reconciliação explícita. Importações históricas do dia seguinte com data retroativa não alteram a projeção.
+- **Sincronização automática:** a publicação `supabase_realtime` passa a incluir a tabela de fatos bancários via migration idempotente; alterações em compras e referências disparam invalidação via `useWalletRealtime`; ao retomar o aplicativo, revalidação compensatória quando eventos de background podem ter sido perdidos. UI e cache offline preservados; datas e valores de referência ficam visíveis.
+- **Escopo:** nenhum `UPDATE`, `INSERT`, `DELETE`, RPC de escrita, migração, política RLS ou ajuste de saldos/limites foi executado; somente apresentação, consultas existentes, campos de observação e testes.
+- **Verificações:** Quality Gates, cenários de reembolso/pagamento e revisão independente antes do merge; teste físico Samsung após APK assinado.
+
 ## 22/11/2026 — apresentação estável dos limites nos cartões
 
 - **Evidência:** Bradesco mostra primeiro R$ 3.386,87 como estimativa e depois R$ 2.683,51 como referência bancária, sem nenhuma alteração financeira entre as capturas.

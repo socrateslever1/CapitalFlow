@@ -2,6 +2,41 @@
 
 Registro das alterações entregues ao CapitalFlow. A data identifica a integração no código; a publicação web e a release Android são verificadas separadamente. Novos commits não implicam automaticamente incremento da versão numerada.
 
+## 23/11/2026 — Disponibilidade segura para cartões acima do limite
+
+A projeção do disponível considera o excesso já existente na referência bancária: pagamentos só liberam crédito depois de compensarem o valor excedido. Se o banco informa disponível zero sem informar limite total/utilizado, não é possível confirmar se o pagamento liberou crédito; o sistema mantém a projeção indisponível em vez de inventar saldo positivo. Os campos usados são do mesmo snapshot da referência, não do estado contábil atual.
+
+## 23/11/2026 — Compatibilidade com a autorização vigente no Supabase
+
+A definição da RPC ativa foi comparada com o código-fonte original, linha por linha após normalização. A diferença era a regra de acesso atual: `can_access_personal_wallet()`, preservada na nova definição. A troca não reintroduz a verificação histórica restrita a superadministradores e não afrouxa as políticas RLS das tabelas financeiras.
+
+## 23/11/2026 — Confirmações bancárias com idempotência por requisição
+
+O banco conserva a identidade e o conteúdo de cada confirmação em tabela privada, rejeita reuso da mesma chave com dados diferentes e evita reexecutar o upsert quando a resposta anterior se perdeu. Confirmações novas do mesmo valor podem renovar a data de referência sem reprocessar operações anteriores. A RPC mantém as validações de autorização e a trava transacional originais; referências antigas sem data verificável não apresentam descontos zero como se calculados.
+
+## 23/11/2026 — Registro sincronizado no Perfil e no changelog
+
+Correções das confirmações repetidas, âncora temporal exclusiva da referência e legenda consistente registradas também em `src/constants/changelog.ts`, para exibição ao usuário em Perfil → Atualizações. Nenhum campo financeiro ou lançamento foi modificado por esta regularização.
+
+## 23/11/2026 — Revisão: repetição segura e legenda consistente no cartão
+
+O gatilho do banco só avança `available_observed_at` quando o disponível efetivamente muda; repetir a gravação do mesmo valor preserva a âncora e evita conceder limite novamente por replay. No carrossel, a legenda acompanha a referência utilizada pelo cálculo efetivamente exibido, inclusive quando a busca individual traz dados mais novos do que o cache. Esse é um ajuste de apresentação e metadados, sem escrita financeira.
+
+## 23/11/2026 — Âncora exclusiva do limite informado pelo banco
+
+O campo `available_observed_at` registra somente a confirmação efetiva do `available_limit`, mediante trigger em `INSERT` ou `UPDATE OF available_limit`. Corrigir somente data/total de fatura não altera essa âncora. Referências legadas com data sem integridade verificável não recebem abatimentos automáticos até confirmação bancária; dados legados com `observed_at=updated_at` recebem migração de metadados sem mudança financeira. Aplicação remota da migração, testes e revisão independentes devem ser verificados antes da integração.
+
+## 23/11/2026 — Revisão independente: correção da âncora bancária e eventos Realtime
+
+- O `updated_at` da linha de referência é a âncora usada na projeção: a RPC escreve o novo `available_limit` e o novo `updated_at` conjuntamente, enquanto `observed_at` preserva a data original da criação da linha. Isso impede descontar de novo compras já incorporadas numa correção bancária.
+- Um limite ajustado a partir de referência em memória permanece pronto enquanto o detalhe do cartão recarrega; o resumo deixa de voltar transitoriamente a “—”.
+- A tabela `personal_wallet_card_invoice_facts` passa a integrar, de forma idempotente, a publicação `supabase_realtime`. RLS de SELECT por proprietário já existente é preservada; nenhuma alteração nas políticas ou registros financeiros.
+- Os três achados da revisão Codex foram endereçados em código e migration; validação dos testes, aplicação da migration remota, publicação do APK e verificação independente final permanecem etapas separadas.
+
+## 23/11/2026 — Disponível do cartão projetado após lançamentos
+
+**Alteração em revisão:** o valor de referência bancária é histórico e passa a ser reconciliado em tempo de leitura com compras efetivas posteriores à data observada (Manaus), créditos e pagamentos posteriores. Compras antigas importadas depois da observação não são descontadas novamente. Um único motor de apresentação atende à Visão geral, cartão detalhado, carrossel e dock. Referência original permanece disponível em "Valores do banco". Eventos Supabase de fatos bancários e retorno do Android revalidam automaticamente o snapshot; sem escrita ou alteração de limite contábil, faturas, SQL, RLS, ledger ou contratos. Observações do próprio dia sem horário da compra continuam não reconciliadas por segurança. Validar no CI e Samsung antes de declarar atualização concluída.
+
 ## 22/11/2026 — Evitar oscilação entre limite estimado e referência bancária
 
 **Código em revisão.** A tela Cartões usa imediatamente as referências existentes no snapshot da Carteira e não apresenta uma estimativa provisória enquanto a leitura específica do cartão estiver pendente. Resultados atrasados são isolados por cartão e geração do snapshot; cartão e resumo compartilham a seleção de referência da Visão geral. Estados de ausência, consulta e falha são distintos. Nenhum dado, limite, fatura, pagamento, contrato, RLS ou migração foi modificado. Testes e revisão independente são necessários antes do merge.

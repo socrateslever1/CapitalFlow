@@ -132,7 +132,8 @@ test('bank credit limit does not flash estimate while per-card facts are unresol
   const stack = read('components/wallet/BankStack.tsx');
   assert.match(page, /resolveCardInvoiceFactsView/);
   assert.match(page, /data\?\.cardInvoiceFacts/);
-  assert.match(page, /getCardAvailablePresentation\(selected, invoiceFacts\)/);
+  assert.match(page, /getCardAvailablePresentation\(selected, invoiceFacts,/);
+  assert.match(page, /expenses: data\.expenses, invoicePayments: data\.invoicePayments/);
   assert.match(page, /bankLimitStatus=\{bankLimitStatus\}/);
   assert.match(page, /bankAvailableReferences=\{data\.cardInvoiceFacts\}/);
   assert.doesNotMatch(page, /\[invoiceFacts, setInvoiceFacts\] = useState/);
@@ -149,4 +150,25 @@ test('a slower manual fact refresh cannot replace the current card generation', 
   assert.match(manualRefresh, /catch \(cause\)/);
   assert.match(manualRefresh, /outcome: 'ERROR'/);
   assert.match(cards, /invoiceFactsRequestGeneration\.current \+= 1/);
+});
+
+test('a bank-adjusted snapshot is ready before the per-card fetch resolves', () => {
+  const page=read('features/wallet/pages/WalletCardsPage.tsx');
+  assert.match(page, /availablePresentation\?\.bankReference \? 'READY' : invoiceFactsView\.status/);
+  assert.doesNotMatch(page, /availablePresentation\?\.origin === 'BANK' \? 'READY'/);
+});
+
+test('card carousel label uses the same resolved issuer reference as the amount', () => {
+  const cards=read('features/wallet/pages/WalletCardsPage.tsx');
+  const stack=read('components/wallet/BankStack.tsx');
+  assert.match(cards, /bankLimitPresentation=\{selected && availablePresentation\?\.bankReference/);
+  assert.match(stack, /resolvedIssuer\?\.reference \|\| displayProjection\?\.bankReference/);
+  assert.match(stack, /resolvedIssuer\?\.origin \|\| displayProjection\?\.origin/);
+  assert.match(stack, /formatCardAvailableOrigin\(labelReference, labelOrigin\)/);
+});
+
+test('legacy issuer data with uncertain time cannot display an invented projection', () => {
+  const page=read('features/wallet/pages/WalletCardsPage.tsx');
+  assert.match(page,/!availablePresentation\.projectionAvailable/);
+  assert.match(page,/Os abatimentos posteriores não foram calculados/);
 });

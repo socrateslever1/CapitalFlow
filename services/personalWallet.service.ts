@@ -151,6 +151,7 @@ export type PersonalWalletExpense = {
   notes?: string | null;
   entry_type?: 'PURCHASE' | 'INVOICE_OVERRIDE';
   is_invoice_credit?: boolean;
+  created_at?: string;
   invoice_due_month?: string | null;
   request_id?: string | null;
   mutation_requests?: Record<string, unknown>;
@@ -230,6 +231,7 @@ export type WalletCardInvoiceFacts = {
   source_hash: string | null;
   source_type: 'PDF' | 'OFX' | 'MANUAL';
   observed_at: string;
+  available_observed_at?: string | null;
   updated_at: string;
 };
 
@@ -416,7 +418,7 @@ const personalWalletServiceImpl = {
           .order('reference_month', { ascending: false }).order('id').range(from, to)),
         // Lightweight invoice metadata: exact issuer due dates may differ from
         // the generic day configured for the card. No PAN or sensitive fields.
-        loadAllWalletRows((from, to) => supabase.from('personal_wallet_card_invoice_facts').select('card_id,due_month,due_date,available_limit,updated_at')
+        loadAllWalletRows((from, to) => supabase.from('personal_wallet_card_invoice_facts').select('card_id,due_month,due_date,available_limit,credit_limit,used_limit,available_observed_at,observed_at,updated_at')
           .order('due_month', { ascending: false }).order('card_id').range(from, to)),
       ]);
     const loadedExpenses = filterCurrentWalletRows((expenses.data || []) as PersonalWalletExpense[], walletReset, 'expenses');
@@ -451,7 +453,7 @@ const personalWalletServiceImpl = {
       // Same issuer reference used by the card details. Optional bank facts
       // must not be confused with the calculated ledger balance.
       bankAvailableReferences: ((cardInvoiceDates.data || []) as Array<{
-        card_id: string; due_month: string; available_limit: number | null; updated_at: string;
+        card_id: string; due_month: string; available_limit: number | null; credit_limit: number | null; used_limit: number | null; available_observed_at: string | null; observed_at: string; updated_at: string;
       }>).filter(fact => calculatedCards.some(card => card.id === fact.card_id)
         && fact.available_limit != null),
     };

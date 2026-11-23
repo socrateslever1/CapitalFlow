@@ -178,3 +178,28 @@ test('new bank operations are durably deduplicated before the issuer upsert', ()
   assert.match(sql,/available_observed_at=excluded\.available_observed_at/);
   assert.match(sql,/private\.wallet_bank_confirmation_requests/);
 });
+
+test('overlimit position consumes repayments before releasing usable credit', () => {
+  const card={id:'over',credit_limit:1000,used_limit:1100};
+  const fact={card_id:'over',credit_limit:1000,used_limit:1100,available_limit:0,
+    available_observed_at:'2026-11-20T02:48:29Z',updated_at:'2026-11-20T02:48:29Z'};
+  const payments=(amount:number)=>[{card_id:'over',amount,created_at:'2026-11-21T12:00:00Z'}];
+  const fifty=getCardAvailablePresentation(card,[fact],{expenses:[],invoicePayments:payments(50)});
+  assert.equal(fifty.projectionAvailable,true);
+  assert.equal(fifty.amount,0);
+  const hundredFifty=getCardAvailablePresentation(card,[fact],{expenses:[],invoicePayments:payments(150)});
+  assert.equal(hundredFifty.amount,50);
+  assert.equal(hundredFifty.origin,'BANK_ADJUSTED');
+});
+
+test('zero bank availability without issuer used/total never invents free credit after payment', () => {
+  const card={id:'unknown',credit_limit:1000,used_limit:1000};
+  const fact={card_id:'unknown',available_limit:0,
+    available_observed_at:'2026-11-20T02:48:29Z',updated_at:'2026-11-20T02:48:29Z'};
+  const state=getCardAvailablePresentation(card,[fact],{
+    expenses:[],invoicePayments:[{card_id:'unknown',amount:50,created_at:'2026-11-21T12:00:00Z'}],
+  });
+  assert.equal(state.amount,0);
+  assert.equal(state.projectionAvailable,false);
+  assert.equal(state.projectionUnavailableReason,'MISSING_EXCESS');
+});

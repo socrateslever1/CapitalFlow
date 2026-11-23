@@ -29,7 +29,7 @@ test('overview fetches nine lightweight sources including exact invoice due date
   assert(!query.includes('createSignedUrl'), 'overview should not sign optional images on first paint');
   assert(!query.includes('.limit(') || query.includes('.limit(500)'), 'do not truncate purchases or installments');
   assert(query.includes('getCardCreditPosition'), 'credit must use the canonical calculation');
-  assert(query.includes("select('card_id,due_month,due_date,available_limit,available_observed_at,observed_at,updated_at')"));
+  assert(query.includes("select('card_id,due_month,due_date,available_limit,credit_limit,used_limit,available_observed_at,observed_at,updated_at')"));
   assert(query.includes('bankAvailableReferences:'));
   assert(repository.includes('overviewCache'));
   assert(repository.includes('overviewCache.invalidate()'));

@@ -2,6 +2,10 @@
 
 Registro das alterações entregues ao CapitalFlow. A data identifica a integração no código; a publicação web e a release Android são verificadas separadamente. Novos commits não implicam automaticamente incremento da versão numerada.
 
+## 23/11/2026 — Disponibilidade segura para cartões acima do limite
+
+A projeção do disponível considera o excesso já existente na referência bancária: pagamentos só liberam crédito depois de compensarem o valor excedido. Se o banco informa disponível zero sem informar limite total/utilizado, não é possível confirmar se o pagamento liberou crédito; o sistema mantém a projeção indisponível em vez de inventar saldo positivo. Os campos usados são do mesmo snapshot da referência, não do estado contábil atual.
+
 ## 23/11/2026 — Compatibilidade com a autorização vigente no Supabase
 
 A definição da RPC ativa foi comparada com o código-fonte original, linha por linha após normalização. A diferença era a regra de acesso atual: `can_access_personal_wallet()`, preservada na nova definição. A troca não reintroduz a verificação histórica restrita a superadministradores e não afrouxa as políticas RLS das tabelas financeiras.

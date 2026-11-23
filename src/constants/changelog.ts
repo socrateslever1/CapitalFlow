@@ -25,6 +25,17 @@ export const SYSTEM_CHANGELOG: ChangelogRelease[] = [
     version: '3.5.0',
     codeOnly: true,
     date: '23/11/2026',
+    title: 'Pagamentos e cartão acima do limite',
+    summary: 'Pagamentos só liberam limite depois de compensar eventual excesso anterior.',
+    items: [
+      { kind: 'CORRECAO', text: 'O disponível projetado considera o valor excedido na referência bancária antes de somar pagamentos posteriores.' },
+      { kind: 'MELHORIA', text: 'Quando a referência não informa os dados necessários para conferir o excesso, o aplicativo não apresenta crédito livre presumido.' },
+    ],
+  },
+  {
+    version: '3.5.0',
+    codeOnly: true,
+    date: '23/11/2026',
     title: 'Autorização preservada nas confirmações',
     summary: 'A confirmação bancária mantém a mesma permissão de acesso à Carteira já vigente no Supabase.',
     items: [

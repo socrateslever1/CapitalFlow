@@ -4,6 +4,9 @@ import type { PersonalWalletCard, PersonalWalletExpense, PersonalWalletInvoicePa
 export type CardBankAvailableReference = {
   card_id: string;
   available_limit: number | null;
+  /** Issuer balance at the same observation as available_limit. */
+  credit_limit?: number | null;
+  used_limit?: number | null;
   updated_at: string;
   /** When the issuer amount was observed; distinct from subsequent row edits. */
   observed_at?: string | null;
@@ -31,6 +34,7 @@ export type CardAvailablePresentation = {
   paymentsSinceBank: number;
   /** Whether subsequent ledger movements could actually be reconciled. */
   projectionAvailable: boolean;
+  projectionUnavailableReason: 'MISSING_BASELINE' | 'MISSING_LEDGER' | 'MISSING_EXCESS' | null;
 };
 const cents = (amount: number) => Math.round(amount * 100);
 const finiteMoney = (value: unknown) => typeof value === 'number' || typeof value === 'string'
@@ -74,6 +78,7 @@ export function getCardAvailablePresentation(
     amount: estimatedAmount, estimatedAmount, origin: 'ESTIMATED', bankReference: null,
     movementSinceBank: 0, purchasesSinceBank: 0, creditsSinceBank: 0, paymentsSinceBank: 0,
     projectionAvailable: false,
+    projectionUnavailableReason: null,
   };
   // The invoice's updated_at also changes when ONLY due dates or invoice totals
   // are edited. Never use it to re-anchor the bank's available_limit. An
@@ -89,6 +94,7 @@ export function getCardAvailablePresentation(
     estimatedAmount, origin: 'BANK', bankReference,
     movementSinceBank: 0, purchasesSinceBank: 0, creditsSinceBank: 0, paymentsSinceBank: 0,
     projectionAvailable: false,
+    projectionUnavailableReason: !ledger ? 'MISSING_LEDGER' : 'MISSING_BASELINE',
   };
   let purchaseCents = 0, creditCents = 0, paymentCents = 0;
   for (const entry of ledger.expenses) {
@@ -109,8 +115,27 @@ export function getCardAvailablePresentation(
   }
   const movementCents = creditCents + paymentCents - purchaseCents;
   const baseCents = cents(Number(bankReference.available_limit));
+  const issuerCreditLimit = finiteMoney(bankReference.credit_limit);
+  const issuerUsedLimit = finiteMoney(bankReference.used_limit);
+  const hasIssuerPosition = issuerCreditLimit !== null && issuerUsedLimit !== null &&
+    issuerCreditLimit >= 0 && issuerUsedLimit >= 0;
+  // An observed available=0 can hide an existing overlimit debt. Repayments
+  // cover that excess BEFORE restoring usable credit. Only use issuer figures
+  // recorded alongside the observed available; card.used_limit is a live
+  // derived value and is not a valid historical substitute.
+  const overlimitCents = baseCents === 0 && hasIssuerPosition
+    ? Math.max(0, cents(issuerUsedLimit! - issuerCreditLimit!)) : 0;
+  // If the bank did not report its used/total at zero availability, a
+  // positive net credit could still be entirely consumed by a hidden excess.
+  // Never invent usable limit in that situation.
+  if (baseCents === 0 && !hasIssuerPosition && movementCents > 0) return {
+    amount: 0, estimatedAmount, origin: 'BANK', bankReference,
+    movementSinceBank: 0, purchasesSinceBank: 0,
+    creditsSinceBank: 0, paymentsSinceBank: 0,
+    projectionAvailable: false, projectionUnavailableReason: 'MISSING_EXCESS',
+  };
   return {
-    amount: Math.max(0, baseCents + movementCents) / 100,
+    amount: Math.max(0, baseCents + movementCents - overlimitCents) / 100,
     estimatedAmount,
     origin: movementCents === 0 ? 'BANK' : 'BANK_ADJUSTED',
     bankReference,
@@ -119,6 +144,7 @@ export function getCardAvailablePresentation(
     creditsSinceBank: creditCents / 100,
     paymentsSinceBank: paymentCents / 100,
     projectionAvailable: true,
+    projectionUnavailableReason: null,
   };
 }
 

@@ -871,7 +871,9 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
                     </div>
                     {!availablePresentation.projectionAvailable ? (
                       <p role="status" className="text-[11px] text-amber-200">
-                        Esta referência histórica não possui data confiável do disponível. Os abatimentos posteriores não foram calculados; informe novamente o limite do banco para estabelecer uma nova referência.
+                        {availablePresentation.projectionUnavailableReason === 'MISSING_EXCESS'
+                          ? 'Esta referência informa zero disponível, mas não comprova quanto do limite estava excedido. Pagamentos posteriores não podem ser apresentados como crédito livre sem os valores utilizados e totais do banco.'
+                          : 'Esta referência histórica não possui data confiável do disponível. Os abatimentos posteriores não foram calculados; informe novamente o limite do banco para estabelecer uma nova referência.'}
                       </p>
                     ) : (<>
                     <div className="flex justify-between gap-2">

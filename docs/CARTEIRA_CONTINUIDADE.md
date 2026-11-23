@@ -1,3 +1,9 @@
+## 23/11/2026 — caso de cartão originalmente acima do limite
+
+- **Risco identificado em revisão:** banco com limite R$ 1.000, utilizado R$ 1.100 e disponível zero, após pagar R$ 50 continua com crédito livre zero; não pode mostrar R$ 50 como novo disponível.
+- **Correção:** a função compartilhada deduz o excesso `max(0,bank.used_limit-bank.credit_limit)` da projeção depois dos movimentos, em centavos. Dados de limite total/utilizado são capturados no mesmo fato bancário datado e passam pelo overview/cache. Se a referência mostra zero disponível e faltam esses dados para compensar um movimento positivo, retorna `MISSING_EXCESS` e a UI informa indisponibilidade da projeção.
+- **Escopo:** nenhum lançamento, fatura, regra de aprovação de crédito ou valor financeiro persistido foi modificado. Cenários de excesso antes/depois de pagamentos e referência incompleta cobertos nos testes.
+
 ## 23/11/2026 — projeção automática do disponível nos cartões
 
 - **Evidência em Supabase, somente leitura:** Bradesco final 4999 tem referência bancária R$ 2.683,51 observada na noite de 19/11 (Manaus); oito compras efetivas datadas de 20 a 22/11 somam R$ 167,52, sem créditos ou pagamentos posteriores. Disponível projetado de R$ 2.515,99.

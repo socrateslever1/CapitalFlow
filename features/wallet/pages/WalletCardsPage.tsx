@@ -794,6 +794,10 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
             bankLedger={{ expenses: data.expenses, invoicePayments: data.invoicePayments }}
             bankLimitStatusCardId={selected?.id || null}
             bankLimitStatus={bankLimitStatus}
+            bankLimitPresentation={selected && availablePresentation?.bankReference ? {
+              origin: availablePresentation.origin,
+              reference: availablePresentation.bankReference,
+            } : null}
             bankLimitReference={selected && availablePresentation?.bankReference ? {
               cardId: selected.id,
               amount: availablePresentation.amount,

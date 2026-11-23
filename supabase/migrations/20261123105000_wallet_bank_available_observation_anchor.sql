@@ -20,8 +20,18 @@ LANGUAGE plpgsql
 SET search_path = public, pg_temp
 AS $wallet$
 BEGIN
-  NEW.available_observed_at :=
-    CASE WHEN NEW.available_limit IS NULL THEN NULL ELSE now() END;
+  IF TG_OP = 'INSERT' THEN
+    NEW.available_observed_at :=
+      CASE WHEN NEW.available_limit IS NULL THEN NULL ELSE now() END;
+  ELSIF NEW.available_limit IS DISTINCT FROM OLD.available_limit THEN
+    NEW.available_observed_at :=
+      CASE WHEN NEW.available_limit IS NULL THEN NULL ELSE now() END;
+  ELSE
+    -- A network retry may repeat the same issuer confirmation request.
+    -- Never reset the baseline for an unchanged amount; preserve the
+    -- previous timestamp even though available_limit is in UPDATE SET.
+    NEW.available_observed_at := OLD.available_observed_at;
+  END IF;
   RETURN NEW;
 END;
 $wallet$;
@@ -30,7 +40,10 @@ DROP TRIGGER IF EXISTS wallet_bank_available_observation
   ON public.personal_wallet_card_invoice_facts;
 
 -- UPDATE OF available_limit fires for explicit confirmations, including
--- same-value confirmations. Invoice-only updates do not target this column.
+-- retries. Same-value writes preserve the original anchor to prevent
+-- duplicate credit availability after an idempotent replay. An explicit
+-- confirmation with an actual amount change advances the observation time.
+-- Invoice-only updates do not target this column.
 CREATE TRIGGER wallet_bank_available_observation
 BEFORE INSERT OR UPDATE OF available_limit
 ON public.personal_wallet_card_invoice_facts

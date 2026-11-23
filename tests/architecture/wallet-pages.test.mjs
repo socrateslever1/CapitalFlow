@@ -157,3 +157,12 @@ test('a bank-adjusted snapshot is ready before the per-card fetch resolves', () 
   assert.match(page, /availablePresentation\?\.bankReference \? 'READY' : invoiceFactsView\.status/);
   assert.doesNotMatch(page, /availablePresentation\?\.origin === 'BANK' \? 'READY'/);
 });
+
+test('card carousel label uses the same resolved issuer reference as the amount', () => {
+  const cards=read('features/wallet/pages/WalletCardsPage.tsx');
+  const stack=read('components/wallet/BankStack.tsx');
+  assert.match(cards, /bankLimitPresentation=\{selected && availablePresentation\?\.bankReference/);
+  assert.match(stack, /resolvedIssuer\?\.reference \|\| displayProjection\?\.bankReference/);
+  assert.match(stack, /resolvedIssuer\?\.origin \|\| displayProjection\?\.origin/);
+  assert.match(stack, /formatCardAvailableOrigin\(labelReference, labelOrigin\)/);
+});

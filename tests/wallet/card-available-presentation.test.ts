@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { readFileSync } from 'node:fs';
 import { getCardAvailablePresentation, formatCardAvailableOrigin } from '../../features/wallet/domain/cardAvailablePresentation';
 
 const card = { id: 'card-1', credit_limit: 8177, used_limit: 7899.10 };
@@ -144,4 +145,13 @@ test('legacy bank values without provable available_observed_at are not auto-deb
   assert.equal(result.amount,500);
   assert.equal(result.origin,'BANK');
   assert.equal(result.purchasesSinceBank,0);
+});
+
+test('the issuer available-observation trigger preserves a confirmed anchor on a same-value retry', () => {
+  // Regression guard for the SQL-level idempotency boundary. The RPC can
+  // repeat SET available_limit on a lost network acknowledgment.
+  const sql = readFileSync('supabase/migrations/20261123105000_wallet_bank_available_observation_anchor.sql','utf8');
+  assert.match(sql, /NEW\.available_limit IS DISTINCT FROM OLD\.available_limit/);
+  assert.match(sql, /NEW\.available_observed_at := OLD\.available_observed_at/);
+  assert.match(sql, /UPDATE OF available_limit/);
 });

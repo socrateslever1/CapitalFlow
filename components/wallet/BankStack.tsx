@@ -21,6 +21,11 @@ type Props = {
   onPayInvoice?: (card: PersonalWalletCard) => void;
   bankLimitReference?: { cardId: string; amount: number; updatedAt: string } | null;
   bankAvailableReferences?: readonly CardBankAvailableReference[];
+  /** Matched issuer reference used to compute the *displayed* amount. */
+  bankLimitPresentation?: {
+    origin: 'BANK' | 'BANK_ADJUSTED' | 'ESTIMATED';
+    reference: CardBankAvailableReference;
+  } | null;
   bankLedger?: CardAvailableLedger;
   bankLimitStatusCardId?: string | null;
   bankLimitStatus?: 'LOADING' | 'READY' | 'ERROR';
@@ -36,7 +41,8 @@ const Network = ({ brand }: { brand: string | null }) => {
 };
 
 export const BankStack: React.FC<Props> = ({ accounts, cards, onCard, onEditCard, onCreateCard, onImportStatement, onSelectionChange, onNewExpense, onPayInvoice,
-  bankLimitReference, bankAvailableReferences = [], bankLedger, bankLimitStatusCardId, bankLimitStatus = 'READY' }) => {
+  bankLimitReference, bankAvailableReferences = [], bankLimitPresentation = null,
+  bankLedger, bankLimitStatusCardId, bankLimitStatus = 'READY' }) => {
   const availableCards = useMemo(() => cards.filter(card => card.status !== 'CANCELED'), [cards]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isFlipped, setIsFlipped] = useState(false);
@@ -98,9 +104,16 @@ export const BankStack: React.FC<Props> = ({ accounts, cards, onCard, onEditCard
   const available = currentCardIsResolved && hasBankLimit
     ? Number(selectedReference!.available_limit)
     : displayProjection?.amount ?? 0;
+  // When the focused card has a fresh per-card fetch, its amount and origin
+  // must come from the SAME facts. Cached overview facts are only a fallback
+  // while the carousel selection propagates to its parent.
+  const resolvedIssuer = currentCardIsResolved && bankLimitPresentation?.reference.card_id === selected?.id
+    ? bankLimitPresentation : null;
+  const labelReference = resolvedIssuer?.reference || displayProjection?.bankReference || null;
+  const labelOrigin = resolvedIssuer?.origin || displayProjection?.origin;
   const availableLabel = limitState === 'LOADING' ? 'Conferindo limite'
     : limitState === 'ERROR' ? 'Referência indisponível'
-      : formatCardAvailableOrigin(displayProjection?.bankReference || null, displayProjection?.origin);
+      : formatCardAvailableOrigin(labelReference, labelOrigin);
   const maskedNumber = selected?.last_four
     ? `•••• •••• •••• ${selected.last_four}`
     : '•••• •••• •••• ----';

@@ -2,6 +2,10 @@
 
 Registro das alterações entregues ao CapitalFlow. A data identifica a integração no código; a publicação web e a release Android são verificadas separadamente. Novos commits não implicam automaticamente incremento da versão numerada.
 
+## 23/11/2026 — Revisão: repetição segura e legenda consistente no cartão
+
+O gatilho do banco só avança `available_observed_at` quando o disponível efetivamente muda; repetir a gravação do mesmo valor preserva a âncora e evita conceder limite novamente por replay. No carrossel, a legenda acompanha a referência utilizada pelo cálculo efetivamente exibido, inclusive quando a busca individual traz dados mais novos do que o cache. Esse é um ajuste de apresentação e metadados, sem escrita financeira.
+
 ## 23/11/2026 — Âncora exclusiva do limite informado pelo banco
 
 O campo `available_observed_at` registra somente a confirmação efetiva do `available_limit`, mediante trigger em `INSERT` ou `UPDATE OF available_limit`. Corrigir somente data/total de fatura não altera essa âncora. Referências legadas com data sem integridade verificável não recebem abatimentos automáticos até confirmação bancária; dados legados com `observed_at=updated_at` recebem migração de metadados sem mudança financeira. Aplicação remota da migração, testes e revisão independentes devem ser verificados antes da integração.

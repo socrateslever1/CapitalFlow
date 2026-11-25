@@ -32,6 +32,7 @@ export const SYSTEM_CHANGELOG: ChangelogRelease[] = [
       { kind: 'NOVIDADE', text: 'O detalhe da conta mostra as despesas do mês por categoria, com gasto médio por dia.' },
       { kind: 'MELHORIA', text: 'Na nova despesa, a categoria é escolhida por ícones.' },
       { kind: 'MELHORIA', text: 'O relatório ganhou um gráfico de rosca por categoria.' },
+      { kind: 'MELHORIA', text: 'Importações reconhecem mais categorias, como juros e encargos do cartão, impostos e assinaturas digitais.' },
     ],
   },
   {

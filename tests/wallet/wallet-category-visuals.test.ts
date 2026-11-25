@@ -93,3 +93,21 @@ test('ícones vêm de lucide-react; nenhum arquivo de outro aplicativo é usado'
   const modal = fs.readFileSync('components/wallet/QuickExpenseModal.tsx', 'utf8');
   assert.match(modal, /<CategoryIconPicker/);
 });
+
+test('classificador reconhece encargos do cartão, assinaturas digitais, impostos e comércios abreviados', async () => {
+  const { classifyStatementDescription: c } = await import('../../utils/walletStatementPdf');
+  assert.equal(c('IOF DIARIO ROTATIV /ATRASO'), 'Juros e encargos');
+  assert.equal(c('ENCARGOS SOBRE PARCELADO'), 'Juros e encargos');
+  assert.equal(c('PARC.FACIL'), 'Parcelamento de fatura');
+  assert.equal(c('ZPBBDETRANAM'), 'Impostos e taxas');
+  assert.equal(c('DL*GOOGLE YouTub'), 'Assinaturas');
+  assert.equal(c('IFD*BR'), 'Alimentação');
+  assert.equal(c('HIPER DB PARAIBA'), 'Alimentação');
+  assert.equal(c('PG *SHOPFACIL SA'), 'Compras');
+  // Pagamentos a pessoas e intermediadores continuam sem categoria inventada.
+  assert.equal(c('RecargaPay *MANOELS'), 'Outros');
+  assert.equal(c('KI ANJO'), 'Outros');
+  for (const name of ['Juros e encargos', 'Parcelamento de fatura', 'Impostos e taxas']) {
+    assert.notEqual(getWalletCategoryVisual(name).icon, getWalletCategoryVisual('categoria inventada').icon, name);
+  }
+});

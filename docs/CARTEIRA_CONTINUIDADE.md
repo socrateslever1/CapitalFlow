@@ -4,7 +4,8 @@
 - **Decisão do usuário:** o anel mede a **fatia da categoria no total** do período (não orçamento), sem tabela nova no Supabase.
 - **Implementação:** ver `CHANGELOG.md` 24/11/2026. Cartão: parcelas do ciclo selecionado; conta: operações `EXPENSE` do mês saídas da conta, sem anuladas/estornos. Percentuais por maior resto (somam 100).
 - **Conflitos previstos:** `QuickExpenseModal.tsx` também é alterado por trabalho não commitado na `main` (categoria automática); a troca do seletor ocupa o mesmo trecho e precisará de ajuste simples ao integrar (`value={effectiveCategory}` e `setCategoryManuallySelected(true)` no `onChange`).
-- **Pendências:** validar em aparelho; orçamento por categoria fica para depois, se desejado (exige migration).
+- **Reclassificação autorizada pelo usuário (24/11):** com o classificador ampliado, 14 lançamentos de cartão que estavam em "Outros" receberam a categoria sugerida por `UPDATE` restrito à coluna `category` (IDs explícitos, só se ainda em "Outros", fora cancelados e saldos de abertura). Não foi usada `personal_wallet_update_expense_idempotent` porque ela recria as parcelas (renumera e redivide valores), o que corromperia parcelados importados. Valores, datas, parcelas e saldos não foram tocados. Os demais lançamentos em "Outros" são pagamentos a pessoas ou intermediadores sem tipo de comércio identificável.
+- **Pendências:** validar em aparelho; criar uma RPC só de categoria para a interface (hoje editar categoria reconstrói as parcelas); orçamento por categoria fica para depois, se desejado (exige migration).
 
 ## 22/11/2026 — apresentação estável dos limites nos cartões
 

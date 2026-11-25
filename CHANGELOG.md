@@ -8,6 +8,7 @@
 - **Contas:** lista "Despesas do mês por categoria" no detalhe da conta, com gasto médio por dia; transferências, pagamentos de fatura, receitas e lançamentos anulados ficam fora.
 - **Nova despesa:** escolha de categoria por grade de ícones (`CategoryIconPicker`), mantendo "+ Nova" para categorias próprias.
 - **Relatório:** rosca de participação por categoria e ícones na lista.
+- **Classificação automática ampliada** (`classifyStatementDescription`): IOF, encargos, juros e rotativo → "Juros e encargos"; parcelamento da fatura → "Parcelamento de fatura"; Detran/IPVA/IPTU → "Impostos e taxas"; serviços digitais (Google, YouTube, iCloud etc.) → "Assinaturas"; abreviações de delivery/restaurante/hipermercado → "Alimentação". Pagamentos a pessoas e intermediadores continuam em "Outros".
 - Cálculo em centavos com percentuais que somam 100 (`walletCategoryBreakdown.ts`). Somente leitura: sem orçamento, sem mudança de dados, RPC, migration ou RLS. Testes em `tests/wallet/wallet-category-visuals.test.ts`. Sem validação em aparelho físico.
 
 ## 23/11/2026 — Melhorar a leitura do cabeçalho de empréstimos

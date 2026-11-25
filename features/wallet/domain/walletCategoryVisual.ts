@@ -1,6 +1,6 @@
 import {
-  Baby, Briefcase, Bus, Car, Coffee, Drama, Droplet, Dumbbell, Ellipsis, Film, Fuel, Gift,
-  GraduationCap, HeartPulse, House, Landmark, PawPrint, Pill, Plane, Receipt, Repeat, Shirt,
+  Baby, Briefcase, Bus, CalendarSync, Car, Coffee, Drama, Droplet, Dumbbell, Ellipsis, Film, Fuel, Gift,
+  GraduationCap, HeartPulse, House, Landmark, PawPrint, Percent, Pill, Plane, Receipt, Repeat, Shirt,
   ShoppingBag, ShoppingCart, Smartphone, Sparkles, Tag, Utensils, Wifi, Wrench, Zap,
   type LucideIcon,
 } from 'lucide-react';
@@ -48,8 +48,10 @@ const VISUALS: Array<{ keys: string[]; icon: LucideIcon; color: string }> = [
   { keys: ['filhos', 'bebe', 'criancas', 'brinquedos'], icon: Baby, color: '#FBBF24' },
   { keys: ['pets', 'pet', 'animais', 'veterinario'], icon: PawPrint, color: '#A3E635' },
   { keys: ['trabalho', 'negocios', 'escritorio'], icon: Briefcase, color: '#64748B' },
-  { keys: ['emprestimos', 'emprestimo', 'financiamento', 'juros', 'banco', 'tarifas', 'tarifa'], icon: Landmark, color: '#7C3AED' },
-  { keys: ['impostos', 'imposto', 'taxas', 'contas'], icon: Receipt, color: '#F87171' },
+  { keys: ['emprestimos', 'emprestimo', 'financiamento', 'banco', 'tarifas', 'tarifa'], icon: Landmark, color: '#7C3AED' },
+  { keys: ['juros e encargos', 'juros', 'encargos'], icon: Percent, color: '#DC2626' },
+  { keys: ['parcelamento de fatura', 'parcelamento'], icon: CalendarSync, color: '#C2410C' },
+  { keys: ['impostos e taxas', 'impostos', 'imposto', 'taxas', 'contas'], icon: Receipt, color: '#F87171' },
   { keys: ['outros', 'sem categoria', 'diversos'], icon: Ellipsis, color: '#9CA3AF' },
 ];
 

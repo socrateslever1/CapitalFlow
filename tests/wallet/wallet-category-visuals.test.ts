@@ -128,3 +128,9 @@ test('resumo de gastos do mês inclui despesas pagas pela conta, sem transferên
   assert.equal(result.byMethod?.accountPercentage, 40);
   assert.deepEqual(result.categories.map(c => [c.name, c.amount]), [['Alimentação', 60], ['Transporte', 40]]);
 });
+
+test('seletor de categoria mostra "Outros" por último', () => {
+  const picker = fs.readFileSync('components/wallet/CategoryIconPicker.tsx', 'utf8');
+  assert.match(picker, /\['outros', 'sem categoria'\]\.includes\(normalizeCategoryKey\(category\)\)/);
+  assert.match(picker, /\.\.\.categories\.filter\(category => !isFallbackCategory\(category\)\), \.\.\.categories\.filter\(isFallbackCategory\)/);
+});

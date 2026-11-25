@@ -23,6 +23,7 @@ import {
   normalizeCategoryName,
   saveCustomExpenseCategory,
 } from '../../features/wallet/utils/walletCustomCategories';
+import { CategoryIconPicker } from './CategoryIconPicker';
 import { getInvoiceCycleDates, getPurchaseInvoiceMonth } from './invoiceStatementDomain';
 import {
   buildCardExpenseNotes,
@@ -560,18 +561,12 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                 </button>
               </div>
               <div className="mt-1.5">
-                <SelectOptionList
+                {/* Categoria por ícones; '+ Nova' acima continua criando categorias próprias. */}
+                <CategoryIconPicker
                   ariaLabel="Categoria"
                   value={category}
-                  options={[
-                    ...allCategories.map((cat) => ({ value: cat, label: cat })),
-                    { value: '__new_category__', label: '+ Nova categoria...' },
-                  ]}
+                  categories={allCategories}
                   onChange={(next) => {
-                    if (next === '__new_category__') {
-                      setCreatingCategory(true);
-                      return;
-                    }
                     resetIdempotencyKey();
                     setCategory(next);
                     setCreatingCategory(false);

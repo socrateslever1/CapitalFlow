@@ -39,6 +39,8 @@ import { CardVaultModal } from '../../../components/wallet/CardVaultModal';
 import { WalletBankCombobox } from '../../../components/wallet/WalletBankCombobox';
 import { getCardAvailablePresentation, formatCardAvailableOrigin } from '../domain/cardAvailablePresentation';
 import { resolveCardInvoiceFactsView } from '../domain/cardInvoiceFactsView';
+import { CategoryBreakdownPanel } from '../../../components/wallet/CategoryBreakdownPanel';
+import { getCardInvoiceCategoryBreakdown } from '../domain/walletCategoryBreakdown';
 
 export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavigate: (path: string) => void }> = ({ activeUser }) => {
   const navigate = useNavigate();
@@ -1066,6 +1068,12 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
                 />
               </Modal>
             )}
+            {selected && data && statementMonth && (() => {
+              // Fatia de cada categoria nas compras da fatura selecionada (anel = participação, não orçamento).
+              const breakdown = getCardInvoiceCategoryBreakdown(selected.id, statementMonth, data.expenses, data.installments);
+              return breakdown.slices.length ? <div className="mb-3"><CategoryBreakdownPanel title="Gastos da fatura por categoria" breakdown={breakdown}
+                note="O anel mostra a fatia de cada categoria nas compras desta fatura. Créditos e saldo consolidado de abertura não entram." /></div> : null;
+            })()}
             {selected ? <CardInvoiceStatement cardId={selected.id} dueMonth={statementMonth}
               openingBalance={selectedIsOpeningCycle ? Math.max(Number(selected.initial_future_installments_balance || 0), Number(selected.opening_unallocated_amount || 0)) : 0}
               expenses={data.expenses} installments={data.installments}

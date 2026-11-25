@@ -1,5 +1,15 @@
 # Changelog
 
+## 24/11/2026 — Ícones de categoria com medidor nos cartões, contas e relatório
+
+**Código em revisão (branch `feat/wallet-category-icons`).** Categorias de despesa ganham ícone e cor próprios (`features/wallet/domain/walletCategoryVisual.ts`, ícones `lucide-react`, licença ISC; nenhum arquivo de outro aplicativo é usado) e um anel medidor com a fatia da categoria no total do período (`components/wallet/CategoryGaugeIcon.tsx`).
+
+- **Cartões:** faixa "Gastos da fatura por categoria" com as parcelas do ciclo selecionado; créditos/estornos e saldo consolidado de abertura ficam fora.
+- **Contas:** lista "Despesas do mês por categoria" no detalhe da conta, com gasto médio por dia; transferências, pagamentos de fatura, receitas e lançamentos anulados ficam fora.
+- **Nova despesa:** escolha de categoria por grade de ícones (`CategoryIconPicker`), mantendo "+ Nova" para categorias próprias.
+- **Relatório:** rosca de participação por categoria e ícones na lista.
+- Cálculo em centavos com percentuais que somam 100 (`walletCategoryBreakdown.ts`). Somente leitura: sem orçamento, sem mudança de dados, RPC, migration ou RLS. Testes em `tests/wallet/wallet-category-visuals.test.ts`. Sem validação em aparelho físico.
+
 ## 23/11/2026 — Melhorar a leitura do cabeçalho de empréstimos
 
 **Código em revisão.** O resumo de capital, encargos e valor original foi reorganizado em blocos próprios quando o cartão está expandido; identificador e valor principal permanecem em áreas separadas. Alteração de apresentação no componente `LoanCardComposition/Header.tsx`; sem mudança de cálculo ou persistência.

@@ -1,3 +1,11 @@
+## 24/11/2026 — Ícones de categoria com anel medidor (branch `feat/wallet-category-icons`)
+
+- **Pedido:** ícones nas categorias e um medidor gráfico nos ícones, nos cartões e nas contas, inspirado em apps de finanças pessoais. A cópia local de outro aplicativo indicada pelo usuário não contém o pacote de ícones de categoria (só favicons e código compilado), e esses desenhos são de terceiros; foram usados ícones `lucide-react` com cores próprias.
+- **Decisão do usuário:** o anel mede a **fatia da categoria no total** do período (não orçamento), sem tabela nova no Supabase.
+- **Implementação:** ver `CHANGELOG.md` 24/11/2026. Cartão: parcelas do ciclo selecionado; conta: operações `EXPENSE` do mês saídas da conta, sem anuladas/estornos. Percentuais por maior resto (somam 100).
+- **Conflitos previstos:** `QuickExpenseModal.tsx` também é alterado por trabalho não commitado na `main` (categoria automática); a troca do seletor ocupa o mesmo trecho e precisará de ajuste simples ao integrar (`value={effectiveCategory}` e `setCategoryManuallySelected(true)` no `onChange`).
+- **Pendências:** validar em aparelho; orçamento por categoria fica para depois, se desejado (exige migration).
+
 ## 22/11/2026 — apresentação estável dos limites nos cartões
 
 - **Evidência:** Bradesco mostra primeiro R$ 3.386,87 como estimativa e depois R$ 2.683,51 como referência bancária, sem nenhuma alteração financeira entre as capturas.

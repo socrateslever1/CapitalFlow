@@ -5,11 +5,12 @@ import test from 'node:test';
 test('cards page exposes the three credit magnitudes and the manual override action', () => {
   const page = readFileSync('features/wallet/pages/WalletCardsPage.tsx', 'utf8');
   const modal = readFileSync('components/wallet/InvoiceOverrideModal.tsx', 'utf8');
-  assert.match(page, /formatMoney\(bankInvoiceTotal \?\? cycle\.amount\)/);
+  assert.match(page, /formatMoney\(cycle\.amount\)/);
+  assert.match(page, /banco informou \$\{formatMoney\(bankInvoiceTotal\)\}/);
   assert.match(page, /Próximas faturas/);
   assert.match(page, /formatCardAvailableOrigin\(availablePresentation\?\.bankReference/);
   const presentation = readFileSync('features/wallet/domain/cardAvailablePresentation.ts', 'utf8');
-  assert.match(presentation, /'Banco · '/);
+  assert.match(presentation, /'Disponível · banco '/);
   assert.match(presentation, /'Limite estimado'/);
   assert.match(page, /bankLimitReference=/);
   assert.match(page, /saveObservedBankAvailable/);

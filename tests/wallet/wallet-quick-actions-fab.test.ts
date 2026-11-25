@@ -7,10 +7,11 @@ const cards = readFileSync('features/wallet/pages/WalletCardsPage.tsx', 'utf8');
 const accounts = readFileSync('features/wallet/pages/WalletAccountsPage.tsx', 'utf8');
 const payables = readFileSync('features/wallet/pages/WalletPayablesPage.tsx', 'utf8');
 
-test('o FAB expande para cima com as quatro ações rápidas', () => {
-  for (const label of ['Adicionar cartão', 'Adicionar despesa', 'Adicionar conta', 'Compromisso']) {
-    assert.match(fab, new RegExp(label));
+test('o FAB expande para cima com as ações rápidas', () => {
+  for (const label of ['Receber valor', 'Adicionar cartão', 'Adicionar despesa', 'Adicionar conta', 'Compromisso', 'Notificações bancárias']) {
+    assert.match(fab, new RegExp('/>' + label + '\\r?\\n'));
   }
+  assert.equal((fab.match(/role="menuitem"/g) || []).length, 6);
   assert.match(fab, /aria-expanded/);
   assert.match(fab, /right-6 z-\[var\(--z-fab\)\]/);
   assert.match(fab, /onCards/);

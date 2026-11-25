@@ -83,17 +83,25 @@ export function classifyStatementDescription(description: string): string {
   const label = normalizePdfLabel(description);
   const rules: Array<[RegExp, string]> = [
     [/salario|provento|remunera|folha|holerite/, 'Sal\u00e1rio'],
+    // Encargos do pr\u00f3prio cart\u00e3o (IOF, juros, rotativo) e parcelamento da fatura v\u00eam antes de 'taxa' (Servi\u00e7os).
+    [/\biof\b|encargos?|juros|rotativ|multa por atraso|\bmora\b/, 'Juros e encargos'],
+    [/parc\.?\s*facil|parcelamento\s+(?:da\s+|de\s+)?fatura/, 'Parcelamento de fatura'],
+    [/detran|\bipva\b|licenciamento|\bdarf\b|receita federal|prefeitura|\biptu\b/, 'Impostos e taxas'],
+    [/apple\s*store|google\s*store|google\s*shop/, 'Compras'],
+    [/google|youtube|terabo|icloud|apple\.com|microsoft|openai|chatgpt|deezer|globoplay|\bhbo\b|paramount/, 'Assinaturas'],
+    [/\bifd\s*\*|ristorante|trattoria|pizzar|\bhiper\b|hipermerc/, 'Alimenta\u00e7\u00e3o'],
+    [/shopfacil|shopee|aliexpress|shein/, 'Compras'],
     [/pix|transfer|ted\b|doc\b|pagamento recebido|deposit/, 'Transfer\u00eancias'],
     // Food delivery brands must be checked before Uber/99 ride services.
-    [/(?:(?:99(?:\s|\*|-)*food|99\s*food)|i\s*food|ifood|uber(?:\s|\*|-)*eats|ubereats|rappi|delivery)|supermerc|atacad|mercearia|padaria|aliment|restaurante|churrasc|lanch|lanche|marmit|acougue|hortifruti|feira|cafeteria|doceria|confeitaria|pizzaria|hamburguer|sorvet/, 'Alimenta\u00e7\u00e3o'],
+    [/(?:(?:99(?:\s|\*|-)*food|99\s*food)|i\s*food|ifood|uber(?:\s|\*|-)*eats|ubereats|rappi|delivery)|supermerc|atacad|mercearia|padaria|aliment|restaurante|churrasc|lanch|lanche|marmit|acougue|hortifruti|feira|cafeteria|doceria|confeitaria|pizzaria|hamburguer|sorvet|almoc|jantar|acai|\bpao\b/, 'Alimenta\u00e7\u00e3o'],
     [/farmac|drogaria|hospital|clinica|laborat|medic|odont|saude|unimed|hapvida|amil/, 'Sa\u00fade'],
     [/uber|\b99\b|taxi|eucatur|transamazon|transbrasiliana|viacao|rodoviaria|passagem|onibus|\bbus\b|metro|trem|transporte|mobilidade|combust|gasolina|diesel|etanol|\bposto\b|estacionamento|pedagio|sem\s*parar|conectcar|veloe/, 'Transporte'],
     [/energia|internet|agua|saneamento|telefone|aluguel|condomin|enel|cemig|sabesp|vivo|claro|tim/, 'Contas da casa'],
-    [/cinema|teatro|parque|spotify|netflix|disney|prime video|steam|ingresso|bar\b|show|viagem|hotel|turismo/, 'Lazer'],
+    [/cinema|teatro|parque|spotify|netflix|disney|prime video|youtube|globoplay|deezer|crunchyroll|steam|playstation|xbox|nintendo|ingresso|bar\b|show|viagem|hotel|turismo/, 'Lazer'],
     [/escola|faculdade|universidade|curso|udemy|livraria|educa|mensalidade escolar/, 'Educa\u00e7\u00e3o'],
-    [/seguro|tarifa|taxa|assinatura|manutenc|oficina|contador|advoc|servico/, 'Servi\u00e7os'],
+    [/seguro|tarifa|taxa|assinatura|manutenc|oficina|contador|advoc|servico|google|apple|icloud|microsoft|openai|chatgpt|claude|canva|adobe|aws|cloudflare|vercel|github|supabase|dominio|hospedagem/, 'Servi\u00e7os'],
     [/mercado\s*pago|mercadopago|recargapay/, 'Outros'],
-    [/amazon|mercado\s*livre|magazine|kabum|shopping|loja|varejo|compra/, 'Compras'],
+    [/amazon|mercado\s*livre|shopee|shein|aliexpress|magalu|magazine|americanas|casas\s*bahia|kabum|shopping|loja|varejo|compra/, 'Compras'],
   ];
   return rules.find(([pattern]) => pattern.test(label))?.[1] || 'Outros';
 }

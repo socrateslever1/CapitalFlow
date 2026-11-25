@@ -3,6 +3,8 @@ import { ArrowRight, BarChart3, CalendarClock, CreditCard, Lightbulb, TrendingDo
 import { formatMoney } from '../../../utils/formatters';
 import { useFinancialPrivacy } from '../../../contexts/FinancialPrivacyContext';
 import type { SpendingOverview } from '../domain/walletSpendingInsights';
+import { CategoryGaugeIcon } from '../../../components/wallet/CategoryGaugeIcon';
+import { getWalletCategoryVisual } from '../domain/walletCategoryVisual';
 
 /** Banking-style, read-only spending guidance. No RPCs or financial writes. */
 export const WalletSpendingGuide: React.FC<{
@@ -77,8 +79,11 @@ export const WalletSpendingGuide: React.FC<{
         )}
         {spending.categories.length ? (
           <ol className="mt-4 space-y-3" aria-label="Categorias de despesas do mês">
-            {spending.categories.map((category, index) => (
-              <li key={category.name} className="min-w-0">
+            {spending.categories.map((category) => (
+              <li key={category.name} className="flex min-w-0 items-center gap-3">
+                {/* Ícone da categoria com anel da fatia no total do mês. */}
+                <CategoryGaugeIcon category={category.name} percentage={category.percentage} size={40} />
+                <div className="min-w-0 flex-1">
                 <div className="mb-1 flex items-center justify-between gap-2 text-xs">
                   <span className="min-w-0 truncate font-medium text-slate-200">{category.name}</span>
                   <span className="shrink-0 text-right tabular-nums text-slate-100">{formatMoney(category.amount)} <span className="text-slate-400">· {category.percentage}%</span></span>
@@ -86,8 +91,9 @@ export const WalletSpendingGuide: React.FC<{
                 <div role="progressbar" aria-label={category.name} aria-valuemin={0} aria-valuemax={100}
                   aria-valuenow={Math.min(100, category.percentage)}
                   className="h-1.5 overflow-hidden rounded-full bg-slate-800">
-                  <div className={`h-full rounded-full ${index === 0 ? 'bg-cyan-400' : 'bg-blue-500/80'}`}
-                    style={{width: `${Math.min(100,Math.max(0,category.percentage))}%`}}/>
+                  <div className="h-full rounded-full"
+                    style={{width: `${Math.min(100,Math.max(0,category.percentage))}%`, backgroundColor: getWalletCategoryVisual(category.name).color}}/>
+                </div>
                 </div>
               </li>
             ))}

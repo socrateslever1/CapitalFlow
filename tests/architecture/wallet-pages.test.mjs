@@ -83,8 +83,9 @@ test('navegação de faturas apresenta linhas compactas e meses efetivamente reg
   assert.match(page, /getVisibleInvoiceCycles\(/);
   assert.match(page, /aria-label="Faturas registradas"/);
   assert.match(page, /aria-pressed={active}/);
-  assert.match(page, /Fatura {competence}/);
-  assert.match(page, /'Vence ' \+ due/);
+  // Fatura identificada pelo mês de vencimento, como no banco.
+  assert.match(page, /Fatura {dueLabel}/);
+  assert.match(page, /'Fecha ' \+ closing \+ ' · vence ' \+ due/);
   assert.match(page, /hideFinancialValues \? 'Vencimento protegido'/);
   assert.match(page, /hideFinancialValues \? 'Situação protegida' : /);
   assert.match(page, /Adicionar fatura/);
@@ -132,7 +133,7 @@ test('bank credit limit does not flash estimate while per-card facts are unresol
   const stack = read('components/wallet/BankStack.tsx');
   assert.match(page, /resolveCardInvoiceFactsView/);
   assert.match(page, /data\?\.cardInvoiceFacts/);
-  assert.match(page, /getCardAvailablePresentation\(selected, invoiceFacts\)/);
+  assert.match(page, /getCardAvailablePresentation\(selected, invoiceFacts, data \|\| undefined\)/);
   assert.match(page, /bankLimitStatus=\{bankLimitStatus\}/);
   assert.match(page, /bankAvailableReferences=\{data\.cardInvoiceFacts\}/);
   assert.doesNotMatch(page, /\[invoiceFacts, setInvoiceFacts\] = useState/);

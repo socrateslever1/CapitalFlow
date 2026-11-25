@@ -77,7 +77,7 @@ const deriveOverview = (snapshot: WalletOverviewSnapshot, today: string) => {
     getBankVisual(account.institution_key || account.bank_name || account.nickname).key,
   ));
   const credit = getCreditSummary(cards);
-  const spending = getWalletSpendingOverview(snapshot.expenses, month);
+  const spending = getWalletSpendingOverview(snapshot.expenses, month, 4, snapshot.spendingOperations || []);
   const exactDueDates = new Map((snapshot.cardInvoiceDates || [])
     .map(item => [item.card_id + ':' + item.due_month.slice(0, 7), item.due_date] as const));
   const invoiceList: Commitment[] = cards.flatMap(card =>
@@ -101,9 +101,10 @@ const deriveOverview = (snapshot: WalletOverviewSnapshot, today: string) => {
         }];
       }),
   );
-  // Only the current calendar month's invoices enter the monthly projection.
+  // A projeção do mês inclui faturas do mês e faturas vencidas ainda não pagas:
+  // dívida atrasada não some da previsão.
   const currentInvoiceTotal = sum(
-    invoiceList.filter(invoice => invoice.dueDate.slice(0, 7) === month),
+    invoiceList.filter(invoice => invoice.dueDate.slice(0, 7) <= month),
     invoice => invoice.amount,
   );
   const receivedIds = new Set(snapshot.recurringReceipts
@@ -163,6 +164,7 @@ const deriveOverview = (snapshot: WalletOverviewSnapshot, today: string) => {
 
   return {
     accounts, cards, bankAvailableReferences: snapshot.bankAvailableReferences || [],
+    cardMovements: { expenses: snapshot.expenses },
     accountBalance, institutionCount: institutionKeys.size,
     credit, currentInvoiceTotal, balance, upcoming, spending, overdueCount, overdueInvoiceCount, dueSoonCount,
     timelineEvents,
@@ -257,6 +259,7 @@ export const WalletOverviewPage: React.FC<Props> = ({ activeUser, onNavigate }) 
 
     <WalletOverviewSummary accounts={accounts} cards={cards}
       bankAvailableReferences={overview.bankAvailableReferences}
+      cardMovements={overview.cardMovements}
       accountBalance={overview.accountBalance}
       currentInvoiceTotal={overview.currentInvoiceTotal} credit={credit} onNavigate={onNavigate}/>
 

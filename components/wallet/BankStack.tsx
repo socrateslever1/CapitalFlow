@@ -19,7 +19,7 @@ type Props = {
   onSelectionChange?: (card: PersonalWalletCard | null) => void;
   onNewExpense?: (card: PersonalWalletCard) => void;
   onPayInvoice?: (card: PersonalWalletCard) => void;
-  bankLimitReference?: { cardId: string; amount: number; updatedAt: string } | null;
+  bankLimitReference?: { cardId: string; amount: number; updatedAt: string; usageSinceReference?: number } | null;
   bankAvailableReferences?: readonly CardBankAvailableReference[];
   bankLimitStatusCardId?: string | null;
   bankLimitStatus?: 'LOADING' | 'READY' | 'ERROR';
@@ -96,7 +96,8 @@ export const BankStack: React.FC<Props> = ({ accounts, cards, onCard, onEditCard
     : selected ? Math.max(0, Number(selected.credit_limit) - Number(selected.used_limit)) : 0;
   const availableLabel = limitState === 'LOADING' ? 'Conferindo limite'
     : limitState === 'ERROR' ? 'Referência indisponível'
-      : formatCardAvailableOrigin(hasBankLimit ? selectedReference : null);
+      : formatCardAvailableOrigin(hasBankLimit ? selectedReference : null,
+        hasBankLimit && bankLimitReference?.cardId === selected?.id ? bankLimitReference.usageSinceReference : 0);
   const maskedNumber = selected?.last_four
     ? `•••• •••• •••• ${selected.last_four}`
     : '•••• •••• •••• ----';

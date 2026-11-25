@@ -1,4 +1,8 @@
-import type { PersonalWalletExpense } from '../../../services/personalWallet.service';
+import type { PersonalWalletExpense, WalletAccountOperation } from '../../../services/personalWallet.service';
+
+/** Despesa paga direto da conta (débito, PIX, boleto), sem passar pelo cartão. */
+export type SpendingAccountOperation = Pick<WalletAccountOperation,
+  'id' | 'operation_type' | 'from_account_id' | 'amount' | 'category' | 'operation_date' | 'voided_at' | 'voids_operation_id'>;
 
 export type SpendingCategory = { name: string; amount: number; percentage: number; count: number };
 export type SpendingMethodSummary = {
@@ -27,6 +31,7 @@ export function getWalletSpendingOverview(
   expenses: PersonalWalletExpense[],
   month: string,
   maxCategories = 4,
+  accountOperations: readonly SpendingAccountOperation[] = [],
 ): SpendingOverview {
   const current = new Map<string, { amountCents: number; count: number }>();
   let totalCents = 0;
@@ -84,6 +89,30 @@ export function getWalletSpendingOverview(
       } else {
         singleCents += cents;
       }
+      count++;
+    }
+  }
+  // Despesas pagas pela conta também são gastos do mês. Ficam fora transferências,
+  // pagamentos de fatura (já contados como compras no cartão) e lançamentos anulados.
+  const reversed = new Set(accountOperations.filter(op => op.voids_operation_id).map(op => op.voids_operation_id));
+  for (const op of accountOperations) {
+    if (op.operation_type !== 'EXPENSE' || !op.from_account_id || op.voided_at || op.voids_operation_id || reversed.has(op.id)) continue;
+    const date = String(op.operation_date || '').slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
+    const amount = Number(op.amount);
+    if (!Number.isFinite(amount) || amount <= 0) continue;
+    const cents = Math.round(amount * 100);
+    if (date.slice(0, 7) === previousMonth) {
+      previousCents += cents;
+    } else if (date.slice(0, 7) === month) {
+      const name = op.category?.trim() || 'Sem categoria';
+      const key = name.toLocaleLowerCase('pt-BR');
+      const stored = current.get(key);
+      if (stored) { stored.amountCents += cents; stored.count += 1; }
+      else current.set(key, { amountCents: cents, count: 1 });
+      totalCents += cents;
+      accountCents += cents;
+      singleCents += cents;
       count++;
     }
   }

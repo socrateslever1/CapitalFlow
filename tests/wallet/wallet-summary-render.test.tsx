@@ -63,7 +63,7 @@ test('limite do banco na visão geral coincide com a referência exibida em Cart
     accountBalance={123.45} currentInvoiceTotal={100}
     credit={getCreditSummary([cards[0],second])} onNavigate={()=>{}}/>);
   assert.ok(page.includes('420,51'));
-  assert.ok(page.includes('Banco · 19/11'));
+  assert.ok(page.includes('Disponível · banco 19/11'));
   assert.ok(page.includes('Disponível · banco e estimado'));
   assert.ok(page.includes('1.320,51'));
 });

@@ -114,7 +114,9 @@ export const calculateWalletBalance = (input: {
     .filter(income => income.active && !input.receivedIncomeIds.has(income.id))
     .reduce((sum, income) => sum + Number(income.amount || 0), 0);
   const monthPayables = input.payables
-    .filter(payable => !['PAID', 'CANCELED'].includes(payable.status) && String(payable.due_date || '').slice(0, 7) === input.month)
+    // Contas do mês e contas vencidas ainda não pagas entram na projeção.
+    .filter(payable => !['PAID', 'CANCELED'].includes(payable.status) && Boolean(payable.due_date)
+      && String(payable.due_date).slice(0, 7) <= input.month)
     .reduce((sum, payable) => sum + Number(payable.outstanding_balance || 0), 0);
   const openCardInvoices = Math.max(0, Number(input.openCardInvoices || 0));
   const totalResources = accountBalance + pendingRecurringIncome;

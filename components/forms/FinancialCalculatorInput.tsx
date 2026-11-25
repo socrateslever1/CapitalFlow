@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { parseWalletMoney, parseWalletRate, parseWalletSignedMoney } from '../../features/wallet/utils/parseWalletMoney';
-import { formatLiveBrazilianMoney, formatLiveBrazilianCents, backspaceLiveBrazilianCents, formatPastedBrazilianMoney, formatLiveBrazilianSignedCents, backspaceLiveBrazilianSignedCents, formatMoneyExpressionOperand, insertMoneyExpressionOperator, backspaceMoneyExpressionOperand, normalizePastedMoneyExpression } from '../../features/wallet/utils/liveBrazilianMoneyInput';
+import { formatLiveBrazilianMoney, formatLiveBrazilianCents, backspaceLiveBrazilianCents, formatPastedBrazilianMoney, formatLiveBrazilianSignedCents, backspaceLiveBrazilianSignedCents, formatMoneyExpressionOperand, insertMoneyExpressionOperator, backspaceMoneyExpressionOperand, normalizePastedMoneyExpression, isAllowedFinancialInputDraft } from '../../features/wallet/utils/liveBrazilianMoneyInput';
 
 type Props = Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'onBlur' | 'type'> & {
   value: string | number | null | undefined;
@@ -109,6 +109,9 @@ export const FinancialCalculatorInput: React.FC<Props> = ({
             // O Android dispara input sem keydown. Trate Backspace antes de
             // distinguir número simples de expressão para preservar centavos.
             const inputType = (e.nativeEvent as InputEvent).inputType;
+            if (!isAllowedFinancialInputDraft(raw)) {
+              return;
+            }
             const caret = input.selectionStart ?? raw.length;
             const operator = raw[caret - 1];
             if (!signed && !rate && raw.length === draft.length + 1 && /[+\-×÷*/]/.test(operator ?? '')
@@ -145,20 +148,30 @@ export const FinancialCalculatorInput: React.FC<Props> = ({
               requestAnimationFrame(() => {
                 if (document.activeElement === input) input.setSelectionRange(next.caret, next.caret);
               });
-            } else {
-              const next = !signed && !rate ? formatMoneyExpressionOperand(raw, input.selectionStart ?? raw.length, centsEntry) : null;
-              setDraft(next?.value ?? raw);
-              if (next) requestAnimationFrame(() => {
+            } else if (!signed && !rate) {
+              const next = formatMoneyExpressionOperand(raw, input.selectionStart ?? raw.length, centsEntry);
+              if (!next) return;
+              setDraft(next.value);
+              requestAnimationFrame(() => {
                 if (document.activeElement === input) input.setSelectionRange(next.caret, next.caret);
               });
+            } else {
+              setDraft(raw);
             }
             setError('');
             input.setCustomValidity('');
           }}
           onPaste={e => {
+            const pasted = e.clipboardData.getData('text');
+            const strippedCurrency = pasted.trim().replace(/^R\$\s*/i, '').trim();
+            if (!strippedCurrency || !/\d/.test(strippedCurrency) || !isAllowedFinancialInputDraft(strippedCurrency)) {
+              e.preventDefault();
+              setError('Valor colado inválido. Confira a quantia antes de continuar.');
+              e.currentTarget.setCustomValidity('Valor colado inválido.');
+              return;
+            }
             if (!centsEntry) { onPaste?.(e); return; }
             e.preventDefault();
-            const pasted = e.clipboardData.getData('text');
             try {
               const normalized = !rate && !signed && /[+×÷*/()%]/.test(pasted)
                 ? normalizePastedMoneyExpression(pasted)

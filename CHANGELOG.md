@@ -9,6 +9,7 @@
 - **Nova despesa:** escolha de categoria por grade de ícones (`CategoryIconPicker`), mantendo "+ Nova" para categorias próprias.
 - **Relatório:** rosca de participação por categoria e ícones na lista.
 - **Classificação automática ampliada** (`classifyStatementDescription`): IOF, encargos, juros e rotativo → "Juros e encargos"; parcelamento da fatura → "Parcelamento de fatura"; Detran/IPVA/IPTU → "Impostos e taxas"; serviços digitais (Google, YouTube, iCloud etc.) → "Assinaturas"; abreviações de delivery/restaurante/hipermercado → "Alimentação". Pagamentos a pessoas e intermediadores continuam em "Outros".
+- **Edição sem destruir parcelas** (migration `20261124150000_wallet_edit_expense_preserve_installments.sql`, **não aplicada**): `personal_wallet_update_expense_idempotent` deixa de apagar e recriar parcelas quando só descrição, categoria ou observação mudam; quando valor, data ou mês da fatura mudam, recria mantendo a numeração original (11/18 continua 11/18). Mesma assinatura, permissões, idempotência e trava de limite. Teste: `tests/wallet/wallet-edit-expense-preserve-installments.test.ts`.
 - Cálculo em centavos com percentuais que somam 100 (`walletCategoryBreakdown.ts`). Somente leitura: sem orçamento, sem mudança de dados, RPC, migration ou RLS. Testes em `tests/wallet/wallet-category-visuals.test.ts`. Sem validação em aparelho físico.
 
 ## 23/11/2026 — Melhorar a leitura do cabeçalho de empréstimos

@@ -33,6 +33,7 @@ export const SYSTEM_CHANGELOG: ChangelogRelease[] = [
       { kind: 'MELHORIA', text: 'Na nova despesa, a categoria é escolhida por ícones.' },
       { kind: 'MELHORIA', text: 'O relatório ganhou um gráfico de rosca por categoria.' },
       { kind: 'MELHORIA', text: 'Importações reconhecem mais categorias, como juros e encargos do cartão, impostos e assinaturas digitais.' },
+      { kind: 'CORRECAO', text: 'Editar a descrição ou a categoria de uma compra parcelada não renumera mais as parcelas.' },
     ],
   },
   {

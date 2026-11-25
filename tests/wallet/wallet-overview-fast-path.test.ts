@@ -6,7 +6,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { WalletSpendingGuide } from '../../features/wallet/components/WalletSpendingGuide';
 import { getWalletSpendingOverview } from '../../features/wallet/domain/walletSpendingInsights';
 
-test('overview fetches nine lightweight sources including exact invoice due dates', () => {
+test('overview fetches ten lightweight sources including exact invoice due dates', () => {
   const service = readFileSync('services/personalWallet.service.ts','utf8');
   const repository = readFileSync('features/wallet/services/walletRepository.ts','utf8');
   const overview = readFileSync('features/wallet/pages/WalletOverviewPage.tsx','utf8');
@@ -21,9 +21,12 @@ test('overview fetches nine lightweight sources including exact invoice due date
     'personal_wallet_card_invoice_facts',
   ];
   for (const table of expected) assert(query.includes("from('" + table + "')"), table);
-  assert.equal((query.match(/supabase\.from\('/g) ?? []).length, 9);
+  assert.equal((query.match(/supabase\.from\('/g) ?? []).length, 10);
+  // Operações de conta só entram filtradas: despesas desde o mês anterior, poucas colunas.
+  assert(query.includes("from('personal_wallet_account_operations')"));
+  assert.match(query, /\.select\('id,operation_type,from_account_id,amount,category,operation_date,voided_at,voids_operation_id'\)\s*\.eq\('operation_type', 'EXPENSE'\)\.gte\('operation_date', spendingSince\)/);
   for (const excluded of [
-    'personal_wallet_statement_rows','personal_wallet_account_operations',
+    'personal_wallet_statement_rows',
     'personal_wallet_payable_payments','personal_wallet_recurring_obligations',
   ]) assert(!query.includes("from('" + excluded + "')"));
   assert(!query.includes('createSignedUrl'), 'overview should not sign optional images on first paint');

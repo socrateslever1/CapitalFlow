@@ -6,6 +6,9 @@ import { walletRepository, type WalletOverviewSnapshot } from '../services/walle
 import { WalletPageFrame } from '../components/WalletPageFrame';
 import { deriveOverview } from './WalletOverviewPage';
 import { businessDateInManaus } from '../../../utils/businessDate';
+import { CategoryGaugeIcon } from '../../../components/wallet/CategoryGaugeIcon';
+import { CategoryDonut } from '../../../components/wallet/CategoryDonut';
+import { getWalletCategoryVisual } from '../domain/walletCategoryVisual';
 
 const localDate = (): string => businessDateInManaus();
 
@@ -127,8 +130,14 @@ export const WalletReportPage: React.FC<{ onNavigate: (path: string) => void }> 
         <p className="mt-1 text-xs text-slate-400">
           {report.spending.count} {report.spending.count === 1 ? 'lançamento no mês' : 'lançamentos no mês'}
         </p>
+        {report.spending.categories.length > 0 && <div className="mt-4">
+          <CategoryDonut slices={report.spending.categories}
+            center={<><span className="text-[10px] uppercase tracking-wide text-slate-400">Total</span><strong className="text-sm font-bold tabular-nums text-white"><PrivateMoney value={formatMoney(report.spending.total)} /></strong></>} />
+        </div>}
         {report.spending.categories.length ? <ul className="mt-4 space-y-3">
-          {report.spending.categories.map(category => <li key={category.name}>
+          {report.spending.categories.map(category => <li key={category.name} className="flex items-center gap-3">
+            <CategoryGaugeIcon category={category.name} percentage={category.percentage} size={40} />
+            <div className="min-w-0 flex-1">
             <div className="mb-1 flex justify-between gap-3 text-xs">
               <span className="min-w-0 truncate text-slate-200">{category.name}</span>
               <span className="shrink-0 tabular-nums text-slate-300">
@@ -136,7 +145,8 @@ export const WalletReportPage: React.FC<{ onNavigate: (path: string) => void }> 
               </span>
             </div>
             <div className="h-1.5 overflow-hidden rounded-full bg-slate-800">
-              <div className="h-full rounded-full bg-blue-500" style={{ width: Math.min(100, category.percentage) + '%' }} />
+              <div className="h-full rounded-full" style={{ width: Math.min(100, category.percentage) + '%', backgroundColor: getWalletCategoryVisual(category.name).color }} />
+            </div>
             </div>
           </li>)}
         </ul> : <p className="mt-4 text-sm text-slate-400">Nenhuma despesa registrada neste mês.</p>}

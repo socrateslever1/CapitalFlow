@@ -24,6 +24,23 @@ export const SYSTEM_CHANGELOG: ChangelogRelease[] = [
   {
     version: '3.5.0',
     codeOnly: true,
+    date: '24/11/2026',
+    title: 'Ícones e medidor por categoria',
+    summary: 'Cada categoria tem ícone próprio e um anel que mostra quanto ela pesa no total.',
+    items: [
+      { kind: 'NOVIDADE', text: 'A fatura do cartão mostra os gastos por categoria, com ícone e anel medidor.' },
+      { kind: 'NOVIDADE', text: 'O detalhe da conta mostra as despesas do mês por categoria, com gasto médio por dia.' },
+      { kind: 'MELHORIA', text: 'Na nova despesa, a categoria é escolhida por ícones.' },
+      { kind: 'MELHORIA', text: 'O relatório ganhou um gráfico de rosca por categoria.' },
+      { kind: 'MELHORIA', text: 'A Visão geral mostra as despesas por categoria com ícone e anel medidor.' },
+      { kind: 'CORRECAO', text: 'Despesas pagas pela conta passam a contar no resumo de gastos do mês, que antes mostrava só o cartão.' },
+      { kind: 'MELHORIA', text: 'Importações reconhecem mais categorias, como juros e encargos do cartão, impostos e assinaturas digitais.' },
+      { kind: 'CORRECAO', text: 'Editar a descrição ou a categoria de uma compra parcelada não renumera mais as parcelas.' },
+    ],
+  },
+  {
+    version: '3.5.0',
+    codeOnly: true,
     date: '23/11/2026',
     title: 'Resumo mais legível nos cartões de empréstimo',
     summary: 'Capital, encargos e valor original aparecem em áreas próprias no cartão expandido.',

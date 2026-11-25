@@ -83,6 +83,13 @@ export function classifyStatementDescription(description: string): string {
   const label = normalizePdfLabel(description);
   const rules: Array<[RegExp, string]> = [
     [/salario|provento|remunera|folha|holerite/, 'Sal\u00e1rio'],
+    // Encargos do pr\u00f3prio cart\u00e3o (IOF, juros, rotativo) e parcelamento da fatura v\u00eam antes de 'taxa' (Servi\u00e7os).
+    [/\biof\b|encargos?|juros|rotativ|multa por atraso|\bmora\b/, 'Juros e encargos'],
+    [/parc\.?\s*facil|parcelamento\s+(?:da\s+|de\s+)?fatura/, 'Parcelamento de fatura'],
+    [/detran|\bipva\b|licenciamento|\bdarf\b|receita federal|prefeitura|\biptu\b/, 'Impostos e taxas'],
+    [/google|youtube|terabo|icloud|apple\.com|microsoft|openai|chatgpt|deezer|globoplay|\bhbo\b|paramount/, 'Assinaturas'],
+    [/\bifd\s*\*|ristorante|trattoria|pizzar|\bhiper\b|hipermerc/, 'Alimenta\u00e7\u00e3o'],
+    [/shopfacil|shopee|aliexpress|shein/, 'Compras'],
     [/pix|transfer|ted\b|doc\b|pagamento recebido|deposit/, 'Transfer\u00eancias'],
     // Food delivery brands must be checked before Uber/99 ride services.
     [/(?:(?:99(?:\s|\*|-)*food|99\s*food)|i\s*food|ifood|uber(?:\s|\*|-)*eats|ubereats|rappi|delivery)|supermerc|atacad|mercearia|padaria|aliment|restaurante|churrasc|lanch|lanche|marmit|acougue|hortifruti|feira|cafeteria|doceria|confeitaria|pizzaria|hamburguer|sorvet/, 'Alimenta\u00e7\u00e3o'],

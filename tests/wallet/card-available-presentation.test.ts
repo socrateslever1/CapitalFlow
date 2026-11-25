@@ -15,7 +15,7 @@ test('referência bancária mais recente tem precedência sobre o cálculo, sem 
   assert.equal(result.origin,'BANK');
   assert.equal(result.amount,151.01);
   assert.equal(result.estimatedAmount,277.90);
-  assert.equal(formatCardAvailableOrigin(result.bankReference),'Banco · 19/11');
+  assert.equal(formatCardAvailableOrigin(result.bankReference),'Disponível · banco 19/11');
 });
 
 test('sem referência válida, apresentar explicitamente valor estimado',()=>{

@@ -44,7 +44,9 @@ test('card-specific expense actions lock the selected card and default historica
   assert.match(card, /lockCardSelection=\{Boolean\(quickExpenseCardId\)\}/);
   assert.match(sheet, /lockCardSelection \?/);
   assert.match(sheet, /aria-label="Cartão selecionado"/);
-  assert.match(sheet, /expenseDate > referenceToday\s*\?\s*expenseDate\s*:\s*referenceToday/);
+  // Compras antigas (fatura já vencida) continuam indo para a fatura aberta; a regra
+  // completa (data da compra, fechamento exclusivo) fica no domínio compartilhado.
+  assert.match(sheet, /resolvePurchaseInvoiceMonth\(\{\s*purchaseDate: expenseDate, today: referenceToday/);
   assert.match(sheet, /if \(candidate >= currentOpenMonth\)/);
   assert.match(cycle, /const currentOpenDueMonth = getPurchaseInvoiceMonth\(today, input\.closingDay, input\.dueDay\)/);
   assert.match(sheet, /Selecionar próxima fatura/);

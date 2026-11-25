@@ -1,5 +1,18 @@
 # Changelog
 
+## 24/11/2026 — Corrigir ciclo de fatura, fatura atual, previsão e disponível dos cartões
+
+**Código em revisão (branch `fix/wallet-cycle-logic`; migration ainda não aplicada no Supabase).** Correções de lógica da Carteira encontradas em auditoria somente leitura de um cartão real:
+
+- **Compra lançada com atraso:** `private.wallet_card_first_due_date` (migration `20261124120000_wallet_purchase_date_invoice_routing.sql`) deixa de usar `greatest(data_compra, hoje)`. A compra vai para a fatura da data da compra; se essa fatura já fechou, só a recebe enquanto não venceu e não tem pagamento registrado/parcela quitada. Fatura vencida ou paga não é reaberta (vai para a aberta), preservando o cadastro de parcelados antigos. O limite da situação inicial do cartão continua respeitado. Espelho no frontend: `resolvePurchaseInvoiceMonth` e `getSettledInvoiceMonths` (`components/wallet/invoiceStatementDomain.ts`), usados por `QuickExpenseModal` e `QuickWalletActionsModal`.
+- **Fechamento exclusivo:** compra feita no dia do fechamento entra na fatura seguinte; no dia do fechamento a fatura aparece como fechada (`getPurchaseInvoiceMonth`, `resolveInvoiceCycleState`, `checkClosedOrPaidInvoiceWarning` e a nova função SQL).
+- **Fatura atual:** `getCardCreditPosition` usa a primeira fatura com saldo ainda não vencida; sobras de faturas vencidas aparecem em `overdueInvoices`. O total comprometido do limite não muda.
+- **Previsão do mês:** faturas e contas a pagar vencidas e não pagas passam a entrar na projeção (Visão geral, `walletBalanceDomain`, `PersonalWalletPage`).
+- **Disponível do banco:** a referência bancária salva é reduzida pelas compras registradas depois dela com data posterior ao dia da referência e identificada como "Banco · dd/mm + lançamentos". Pagamentos não são somados para não superestimar o disponível.
+- **Tela da fatura (Cartões):** o valor principal passa a ser o saldo lançado no app; o total informado pelo banco aparece como "banco informou". A fatura é nomeada pelo mês de vencimento ("Fatura dez/2026", com "Fecha 24/11 · vence 03/12/2026") e a tela abre na fatura a pagar (fechada e ainda não vencida), não na próxima. O disponível passa a ser rotulado "Disponível · banco dd/mm + lançamentos". O aviso de diferença da fatura desconta as compras lançadas depois da referência do banco e só aparece quando sobra diferença não explicada, sugerindo conferir compra repetida ou ajuste do banco.
+- **Não alterado:** lançamentos, saldos, pagamentos, ledger, RLS, contratos e dados existentes. A migration só substitui a função de roteamento e cria duas funções auxiliares privadas.
+- **Testes:** novo `tests/wallet/wallet-cycle-logic-fixes.test.ts`; testes que fixavam a regra antiga foram atualizados (`invoice-cycle-simplicity`, `invoice-credit-separation`, `wallet-ui-architecture`, `wallet-pages`, `wallet-expense-sheet-navigation`). Resultados registrados em `docs/CARTEIRA_CONTINUIDADE.md`. Revisão independente por agente sem achados críticos; achados médios corrigidos. Sem validação em aparelho físico.
+
 ## 23/11/2026 — Melhorar a leitura do cabeçalho de empréstimos
 
 **Código em revisão.** O resumo de capital, encargos e valor original foi reorganizado em blocos próprios quando o cartão está expandido; identificador e valor principal permanecem em áreas separadas. Alteração de apresentação no componente `LoanCardComposition/Header.tsx`; sem mudança de cálculo ou persistência.

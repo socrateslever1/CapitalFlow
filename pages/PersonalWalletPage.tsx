@@ -424,7 +424,7 @@ export const PersonalWalletPage: React.FC<PersonalWalletPageProps> = ({ activeUs
       .reduce((sum, expense) => sum + Number(expense.amount || 0), 0)
       + data.accountOperations.filter(op => op.operation_type === 'EXPENSE' && String(op.operation_date).slice(0,7) === currentMonth())
         .reduce((sum, op) => sum + Number(op.amount || 0), 0),
-    openInvoices: invoices.filter(invoice => invoice.dueMonth.slice(0, 7) === currentMonth())
+    openInvoices: invoices.filter(invoice => invoice.dueMonth.slice(0, 7) <= currentMonth())
       .reduce((sum, invoice) => sum + invoice.amount, 0),
   }), [data, invoices]);
   const receivedIncomeIdsThisMonth = useMemo(

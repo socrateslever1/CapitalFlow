@@ -23,7 +23,7 @@ import {
   normalizeCategoryName,
   saveCustomExpenseCategory,
 } from '../../features/wallet/utils/walletCustomCategories';
-import { getInvoiceCycleDates, getPurchaseInvoiceMonth } from './invoiceStatementDomain';
+import { getInvoiceCycleDates, getPurchaseInvoiceMonth, resolvePurchaseInvoiceMonth } from './invoiceStatementDomain';
 import {
   buildCardExpenseNotes,
   resolveCardInstallmentPlan,
@@ -93,13 +93,13 @@ export const resolveFirstInstallmentMonthLabel = (
   explicitMonth?: string | null,
   referenceToday: string = todayIso(),
 ): { dueDateIso: string; monthInputValue: string; label: string } => {
-  const effectiveCycleDate =
-    expenseDate && /^\d{4}-\d{2}-\d{2}$/.test(expenseDate) && expenseDate > referenceToday
-      ? expenseDate
-      : referenceToday;
+  // Mesma regra da RPC: fatura pela data da compra; fatura vencida volta para a aberta.
   const dueDateIso = explicitMonth && /^\d{4}-(0[1-9]|1[0-2])/.test(explicitMonth)
     ? explicitMonth.slice(0, 7) + '-01'
-    : getPurchaseInvoiceMonth(effectiveCycleDate, closingDay ?? null, dueDay ?? null);
+    : resolvePurchaseInvoiceMonth({
+      purchaseDate: expenseDate, today: referenceToday,
+      closingDay: closingDay ?? null, dueDay: dueDay ?? null,
+    });
   return { dueDateIso, monthInputValue: dueDateIso.slice(0, 7), label: formatMonthLabel(dueDateIso) };
 };
 
@@ -234,14 +234,14 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
       if (candidate >= currentOpenMonth) {
         if (selectedCard?.closing_day && selectedCard?.due_day) {
           const dates = getInvoiceCycleDates(candidate, selectedCard.closing_day, selectedCard.due_day);
-          if (effectiveCycleDate <= dates.closingDate) inheritedMonth = candidate;
+          if (effectiveCycleDate < dates.closingDate) inheritedMonth = candidate;
         } else {
           inheritedMonth = candidate;
         }
       }
     }
     return resolveFirstInstallmentMonthLabel(
-      effectiveCycleDate,
+      expenseDate || today,
       selectedCard?.closing_day,
       selectedCard?.due_day,
       firstInvoiceMonth || inheritedMonth,

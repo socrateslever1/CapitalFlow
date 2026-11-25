@@ -24,6 +24,22 @@ export const SYSTEM_CHANGELOG: ChangelogRelease[] = [
   {
     version: '3.5.0',
     codeOnly: true,
+    date: '24/11/2026',
+    title: 'Faturas e limites dos cartões mais fiéis ao banco',
+    summary: 'Compras lançadas com atraso, dia de fechamento, fatura atual, previsão do mês e disponível do banco foram corrigidos.',
+    items: [
+      { kind: 'CORRECAO', text: 'Compra feita antes do fechamento e lançada depois entra na fatura certa, enquanto ela ainda não venceu nem foi paga.' },
+      { kind: 'CORRECAO', text: 'Compra feita no dia do fechamento passa para a fatura seguinte, como no banco.' },
+      { kind: 'CORRECAO', text: 'Sobras de faturas antigas não ocupam mais o lugar da fatura atual.' },
+      { kind: 'CORRECAO', text: 'A previsão do mês passa a considerar faturas e contas atrasadas ainda não pagas.' },
+      { kind: 'MELHORIA', text: 'O disponível informado pelo banco é atualizado com as compras lançadas depois dele.' },
+      { kind: 'MELHORIA', text: 'A fatura do cartão mostra o valor lançado em destaque, é nomeada pelo mês de vencimento e abre na fatura a pagar.' },
+      { kind: 'MELHORIA', text: 'O disponível do cartão é identificado como tal, e o aviso da fatura só aparece quando há diferença que as compras novas não explicam.' },
+    ],
+  },
+  {
+    version: '3.5.0',
+    codeOnly: true,
     date: '23/11/2026',
     title: 'Resumo mais legível nos cartões de empréstimo',
     summary: 'Capital, encargos e valor original aparecem em áreas próprias no cartão expandido.',

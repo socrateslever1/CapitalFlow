@@ -207,7 +207,8 @@ export function checkClosedOrPaidInvoiceWarning(input: {
     state = 'PAID';
   } else if (today > dates.dueDate) {
     state = (input.outstanding ?? 1) <= 0 ? 'PAID' : 'OVERDUE';
-  } else if (today > dates.closingDate) {
+  } else if (today >= dates.closingDate) {
+    // Fechamento exclusivo: no dia do fechamento a fatura já fechou.
     state = 'CLOSED';
   } else {
     state = resolveInvoiceCycleState({

@@ -37,8 +37,16 @@ import type { InstallmentDeleteScope } from '../../../components/wallet/CardInvo
 import type { InvoiceRemainderAction } from '../../../components/wallet/PayInvoiceModal';
 import { CardVaultModal } from '../../../components/wallet/CardVaultModal';
 import { WalletBankCombobox } from '../../../components/wallet/WalletBankCombobox';
-import { getCardAvailablePresentation, formatCardAvailableOrigin } from '../domain/cardAvailablePresentation';
+import { getCardAvailablePresentation, formatCardAvailableOrigin, getInvoiceAdditionsSinceReferenceCents } from '../domain/cardAvailablePresentation';
 import { resolveCardInvoiceFactsView } from '../domain/cardInvoiceFactsView';
+
+/** Fatura identificada pelo mês de vencimento, como o banco a chama (ex.: "dez/2026"). */
+const invoiceDueMonthLabel = (dueDate: string): string => {
+  const [year, month] = dueDate.slice(0, 7).split('-').map(Number);
+  return new Intl.DateTimeFormat('pt-BR', { month: 'short', year: 'numeric', timeZone: 'UTC' })
+    .format(new Date(Date.UTC(year, month - 1, 1))).replace('.', '').replace(' de ', '/');
+};
+const shortDayMonth = (isoDate: string): string => isoDate.slice(8, 10) + '/' + isoDate.slice(5, 7);
 
 export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavigate: (path: string) => void }> = ({ activeUser }) => {
   const navigate = useNavigate();
@@ -135,7 +143,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
     [selected?.id, data?.cardInvoiceFacts, fetchedInvoiceFacts],
   );
   const invoiceFacts = invoiceFactsView.facts;
-  const availablePresentation = selected ? getCardAvailablePresentation(selected, invoiceFacts) : null;
+  const availablePresentation = selected ? getCardAvailablePresentation(selected, invoiceFacts, data || undefined) : null;
   const bankLimitStatus: 'LOADING' | 'READY' | 'ERROR' =
     availablePresentation?.origin === 'BANK' ? 'READY' : invoiceFactsView.status;
   useEffect(() => {
@@ -310,10 +318,12 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
   // Keep the selected value in the list of rendered invoice cycles.
   // A stale cycle from a previously selected card must not make the browser
   // display one invoice in the select while the header shows another.
+  // Abre na fatura a pagar (fechada e ainda não vencida, ou a aberta), não na
+  // próxima: no dia do fechamento a fatura do mês continua sendo a que se paga.
   const statementMonth = resolveInvoiceMonthSelection(
     requestedStatementMonth,
     invoiceCycles,
-    suggestedNewInvoiceMonth,
+    creditPosition?.dueMonth || suggestedNewInvoiceMonth,
   );
   useEffect(() => {
     setStatementMonth(null);
@@ -366,8 +376,16 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
   // Compare o saldo líquido do ciclo, incluindo créditos e estornos.
   // A soma bruta superestimava R$ 172,00 quando havia crédito de R$ 86,00.
   const registeredInvoiceTotalCents = Math.round(Number(selectedCycle?.amount || 0) * 100);
+  // Compras lançadas depois da referência do banco explicam parte da diferença;
+  // só sobra para o aviso o que elas NÃO explicam.
+  const invoiceAdditionsSinceReferenceCents = selected && data && statementMonth && savedInvoiceFacts?.updated_at
+    ? getInvoiceAdditionsSinceReferenceCents({
+      cardId: selected.id, dueMonth: statementMonth, referenceUpdatedAt: savedInvoiceFacts.updated_at,
+      expenses: data.expenses, installments: data.installments,
+    })
+    : 0;
   const invoiceTotalDifferenceCents = savedInvoiceTotalCents === null
-    ? null : savedInvoiceTotalCents - registeredInvoiceTotalCents;
+    ? null : savedInvoiceTotalCents + invoiceAdditionsSinceReferenceCents - registeredInvoiceTotalCents;
 
   const bankFactLastUpdate = savedInvoiceFacts?.updated_at
     ? new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Manaus', day: '2-digit', month: '2-digit' })
@@ -794,8 +812,10 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
             bankLimitStatus={bankLimitStatus}
             bankLimitReference={selected && availablePresentation?.bankReference ? {
               cardId: selected.id,
-              amount: Number(availablePresentation.bankReference.available_limit),
+              // Referência do banco atualizada pelos lançamentos registrados depois dela.
+              amount: availablePresentation.amount,
               updatedAt: availablePresentation.bankReference.updated_at,
+              usageSinceReference: availablePresentation.usageSinceReference,
             } : null}
             onAccount={() => { }} onCard={card => setSelectedId(card.id)}
             onEditCard={card => setEditing(card)}
@@ -880,7 +900,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
               <span className="block truncate text-[11px] text-slate-400">{bankLimitStatus === 'LOADING'
                 ? 'Conferindo referência bancária'
                 : bankLimitStatus === 'ERROR' ? 'Referência indisponível'
-                  : formatCardAvailableOrigin(availablePresentation?.bankReference || null)}</span>
+                  : formatCardAvailableOrigin(availablePresentation?.bankReference || null, availablePresentation?.usageSinceReference)}</span>
               <strong className="mt-1 block truncate text-sm font-bold tabular-nums text-emerald-300">
                 <PrivateMoney value={bankLimitStatus === 'READY' && availablePresentation
                   ? formatMoney(availablePresentation.amount) : '—'} />
@@ -889,7 +909,8 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
           </div>
           {invoiceTotalDifferenceCents !== null && invoiceTotalDifferenceCents !== 0 && (
             <p role="status" className="text-[11px] text-amber-200">
-              Fatura: diferença para referência bancária: <strong><PrivateMoney value={formatMoney(Math.abs(invoiceTotalDifferenceCents) / 100)} /></strong>.
+              {/* Só aparece quando a diferença não é explicada pelas compras lançadas depois da referência. */}
+              Fatura: {invoiceTotalDifferenceCents < 0 ? 'app acima' : 'app abaixo'} do total informado pelo banco{bankFactLastUpdate ? ' em ' + bankFactLastUpdate : ''}, sem contar compras lançadas depois: <strong><PrivateMoney value={formatMoney(Math.abs(invoiceTotalDifferenceCents) / 100)} /></strong>. Confira se há compra repetida ou ajuste do banco.
             </p>
           )}
           <div className="min-w-0">
@@ -921,7 +942,8 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
                         item.card_id === selected.id && item.due_month.slice(0, 7) === cycle.dueMonth.slice(0, 7));
                       const bankInvoiceTotal = fact?.invoice_total == null ? null : Number(fact.invoice_total);
                       const dates = getInvoiceCycleDates(cycle.dueMonth, selected.closing_day, selected.due_day, fact?.due_date);
-                      const competence = dates.closingDate.slice(5, 7) + '/' + dates.closingDate.slice(0, 4);
+                      const dueLabel = invoiceDueMonthLabel(dates.dueDate);
+                      const closing = shortDayMonth(dates.closingDate);
                       const due = dates.dueDate.split('-').reverse().join('/');
                       const status = cycle.amount <= 0 ? 'REFERENCIA' : resolveInvoiceCycleState({
                         dueMonth: cycle.dueMonth, closingDay: selected.closing_day,
@@ -938,13 +960,13 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
                           onClick={() => { setStatementMonth(cycle.dueMonth); setActionMenuOpen(false); }}
                           className={`grid min-h-12 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-slate-700/60 px-0 py-2 text-left transition-colors ${active ? 'bg-slate-800/20' : 'hover:bg-slate-800/20'}`}>
                           <span className="min-w-0">
-                            <span className={`block text-xs font-bold ${active ? 'text-white' : 'text-slate-200'}`}>Fatura {competence}</span>
-                            <span className="mt-1 block text-[11px] text-slate-400">{hideFinancialValues ? 'Vencimento protegido' : 'Vence ' + due}</span>
+                            <span className={`block text-xs font-bold ${active ? 'text-white' : 'text-slate-200'}`}>Fatura {dueLabel}</span>
+                            <span className="mt-1 block text-[11px] text-slate-400">{hideFinancialValues ? 'Vencimento protegido' : 'Fecha ' + closing + ' · vence ' + due}</span>
                           </span>
                           <span className="text-right">
-                            <span className="block whitespace-nowrap text-sm font-bold tabular-nums text-white"><PrivateMoney value={formatMoney(bankInvoiceTotal ?? cycle.amount)} /></span>
+                            <span className="block whitespace-nowrap text-sm font-bold tabular-nums text-white"><PrivateMoney value={formatMoney(cycle.amount)} /></span>
                             <span className={`mt-1 block text-[10px] ${hideFinancialValues ? 'text-slate-400' : status === 'OVERDUE' ? 'text-rose-300' : active ? 'text-blue-300' : 'text-slate-400'}`}>
-                              {hideFinancialValues ? 'Situação protegida' : bankInvoiceTotal === null ? label : `${label} · saldo lançado ${formatMoney(cycle.amount)}`}
+                              {hideFinancialValues ? 'Situação protegida' : bankInvoiceTotal === null ? label : `${label} · banco informou ${formatMoney(bankInvoiceTotal)}`}
                             </span>
                           </span>
                         </button>
@@ -998,7 +1020,8 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
                     item.card_id === selected.id && item.due_month.slice(0, 7) === cycle.dueMonth.slice(0, 7));
                   const bankInvoiceTotal = fact?.invoice_total == null ? null : Number(fact.invoice_total);
                   const dates = getInvoiceCycleDates(cycle.dueMonth, selected.closing_day, selected.due_day, fact?.due_date);
-                  const competence = dates.closingDate.slice(5, 7) + '/' + dates.closingDate.slice(0, 4);
+                  const dueLabel = invoiceDueMonthLabel(dates.dueDate);
+                      const closing = shortDayMonth(dates.closingDate);
                   const due = dates.dueDate.split('-').reverse().join('/');
                   const state = cycle.amount <= 0 ? 'REFERENCIA' : resolveInvoiceCycleState({
                     dueMonth: cycle.dueMonth, closingDay: selected.closing_day,
@@ -1018,12 +1041,12 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
                     }}
                     className={`grid min-h-12 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg border px-3 py-2 text-left ${active ? 'border-blue-500/70 bg-blue-500/10' : 'border-slate-800 bg-slate-950/40 hover:bg-slate-800/70'}`}>
                     <span className="min-w-0">
-                      <strong className="block text-xs text-slate-100">Fatura {competence}</strong>
-                      <span className="mt-0.5 block text-[11px] text-slate-400">{hideFinancialValues ? 'Vencimento protegido' : 'Vence ' + due}</span>
+                      <strong className="block text-xs text-slate-100">Fatura {dueLabel}</strong>
+                      <span className="mt-0.5 block text-[11px] text-slate-400">{hideFinancialValues ? 'Vencimento protegido' : 'Fecha ' + closing + ' · vence ' + due}</span>
                     </span>
                     <span className="text-right">
-                      <strong className="block whitespace-nowrap text-xs tabular-nums text-white"><PrivateMoney value={formatMoney(bankInvoiceTotal ?? cycle.amount)} /></strong>
-                      <span className="mt-0.5 block text-[10px] text-slate-400">{hideFinancialValues ? 'Situação protegida' : bankInvoiceTotal === null ? label : `${label} · saldo lançado ${formatMoney(cycle.amount)}`}</span>
+                      <strong className="block whitespace-nowrap text-xs tabular-nums text-white"><PrivateMoney value={formatMoney(cycle.amount)} /></strong>
+                      <span className="mt-0.5 block text-[10px] text-slate-400">{hideFinancialValues ? 'Situação protegida' : bankInvoiceTotal === null ? label : `${label} · banco informou ${formatMoney(bankInvoiceTotal)}`}</span>
                     </span>
                   </button>;
                 })}

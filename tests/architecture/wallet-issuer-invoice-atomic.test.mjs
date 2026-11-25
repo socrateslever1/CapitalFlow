@@ -50,7 +50,7 @@ test('bank facts navigate real due-month cycles while preserving distinct financ
   assert.match(page, /Disponível informado/);
   assert.match(page, /formatCardAvailableOrigin\(availablePresentation\?\.bankReference/);
   const presentation = read('features/wallet/domain/cardAvailablePresentation.ts');
-  assert.match(presentation, /'Banco · '/);
+  assert.match(presentation, /'Disponível · banco '/);
   assert.match(page, /bankFactLastUpdate/);
   assert.match(page, /<details className="rounded-lg border border-slate-800/);
   assert.match(page, /Aplicar valores já salvos à posição do cartão/);

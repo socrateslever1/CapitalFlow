@@ -26,7 +26,8 @@ test('Conta usa janelas suspensas para Receita, Receber, Despesa, Pagar, Transfe
   assert.match(activitySource, /<Modal[\s\S]*variant="wallet"[\s\S]*title="Saldo inicial auditável"/);
   assert.match(activitySource, /<Modal[\s\S]*variant="wallet"[\s\S]*title="Excluir lançamento"/);
   assert.doesNotMatch(activitySource, /window\.confirm/);
-  assert.match(activitySource, /requestId:transactionRef\.current\.id/);
+  assert.match(activitySource, /const requestId=transactionRef\.current\.id/);
+  assert.match(activitySource, /amount:parsedAmount,description,category:effectiveCategory,date,requestId,/);
   assert.match(activitySource, /requestId:openingRef\.current\.id/);
   assert.match(activitySource, /Exportar CSV/);
 });

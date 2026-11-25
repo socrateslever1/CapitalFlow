@@ -18,6 +18,7 @@ test('override substitutes the itemized cycle while later installments remain fu
   const position = getCardCreditPosition(card, expenses, installments);
   assert.deepEqual(position, {
     dueMonth: '2026-10-01',
+    overdueInvoices: 0,
     currentInvoice: 250,
     futureCommitments: 600,
     committedLimit: 850,

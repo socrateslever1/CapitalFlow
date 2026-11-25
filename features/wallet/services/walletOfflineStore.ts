@@ -81,6 +81,7 @@ export function deriveOverviewFromSnapshot(
     payables: full.payables,
     recurringIncomes: full.recurringIncomes,
     recurringReceipts: full.recurringReceipts,
+    spendingOperations: full.accountOperations.filter(op => op.operation_type === 'EXPENSE'),
     cardInvoiceDates: resolvedDates,
     bankAvailableReferences: (full.cardInvoiceFacts || [])
       .filter(fact => fact.available_limit != null)

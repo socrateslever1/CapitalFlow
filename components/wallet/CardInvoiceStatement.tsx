@@ -269,8 +269,8 @@ export const CardInvoiceStatement: React.FC<CardInvoiceStatementProps> = ({
 
       {!entries.length ? <p className="mt-2 rounded-lg border border-dashed border-slate-800 px-3 py-3 text-center text-xs text-slate-400">Nenhum lançamento ativo nesta fatura.</p> : (
         <>
-          <div className="mt-2.5 flex flex-wrap items-center gap-2">
-            <label className="relative flex min-h-9 min-w-0 flex-1 items-center rounded-lg border border-slate-800 bg-slate-900/90 px-2.5 text-slate-400 focus-within:border-cyan-500/60">
+          <div className="mt-2.5 grid grid-cols-[minmax(0,1fr)_auto] items-stretch gap-2">
+            <label className="relative flex min-h-10 min-w-0 items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/90 px-2.5 sm:px-3 text-slate-400 transition-colors focus-within:border-cyan-500/70 focus-within:ring-2 focus-within:ring-cyan-500/15">
               <Search size={14} className="shrink-0" aria-hidden="true" />
               <input
                 type="search"
@@ -278,24 +278,28 @@ export const CardInvoiceStatement: React.FC<CardInvoiceStatementProps> = ({
                 onChange={(event) => setSearchQuery(event.target.value)}
                 aria-label="Buscar no extrato da fatura por nome, data, valor, categoria ou parcela"
                 placeholder="Buscar compra, valor, data, categoria ou parcela…"
-                className="min-w-0 flex-1 bg-transparent px-2 py-1.5 text-xs text-white outline-none placeholder:text-slate-500"
+                className="min-w-0 flex-1 bg-transparent py-1.5 text-xs text-white outline-none placeholder:text-slate-500"
               />
               {searchQuery && (
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
                   aria-label="Limpar busca"
-                  className="rounded p-0.5 text-slate-400 hover:bg-slate-800 hover:text-white"
+                  className="shrink-0 rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
                 >
                   <X size={13} />
                 </button>
               )}
             </label>
-            {normalizedQuery && (
-              <span className="shrink-0 text-[11px] font-semibold tabular-nums text-cyan-300">
-                {visibleEntries.length} de {entries.length} · <PrivateMoney value={formatMoney(filteredTotal)} />
+
+            <div className="flex min-h-10 shrink-0 flex-col items-end justify-center rounded-xl bg-slate-900/70 px-2.5 py-1 ring-1 ring-inset ring-slate-800/90 sm:flex-row sm:items-center sm:gap-3 sm:px-3.5">
+              <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-400 sm:text-[11px] sm:normal-case sm:tracking-normal">
+                {normalizedQuery ? `${visibleEntries.length}/${entries.length}` : 'Total lançado'}
               </span>
-            )}
+              <strong className={`whitespace-nowrap text-xs sm:text-sm font-extrabold tabular-nums tracking-tight leading-tight ${filteredTotal < 0 ? 'text-emerald-300' : 'text-rose-300'}`}>
+                <PrivateMoney value={filteredTotal < 0 ? `− ${formatMoney(Math.abs(filteredTotal))}` : formatMoney(filteredTotal)} />
+              </strong>
+            </div>
           </div>
 
           {!visibleEntries.length ? (

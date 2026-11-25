@@ -13,6 +13,8 @@ export type EffectiveInvoiceCycle = {
 
 export type CardCreditPosition = {
   dueMonth: string | null;
+  /** Faturas anteriores à atual que ainda têm saldo (vencidas sem pagamento). */
+  overdueInvoices: number;
   currentInvoice: number;
   futureCommitments: number;
   committedLimit: number;
@@ -96,6 +98,8 @@ export const getPurchaseInvoiceMonth = (
   closingDay: number | null,
   dueDay: number | null,
 ): string => {
+  // Fechamento exclusivo: compra feita no próprio dia do fechamento entra na
+  // fatura seguinte ("melhor dia de compra"), como fazem os emissores.
   const day = purchaseDate.slice(0, 10);
   if (!/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(day) ||
       Number.isNaN(Date.parse(day + 'T00:00:00Z')) ||
@@ -107,9 +111,62 @@ export const getPurchaseInvoiceMonth = (
     const candidate = new Date(Date.UTC(year, month - 1 + offset, 1))
       .toISOString().slice(0, 7) + '-01';
     const dates = getInvoiceCycleDates(candidate, closingDay, dueDay);
-    if (day <= dates.closingDate && day <= dates.dueDate) return candidate;
+    if (day < dates.closingDate && day <= dates.dueDate) return candidate;
   }
   throw new Error('Não foi possível determinar o ciclo da compra.');
+};
+
+/**
+ * Fatura que recebe uma compra, pela DATA DA COMPRA (mesma regra da RPC
+ * private.wallet_card_first_due_date).
+ * - Compra com data futura: ciclo da própria data.
+ * - Fatura da compra ainda aberta: ela mesma.
+ * - Fatura da compra já fechada: recebe a compra só enquanto não venceu e não
+ *   foi paga (comprou dia 20, fechou dia 21, lançou dia 25).
+ * - Fatura vencida ou paga: fatura aberta atual. Preserva o cadastro de
+ *   parcelados antigos (ex.: compra de março, parcela 8/8) na fatura aberta.
+ */
+export const resolvePurchaseInvoiceMonth = (input: {
+  purchaseDate: string;
+  today: string;
+  closingDay: number | null;
+  dueDay: number | null;
+  settledMonths?: ReadonlySet<string>;
+}): string => {
+  const today = input.today.slice(0, 10);
+  const purchase = /^\d{4}-\d{2}-\d{2}$/.test(String(input.purchaseDate).slice(0, 10))
+    ? String(input.purchaseDate).slice(0, 10) : today;
+  const openMonth = getPurchaseInvoiceMonth(today, input.closingDay, input.dueDay);
+  const purchaseMonth = getPurchaseInvoiceMonth(purchase, input.closingDay, input.dueDay);
+  if (purchaseMonth >= openMonth) return purchaseMonth;
+  if (!input.closingDay || !input.dueDay) return openMonth;
+  const { dueDate } = getInvoiceCycleDates(purchaseMonth, input.closingDay, input.dueDay);
+  if (dueDate < today || input.settledMonths?.has(purchaseMonth)) return openMonth;
+  return purchaseMonth;
+};
+
+/** Meses de fatura com pagamento registrado ou parcela quitada (não são reabertos). */
+export const getSettledInvoiceMonths = (
+  cardId: string,
+  expenses: readonly PersonalWalletExpense[],
+  installments: readonly PersonalWalletExpenseInstallment[],
+  invoicePayments: readonly { card_id: string; due_month: string }[] = [],
+): Set<string> => {
+  const months = new Set<string>();
+  for (const payment of invoicePayments) {
+    if (payment.card_id === cardId) months.add(String(payment.due_month).slice(0, 7) + '-01');
+  }
+  const cardExpenses = new Map(expenses
+    .filter(expense => expense.card_id === cardId && expense.status !== 'CANCELED')
+    .map(expense => [expense.id, expense]));
+  for (const installment of installments) {
+    const expense = cardExpenses.get(installment.expense_id);
+    if (!expense || installment.status === 'CANCELED') continue;
+    if (installment.status === 'PAID' || Number(installment.paid_amount || 0) > 0) {
+      months.add(String(expense.invoice_due_month || installment.due_month).slice(0, 7) + '-01');
+    }
+  }
+  return months;
 };
 
 export const resolveInvoiceCycleState = (input: {
@@ -127,7 +184,8 @@ export const resolveInvoiceCycleState = (input: {
   const dates = getInvoiceCycleDates(input.dueMonth, input.closingDay, input.dueDay, input.exactDueDate);
   const today = input.today || manausToday();
   if (input.outstanding <= 0) return 'PAID';
-  if (today <= dates.closingDate) return 'OPEN';
+  // Fechamento exclusivo: no dia do fechamento a fatura já está fechada.
+  if (today < dates.closingDate) return 'OPEN';
   if (today <= dates.dueDate) return 'CLOSED';
   return 'OVERDUE';
 };
@@ -191,22 +249,36 @@ export const getSelectedInvoiceCycle = (
 };
 
 export const getCardCreditPosition = (
-  card: Pick<PersonalWalletCard, 'id' | 'credit_limit' | 'initial_future_installments_balance'>,
+  card: Pick<PersonalWalletCard, 'id' | 'credit_limit' | 'initial_future_installments_balance'>
+    & Partial<Pick<PersonalWalletCard, 'closing_day' | 'due_day'>>,
   expenses: PersonalWalletExpense[],
   installments: PersonalWalletExpenseInstallment[],
+  today: string = manausToday(),
 ): CardCreditPosition => {
   const cycles = getEffectiveInvoiceCycles(card.id, expenses, installments);
-  const activeIndex = cycles.findIndex(cycle => cycle.amount > 0);
+  // Fatura atual = primeira fatura com saldo que ainda não venceu. Uma sobra
+  // antiga (ex.: R$ 0,03 de uma fatura vencida) não toma o lugar da atual:
+  // ela é apresentada como fatura vencida e continua no limite comprometido.
+  const notYetDue = (cycle: EffectiveInvoiceCycle) => {
+    if (!card.closing_day || !card.due_day) return true;
+    return getInvoiceCycleDates(cycle.dueMonth, card.closing_day, card.due_day).dueDate >= today;
+  };
+  let activeIndex = cycles.findIndex(cycle => cycle.amount > 0 && notYetDue(cycle));
+  if (activeIndex < 0) activeIndex = cycles.findIndex(cycle => cycle.amount > 0);
   const active = activeIndex >= 0 ? cycles[activeIndex] : null;
+  const overdueInvoices = money(activeIndex > 0
+    ? cycles.slice(0, activeIndex).reduce((sum, cycle) => sum + cycle.amount, 0)
+    : 0);
   const currentInvoice = active?.amount || 0;
   const knownFutureCommitments = money(activeIndex >= 0
     ? cycles.slice(activeIndex + 1).reduce((sum, cycle) => sum + cycle.amount, 0)
     : 0);
   const initialFuture = Number(card.initial_future_installments_balance || 0);
   const futureCommitments = money(knownFutureCommitments + initialFuture);
-  const committedLimit = money(currentInvoice + futureCommitments);
+  const committedLimit = money(overdueInvoices + currentInvoice + futureCommitments);
   return {
     dueMonth: active?.dueMonth || null,
+    overdueInvoices,
     currentInvoice,
     futureCommitments,
     committedLimit,

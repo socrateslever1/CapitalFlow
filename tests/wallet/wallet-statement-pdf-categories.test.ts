@@ -69,6 +69,13 @@ test('classifies Brazilian transport and food merchants consistently for PDF and
   assert.deepEqual(parsed.rows.map(row => row.category), examples.map(([, category]) => category));
 });
 
+test('classifies app stores as purchases while keeping digital subscriptions as services', () => {
+  assert.equal(classifyStatementDescription('APPLE STORE'), 'Compras');
+  assert.equal(classifyStatementDescription('GOOGLE STORE'), 'Compras');
+  assert.equal(classifyStatementDescription('GOOGLE PLAY'), 'Assinaturas');
+  assert.equal(classifyStatementDescription('ICLOUD'), 'Assinaturas');
+});
+
 test('PDF parser extracts installment metadata without confusing the transaction date', () => {
   const result = parseStatementLines([
     { key: '1', text: '01/10/2026 Loja de roupas parcela 3/10 89,90' },

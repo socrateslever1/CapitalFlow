@@ -155,6 +155,7 @@ export type PersonalWalletExpense = {
   request_id?: string | null;
   mutation_requests?: Record<string, unknown>;
   is_opening_summary?: boolean;
+  created_at?: string;
 };
 
 export type PersonalWalletExpenseInstallment = {
@@ -401,7 +402,9 @@ const personalWalletServiceImpl = {
    */
   async loadOverview() {
     const walletReset = await getActiveWalletReset();
-    const [accounts, cards, expenses, installments, invoicePayments, payables, recurringIncomes, recurringReceipts, cardInvoiceDates] =
+    // Despesas pagas pela conta desde o mês anterior: entram no resumo de gastos por categoria.
+    const spendingSince = (() => { const now = new Date(); return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1)).toISOString().slice(0, 10); })();
+    const [accounts, cards, expenses, installments, invoicePayments, payables, recurringIncomes, recurringReceipts, cardInvoiceDates, spendingOperations] =
       await Promise.all([
         loadAllWalletRows((from, to) => supabase.from('personal_wallet_accounts').select('*').order('created_at', { ascending: false }).order('id').range(from, to)),
         loadAllWalletRows((from, to) => supabase.from('personal_wallet_cards').select('*').order('created_at', { ascending: false }).order('id').range(from, to)),
@@ -418,6 +421,10 @@ const personalWalletServiceImpl = {
         // the generic day configured for the card. No PAN or sensitive fields.
         loadAllWalletRows((from, to) => supabase.from('personal_wallet_card_invoice_facts').select('card_id,due_month,due_date,available_limit,updated_at')
           .order('due_month', { ascending: false }).order('card_id').range(from, to)),
+        loadAllWalletRows((from, to) => supabase.from('personal_wallet_account_operations')
+          .select('id,operation_type,from_account_id,amount,category,operation_date,voided_at,voids_operation_id')
+          .eq('operation_type', 'EXPENSE').gte('operation_date', spendingSince)
+          .order('operation_date', { ascending: false }).order('id').range(from, to)),
       ]);
     const loadedExpenses = filterCurrentWalletRows((expenses.data || []) as PersonalWalletExpense[], walletReset, 'expenses');
     const loadedInstallments = filterCurrentWalletRows((installments.data || []) as PersonalWalletExpenseInstallment[], walletReset, 'installments');
@@ -447,6 +454,7 @@ const personalWalletServiceImpl = {
       payables: filterCurrentWalletRows((payables.data || []) as PersonalWalletPayable[], walletReset, 'payables'),
       recurringIncomes: filterCurrentWalletRows((recurringIncomes.data || []) as WalletRecurringIncome[], walletReset, 'recurringIncomes'),
       recurringReceipts: filterCurrentWalletRows((recurringReceipts.data || []) as WalletRecurringReceipt[], walletReset, 'recurringReceipts'),
+      spendingOperations: filterCurrentWalletRows((spendingOperations.data || []) as WalletAccountOperation[], walletReset, 'accountOperations'),
       cardInvoiceDates: ((cardInvoiceDates.data || []) as Array<{ card_id: string; due_month: string; due_date: string | null }>).filter(fact => calculatedCards.some(card => card.id === fact.card_id)),
       // Same issuer reference used by the card details. Optional bank facts
       // must not be confused with the calculated ledger balance.

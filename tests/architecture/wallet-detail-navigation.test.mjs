@@ -21,8 +21,8 @@ test('cartão continua focado pelo ID e tem retorno explícito', () => {
 test('ações secundárias da conta ficam recolhidas no celular', () => {
   const detail = read('components/wallet/AccountDetailsPage.tsx');
   assert.match(detail, /Mais opções/);
-  assert.match(detail, /showMoreActions \? 'col-span-2 grid' : 'hidden'/);
-  assert.match(detail, /sm:flex sm:flex-wrap/);
+  assert.match(detail, /showMoreActions \? '(?:col-span-2 grid|flex w-full flex-wrap)' : 'hidden'/);
+  assert.match(detail, /sm:flex(?:\s+sm:w-auto)?\s+sm:flex-wrap/);
 });
 
 test('voltar na Carteira preserva os níveis entre painel, visão geral, lista e detalhe', () => {
@@ -41,4 +41,11 @@ test('voltar na Carteira preserva os níveis entre painel, visão geral, lista e
   assert.ok(cards.includes('onClick={closeFocusedCard}'));
   assert.ok(accounts.includes('walletAccountFromList'));
   assert.ok(accounts.includes("navigate('/carteira/contas', { replace: true })"));
+});
+
+test('clicar no botão Carteira na navegação principal abre a Visão geral da Carteira sem cair no Painel', () => {
+  const app = read('App.tsx');
+  const persisted = read('hooks/usePersistedTab.ts');
+  assert.match(app, /if \(tab === 'MY_WALLET'\)\s*\{[\s\S]*?routerNavigate\('\/carteira\/visao-geral'\)/);
+  assert.match(persisted, /window\.location\.pathname !== '\/'/);
 });

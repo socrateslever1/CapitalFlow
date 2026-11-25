@@ -160,7 +160,34 @@ test('describeCardCycleDates e checkClosedOrPaidInvoiceWarning alertam faturas f
   });
   assert.equal(historicalPurchase.state, 'OVERDUE');
   assert.equal(historicalPurchase.shouldWarn, true);
+  assert.equal(historicalPurchase.closingDate, '2026-04-24');
+  assert.equal(historicalPurchase.isDateAfterClosing, false);
+  assert.equal(historicalPurchase.shortMessage, 'Fatura vencida · aceita compras até 23/04.');
   assert.equal(historicalPurchase.nextOpenDueMonth, '2026-12-01');
+
+  const invalidPostClosingDate = checkClosedOrPaidInvoiceWarning({
+    dueMonth: '2026-12-01', closingDay: 24, dueDay: 3,
+    expenseDate: '2026-11-25', todayIso: '2026-11-25',
+  });
+  assert.equal(invalidPostClosingDate.state, 'CLOSED');
+  assert.equal(invalidPostClosingDate.closingDate, '2026-11-24');
+  assert.equal(invalidPostClosingDate.isDateAfterClosing, true);
+  assert.equal(invalidPostClosingDate.shortMessage, 'Data no fechamento ou depois (24/11). Use até 23/11 ou mude de fatura.');
+  assert.equal(invalidPostClosingDate.lastPurchaseDate, '2026-11-23');
+  // Fechamento exclusivo: a compra no próprio dia do fechamento já não entra na fatura que fecha.
+  const onClosingDay = checkClosedOrPaidInvoiceWarning({
+    dueMonth: '2026-12-01', closingDay: 24, dueDay: 3,
+    expenseDate: '2026-11-24', todayIso: '2026-11-25',
+  });
+  assert.equal(onClosingDay.isDateAfterClosing, true);
+
+  const futurePostClosingDate = checkClosedOrPaidInvoiceWarning({
+    dueMonth: '2026-12-01', closingDay: 24, dueDay: 3,
+    expenseDate: '2026-11-25', todayIso: '2026-11-20',
+  });
+  assert.equal(futurePostClosingDate.state, 'OPEN');
+  assert.equal(futurePostClosingDate.shouldWarn, true);
+  assert.equal(futurePostClosingDate.isDateAfterClosing, true);
 });
 
 test('calculateBalanceAdjustment calcula diferença exata (receita ou despesa de ajuste)', () => {

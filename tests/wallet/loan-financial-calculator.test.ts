@@ -3,7 +3,7 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { parseWalletMoney, parseWalletRate, parseWalletSignedMoney } from '../../features/wallet/utils/parseWalletMoney';
 import { buildSourceReferenceDisplay } from '../../domain/sources/sourceReferenceDisplay';
-import { formatLiveBrazilianCents } from '../../features/wallet/utils/liveBrazilianMoneyInput';
+import { formatLiveBrazilianCents, isAllowedFinancialInputDraft } from '../../features/wallet/utils/liveBrazilianMoneyInput';
 
 test('principal, custos e juros calculam expressões sem arredondamento prematuro', () => {
   const examples: Array<[string, number]> = [
@@ -83,6 +83,10 @@ test('contrato permite digitação centesimal em todos os campos monetários e p
   assert.equal(parseWalletMoney('700,25'), 700.25);
   assert.equal(parseWalletRate('8,80'), 8.8);
   assert.equal(parseWalletRate('4,99'), 4.99);
+  assert.equal(isAllowedFinancialInputDraft('Google'), false);
+  assert.equal(isAllowedFinancialInputDraft('100abc'), false);
+  assert.equal(isAllowedFinancialInputDraft('700+4,99%'), true);
+  assert.equal(isAllowedFinancialInputDraft('1.250,00'), true);
 });
 
 test('fontes com cartão exibem crédito real sem reclassificar saldo contábil', () => {

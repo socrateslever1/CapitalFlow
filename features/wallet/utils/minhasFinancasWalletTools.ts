@@ -183,6 +183,11 @@ export interface ClosedOrPaidInvoiceWarning {
   shouldWarn: boolean;
   state: InvoiceCycleState;
   stateLabel: string;
+  closingDate: string;
+  /** Último dia de compra que ainda entra nesta fatura (véspera do fechamento). */
+  lastPurchaseDate: string;
+  isDateAfterClosing: boolean;
+  shortMessage: string;
   message: string;
   nextOpenDueMonth: string;
   nextOpenMonthInput: string;
@@ -201,13 +206,18 @@ export function checkClosedOrPaidInvoiceWarning(input: {
   const normalizedMonth = `${input.dueMonth.slice(0, 7)}-01`;
   const today = resolveQuickDateShortcuts(input.todayIso).today;
   const dates = getInvoiceCycleDates(normalizedMonth, input.closingDay, input.dueDay);
+  const closingShort = `${dates.closingDate.slice(8, 10)}/${dates.closingDate.slice(5, 7)}`;
+  // Fechamento exclusivo: compra no dia do fechamento já vai para a fatura seguinte.
+  const lastPurchaseDate = new Date(Date.parse(dates.closingDate + 'T00:00:00Z') - 86_400_000).toISOString().slice(0, 10);
+  const lastShort = `${lastPurchaseDate.slice(8, 10)}/${lastPurchaseDate.slice(5, 7)}`;
 
   let state: InvoiceCycleState = 'OPEN';
   if (input.paid) {
     state = 'PAID';
   } else if (today > dates.dueDate) {
     state = (input.outstanding ?? 1) <= 0 ? 'PAID' : 'OVERDUE';
-  } else if (today > dates.closingDate) {
+  } else if (today >= dates.closingDate) {
+    // Fechamento exclusivo: no dia do fechamento a fatura já fechou.
     state = 'CLOSED';
   } else {
     state = resolveInvoiceCycleState({
@@ -226,11 +236,20 @@ export function checkClosedOrPaidInvoiceWarning(input: {
   const next = currentOpenDueMonth > steppedNext.dueMonthIso
     ? stepInvoiceMonth(currentOpenDueMonth, 0)
     : steppedNext;
-  if (state === 'OPEN') {
+  const isDateAfterClosing = Boolean(
+    input.expenseDate &&
+      /^\d{4}-\d{2}-\d{2}$/.test(input.expenseDate) &&
+      input.expenseDate >= dates.closingDate,
+  );
+  if (state === 'OPEN' && !isDateAfterClosing) {
     return {
       shouldWarn: false,
       state,
       stateLabel: 'Aberta',
+      closingDate: dates.closingDate,
+      lastPurchaseDate,
+      isDateAfterClosing: false,
+      shortMessage: '',
       message: '',
       nextOpenDueMonth: next.dueMonthIso,
       nextOpenMonthInput: next.monthInputValue,
@@ -240,6 +259,9 @@ export function checkClosedOrPaidInvoiceWarning(input: {
 
   const stateLabel =
     state === 'PAID' ? 'Paga' : state === 'OVERDUE' ? 'Vencida' : 'Fechada';
+  const shortMessage = isDateAfterClosing
+    ? `Data no fechamento ou depois (${closingShort}). Use até ${lastShort} ou mude de fatura.`
+    : `Fatura ${stateLabel.toLowerCase()} · aceita compras até ${lastShort}.`;
   const message =
     state === 'PAID'
       ? 'A fatura selecionada já está paga. Se esta compra é antiga, mantenha este ciclo; para uma compra nova, selecione a próxima fatura.'
@@ -251,6 +273,10 @@ export function checkClosedOrPaidInvoiceWarning(input: {
     shouldWarn: true,
     state,
     stateLabel,
+    closingDate: dates.closingDate,
+    lastPurchaseDate,
+    isDateAfterClosing,
+    shortMessage,
     message,
     nextOpenDueMonth: next.dueMonthIso,
     nextOpenMonthInput: next.monthInputValue,

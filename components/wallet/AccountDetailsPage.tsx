@@ -16,6 +16,8 @@ import {
 import type { CapitalSource } from '../../types';
 import { formatMoney } from '../../utils/formatters';
 import { AccountActivityPanel } from './AccountActivityPanel';
+import { CategoryBreakdownPanel } from './CategoryBreakdownPanel';
+import { elapsedDaysInPeriod, getAccountCategoryBreakdown } from '../../features/wallet/domain/walletCategoryBreakdown';
 import { WalletPixCharge } from './WalletPixCharge';
 import { BankLogo } from './BankLogo';
 import { BANK_CATALOG } from '../../utils/bankLogoRegistry';
@@ -605,6 +607,16 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
         </form>
         </Modal>
       )}
+
+      {(() => {
+        // Despesas do mês que saíram desta conta, por categoria (anel = participação no total).
+        const today = businessDateInManaus();
+        const month = today.slice(0, 7);
+        const breakdown = getAccountCategoryBreakdown(account.id, month, accountOperations);
+        return breakdown.slices.length ? <CategoryBreakdownPanel title="Despesas do mês por categoria" breakdown={breakdown} layout="list"
+          elapsedDays={elapsedDaysInPeriod(month + '-01', month + '-31', today)}
+          note="O anel mostra a fatia de cada categoria nas despesas do mês desta conta. Transferências e pagamentos de fatura não entram." /> : null;
+      })()}
 
       <AccountActivityPanel account={account} accounts={accounts}
         operations={accountOperations} statementRows={statementRows}

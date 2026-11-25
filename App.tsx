@@ -138,6 +138,13 @@ export const App: React.FC = () => {
   const location = useLocation();
 
   const handleSetActiveTab = useCallback((tab: any) => {
+    if (tab === 'MY_WALLET') {
+      if (window.location.pathname !== '/carteira/visao-geral' || window.location.search) {
+        routerNavigate('/carteira/visao-geral');
+      }
+      setActiveTab('MY_WALLET');
+      return;
+    }
     if (window.location.pathname !== '/' && tab !== 'CONTRACT_DETAILS' && tab !== 'LEGAL') {
       routerNavigate('/');
     }

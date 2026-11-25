@@ -10,7 +10,9 @@ const installment = (id: string, month: string): PersonalWalletExpenseInstallmen
 
 test('November closes in November and is paid in December', () => {
   assert.equal(getPurchaseInvoiceMonth('2026-11-05', 30, 5), '2026-12-01');
-  assert.equal(getPurchaseInvoiceMonth('2026-11-30', 30, 5), '2026-12-01');
+  // Fechamento exclusivo: compra no dia do fechamento entra na fatura seguinte.
+  assert.equal(getPurchaseInvoiceMonth('2026-11-29', 30, 5), '2026-12-01');
+  assert.equal(getPurchaseInvoiceMonth('2026-11-30', 30, 5), '2027-01-01');
   assert.equal(getPurchaseInvoiceMonth('2026-12-01', 30, 5), '2027-01-01');
   assert.equal(getPurchaseInvoiceMonth('2026-11-19', 20, 25), '2026-11-01');
   assert.equal(getPurchaseInvoiceMonth('2026-11-21', 20, 25), '2026-12-01');

@@ -111,3 +111,20 @@ test('classificador reconhece encargos do cartão, assinaturas digitais, imposto
     assert.notEqual(getWalletCategoryVisual(name).icon, getWalletCategoryVisual('categoria inventada').icon, name);
   }
 });
+
+test('resumo de gastos do mês inclui despesas pagas pela conta, sem transferências nem anuladas', async () => {
+  const { getWalletSpendingOverview } = await import('../../features/wallet/domain/walletSpendingInsights');
+  const card = { id: 'c1', card_id: 'card', status: 'PENDING', entry_type: 'PURCHASE', category: 'Alimentação',
+    expense_date: '2026-11-03', amount: 60, installment_count: 1 } as PersonalWalletExpense;
+  const op = (id: string, extra: Record<string, unknown>) => ({ id, operation_type: 'EXPENSE', from_account_id: 'acc', amount: 10,
+    category: 'Transporte', operation_date: '2026-11-05', voided_at: null, voids_operation_id: null, ...extra }) as never;
+  const result = getWalletSpendingOverview([card], '2026-11', 4, [
+    op('a', { amount: 40 }), op('t', { operation_type: 'TRANSFER' }), op('v', { voided_at: '2026-11-06T00:00:00Z' }),
+    op('r', { voids_operation_id: 'x' }), op('x', { amount: 999 }), op('prev', { operation_date: '2026-10-10', amount: 25 }),
+  ]);
+  assert.equal(result.total, 100);
+  assert.equal(result.previousTotal, 25);
+  assert.equal(result.byMethod?.cardPercentage, 60);
+  assert.equal(result.byMethod?.accountPercentage, 40);
+  assert.deepEqual(result.categories.map(c => [c.name, c.amount]), [['Alimentação', 60], ['Transporte', 40]]);
+});

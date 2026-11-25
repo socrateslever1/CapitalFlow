@@ -52,7 +52,7 @@ const VISUALS: Array<{ keys: string[]; icon: LucideIcon; color: string }> = [
   { keys: ['juros e encargos', 'juros', 'encargos'], icon: Percent, color: '#DC2626' },
   { keys: ['parcelamento de fatura', 'parcelamento'], icon: CalendarSync, color: '#C2410C' },
   { keys: ['impostos e taxas', 'impostos', 'imposto', 'taxas', 'contas'], icon: Receipt, color: '#F87171' },
-  { keys: ['outros', 'sem categoria', 'diversos'], icon: Ellipsis, color: '#9CA3AF' },
+  { keys: ['outros', 'sem categoria', 'diversos', 'demais categorias', 'demais'], icon: Ellipsis, color: '#9CA3AF' },
 ];
 
 /** Nome comparável: minúsculo, sem acentos e sem espaços extras. */

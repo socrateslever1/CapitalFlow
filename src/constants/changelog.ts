@@ -32,6 +32,8 @@ export const SYSTEM_CHANGELOG: ChangelogRelease[] = [
       { kind: 'NOVIDADE', text: 'O detalhe da conta mostra as despesas do mês por categoria, com gasto médio por dia.' },
       { kind: 'MELHORIA', text: 'Na nova despesa, a categoria é escolhida por ícones.' },
       { kind: 'MELHORIA', text: 'O relatório ganhou um gráfico de rosca por categoria.' },
+      { kind: 'MELHORIA', text: 'A Visão geral mostra as despesas por categoria com ícone e anel medidor.' },
+      { kind: 'CORRECAO', text: 'Despesas pagas pela conta passam a contar no resumo de gastos do mês, que antes mostrava só o cartão.' },
       { kind: 'MELHORIA', text: 'Importações reconhecem mais categorias, como juros e encargos do cartão, impostos e assinaturas digitais.' },
       { kind: 'CORRECAO', text: 'Editar a descrição ou a categoria de uma compra parcelada não renumera mais as parcelas.' },
     ],

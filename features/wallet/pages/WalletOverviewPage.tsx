@@ -77,7 +77,7 @@ const deriveOverview = (snapshot: WalletOverviewSnapshot, today: string) => {
     getBankVisual(account.institution_key || account.bank_name || account.nickname).key,
   ));
   const credit = getCreditSummary(cards);
-  const spending = getWalletSpendingOverview(snapshot.expenses, month);
+  const spending = getWalletSpendingOverview(snapshot.expenses, month, 4, snapshot.spendingOperations || []);
   const exactDueDates = new Map((snapshot.cardInvoiceDates || [])
     .map(item => [item.card_id + ':' + item.due_month.slice(0, 7), item.due_date] as const));
   const invoiceList: Commitment[] = cards.flatMap(card =>

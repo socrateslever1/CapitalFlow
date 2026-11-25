@@ -1,10 +1,10 @@
 import { PrivateMoney } from '../../contexts/FinancialPrivacyContext';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, Check, Copy, CreditCard, FileUp, Pencil, Plus, RotateCcw, Wifi } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Copy, CreditCard, FileUp, Pencil, Plus, RotateCcw } from 'lucide-react';
 import { copyCardFieldToClipboard, copyCardLastFourToClipboard } from '../../utils/cardClipboard';
 import type { PersonalWalletAccount, PersonalWalletCard } from '../../services/personalWallet.service';
 import { formatMoney } from '../../utils/formatters';
-import { getCardAvailablePresentation, formatCardAvailableOrigin, type CardBankAvailableReference } from '../../features/wallet/domain/cardAvailablePresentation';
+import { getCardAvailablePresentation, formatCardAvailableOrigin, type CardAvailableMovements, type CardBankAvailableReference } from '../../features/wallet/domain/cardAvailablePresentation';
 import { BankLogo } from './BankLogo';
 import { getWalletCardVisual } from './walletPresentation';
 
@@ -23,7 +23,49 @@ type Props = {
   bankAvailableReferences?: readonly CardBankAvailableReference[];
   bankLimitStatusCardId?: string | null;
   bankLimitStatus?: 'LOADING' | 'READY' | 'ERROR';
+  /** Compras/pagamentos registrados, para atualizar o disponível de todos os cartões da fileira (web). */
+  cardMovements?: CardAvailableMovements;
 };
+
+/** Computador com mouse e tela larga: fileira de cartões em vez da pilha do celular. */
+const DESKTOP_QUERY = '(min-width: 1024px) and (hover: hover) and (pointer: fine)';
+const useDesktopPointer = (): boolean => {
+  const [matches, setMatches] = useState(() =>
+    typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia(DESKTOP_QUERY).matches);
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
+    const query = window.matchMedia(DESKTOP_QUERY);
+    const update = () => setMatches(query.matches);
+    update();
+    query.addEventListener?.('change', update);
+    return () => query.removeEventListener?.('change', update);
+  }, []);
+  return matches;
+};
+
+/** Percentual do limite usado (0–100), a partir do disponível exibido. */
+export const cardLimitUsagePercent = (creditLimit: number, available: number): number | null => {
+  const limit = Number(creditLimit);
+  if (!Number.isFinite(limit) || limit <= 0 || !Number.isFinite(available)) return null;
+  return Math.min(100, Math.max(0, Math.round((1 - available / limit) * 100)));
+};
+
+/** Medidor de limite dentro do cartão: quanto foi gasto e a fatia do limite. Âmbar a partir de 85%. */
+const LimitMeter: React.FC<{ percent: number | null; spent: number; className?: string }> = ({ percent, spent, className = '' }) => percent === null ? null : (
+  <span className={`block ${className}`} role="meter" aria-label={`Gasto ${formatMoney(spent)}, ${percent}% do limite`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}>
+    <span className="flex items-baseline justify-between gap-2 text-[10px] font-bold text-white/90">
+      <span className="truncate">Gasto <PrivateMoney value={formatMoney(spent)} /></span>
+      <span className="shrink-0 tabular-nums">{percent}% do limite</span>
+    </span>
+    <span className="mt-0.5 block h-1.5 overflow-hidden rounded-full bg-white/25">
+      <span className={`block h-full rounded-full ${percent >= 85 ? 'bg-amber-300' : 'bg-white'}`} style={{ width: `${percent}%` }} />
+    </span>
+  </span>
+);
+
+/** Quanto do limite já foi usado, a partir do disponível exibido (nunca negativo). */
+const spentFromAvailable = (creditLimit: number, available: number): number =>
+  Math.max(0, Math.round((Math.max(0, Number(creditLimit) || 0) - available) * 100) / 100);
 
 const Chip = () => <svg viewBox="0 0 42 33" width="36" height="29" aria-label="Chip EMV"><rect x="1" y="1" width="40" height="31" rx="6" fill="#DFC48C" stroke="#977844"/><path d="M14 1v31M28 1v31M1 11h40M1 22h40M14 11h14v11H14z" fill="none" stroke="#977844" strokeWidth="1.5"/></svg>;
 
@@ -31,11 +73,12 @@ const Network = ({ brand }: { brand: string | null }) => {
   const value = (brand || '').toLowerCase();
   if (value.includes('master')) return <span aria-label="Mastercard" className="relative h-6 w-9"><span className="absolute left-0 top-0 h-6 w-6 rounded-full bg-red-500"/><span className="absolute right-0 top-0 h-6 w-6 rounded-full bg-yellow-400/90"/></span>;
   if (value.includes('visa')) return <span className="rounded bg-white px-1.5 py-0.5 text-xs font-black italic text-blue-900">VISA</span>;
-  return <span className="text-xs font-bold">{brand || 'CRÉDITO'}</span>;
+  return brand ? <span className="text-xs font-bold">{brand}</span> : null;
 };
 
 export const BankStack: React.FC<Props> = ({ accounts, cards, onCard, onEditCard, onCreateCard, onImportStatement, onSelectionChange, onNewExpense, onPayInvoice,
-  bankLimitReference, bankAvailableReferences = [], bankLimitStatusCardId, bankLimitStatus = 'READY' }) => {
+  bankLimitReference, bankAvailableReferences = [], bankLimitStatusCardId, bankLimitStatus = 'READY', cardMovements }) => {
+  const isDesktop = useDesktopPointer();
   const availableCards = useMemo(() => cards.filter(card => card.status !== 'CANCELED'), [cards]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isFlipped, setIsFlipped] = useState(false);
@@ -101,6 +144,26 @@ export const BankStack: React.FC<Props> = ({ accounts, cards, onCard, onEditCard
   const maskedNumber = selected?.last_four
     ? `•••• •••• •••• ${selected.last_four}`
     : '•••• •••• •••• ----';
+  const selectedUsage = selected && limitState === 'READY' ? cardLimitUsagePercent(Number(selected.credit_limit), available) : null;
+  const selectedSpent = selected ? spentFromAvailable(Number(selected.credit_limit), available) : 0;
+  // Disponível de cada cartão da fileira (web): o selecionado usa a mesma leitura da página.
+  const availabilityFor = (card: PersonalWalletCard) => {
+    if (card.id === selected?.id) return { amount: available, label: availableLabel, ready: limitState === 'READY', fromBank: hasBankLimit };
+    const presentation = getCardAvailablePresentation(card, bankAvailableReferences, cardMovements);
+    return { amount: presentation.amount, label: formatCardAvailableOrigin(presentation.bankReference, presentation.usageSinceReference), ready: true, fromBank: presentation.origin === 'BANK' };
+  };
+  const tilt = (event: React.PointerEvent<HTMLElement>) => {
+    if (event.pointerType !== 'mouse') return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = (event.clientX - rect.left) / rect.width - 0.5;
+    const y = (event.clientY - rect.top) / rect.height - 0.5;
+    event.currentTarget.style.setProperty('--tilt-x', `${(-y * 8).toFixed(2)}deg`);
+    event.currentTarget.style.setProperty('--tilt-y', `${(x * 10).toFixed(2)}deg`);
+  };
+  const resetTilt = (event: React.PointerEvent<HTMLElement>) => {
+    event.currentTarget.style.setProperty('--tilt-x', '0deg');
+    event.currentTarget.style.setProperty('--tilt-y', '0deg');
+  };
   const holderLabel = selected?.cardholder_name || selected?.nickname || 'NÃO INFORMADO';
   const expiryLabel = selected?.expiry_month && selected?.expiry_year
     ? `${String(selected.expiry_month).padStart(2, '0')}/${String(selected.expiry_year).slice(-2)}`
@@ -127,7 +190,63 @@ export const BankStack: React.FC<Props> = ({ accounts, cards, onCard, onEditCard
         {onCreateCard && <button onClick={onCreateCard} type="button" className="min-h-8 rounded-lg border border-blue-500/50 px-2 py-1 text-[11px] font-semibold text-blue-300 hover:bg-blue-950/30">+ Cartão</button>}
       </div>
     </header>
-    {!selected ? <div className="rounded-2xl border border-dashed border-slate-700 p-5 text-center text-sm text-slate-400">Nenhum cartão cadastrado.</div> : <>
+    {!selected ? <div className="rounded-2xl border border-dashed border-slate-700 p-5 text-center text-sm text-slate-400">Nenhum cartão cadastrado.</div> : isDesktop ? <>
+      {/* Web: todos os cartões lado a lado; clique seleciona, setas trocam, o cartão inclina com o mouse. */}
+      <div role="radiogroup" aria-label="Escolher cartão" className="flex gap-4 overflow-x-auto px-1 pb-3 pt-2 [scrollbar-width:thin]"
+        onKeyDown={event => {
+          if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { event.preventDefault(); cycle(event.key === 'ArrowRight' ? 1 : -1); }
+        }}>
+        {availableCards.map(card => {
+          const cardIdentity = identity(card);
+          const isSelected = card.id === selected.id;
+          const availability = availabilityFor(card);
+          const usage = availability.ready ? cardLimitUsagePercent(Number(card.credit_limit), availability.amount) : null;
+          const showBack = isSelected && isFlipped;
+          return <div key={card.id} className="shrink-0" style={{ perspective: '900px' }}>
+            <button type="button" role="radio" aria-checked={isSelected} tabIndex={isSelected ? 0 : -1}
+              aria-label={`${card.nickname}: disponível ${availability.ready ? formatMoney(availability.amount) : 'indisponível'}${usage !== null ? `, ${usage}% do limite usado` : ''}`}
+              onClick={() => setSelectedId(card.id)} onPointerMove={tilt} onPointerLeave={resetTilt}
+              className={`relative block aspect-[1.586/1] w-[270px] rounded-2xl text-left text-white outline-none transition-[transform,opacity,box-shadow] duration-200 ease-out focus-visible:ring-2 focus-visible:ring-blue-300 motion-reduce:transition-none motion-reduce:[transform:none] ${
+                isSelected ? 'opacity-100 shadow-2xl ring-2 ring-white/60' : 'opacity-60 shadow-lg hover:opacity-90'}`}
+              style={{ transformStyle: 'preserve-3d', transform: `rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg)) scale(${isSelected ? 1.03 : 1})` }}>
+              {/* Camada interna gira para mostrar o verso (o botão só inclina com o mouse). */}
+              <span className="absolute inset-0 block transition-transform duration-500 ease-out motion-reduce:transition-none" style={{ transformStyle: 'preserve-3d', transform: `rotateY(${showBack ? 180 : 0}deg)` }}>
+              <span className="absolute inset-0 overflow-hidden rounded-2xl border border-white/25" style={{ backfaceVisibility: 'hidden', background: cardIdentity.visual.background }}>
+                <span aria-hidden className="pointer-events-none absolute -right-8 -top-10 h-32 w-32 rounded-full border border-white/10" />
+                <span className="relative flex h-full flex-col gap-2 p-4">
+                  <span className="flex min-w-0 items-start justify-between gap-2">
+                    <span className="flex min-w-0 items-center gap-2"><BankLogo variant="emblem" size="xs" name={cardIdentity.issuer} alternateName={card.nickname}/><strong className="truncate text-sm">{cardIdentity.issuer}</strong></span>
+                    <Network brand={card.brand}/>
+                  </span>
+                  <span className="flex items-center justify-between gap-2">
+                    <Chip/>
+                    <span className="min-w-0 text-right" title={availability.label}><small className="block truncate whitespace-nowrap text-[10px] font-bold uppercase text-white/80">{availability.fromBank ? 'Limite disponível' : 'Limite estimado'}</small><strong className="block truncate text-base font-black"><PrivateMoney value={availability.ready ? formatMoney(availability.amount) : '—'} /></strong></span>
+                  </span>
+                  <span className="font-mono text-sm font-bold tracking-[0.11em]">{card.last_four ? `•••• •••• •••• ${card.last_four}` : '•••• •••• •••• ----'}</span>
+                  <LimitMeter percent={usage} spent={spentFromAvailable(Number(card.credit_limit), availability.amount)} className="mt-auto" />
+                </span>
+              </span>
+              <span className="absolute inset-0 overflow-hidden rounded-2xl border border-white/20" style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)', background: cardIdentity.visual.background }}>
+                <span className="absolute inset-x-0 top-4 h-9 bg-black/90" aria-hidden />
+                <span className="relative flex h-full flex-col px-4 pb-3 pt-16">
+                  <span className="mb-1 flex justify-between text-[10px] font-bold uppercase tracking-wider text-white/80"><span>Assinatura autorizada</span><span>Código</span></span>
+                  <span className="flex h-8 overflow-hidden rounded-sm border border-slate-400 bg-white"><span className="flex min-w-0 flex-1 items-center px-2.5 font-serif text-xs italic text-slate-700">{card.cardholder_name || card.nickname}</span><span className="flex w-12 items-center justify-center border-l border-slate-400 font-mono text-xs font-black text-slate-900">•••</span></span>
+                  <span className="mt-auto text-[10px] leading-tight text-white/80">Uso pessoal. Em caso de perda ou roubo, contate o emissor.</span>
+                </span>
+              </span>
+              </span>
+            </button>
+          </div>;
+        })}
+      </div>
+      <div className="mt-1 flex flex-wrap items-center justify-center gap-1.5 text-[11px]">
+        <button type="button" disabled={!selected.last_four} onClick={event => { void handleCopyField('number', event); }} className="inline-flex min-h-8 items-center gap-1 rounded-lg border border-slate-700 px-2.5 py-1 font-semibold text-slate-200 hover:bg-slate-800 disabled:opacity-40"><Copy size={12}/>Final do cartão</button>
+        <button type="button" disabled={!selected.cardholder_name} onClick={event => { void handleCopyField('holder', event); }} className="inline-flex min-h-8 items-center gap-1 rounded-lg border border-slate-700 px-2.5 py-1 font-semibold text-slate-200 hover:bg-slate-800 disabled:opacity-40"><Copy size={12}/>Titular</button>
+        <button type="button" disabled={expiryLabel === '—'} onClick={event => { void handleCopyField('expiry', event); }} className="inline-flex min-h-8 items-center gap-1 rounded-lg border border-slate-700 px-2.5 py-1 font-semibold text-slate-200 hover:bg-slate-800 disabled:opacity-40"><Copy size={12}/>Validade</button>
+        <button type="button" aria-pressed={isFlipped} onClick={() => setIsFlipped(value => !value)} className="inline-flex min-h-8 items-center gap-1 rounded-lg border border-slate-700 px-2.5 py-1 font-semibold text-slate-200 hover:bg-slate-800"><RotateCcw size={12}/>{isFlipped ? 'Ver frente' : 'Ver verso'}</button>
+        <button type="button" onClick={() => onCard(selected)} className="inline-flex min-h-8 items-center gap-1 rounded-lg border border-blue-500/50 px-2.5 py-1 font-semibold text-blue-300 hover:bg-blue-950/30">Detalhes</button>
+      </div>
+    </> : <>
       <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-0.5 sm:gap-2">
         <button type="button" disabled={availableCards.length < 2} onClick={() => cycle(-1)} aria-label="Cartão anterior" className="flex min-h-9 min-w-9 items-center justify-center rounded-full p-1 text-slate-200 transition-colors hover:bg-slate-800/70 disabled:opacity-30"><ArrowLeft size={17}/></button>
         <div className="mx-auto w-full min-w-0 max-w-[265px] sm:max-w-[340px]">
@@ -175,24 +294,20 @@ export const BankStack: React.FC<Props> = ({ accounts, cards, onCard, onEditCard
               <div className="absolute inset-0 transition-transform duration-500 ease-out motion-reduce:transition-none" style={{ transformStyle: 'preserve-3d', transform: `rotateY(${isFlipped ? 180 : 0}deg)` }}>
                 <div className="absolute inset-0 overflow-hidden rounded-2xl border border-white/25 shadow-2xl" style={{ backfaceVisibility: 'hidden', background: front!.visual.background }}>
                   <div aria-hidden className="pointer-events-none absolute -right-8 -top-10 h-36 w-36 rounded-full border border-white/10" />
-                  <div className="relative grid h-full grid-rows-[auto_auto_auto_1fr] gap-2 p-3.5 text-white sm:gap-3 sm:p-5">
+                  <div className="relative grid h-full grid-rows-[auto_auto_auto_1fr] gap-1.5 p-3 text-white sm:gap-2 sm:p-4">
                     <div className="flex min-w-0 items-start justify-between gap-3">
-                      <div className="flex min-w-0 items-center gap-2"><BankLogo variant="card" size="card" name={front!.issuer} alternateName={selected.nickname}/><strong className="truncate text-sm">{front!.issuer}</strong></div>
+                      <div className="flex min-w-0 items-center gap-2"><BankLogo variant="emblem" size="xs" name={front!.issuer} alternateName={selected.nickname}/><strong className="truncate text-sm">{front!.issuer}</strong></div>
                       <Network brand={selected.brand}/>
                     </div>
                     <div className="flex items-center justify-between gap-3">
                       <Chip/>
-                      <div className="min-w-0 text-right"><small className="block text-[10px] font-bold uppercase tracking-wider text-white/80">{availableLabel}</small><strong className="block truncate text-sm font-black sm:text-base"><PrivateMoney value={limitState === 'READY' ? formatMoney(available) : '—'} /></strong></div>
-                      <Wifi size={18} className="shrink-0 rotate-90 opacity-80"/>
+                      <div className="min-w-0 text-right" title={availableLabel}><small className="block truncate whitespace-nowrap text-[10px] font-bold uppercase text-white/80">{hasBankLimit ? 'Limite disponível' : 'Limite estimado'}</small><strong className="block truncate text-sm font-black sm:text-base"><PrivateMoney value={limitState === 'READY' ? formatMoney(available) : '—'} /></strong></div>
                     </div>
                     <button type="button" data-card-section="number" onPointerDown={event => event.stopPropagation()} onClick={event => { void handleCopyField('number', event); }} disabled={!selected.last_four} aria-label="Copiar apenas os quatro últimos dígitos do cartão" title="Copiar final do cartão" className="flex min-h-8 min-w-0 items-center justify-between gap-2 rounded-lg border border-white/15 bg-black/20 px-2.5 py-1.5 text-left transition hover:bg-black/30">
                       <span className="min-w-0 whitespace-nowrap font-mono text-[clamp(0.68rem,3.1vw,0.95rem)] font-bold tracking-[0.11em] text-white">{maskedNumber}</span>
                       <Copy size={12} className="shrink-0 text-white/80" aria-hidden/>
                     </button>
-                    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-end gap-3 border-t border-white/15 pt-1">
-                      <button type="button" data-card-section="holder" aria-label="Copiar titular do cartão" disabled={!selected.cardholder_name} onPointerDown={event => event.stopPropagation()} onClick={event => { void handleCopyField('holder', event); }} className="min-h-7 min-w-0 text-left disabled:opacity-70"><small className="block text-[10px] font-bold uppercase tracking-wider text-white/80">Titular · copiar</small><strong className="block truncate font-mono text-[10px] uppercase tracking-wide text-white sm:text-xs">{holderLabel}</strong></button>
-                      <button type="button" data-card-section="expiry" aria-label="Copiar validade do cartão" disabled={expiryLabel === '—'} onPointerDown={event => event.stopPropagation()} onClick={event => { void handleCopyField('expiry', event); }} className="min-h-7 shrink-0 text-right disabled:opacity-70"><small className="block text-[10px] font-bold uppercase tracking-wider text-white/80">Validade · copiar</small><strong className="block font-mono text-[10px] text-white sm:text-xs">{expiryLabel}</strong></button>
-                    </div>
+                    <LimitMeter percent={selectedUsage} spent={selectedSpent} className="self-end" />
                   </div>
                 </div>
                 <div className="absolute inset-0 overflow-hidden rounded-2xl border border-white/20 text-white shadow-2xl" style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)', background: front!.visual.background }}>
@@ -215,8 +330,8 @@ export const BankStack: React.FC<Props> = ({ accounts, cards, onCard, onEditCard
                         <span className="block truncate font-mono text-[10px] text-white/80">{maskedNumber}</span>
                       </div>
                       <div className="flex shrink-0 items-center gap-1.5">
-                        <button type="button" aria-label="Copiar titular do cartão" title="Copiar titular" disabled={!selected.cardholder_name} onPointerDown={event => event.stopPropagation()} onClick={event => { void handleCopyField('holder', event); }} className="flex min-h-7 items-center gap-1 rounded-md border border-white/25 bg-black/35 px-2 py-1 text-[10px] font-bold text-white disabled:opacity-50"><Copy size={11}/>Titular</button>
-                        <button type="button" aria-label="Copiar validade do cartão" title="Copiar validade" disabled={expiryLabel === '—'} onPointerDown={event => event.stopPropagation()} onClick={event => { void handleCopyField('expiry', event); }} className="flex min-h-7 items-center gap-1 rounded-md border border-white/25 bg-black/35 px-2 py-1 text-[10px] font-bold text-white disabled:opacity-50"><Copy size={11}/>Validade</button>
+                        <button type="button" data-card-section="holder" aria-label="Copiar titular do cartão" title="Copiar titular" disabled={!selected.cardholder_name} onPointerDown={event => event.stopPropagation()} onClick={event => { void handleCopyField('holder', event); }} className="flex min-h-7 items-center gap-1 rounded-md border border-white/25 bg-black/35 px-2 py-1 text-[10px] font-bold text-white disabled:opacity-50"><Copy size={11}/>Titular</button>
+                        <button type="button" data-card-section="expiry" aria-label="Copiar validade do cartão" title="Copiar validade" disabled={expiryLabel === '—'} onPointerDown={event => event.stopPropagation()} onClick={event => { void handleCopyField('expiry', event); }} className="flex min-h-7 items-center gap-1 rounded-md border border-white/25 bg-black/35 px-2 py-1 text-[10px] font-bold text-white disabled:opacity-50"><Copy size={11}/>Validade</button>
                         <button type="button" onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); onCard(selected); }} className="min-h-7 rounded-md border border-white/25 bg-white/15 px-2.5 py-1 text-[10px] font-bold text-white">Detalhes</button>
                       </div>
                     </div>
@@ -228,13 +343,16 @@ export const BankStack: React.FC<Props> = ({ accounts, cards, onCard, onEditCard
         </div>
         <button type="button" disabled={availableCards.length < 2} onClick={() => cycle(1)} aria-label="Próximo cartão" className="flex min-h-9 min-w-9 items-center justify-center rounded-full p-1 text-slate-200 transition-colors hover:bg-slate-800/70 disabled:opacity-30"><ArrowRight size={17}/></button>
       </div>
-      <div className="mt-2 grid grid-cols-3 gap-1.5">
+    </>}
+    {/* Ações, confirmação de cópia e dica valem para celular e web. */}
+    {selected && <>
+      <div className={`mt-2 grid grid-cols-3 gap-1.5 ${isDesktop ? 'mx-auto max-w-xl' : ''}`}>
         <button type="button" onClick={() => onNewExpense?.(selected)} className="flex min-h-8 min-w-0 items-center justify-center gap-1 rounded-lg bg-blue-600 px-1.5 py-1.5 text-[10px] font-bold text-white sm:text-xs"><Plus size={13} className="shrink-0"/><span className="truncate">Despesa</span></button>
         <button type="button" onClick={() => onPayInvoice?.(selected)} className="flex min-h-8 min-w-0 items-center justify-center gap-1 rounded-lg border border-amber-500/30 bg-amber-500/10 px-1.5 py-1.5 text-[10px] font-bold text-amber-200 sm:text-xs"><CreditCard size={13} className="shrink-0"/><span className="truncate">Pagar fatura</span></button>
         <button type="button" onClick={() => onEditCard(selected)} className="flex min-h-8 min-w-0 items-center justify-center gap-1 rounded-lg border border-slate-700 px-1.5 py-1.5 text-[10px] font-bold text-slate-200 sm:text-xs"><Pencil size={13} className="shrink-0"/><span className="truncate">Editar cartão</span></button>
       </div>
       {copyFeedback && <p role="status" className="mt-1.5 flex items-center justify-center gap-1 text-center text-[10px] text-emerald-300"><Check size={12}/>{copyFeedback}</p>}
-      <p className="mt-1.5 flex items-center justify-center gap-1 text-center text-[10px] text-slate-400"><RotateCcw size={11}/>{index + 1} de {availableCards.length} · Toque para virar · Deslize para trocar</p>
+      <p className="mt-1.5 flex items-center justify-center gap-1 text-center text-[10px] text-slate-400"><RotateCcw size={11}/>{isDesktop ? `${index + 1} de ${availableCards.length} · Clique para selecionar · ← → para trocar` : `${index + 1} de ${availableCards.length} · Toque para virar · Deslize para trocar`}</p>
     </>}
   </section>;
 };

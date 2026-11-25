@@ -35,7 +35,7 @@ before(async () => {
       id uuid primary key, owner_id uuid, source_id uuid, principal numeric,
       funding_payment_method text, funding_total_payable numeric,
       funding_installments_count integer, debtor_name text, created_at timestamptz,
-      policies_snapshot jsonb
+      policies_snapshot jsonb, start_date date
     );
     create table public.fontes(id uuid primary key, profile_id uuid, type text,
       balance numeric, archived_at timestamptz);
@@ -118,6 +118,7 @@ before(async () => {
   await db.exec(readFileSync('supabase/migrations/20261117041652_card_funded_loan_wallet_charge.sql', 'utf8'));
   await db.exec(readFileSync('supabase/migrations/20261117150000_card_funded_loan_no_account_debit.sql', 'utf8'));
   await db.exec(readFileSync('supabase/migrations/20261122073000_card_funded_historical_reconciliation.sql', 'utf8'));
+  await db.exec(readFileSync('supabase/migrations/20261125090000_card_funded_loan_uses_start_date.sql', 'utf8'));
   await db.exec(`
     create trigger trg_sync_transacao_to_wallet
       after insert on public.transacoes
@@ -304,4 +305,18 @@ test('marcador histórico sem referência ou no futuro não supera bloqueio do b
     '{cardPurchaseBankReference}',to_jsonb('PIX'::text)) where id='${loan}';`);
   await assert.rejects(finalize(),/Informe data, valor e identificação/);
   assert.equal((await rows('select count(*)::integer n from personal_wallet_expenses'))[0].n,0);
+});
+
+test('compra no cartão usa a data do empréstimo, não a data de digitação, e nunca uma data futura', async () => {
+  await db.query(`update public.contratos set created_at='2026-11-25T03:26:13Z', start_date='2026-11-20' where id='${loan}'`);
+  const first = await finalize();
+  const date = (await rows(`select expense_date::text as d from personal_wallet_expenses where id='${first.rows[0].expense_id}'`))[0].d;
+  assert.equal(date, '2026-11-20');
+});
+
+test('empréstimo com data futura gera compra com a data de hoje', async () => {
+  await db.query(`update public.contratos set start_date=((now() at time zone 'America/Manaus')::date + 10) where id='${loan}'`);
+  const first = await finalize();
+  const check = (await rows(`select (expense_date = (now() at time zone 'America/Manaus')::date) as today from personal_wallet_expenses where id='${first.rows[0].expense_id}'`))[0];
+  assert.equal(check.today, true);
 });

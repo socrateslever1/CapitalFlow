@@ -1,5 +1,13 @@
 # Changelog
 
+## 25/11/2026 — Cartões no modo web e data da compra de empréstimo financiado por cartão
+
+**Código na main (produção); migration ainda não aplicada no Supabase.**
+- **Cartões no computador (mouse e tela a partir de 1024 px):** todos os cartões aparecem lado a lado; clicar seleciona, setas do teclado trocam, o cartão inclina seguindo o cursor e o verso abre pelo botão "Ver verso". Copiar final, titular e validade e "Detalhes" ficam abaixo da fileira. A área de cartões ocupa a largura toda e a fatura fica logo abaixo. No celular continua a pilha com deslizar e tocar para virar (`components/wallet/BankStack.tsx`, `features/wallet/pages/WalletCardsPage.tsx`).
+- **Cartão mais claro:** a legenda "Disponível · banco dd/mm" sai do cartão e dá lugar a "Limite disponível" (a origem do valor fica no texto ao passar o mouse). Cada cartão ganha o medidor "Gasto R$ X · N% do limite" com barra, âmbar a partir de 85%, calculado a partir do disponível exibido; o cartão mantém a proporção real (1,586:1). A frente ficou só com o que informa: selo discreto do banco (nova variante `emblem` em `BankLogo`), bandeira quando cadastrada (sem o texto genérico "CRÉDITO"), limite, número e medidor; titular e validade passam ao verso, com botões de copiar, e o símbolo de aproximação foi retirado.
+- **Correção visual no celular:** o rótulo do disponível passa a ocupar uma linha e o espaçamento interno foi reduzido, para que titular e validade não fiquem cortados no cartão estreito.
+- **Correção — data da compra de empréstimo financiado por cartão** (migration `20261125090000_card_funded_loan_uses_start_date.sql`, **não aplicada**): `finalize_card_funded_loan_v1` usava a data de criação do contrato no sistema; agora usa a data do empréstimo (`start_date`), limitada a hoje. O modo "cobrança bancária já realizada" segue usando a data informada da cobrança. Testes em Postgres de memória (`tests/financial/card-funded-loan-wallet-charge.test.ts`).
+
 ## 24/11/2026 — Ícones de categoria com medidor nos cartões, contas e relatório
 
 **Código em revisão (branch `feat/wallet-category-icons`).** Categorias de despesa ganham ícone e cor próprios (`features/wallet/domain/walletCategoryVisual.ts`, ícones `lucide-react`, licença ISC; nenhum arquivo de outro aplicativo é usado) e um anel medidor com a fatia da categoria no total do período (`components/wallet/CategoryGaugeIcon.tsx`).

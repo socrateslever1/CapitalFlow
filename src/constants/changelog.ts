@@ -24,6 +24,19 @@ export const SYSTEM_CHANGELOG: ChangelogRelease[] = [
   {
     version: '3.5.0',
     codeOnly: true,
+    date: '25/11/2026',
+    title: 'Cartões lado a lado no computador',
+    summary: 'No computador os cartões aparecem juntos, com medidor de limite; empréstimos pagos no cartão usam a data do empréstimo.',
+    items: [
+      { kind: 'MELHORIA', text: 'No computador, todos os cartões aparecem lado a lado: clique para escolher, use as setas para trocar e veja o verso por botão.' },
+      { kind: 'NOVIDADE', text: 'Cada cartão mostra o gasto, o limite disponível e uma barra com quanto do limite já foi usado.' },
+      { kind: 'MELHORIA', text: 'O cartão ficou mais limpo: proporção real, logotipo discreto e sem informações vazias na frente; titular e validade ficam no verso.' },
+      { kind: 'CORRECAO', text: 'Empréstimo pago no cartão passa a gerar a compra com a data do empréstimo, e não com a data em que foi digitado.' },
+    ],
+  },
+  {
+    version: '3.5.0',
+    codeOnly: true,
     date: '24/11/2026',
     title: 'Carteira: faturas e categorias mais claras',
     summary: 'Ciclos mais fiéis ao banco, categorias visuais e lançamentos rápidos mais claros.',

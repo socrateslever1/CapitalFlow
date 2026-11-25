@@ -40,7 +40,8 @@ test('o verso usa elementos físicos de cartão em vez de uma grade técnica', (
   assert.doesNotMatch(stack, /grid flex-1 grid-cols-2/);
 });
 
-test('a frente reserva linhas próprias para número, titular e validade', () => {
+// A frente mostra número, limite e medidor; titular e validade ficam no verso, com botões de copiar.
+test('número na frente; titular e validade no verso, com cópia', () => {
   assert.match(stack, /data-card-section="number"/);
   assert.match(stack, /data-card-section="holder"/);
   assert.match(stack, /data-card-section="expiry"/);
@@ -164,5 +165,8 @@ test('cartão não apresenta cálculo como limite real e separa referência banc
   assert.match(cards, /canCorrectBankReference && editingBankAvailable/);
   assert.match(cards, /bankFactLastUpdate/);
   assert.match(cards, /bankAvailableRequest\.current\.signature !== signature/);
-  assert.doesNotMatch(bank, /Limite disponível<\/small>/);
+  // "Limite disponível" só para valor informado pelo banco; estimativa continua identificada como tal.
+  assert.doesNotMatch(bank, />Limite disponível<\/small>/);
+  assert.match(bank, /hasBankLimit \? 'Limite disponível' : 'Limite estimado'/);
+  assert.match(bank, /availability\.fromBank \? 'Limite disponível' : 'Limite estimado'/);
 });

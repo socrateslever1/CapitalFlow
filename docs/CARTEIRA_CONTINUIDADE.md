@@ -1,3 +1,12 @@
+## 25/11/2026 — Cartões no web (fileira, mouse, medidor) e data de compra de empréstimo por cartão
+
+- **Pedido:** opções 1 + 3 + 4 para o cartão no modo web (cartões lado a lado, interação de mouse, medidor de limite) e correção da data da compra gerada por empréstimo financiado por cartão (já registrada como risco em 20/11: `finalize_card_funded_loan_v1` usava `created_at`).
+- **Evidência (leitura):** empréstimo com data de início anterior, digitado dias depois, gerou compra no cartão com a data de digitação. Outros vínculos recentes já estavam com a data do empréstimo.
+- **Correção de dados autorizada pelo usuário:** a compra desse empréstimo teve a data ajustada para a data do empréstimo via `personal_wallet_update_expense_idempotent` (compra 1x; mesma fatura, valor e parcela; `request_id` fixo). Nada mais foi alterado.
+- **Código:** migration `20261125090000_card_funded_loan_uses_start_date.sql` (**não aplicada**; rollback = reaplicar a função de `20261122073000`). `BankStack` ganha modo web por `matchMedia('(min-width: 1024px) and (hover: hover) and (pointer: fine)')`, mantendo a pilha no celular; ações compartilhadas; medidor via `cardLimitUsagePercent`.
+- **Verificação visual:** conferido no navegador do app em 1280×800 (fileira, seleção, verso) e 375×812 (pilha, medidor, conteúdo do cartão sem corte). Sem aparelho físico.
+- **Pendências:** aplicar as migrations pendentes; editar a data de início do contrato ainda não altera a compra já gerada no cartão.
+
 ## 24/11/2026 — Ícones de categoria com anel medidor (branch `feat/wallet-category-icons`)
 
 - **Pedido:** ícones nas categorias e um medidor gráfico nos ícones, nos cartões e nas contas, inspirado em apps de finanças pessoais. A cópia local de outro aplicativo indicada pelo usuário não contém o pacote de ícones de categoria (só favicons e código compilado), e esses desenhos são de terceiros; foram usados ícones `lucide-react` com cores próprias.

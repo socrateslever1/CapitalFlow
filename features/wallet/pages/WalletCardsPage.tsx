@@ -808,10 +808,11 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
     </button>}
     {data && <>
       <div className="grid gap-3 lg:grid-cols-12">
-        <div className="min-w-0 self-start rounded-xl border border-slate-800 bg-slate-900 p-2.5 sm:p-3.5 lg:sticky lg:top-6 lg:col-span-5">
+        <div className="min-w-0 self-start rounded-xl border border-slate-800 bg-slate-900 p-2.5 sm:p-3.5 lg:col-span-12">
           <BankStack key={requestedCardId || 'all'} accounts={data.accounts} cards={displayedCards}
             bankAvailableReferences={data.cardInvoiceFacts}
             bankLimitStatusCardId={selected?.id || null}
+            cardMovements={data || undefined}
             bankLimitStatus={bankLimitStatus}
             bankLimitReference={selected && availablePresentation?.bankReference ? {
               cardId: selected.id,
@@ -833,7 +834,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
             }}
             onPayInvoice={card => { setSelectedId(card.id); setPaying(card); }} />
         </div>
-        <div className="min-w-0 space-y-2.5 sm:space-y-3 lg:col-span-7">
+        <div className="min-w-0 space-y-2.5 sm:space-y-3 lg:col-span-12">
           {selected && (
             <details className="rounded-lg border border-slate-800 bg-slate-900/50 px-3 py-2 text-xs">
               <summary className="cursor-pointer font-medium text-slate-400 hover:text-slate-200">Valores do banco</summary>

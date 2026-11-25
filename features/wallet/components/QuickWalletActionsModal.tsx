@@ -11,7 +11,7 @@ import {
 import { formatMoney } from '../../../utils/formatters';
 import { FinancialCalculatorInput } from '../../../components/forms/FinancialCalculatorInput';
 import { generateUUID } from '../../../utils/generators';
-import { getCardCreditPosition, getPurchaseInvoiceMonth } from '../../../components/wallet/invoiceStatementDomain';
+import { getCardCreditPosition, getSettledInvoiceMonths, resolvePurchaseInvoiceMonth } from '../../../components/wallet/invoiceStatementDomain';
 import { CardOpeningFields, freshCardOpening, validateCardOpening } from './CardOpeningFields';
 import { businessDateInManaus } from '../../../utils/businessDate';
 
@@ -56,6 +56,7 @@ export const QuickWalletActionsModal: React.FC<QuickWalletActionsModalProps> = (
   cards,
   expenses = [],
   installments = [],
+  invoicePayments = [],
   preselectedTarget,
   preselectedCardId,
   initialCardId,
@@ -153,18 +154,21 @@ export const QuickWalletActionsModal: React.FC<QuickWalletActionsModalProps> = (
       if (targetKind === 'card') {
         const today = todayISO();
         const rawExpenseDate = expenseForm.expense_date || today;
-        const effectiveCycleDate = rawExpenseDate > today ? rawExpenseDate : today;
         const targetCard = cards.find((card) => card.id === targetId) || null;
         await personalWalletService.createExpense({
           description,
           amount,
           category: expenseForm.category || 'Compras',
           expense_date: rawExpenseDate,
-          due_date: getPurchaseInvoiceMonth(
-            effectiveCycleDate,
-            targetCard?.closing_day ?? null,
-            targetCard?.due_day ?? null,
-          ),
+          // Fatura pela data da compra; vencida ou paga volta para a aberta (mesma regra da RPC).
+          due_date: resolvePurchaseInvoiceMonth({
+            purchaseDate: rawExpenseDate,
+            today,
+            closingDay: targetCard?.closing_day ?? null,
+            dueDay: targetCard?.due_day ?? null,
+            settledMonths: getSettledInvoiceMonths(targetId, expenses, installments,
+              invoicePayments as { card_id: string; due_month: string }[]),
+          }),
           card_id: targetId,
           status: 'PENDING',
           installment_count: Math.max(1, Number(expenseForm.installment_count || 1)),

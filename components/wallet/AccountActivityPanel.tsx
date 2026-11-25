@@ -1,5 +1,5 @@
 import React, { useMemo, useReducer, useRef, useState } from 'react';
-import { ArrowDownLeft, ArrowUpRight, ArrowLeftRight, CreditCard, FileDown, FileUp, History, Plus, Search, Trash2, Pencil, Wallet } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, ArrowLeftRight, CreditCard, FileDown, FileUp, History, Plus, Search, Trash2, Pencil, Wallet, X } from 'lucide-react';
 import { PersonalWalletAccount, PersonalWalletExpense, PersonalWalletInvoicePayment, WalletAccountOperation, WalletStatementRow, personalWalletService } from '../../services/personalWallet.service';
 import { formatMoney } from '../../utils/formatters';
 import { PrivateMoney } from '../../contexts/FinancialPrivacyContext';
@@ -37,14 +37,17 @@ const fmtDate=(date:string)=>new Date(date.slice(0,10)+'T12:00:00').toLocaleDate
 const localToday=()=>{const value=new Date();value.setMinutes(value.getMinutes()-value.getTimezoneOffset());return value.toISOString().slice(0,10);};
 const input='w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm text-white outline-none focus:border-emerald-500';
 const commonCategories = ['Outros', 'Alimentação', 'Transporte', 'Moradia', 'Serviços', 'Compras', 'Saúde', 'Educação', 'Lazer', 'Recebimento', 'Salário'];
-const tagClass = (tag: string) => {
-  if (tag === 'Empréstimo concedido') return 'border-rose-700/60 bg-rose-950/30 text-rose-200';
-  if (tag === 'Parcela recebida') return 'border-emerald-700/60 bg-emerald-950/30 text-emerald-200';
-  if (tag === 'PIX/TED enviado') return 'border-amber-700/60 bg-amber-950/30 text-amber-200';
-  if (tag === 'Pagamento de fatura') return 'border-violet-700/60 bg-violet-950/30 text-violet-200';
-  if (tag === 'Transferência interna') return 'border-cyan-700/60 bg-cyan-950/30 text-cyan-200';
-  if (tag === 'Importado de PDF') return 'border-slate-600 bg-slate-800 text-slate-300';
-  return 'border-emerald-700/60 bg-emerald-950/30 text-emerald-200';
+const tagClass = (tag: string, amount = 0) => {
+  if (tag === 'Empréstimo concedido') return 'border-rose-700/50 bg-rose-950/30 text-rose-200';
+  if (tag === 'Parcela recebida') return 'border-emerald-700/50 bg-emerald-950/30 text-emerald-200';
+  if (tag === 'PIX/TED enviado') return 'border-amber-700/50 bg-amber-950/30 text-amber-200';
+  if (tag === 'Pagamento de fatura') return 'border-violet-700/50 bg-violet-950/30 text-violet-200';
+  if (tag === 'Transferência interna') return 'border-cyan-700/50 bg-cyan-950/30 text-cyan-200';
+  if (tag === 'Importado de PDF') return 'border-slate-700 bg-slate-800/80 text-slate-300';
+  if (tag === 'Movimentação') return 'border-slate-700/80 bg-slate-800/60 text-slate-300';
+  return amount < 0
+    ? 'border-rose-700/40 bg-rose-950/25 text-rose-200'
+    : 'border-emerald-700/50 bg-emerald-950/30 text-emerald-200';
 };
 const AccountOptionIcon: React.FC<{ account: PersonalWalletAccount }> = ({ account }) =>
   account.account_type === 'CASH'
@@ -284,44 +287,126 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
     </div>
 
     <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:p-6">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <div><h2 className="flex items-center gap-2 text-base font-bold text-white"><History size={19} className="text-cyan-400"/> Extrato da conta</h2>
-          <p className="text-xs text-slate-400">Movimentações registradas neste módulo: {entries.length}</p></div>
-        <button type="button" onClick={exportCsv} disabled={!filtered.length} className="flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-200 disabled:opacity-40">
+      <div className="mb-3.5 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <h2 className="flex items-center gap-2 text-base font-bold text-white">
+            <History size={18} className="text-cyan-400"/> Extrato da conta
+          </h2>
+          <span className="rounded-full border border-slate-700/80 bg-slate-950/80 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-slate-300">
+            {search.trim() ? `${filtered.length}/${entries.length}` : entries.length}
+          </span>
+        </div>
+        <button type="button" onClick={exportCsv} disabled={!filtered.length} className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-slate-700/90 bg-slate-950/60 px-3 py-1.5 text-xs font-semibold text-slate-200 transition-colors hover:border-slate-600 hover:bg-slate-800/80 hover:text-white disabled:opacity-40">
           <FileDown size={14}/> Exportar CSV
         </button>
       </div>
-      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center">
-        <div className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-slate-700 bg-slate-950 px-3">
-          <Search size={15} className="shrink-0 text-slate-500"/>
-          <input aria-label="Buscar movimentações" className="w-full bg-transparent py-2 text-xs text-white outline-none" placeholder="Buscar descrição, valor, data ou categoria" value={search} onChange={e=>setSearch(e.target.value)}/>
-        </div>
-        <div className="flex shrink-0 items-center justify-between gap-3 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs sm:min-w-[220px]">
-          <span className="text-slate-400">Resultado das movimentações{search ? ' filtradas' : ''}</span>
-          <strong className={`whitespace-nowrap tabular-nums ${statementTotal>=0?'text-emerald-300':'text-rose-300'}`}>{statementTotal>=0?'+':'−'}{formatMoney(Math.abs(statementTotal))}</strong>
+
+      <div className="mb-3.5 grid grid-cols-[minmax(0,1fr)_auto] items-stretch gap-2">
+        <label className="flex min-h-10 min-w-0 items-center gap-2 rounded-xl border border-slate-700/80 bg-slate-950 px-2.5 sm:px-3 transition-colors focus-within:border-cyan-500/70 focus-within:ring-2 focus-within:ring-cyan-500/15">
+          <Search size={14} className="shrink-0 text-slate-400" aria-hidden="true"/>
+          <input
+            type="search"
+            aria-label="Buscar movimentações"
+            className="min-w-0 flex-1 bg-transparent py-1.5 text-xs text-white outline-none placeholder:text-slate-500"
+            placeholder="Buscar descrição, valor, data ou categoria"
+            value={search}
+            onChange={e=>setSearch(e.target.value)}
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={()=>setSearch('')}
+              aria-label="Limpar busca"
+              className="shrink-0 rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
+            >
+              <X size={13}/>
+            </button>
+          )}
+        </label>
+
+        <div
+          aria-label="Resultado das movimentações"
+          className="flex min-h-10 shrink-0 flex-col items-end justify-center rounded-xl bg-slate-950/65 px-2.5 py-1 ring-1 ring-inset ring-slate-800/90 sm:flex-row sm:items-center sm:gap-3 sm:px-3.5"
+        >
+          <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-400 sm:text-[11px] sm:normal-case sm:tracking-normal">
+            <span className="sm:hidden">{search ? 'Filtrado' : 'Resultado'}</span>
+            <span className="hidden sm:inline">Resultado das movimentações{search ? ' filtradas' : ''}</span>
+          </span>
+          <strong className={`whitespace-nowrap text-xs sm:text-sm font-extrabold tabular-nums tracking-tight leading-tight ${statementTotal>=0?'text-emerald-300':'text-rose-300'}`}>
+            <PrivateMoney value={`${statementTotal>=0?'+ ':'− '}${formatMoney(Math.abs(statementTotal))}`} />
+          </strong>
         </div>
       </div>
-      {filtered.length===0?<p className="rounded-lg border border-dashed border-slate-700 p-4 text-xs text-slate-400">{entries.length ? 'Nenhuma movimentação corresponde à busca.' : 'Ainda não há movimentações operacionais ou importadas nesta conta.'}</p>:
-      <div className="divide-y divide-slate-800">{filtered.map(m=>(
-        <div key={m.id} className="flex items-center justify-between gap-3 py-3">
-          <div className="min-w-0"><p className="truncate text-xs font-semibold text-white">{m.label}</p><div className="mt-1 flex flex-wrap items-center gap-1.5"><span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${tagClass(m.tag)}`}>{m.tag}</span><span className="text-[11px] text-slate-400">{fmtDate(m.date)} · {m.category}</span></div></div>
-          <div className="flex shrink-0 flex-col items-end gap-1">
-            <strong className={`text-sm ${m.amount>=0?'text-emerald-300':'text-rose-300'}`}>{m.amount>=0?'+':'−'}{formatMoney(Math.abs(m.amount))}</strong>
-            {canVoid(m.id) && <button type="button" disabled={!!voidingId || saving || editSaving}
-              onClick={() => { const op=canVoid(m.id); if(op) startEditing(op); }}
-              aria-label={'Editar lançamento ' + m.label}
-              className="inline-flex min-h-8 items-center gap-1 rounded-md px-2 text-[11px] text-blue-300 hover:bg-blue-950/40 disabled:opacity-40">
-              <Pencil size={13}/>Editar
-            </button>}
-            {canVoid(m.id) && <button type="button" disabled={!!voidingId || saving || editSaving}
-              onClick={() => { const operation=canVoid(m.id); if(operation){ setError(''); setSuccess(''); setVoidTarget(operation); } }}
-              aria-label={'Excluir lançamento ' + m.label}
-              className="inline-flex min-h-8 items-center gap-1 rounded-md px-2 text-[11px] text-rose-300 hover:bg-rose-950/40 disabled:opacity-40">
-              <Trash2 size={13}/>{voidingId===m.id?'Excluindo...':'Excluir'}
-            </button>}
-          </div>
+
+      {filtered.length===0 ? (
+        <p className="rounded-xl border border-dashed border-slate-800 px-4 py-5 text-center text-xs text-slate-400">
+          {entries.length ? 'Nenhuma movimentação corresponde à busca.' : 'Ainda não há movimentações operacionais ou importadas nesta conta.'}
+        </p>
+      ) : (
+        <div className="divide-y divide-slate-800/80">
+          {filtered.map(m => {
+            const positive = m.amount >= 0;
+            const editableOp = canVoid(m.id);
+            return (
+              <article key={m.id} className="flex items-start justify-between gap-3 py-3 first:pt-1 last:pb-1">
+                <div className="flex min-w-0 flex-1 items-start gap-2.5">
+                  <span
+                    aria-hidden="true"
+                    className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border ${
+                      positive
+                        ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-300'
+                        : 'border-rose-500/25 bg-rose-500/10 text-rose-300'
+                    }`}
+                  >
+                    {positive ? <ArrowDownLeft size={15} /> : <ArrowUpRight size={15} />}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold leading-snug text-slate-100">{m.label}</p>
+                    <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] text-slate-400">
+                      <span className="tabular-nums text-slate-300/90">{fmtDate(m.date)}</span>
+                      <span aria-hidden="true" className="text-slate-600">·</span>
+                      <span className="truncate">{m.category}</span>
+                      {m.tag !== 'Movimentação' && (
+                        <span className={`rounded-md border px-1.5 py-0.5 text-[10px] font-semibold leading-none ${tagClass(m.tag, m.amount)}`}>
+                          {m.tag}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex shrink-0 flex-col items-end">
+                  <strong className={`whitespace-nowrap text-sm sm:text-[15px] font-bold tabular-nums tracking-tight ${positive ? 'text-emerald-300' : 'text-rose-300'}`}>
+                    <PrivateMoney value={`${positive ? '+ ' : '− '}${formatMoney(Math.abs(m.amount))}`} />
+                  </strong>
+                  {editableOp && (
+                    <div className="mt-1 -mr-1.5 flex items-center gap-0.5">
+                      <button
+                        type="button"
+                        disabled={!!voidingId || saving || editSaving}
+                        onClick={() => startEditing(editableOp)}
+                        aria-label={'Editar lançamento ' + m.label}
+                        className="inline-flex min-h-7 items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-slate-400 transition-colors hover:bg-slate-800 hover:text-blue-300 disabled:opacity-40"
+                      >
+                        <Pencil size={12}/> Editar
+                      </button>
+                      <button
+                        type="button"
+                        disabled={!!voidingId || saving || editSaving}
+                        onClick={() => { setError(''); setSuccess(''); setVoidTarget(editableOp); }}
+                        aria-label={'Excluir lançamento ' + m.label}
+                        className="inline-flex min-h-7 items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-slate-400 transition-colors hover:bg-rose-950/40 hover:text-rose-300 disabled:opacity-40"
+                      >
+                        <Trash2 size={12}/> {voidingId===m.id ? 'Excluindo...' : 'Excluir'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </article>
+            );
+          })}
         </div>
-      ))}</div>}
+      )}
     </div>
     {action && (
       <Modal

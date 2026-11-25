@@ -21,9 +21,12 @@ test('categoria personalizada continua editável ao atravessar o nome de categor
 test('descrição reconhecida sugere categoria sem sobrescrever seleção manual',()=>{
   assert.equal(suggestWalletAccountCategory('Alimentação',false),'Alimentação');
   assert.equal(suggestWalletAccountCategory('IFood pedido',false),'Alimentação');
+  assert.equal(suggestWalletAccountCategory('Google',false),'Serviços');
+  assert.equal(suggestWalletAccountCategory('Google Play',false),'Serviços');
   assert.equal(suggestWalletAccountCategory('Uber viagem',false),'Transporte');
   assert.equal(suggestWalletAccountCategory('Farmácia Popular',false),'Saúde');
   assert.equal(suggestWalletAccountCategory('Alimentação',true),null);
+  assert.equal(suggestWalletAccountCategory('Google',true),null);
   assert.equal(suggestWalletAccountCategory('Operação desconhecida',false),null);
   assert.equal(suggestWalletAccountCategory('',false),null);
 });

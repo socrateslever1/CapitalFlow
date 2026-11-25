@@ -155,6 +155,7 @@ export type PersonalWalletExpense = {
   request_id?: string | null;
   mutation_requests?: Record<string, unknown>;
   is_opening_summary?: boolean;
+  created_at?: string;
 };
 
 export type PersonalWalletExpenseInstallment = {

@@ -8,12 +8,14 @@ import { getWalletCardVisual, getCreditSummary } from '../../../components/walle
 import { formatMoney } from '../../../utils/formatters';
 import { getCardSummaryDestination } from '../cardSummaryNavigation';
 import { getCardAvailablePresentation, formatCardAvailableOrigin,
-  type CardBankAvailableReference } from '../domain/cardAvailablePresentation';
+  type CardBankAvailableReference, type CardAvailableMovements } from '../domain/cardAvailablePresentation';
 
 type WalletOverviewSummaryProps = {
   accounts: PersonalWalletAccount[];
   cards: PersonalWalletCard[];
   bankAvailableReferences?: CardBankAvailableReference[];
+  /** Compras e pagamentos registrados depois da referência bancária. */
+  cardMovements?: CardAvailableMovements;
   accountBalance: number;
   currentInvoiceTotal: number;
   credit: ReturnType<typeof getCreditSummary>;
@@ -26,13 +28,13 @@ type WalletOverviewSummaryProps = {
  * Dados e cálculos continuam vindo do snapshot autoritativo da carteira.
  */
 export const WalletOverviewSummary: React.FC<WalletOverviewSummaryProps> = ({
-  accounts, cards, bankAvailableReferences = [], accountBalance, currentInvoiceTotal, credit, onNavigate,
+  accounts, cards, bankAvailableReferences = [], cardMovements, accountBalance, currentInvoiceTotal, credit, onNavigate,
 }) => {
   const privacyHidden = useFinancialPrivacy();
   const multipleAccounts = accounts.length > 1;
   const multipleCards = cards.length > 1;
   const displayedLimits = cards.map(card =>
-    getCardAvailablePresentation(card, bankAvailableReferences));
+    getCardAvailablePresentation(card, bankAvailableReferences, cardMovements));
   const displayedAvailableTotal = displayedLimits.reduce(
     (total, entry) => total + Math.round(entry.amount * 100), 0) / 100;
   const hasBankReferences = displayedLimits.some(entry => entry.origin === 'BANK');
@@ -123,7 +125,7 @@ export const WalletOverviewSummary: React.FC<WalletOverviewSummaryProps> = ({
               const account = accounts.find(item => item.id === card.account_id);
               const institution = account?.bank_name || card.issuer || card.nickname;
               const visual = getWalletCardVisual(card, account?.institution_key || account?.bank_name);
-              const availability = getCardAvailablePresentation(card, bankAvailableReferences);
+              const availability = getCardAvailablePresentation(card, bankAvailableReferences, cardMovements);
               const available = availability.amount;
               return (
                 <li key={card.id} className="min-w-0 shrink-0 basis-[min(78%,260px)] snap-start sm:basis-[min(48%,280px)]">
@@ -146,7 +148,7 @@ export const WalletOverviewSummary: React.FC<WalletOverviewSummaryProps> = ({
                     </span>
                     <span className="relative flex min-w-0 items-end justify-between gap-2">
                       <span className="min-w-0">
-                        <span className="block text-[10px] text-white/75">{formatCardAvailableOrigin(availability.bankReference)}</span>
+                        <span className="block text-[10px] text-white/75">{formatCardAvailableOrigin(availability.bankReference, availability.usageSinceReference)}</span>
                         <strong className="block break-words text-base font-semibold tabular-nums">
                           <PrivateMoney value={formatMoney(available)}/>
                         </strong>

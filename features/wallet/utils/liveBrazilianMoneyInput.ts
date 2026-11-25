@@ -59,9 +59,14 @@ export function formatPastedBrazilianMoney(raw: string, rate = false, signed = f
   return amount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: rate ? 6 : 2 });
 }
 
+/** Aceita somente algarismos, separadores decimais/milhar e operadores aritméticos válidos. */
+export function isAllowedFinancialInputDraft(raw: string): boolean {
+  return /^[\d.,+\-×÷*/%()\s]*$/.test(raw);
+}
+
 /** Formata o operando corrente de uma expressão, preservando os anteriores. */
 export function formatMoneyExpressionOperand(raw: string, caret: number, centsEntry = true): LiveBrazilianMoney | null {
-  if (!/^[\d.,+\-×÷*/%()\s]*$/.test(raw)) return null;
+  if (!isAllowedFinancialInputDraft(raw)) return null;
   const before = raw.slice(0, caret);
   const start = Math.max(0, ...[...before.matchAll(/[+\-×÷*/%()]/g)].map(match => (match.index ?? 0) + 1));
   const end = raw.slice(caret).search(/[+\-×÷*/%()]/);

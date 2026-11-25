@@ -24,7 +24,7 @@ import {
   saveCustomExpenseCategory,
 } from '../../features/wallet/utils/walletCustomCategories';
 import { CategoryIconPicker } from './CategoryIconPicker';
-import { getInvoiceCycleDates, getPurchaseInvoiceMonth } from './invoiceStatementDomain';
+import { getInvoiceCycleDates, getPurchaseInvoiceMonth, resolvePurchaseInvoiceMonth } from './invoiceStatementDomain';
 import {
   buildCardExpenseNotes,
   resolveCardInstallmentPlan,
@@ -36,6 +36,7 @@ import {
   resolveQuickDateShortcuts,
   stepInvoiceMonth,
 } from '../../features/wallet/utils/minhasFinancasWalletTools';
+import { suggestWalletAccountCategory } from '../../features/wallet/domain/suggestWalletAccountCategory';
 
 export interface QuickExpenseModalProps {
   accounts: PersonalWalletAccount[];
@@ -94,13 +95,13 @@ export const resolveFirstInstallmentMonthLabel = (
   explicitMonth?: string | null,
   referenceToday: string = todayIso(),
 ): { dueDateIso: string; monthInputValue: string; label: string } => {
-  const effectiveCycleDate =
-    expenseDate && /^\d{4}-\d{2}-\d{2}$/.test(expenseDate) && expenseDate > referenceToday
-      ? expenseDate
-      : referenceToday;
+  // Mesma regra da RPC: fatura pela data da compra; fatura vencida volta para a aberta.
   const dueDateIso = explicitMonth && /^\d{4}-(0[1-9]|1[0-2])/.test(explicitMonth)
     ? explicitMonth.slice(0, 7) + '-01'
-    : getPurchaseInvoiceMonth(effectiveCycleDate, closingDay ?? null, dueDay ?? null);
+    : resolvePurchaseInvoiceMonth({
+      purchaseDate: expenseDate, today: referenceToday,
+      closingDay: closingDay ?? null, dueDay: dueDay ?? null,
+    });
   return { dueDateIso, monthInputValue: dueDateIso.slice(0, 7), label: formatMonthLabel(dueDateIso) };
 };
 
@@ -153,7 +154,13 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
   const [amountMode, setAmountMode] = useState<CardExpenseAmountMode>('INSTALLMENT');
   const [description, setDescription] = useState<string>(notificationPrefill?.description || '');
   const [expenseDate, setExpenseDate] = useState<string>(notificationPrefill?.date || todayIso);
-  const [category, setCategory] = useState<string>('Alimentação');
+  const [category, setCategory] = useState<string>('Outros');
+  const [categoryManuallySelected, setCategoryManuallySelected] = useState<boolean>(false);
+  const suggestedCategory = useMemo(
+    () => suggestWalletAccountCategory(description, categoryManuallySelected),
+    [description, categoryManuallySelected],
+  );
+  const effectiveCategory = suggestedCategory ?? category;
   const [customCategoryState, setCustomCategoryState] = useState(() => ({
     profileId, categories: loadCustomExpenseCategories(profileId),
   }));
@@ -161,13 +168,17 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
     ? customCategoryState.categories : loadCustomExpenseCategories(profileId);
   useEffect(() => {
     setCustomCategoryState({ profileId, categories: loadCustomExpenseCategories(profileId) });
-    setCategory('Alimentação');
+    setCategory('Outros');
+    setCategoryManuallySelected(false);
   }, [profileId]);
   const [creatingCategory, setCreatingCategory] = useState(false);
   const [newCategoryDraft, setNewCategoryDraft] = useState('');
   const allCategories = useMemo(
-    () => mergeCategories([...EXPENSE_CATEGORIES, ...DEFAULT_EXPENSE_CATEGORIES], customCategories),
-    [customCategories],
+    () => mergeCategories(
+      [...EXPENSE_CATEGORIES, ...DEFAULT_EXPENSE_CATEGORIES, ...(suggestedCategory ? [suggestedCategory] : [])],
+      customCategories,
+    ),
+    [customCategories, suggestedCategory],
   );
   const handleAddCustomCategory = () => {
     const clean = normalizeCategoryName(newCategoryDraft);
@@ -176,6 +187,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
     setCustomCategoryState({ profileId, categories: next });
     resetIdempotencyKey();
     setCategory(clean);
+    setCategoryManuallySelected(true);
     setNewCategoryDraft('');
     setCreatingCategory(false);
   };
@@ -235,14 +247,14 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
       if (candidate >= currentOpenMonth) {
         if (selectedCard?.closing_day && selectedCard?.due_day) {
           const dates = getInvoiceCycleDates(candidate, selectedCard.closing_day, selectedCard.due_day);
-          if (effectiveCycleDate <= dates.closingDate) inheritedMonth = candidate;
+          if (effectiveCycleDate < dates.closingDate) inheritedMonth = candidate;
         } else {
           inheritedMonth = candidate;
         }
       }
     }
     return resolveFirstInstallmentMonthLabel(
-      effectiveCycleDate,
+      expenseDate || today,
       selectedCard?.closing_day,
       selectedCard?.due_day,
       firstInvoiceMonth || inheritedMonth,
@@ -292,6 +304,11 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
       setError('Informe um valor válido maior que R$ 0,00.');
       return;
     }
+    if (paymentMode === 'CARD' && closedInvoiceWarning?.shouldWarn && closedInvoiceWarning.isDateAfterClosing) {
+      const closingBr = `${closedInvoiceWarning.closingDate.slice(8, 10)}/${closedInvoiceWarning.closingDate.slice(5, 7)}/${closedInvoiceWarning.closingDate.slice(0, 4)}`;
+      setError(`Data fora do fechamento (${closingBr}). Ajuste a data até ${closingBr} ou selecione a próxima fatura.`);
+      return;
+    }
 
     setSaving(true);
     setError('');
@@ -307,7 +324,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
           toAccountId: null,
           amount: amountValue,
           description: cleanDescription,
-          category,
+          category: effectiveCategory,
           date: expenseDate || todayIso(),
           requestId: requestIdRef.current,
         });
@@ -318,7 +335,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
         await personalWalletService.createExpense({
           description: cleanDescription,
           amount: installmentPlan.remainingTotalAmount,
-          category,
+          category: effectiveCategory,
           expense_date: expenseDate || todayIso(),
           due_date: resolvedCycle.dueDateIso,
           account_id: null,
@@ -343,6 +360,8 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
         resetIdempotencyKey();
         setAmountFormatted('');
         setDescription('');
+        setCategory('Outros');
+        setCategoryManuallySelected(false);
         setNotes('');
         setBatchFeedback(`"${cleanDescription}" registrado! Preencha o próximo lançamento.`);
       } else {
@@ -564,11 +583,12 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                 {/* Categoria por ícones; '+ Nova' acima continua criando categorias próprias. */}
                 <CategoryIconPicker
                   ariaLabel="Categoria"
-                  value={category}
+                  value={effectiveCategory}
                   categories={allCategories}
                   onChange={(next) => {
                     resetIdempotencyKey();
                     setCategory(next);
+                    setCategoryManuallySelected(true);
                     setCreatingCategory(false);
                   }}
                 />
@@ -611,11 +631,13 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                 <div className="flex items-center gap-1">
                   <button
                     type="button"
+                    disabled={Boolean(closedInvoiceWarning?.shouldWarn && quickDates.today > closedInvoiceWarning.closingDate)}
                     onClick={() => {
                       resetIdempotencyKey();
                       setExpenseDate(quickDates.today);
+                      setError('');
                     }}
-                    className={`rounded-md border px-2 py-0.5 text-[10px] font-bold transition ${
+                    className={`rounded-md border px-2 py-0.5 text-[10px] font-bold transition disabled:cursor-not-allowed disabled:opacity-35 ${
                       dateTag === 'TODAY'
                         ? 'border-emerald-500/60 bg-emerald-500/20 text-emerald-200'
                         : 'border-slate-700 bg-slate-900 text-slate-400 hover:text-white'
@@ -625,11 +647,13 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                   </button>
                   <button
                     type="button"
+                    disabled={Boolean(closedInvoiceWarning?.shouldWarn && quickDates.yesterday > closedInvoiceWarning.closingDate)}
                     onClick={() => {
                       resetIdempotencyKey();
                       setExpenseDate(quickDates.yesterday);
+                      setError('');
                     }}
-                    className={`rounded-md border px-2 py-0.5 text-[10px] font-bold transition ${
+                    className={`rounded-md border px-2 py-0.5 text-[10px] font-bold transition disabled:cursor-not-allowed disabled:opacity-35 ${
                       dateTag === 'YESTERDAY'
                         ? 'border-emerald-500/60 bg-emerald-500/20 text-emerald-200'
                         : 'border-slate-700 bg-slate-900 text-slate-400 hover:text-white'
@@ -643,12 +667,16 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                 type="date"
                 required
                 aria-label="Data da Compra"
+                max={closedInvoiceWarning?.shouldWarn ? closedInvoiceWarning.closingDate : undefined}
                 value={expenseDate}
                 onChange={(e) => {
                   resetIdempotencyKey();
                   setExpenseDate(e.target.value);
+                  setError('');
                 }}
-                className="mt-1.5 min-h-12 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm font-semibold text-white outline-none focus:border-blue-500"
+                className={`mt-1.5 min-h-12 w-full rounded-lg border bg-slate-950 px-3 py-2 text-sm font-semibold text-white outline-none focus:border-blue-500 ${
+                  closedInvoiceWarning?.isDateAfterClosing ? 'border-rose-500/70' : 'border-slate-700'
+                }`}
               />
             </div>
 
@@ -735,18 +763,35 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                   )}
 
                   {closedInvoiceWarning?.shouldWarn && (
-                    <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-500/30 bg-amber-950/30 px-3 py-2 text-xs text-amber-200">
-                      <div className="flex items-start gap-2 min-w-0 flex-1">
-                        <AlertTriangle size={15} className="mt-0.5 shrink-0 text-amber-400" />
-                        <span>{closedInvoiceWarning.message}</span>
+                    <div
+                      role={closedInvoiceWarning.isDateAfterClosing ? 'alert' : 'status'}
+                      className={`flex flex-wrap items-center justify-between gap-2 rounded-xl border px-3 py-2 text-xs ${
+                        closedInvoiceWarning.isDateAfterClosing
+                          ? 'border-rose-500/40 bg-rose-950/35 text-rose-200'
+                          : 'border-amber-500/30 bg-amber-950/30 text-amber-200'
+                      }`}
+                    >
+                      <div className="flex min-w-0 flex-1 items-center gap-2">
+                        <AlertTriangle
+                          size={14}
+                          className={`shrink-0 ${
+                            closedInvoiceWarning.isDateAfterClosing ? 'text-rose-400' : 'text-amber-400'
+                          }`}
+                        />
+                        <span className="font-medium">{closedInvoiceWarning.shortMessage}</span>
                       </div>
                       <button
                         type="button"
                         onClick={() => {
                           resetIdempotencyKey();
                           setFirstInvoiceMonth(closedInvoiceWarning.nextOpenMonthInput);
+                          setError('');
                         }}
-                        className="shrink-0 rounded-lg border border-amber-400/50 bg-amber-500/20 px-2.5 py-1 text-[11px] font-bold text-amber-100 hover:bg-amber-500/30"
+                        className={`shrink-0 rounded-lg border px-2.5 py-1 text-[11px] font-bold transition ${
+                          closedInvoiceWarning.isDateAfterClosing
+                            ? 'border-rose-400/50 bg-rose-500/20 text-rose-100 hover:bg-rose-500/30'
+                            : 'border-amber-400/50 bg-amber-500/20 text-amber-100 hover:bg-amber-500/30'
+                        }`}
                       >
                         Selecionar próxima fatura
                       </button>

@@ -31,8 +31,10 @@ declare
   v_piece numeric(14,2);
   v_index integer;
   v_first_number integer;
+  v_rebuild_count integer;
   v_metadata_only boolean;
   v_position jsonb;
+  v_previous_committed_limit numeric(14,2);
 begin
   if v_user is null or not public.is_platform_super_admin() then raise exception 'Acesso nao autorizado.'; end if;
   if p_request_id is null or p_expense_id is null then raise exception 'Parametros obrigatorios ausentes.'; end if;
@@ -69,6 +71,11 @@ begin
     and p_expense_date=v_expense.expense_date
     and date_trunc('month',v_due)=date_trunc('month',coalesce(v_expense.due_date,v_expense.expense_date));
 
+  if not v_metadata_only then
+    v_position:=private.wallet_recalculate_card_position(v_user,v_expense.card_id);
+    v_previous_committed_limit:=coalesce((v_position->>'committed_limit')::numeric,v_card.used_limit,0);
+  end if;
+
   update public.personal_wallet_expenses
   set description=trim(p_description),amount=round(p_amount,2),
       category=coalesce(nullif(trim(p_category),''),'Outros'),expense_date=p_expense_date,
@@ -81,14 +88,22 @@ begin
     return private.wallet_recalculate_card_position(v_user,v_expense.card_id)||jsonb_build_object('replayed',false,'installments_preserved',true);
   end if;
 
-  select coalesce(min(installment_number),1) into v_first_number
+  select coalesce(min(installment_number),1),count(*) filter (where status<>'CANCELED')
+  into v_first_number,v_rebuild_count
   from public.personal_wallet_expense_installments
-  where expense_id=p_expense_id and status<>'CANCELED';
+  where expense_id=p_expense_id;
+  -- Importações de faturas guardam apenas as parcelas restantes (ex.: 11/18–18/18),
+  -- enquanto expense.installment_count continua representando o total original.
+  -- Sem parcelas ativas, preserva o fallback anterior para reconstruir o plano.
+  if v_rebuild_count=0 then
+    v_first_number:=1;
+    v_rebuild_count:=v_expense.installment_count;
+  end if;
   delete from public.personal_wallet_expense_installments where expense_id=p_expense_id;
-  v_base:=trunc((round(p_amount,2)*100)/v_expense.installment_count)/100;
-  for v_index in 1..v_expense.installment_count loop
-    v_piece:=case when v_index=v_expense.installment_count
-      then round(p_amount,2)-v_base*(v_expense.installment_count-1) else v_base end;
+  v_base:=trunc((round(p_amount,2)*100)/v_rebuild_count)/100;
+  for v_index in 1..v_rebuild_count loop
+    v_piece:=case when v_index=v_rebuild_count
+      then round(p_amount,2)-v_base*(v_rebuild_count-1) else v_base end;
     insert into public.personal_wallet_expense_installments(
       expense_id,owner_user_id,installment_number,due_month,amount,paid_amount,status
     ) values (p_expense_id,v_user,v_first_number+v_index-1,
@@ -99,7 +114,7 @@ begin
   -- redutoras são permitidas, mas nunca aumentar o excedente registrado.
   if v_card.credit_limit > 0
      and (v_position->>'committed_limit')::numeric > greatest(v_card.credit_limit,v_card.used_limit)
-     and (v_position->>'committed_limit')::numeric > v_card.used_limit then
+     and (v_position->>'committed_limit')::numeric > v_previous_committed_limit then
     raise exception 'A alteração aumenta o limite excedido do cartão.';
   end if;
   return v_position||jsonb_build_object('replayed',false,'installments_preserved',false);

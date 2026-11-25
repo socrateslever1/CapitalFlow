@@ -16,9 +16,22 @@ test('edição só de texto não apaga nem recria parcelas', () => {
 });
 
 test('recriação por mudança de valor ou data mantém a numeração original', () => {
-  assert.match(body, /select coalesce\(min\(installment_number\),1\) into v_first_number/);
+  assert.match(body, /select coalesce\(min\(installment_number\),1\),count\(\*\) FILTER \(WHERE status<>'CANCELED'\)\s+into v_first_number,v_rebuild_count/i);
   assert.match(body, /v_first_number\+v_index-1/);
   assert.doesNotMatch(body, /values \(p_expense_id,v_user,v_index,/);
+});
+
+test('edição de compra importada 11/18 recria só as oito parcelas restantes', () => {
+  const importer = fs.readFileSync('supabase/migrations/20261120033624_wallet_safe_reimport_invoice_credits.sql', 'utf8');
+  assert.match(importer, /FOR v_installment_count IN p_installment_number\.\.p_installment_total LOOP/);
+  assert.match(body, /count\(\*\) FILTER \(WHERE status<>'CANCELED'\)/i);
+  assert.match(body, /INTO v_first_number,v_rebuild_count/i);
+  assert.match(body, /v_base:=trunc\(\(round\(p_amount,2\)\*100\)\/v_rebuild_count\)/);
+  assert.match(body, /FOR v_index IN 1\.\.v_rebuild_count LOOP/i);
+
+  const importedNumbers = Array.from({ length: 18 - 11 + 1 }, (_, index) => 11 + index);
+  const rebuiltNumbers = Array.from({ length: importedNumbers.length }, (_, index) => importedNumbers[0] + index);
+  assert.deepEqual(rebuiltNumbers, [11, 12, 13, 14, 15, 16, 17, 18]);
 });
 
 test('mesma assinatura, permissões, idempotência e trava de limite', () => {
@@ -28,6 +41,8 @@ test('mesma assinatura, permissões, idempotência e trava de limite', () => {
   assert.match(body, /mutation_requests \? p_request_id::text/);
   assert.match(body, /status='PAID' or paid_amount>0/);
   assert.match(body, /A alteração aumenta o limite excedido do cartão/);
+  assert.match(body, /private\.wallet_recalculate_card_position\(v_user,v_expense\.card_id\);\s*v_previous_committed_limit:=coalesce\(\(v_position->>'committed_limit'\)::numeric,v_card\.used_limit,0\)/);
+  assert.match(body, /v_position->>'committed_limit'\)::numeric > v_previous_committed_limit/);
   assert.match(sql, /grant execute on function public\.personal_wallet_update_expense_idempotent\(uuid,text,numeric,text,date,date,text,uuid\) to authenticated/);
   // A migration só redefine a função: nenhum dado existente é alterado.
   const outside = sql.replace(body.slice(0, body.indexOf('$$;') + 3), '');

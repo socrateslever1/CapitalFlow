@@ -12,7 +12,7 @@ import type {
 import { formatMoney } from '../../../utils/formatters';
 import { BankLogo } from '../../../components/wallet/BankLogo';
 import { calculateWalletBalance, describeWalletBalanceFact } from '../../../components/wallet/walletBalanceDomain';
-import { getEffectiveInvoiceCycles, getInvoiceCycleDates } from '../../../components/wallet/invoiceStatementDomain';
+import { getEffectiveInvoiceCycles, getInvoiceCycleDates, getPurchaseInvoiceMonth } from '../../../components/wallet/invoiceStatementDomain';
 import { getBankVisual, getCreditSummary } from '../../../components/wallet/walletPresentation';
 import { walletRepository, type WalletOverviewSnapshot } from '../services/walletRepository';
 import { WalletOverviewSummary } from '../components/WalletOverviewSummary';
@@ -268,6 +268,29 @@ export const WalletOverviewPage: React.FC<Props> = ({ activeUser, onNavigate }) 
       overdueCount={overview.overdueCount} overdueInvoiceCount={overview.overdueInvoiceCount}
       dueSoonCount={overview.dueSoonCount}
       pendingIncome={balance.pendingRecurringIncome} spending={overview.spending} onNavigate={onNavigate}/>
+
+    {(() => {
+      // Lembrete no app: fatura que fecha em até 3 dias (regra de ciclo de cada cartão). Vencimentos próximos já aparecem no guia acima.
+      const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Manaus' }).format(new Date());
+      const daysUntil = (day: string) => Math.round((Date.parse(day + 'T12:00:00Z') - Date.parse(today + 'T12:00:00Z')) / 86400000);
+      const reminders = cards.flatMap(card => {
+        if (!card.due_day) return [];
+        try {
+          const open = getPurchaseInvoiceMonth(today, card.closing_day, card.due_day, card);
+          const dates = getInvoiceCycleDates(open, card.closing_day, card.due_day, null, card);
+          const items: { key: string; text: string }[] = [];
+          const toClose = daysUntil(dates.closingDate);
+          if (toClose >= 0 && toClose <= 3) items.push({ key: card.id + ':close',
+            text: `${card.nickname}: fatura fecha ${toClose === 0 ? 'hoje' : toClose === 1 ? 'amanhã' : `em ${toClose} dias`} (${dates.closingDate.slice(8, 10)}/${dates.closingDate.slice(5, 7)}).` });
+          return items;
+        } catch { return []; }
+      });
+      if (!reminders.length) return null;
+      return <aside aria-label="Lembretes de fatura" className="rounded-xl border border-amber-500/30 bg-amber-950/20 p-3">
+        <p className="text-xs font-bold text-amber-200">Lembretes de fatura</p>
+        <ul className="mt-1 space-y-0.5 text-xs text-amber-100/90">{reminders.map(item => <li key={item.key}>{item.text}</li>)}</ul>
+      </aside>;
+    })()}
 
     {/* 1. SEÇÃO BALANÇO DO MÊS */}
     <article className="rounded-xl border border-slate-800 bg-slate-900 p-4 sm:p-5">

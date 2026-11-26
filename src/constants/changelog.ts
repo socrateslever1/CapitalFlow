@@ -25,6 +25,18 @@ export const SYSTEM_CHANGELOG: ChangelogRelease[] = [
     version: '3.5.0',
     codeOnly: true,
     date: '26/11/2026',
+    title: 'Limite, reabrir fatura e lembrete',
+    summary: 'Compras podem ficar fora do limite, faturas pagas podem ser reabertas e a Visão geral avisa quando a fatura vai fechar.',
+    items: [
+      { kind: 'NOVIDADE', text: 'Marque uma compra como fora do limite: ela continua na fatura, mas não consome o limite do cartão.' },
+      { kind: 'NOVIDADE', text: 'Reabra uma fatura paga: o pagamento volta para a conta e as compras voltam a ficar pendentes, sem apagar o histórico.' },
+      { kind: 'NOVIDADE', text: 'A Visão geral avisa quando a fatura de um cartão fecha nos próximos 3 dias.' },
+    ],
+  },
+  {
+    version: '3.5.0',
+    codeOnly: true,
+    date: '26/11/2026',
     title: 'Fechamento da fatura como o do banco',
     summary: 'O cartão aceita fechamento alguns dias antes do vencimento, vencimento em dia útil e o fechamento real de cada mês.',
     items: [

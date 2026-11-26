@@ -1714,3 +1714,9 @@ O ícone do olho já acionava o `FinancialPrivacyProvider`, mas os elementos aba
 - **Verificação em produção (sem valores):** versão registrada; 3 cartões e 3 regras iniciais; 0 divergências entre o roteamento novo e a fórmula anterior de dia fixo em 41 datas por cartão; `personal_wallet_set_card_cycle_rules` executável só por `authenticated`.
 - **Revisão independente:** reprovada na 1ª versão; bloqueios e itens importantes corrigidos (ver CHANGELOG). Não houve segunda rodada de revisão.
 - **Pendências:** ciclo pelo dia fixo ainda nas telas de importação e linha do tempo; salvar cartão + regra em duas chamadas; feriados locais fora; validação visual em aparelho não realizada.
+
+## 26/11/2026 — Fase 2 do plano: ferramentas
+
+- **Entregue:** 2.1 (considerar no limite), 2.2 (reabrir fatura), 2.4A (lembrete de fechamento no app). 2.3A (saldo previsto) já existia no balanço da Visão geral. Detalhes, revisão e limitações em `CHANGELOG.md`.
+- **Pendente do plano:** 2.3B (pendente/efetivado nas contas) e 2.4B (notificação push), que exigem autorização própria; Open Finance fora do escopo.
+- **Sem validação visual em aparelho físico.**

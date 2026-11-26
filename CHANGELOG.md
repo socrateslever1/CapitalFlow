@@ -1,5 +1,15 @@
 # Changelog
 
+## 26/11/2026 — Fase 2: considerar no limite, reabrir fatura e lembrete de fechamento
+
+**Novidades (migration `20261126180000_wallet_limit_flag_and_reopen_invoice.sql`, aplicada e registrada em produção antes do código).**
+- **"Considerar no limite do cartão?"** (`affects_limit`, padrão sim): botão "No limite / Fora do limite" em cada compra da fatura (`personal_wallet_set_expense_affects_limit`). Fora do limite, a compra continua somando na fatura, mas sai do limite comprometido (`private.wallet_recalculate_card_position` e `getCardCreditPosition`). Meses consolidados por valor fechado e compras absorvidas por consolidação de abertura não são subtraídos.
+- **Reabrir fatura paga** (`personal_wallet_reopen_invoice`): estorna os pagamentos da fatura sem apagar nada — devolve o valor às contas de origem com lançamento de estorno (par compensado com o pagamento, fora do extrato, como no estorno manual), marca o pagamento como estornado (`reversed_at`) e volta as parcelas do mês a pendente. Recusa fatura sem pagamento, fatura cujo restante foi levado para outra fatura e outro usuário. Pagamentos estornados deixam de aparecer nas telas e não contam como fatura paga no roteamento e na antecipação.
+- **Lembrete de fechamento** na Visão geral: cartões cuja fatura fecha em até 3 dias, pela regra de ciclo de cada cartão. Vencimentos próximos já apareciam no guia da Visão geral. Saldo previsto do mês (item 2.3A do plano) já existia no balanço da Visão geral; nada foi duplicado.
+- **Revisão independente:** aprovado com ressalvas, sem bloqueantes. Corrigidos: subtração do limite em mês consolidado, conta inexistente no estorno, estorno de pagamento antigo sem operação de conta, repetição da chave em outra fatura, botão de limite em consolidação e texto do aviso.
+- **Limitações registradas:** fluxos antigos de consolidar, corrigir vencimento e confirmar fatura do banco continuam tratando como "paga" uma fatura com pagamento estornado (só bloqueiam mais); com fatura vencida em aberto, o limite comprometido da tela (que soma vencidas) e o do banco (que começa no mês atual) já divergiam antes e o recurso novo segue cada base.
+- **Testes:** `tests/wallet/wallet-limit-flag-and-reopen.test.ts` 5/5 (Postgres em memória com funções reais); testes TS da Carteira 422/422; `npm run test:quality` exit 0; `npm run test:wallet-visual-next` 62/62. Verificado em produção: coluna e funções criadas, só `authenticated` executa, nenhum lançamento fora do limite e nenhum pagamento estornado (nada mudou para quem não usa).
+
 ## 26/11/2026 — Fase 1: ciclo do cartão (fechamento dinâmico, dia útil, fechamento do mês, regra por mês)
 
 **Novidades (migration `20261126160000_wallet_card_cycle_rules.sql`, aplicada e registrada em produção).**

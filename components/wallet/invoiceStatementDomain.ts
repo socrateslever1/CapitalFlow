@@ -368,7 +368,24 @@ export const getCardCreditPosition = (
     : 0);
   const initialFuture = Number(card.initial_future_installments_balance || 0);
   const futureCommitments = money(knownFutureCommitments + initialFuture);
-  const committedLimit = money(overdueInvoices + currentInvoice + futureCommitments);
+  // Mesma regra de private.wallet_recalculate_card_position: compras marcadas para não
+  // consumir limite continuam na fatura, mas saem do limite comprometido.
+  // Aqui o comprometido inclui faturas vencidas, então a subtração vale para todos os meses
+  // contados; meses consolidados por valor fechado e compras absorvidas pela abertura ficam fora.
+  const expenseById = new Map(expenses.map(expense => [expense.id, expense]));
+  const closedValueMonths = new Set(expenses
+    .filter(expense => expense.card_id === card.id && expense.entry_type === 'INVOICE_OVERRIDE'
+      && expense.status !== 'CANCELED' && !expense.is_opening_summary && expense.invoice_due_month)
+    .map(expense => String(expense.invoice_due_month).slice(0, 7)));
+  const outsideLimit = money(active ? installments.reduce((sum, installment) => {
+    const expense = expenseById.get(installment.expense_id);
+    if (!expense || expense.card_id !== card.id || expense.affects_limit !== false || expense.status === 'CANCELED'
+      || expense.is_invoice_credit || (expense.entry_type && expense.entry_type !== 'PURCHASE')
+      || installment.status !== 'PENDING' || installment.opening_invoice_id
+      || closedValueMonths.has(String(installment.due_month).slice(0, 7))) return sum;
+    return sum + outstanding(installment);
+  }, 0) : 0);
+  const committedLimit = Math.max(0, money(overdueInvoices + currentInvoice + futureCommitments - outsideLimit));
   return {
     dueMonth: active?.dueMonth || null,
     overdueInvoices,

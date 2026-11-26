@@ -182,6 +182,8 @@ export type PersonalWalletPayablePaymentSource = {
 };
 
 export type PersonalWalletExpense = {
+  /** false: continua na fatura, mas não consome o limite do cartão. */
+  affects_limit?: boolean;
   id: string;
   description: string;
   amount: number;
@@ -456,6 +458,7 @@ const personalWalletServiceImpl = {
         loadAllWalletRows((from, to) => supabase.from('personal_wallet_expense_installments').select('*').order('due_month', { ascending: true }).order('id').range(from, to)),
         loadAllWalletRows((from, to) => supabase.from('personal_wallet_invoice_payments')
           .select('id,request_id,card_id,due_month,account_id,amount,source,created_at')
+          .is('reversed_at', null)
           .order('created_at', { ascending: false }).order('id').range(from, to)),
         loadAllWalletRows((from, to) => supabase.from('personal_wallet_payables').select('*').order('due_date', { ascending: true, nullsFirst: false }).order('id').range(from, to)),
         loadAllWalletRows((from, to) => supabase.from('personal_wallet_recurring_incomes').select('*').order('receipt_day', { ascending: true }).order('id').range(from, to)),
@@ -520,7 +523,7 @@ const personalWalletServiceImpl = {
       loadAllWalletRows((from, to) => supabase.from('personal_wallet_cards').select('*').order('created_at', { ascending: false }).order('id').range(from, to)),
       loadAllWalletRows((from, to) => supabase.from('personal_wallet_expenses').select('*').order('expense_date', { ascending: false }).order('id').range(from, to)),
       loadAllWalletRows((from, to) => supabase.from('personal_wallet_expense_installments').select('*').order('due_month', { ascending: true }).order('id').range(from, to)),
-      loadAllWalletRows((from, to) => supabase.from('personal_wallet_invoice_payments').select('id,request_id,card_id,due_month,account_id,amount,source,created_at').order('created_at', { ascending: false }).order('id').range(from, to)),
+      loadAllWalletRows((from, to) => supabase.from('personal_wallet_invoice_payments').select('id,request_id,card_id,due_month,account_id,amount,source,created_at').is('reversed_at', null).order('created_at', { ascending: false }).order('id').range(from, to)),
       loadAllWalletRows((from, to) => supabase.from('personal_wallet_account_operations').select('*').order('operation_date', { ascending: false }).order('id', { ascending: false }).range(from, to)),
       loadAllWalletRows((from, to) => supabase.from('personal_wallet_statement_rows').select('*').order('entry_date', { ascending: false }).order('id', { ascending: false }).range(from, to)),
       loadAllWalletRows((from, to) => supabase.from('personal_wallet_payables').select('*').order('due_date', { ascending: true, nullsFirst: false }).order('id').range(from, to)),
@@ -924,6 +927,26 @@ const personalWalletServiceImpl = {
       p_due_business_days: input.dueBusinessDays,
     });
     if (error) throw new Error(error.message);
+  },
+
+  /** Lançamento dentro ou fora do limite do cartão (continua somando na fatura). */
+  async setExpenseAffectsLimit(expenseId: string, affectsLimit: boolean) {
+    const { error } = await supabase.rpc('personal_wallet_set_expense_affects_limit', {
+      p_expense_id: expenseId,
+      p_affects_limit: affectsLimit,
+    });
+    if (error) throw new Error(error.message);
+  },
+
+  /** Reabre uma fatura paga: estorna os pagamentos para as contas de origem, sem apagar registros. */
+  async reopenInvoice(cardId: string, dueMonth: string, requestId: string) {
+    const { data, error } = await supabase.rpc('personal_wallet_reopen_invoice', {
+      p_card_id: cardId,
+      p_due_month: `${dueMonth.slice(0, 7)}-01`,
+      p_request_id: requestId,
+    });
+    if (error) throw new Error(error.message);
+    return data as { reversed_payments: number; reversed_amount: number; replayed: boolean };
   },
 
   /** Fechamento real de uma fatura (só aquele mês). null volta à regra do cartão. */

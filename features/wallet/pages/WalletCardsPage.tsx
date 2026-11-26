@@ -93,6 +93,11 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
   const [closingEditValue, setClosingEditValue] = useState('');
   const [closingEditError, setClosingEditError] = useState('');
   const [closingEditSaving, setClosingEditSaving] = useState(false);
+  // Reabrir fatura paga: estorna os pagamentos (sem apagar) e volta as parcelas a pendente.
+  const [reopenOpen, setReopenOpen] = useState(false);
+  const [reopenError, setReopenError] = useState('');
+  const [reopenSaving, setReopenSaving] = useState(false);
+  const reopenRequestId = useRef<{ key: string; id: string } | null>(null);
   const [actionMenuOpen, setActionMenuOpen] = useState(false);
   const [cardOpeningModalOpen, setCardOpeningModalOpen] = useState(false);
   const [clearingInvoice, setClearingInvoice] = useState(false);
@@ -802,6 +807,12 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
                       className="rounded-lg border border-slate-700 px-2.5 py-1.5 text-[11px] font-semibold text-slate-200 hover:border-blue-500 hover:text-white">
                       Fechamento deste mês
                     </button>}
+                    {statementMonth && selected && data?.invoicePayments.some(payment => payment.card_id === selected.id
+                      && payment.due_month.slice(0, 7) === statementMonth.slice(0, 7)) && <button type="button" aria-haspopup="dialog"
+                      onClick={() => { setReopenError(''); setReopenOpen(true); }}
+                      className="rounded-lg border border-amber-500/40 px-2.5 py-1.5 text-[11px] font-semibold text-amber-200 hover:border-amber-400">
+                      Reabrir fatura
+                    </button>}
                   </div>
                 </div>
                 {selected && (
@@ -885,6 +896,28 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
                 </div>}
               </div>}
             </div>
+            {reopenOpen && selected && statementMonth && <Modal compact title="Reabrir esta fatura?"
+              subtitle="Os pagamentos desta fatura voltam para as contas de origem e as compras voltam a ficar pendentes. Nada é apagado: o pagamento e o estorno ficam registrados como par compensado e saem do extrato da conta."
+              onClose={() => setReopenOpen(false)}>
+              {reopenError && <p role="alert" className="mb-3 text-xs text-red-300">{reopenError}</p>}
+              <div className="flex flex-wrap justify-end gap-2">
+                <button type="button" onClick={() => setReopenOpen(false)} className="min-h-11 rounded-xl border border-slate-700 px-4 text-sm font-semibold text-slate-200">Cancelar</button>
+                <button type="button" disabled={reopenSaving} onClick={async () => {
+                  const key = `${selected.id}:${statementMonth}`;
+                  if (reopenRequestId.current?.key !== key) reopenRequestId.current = { key, id: generateUUID() };
+                  setReopenSaving(true); setReopenError('');
+                  try {
+                    await personalWalletService.reopenInvoice(selected.id, statementMonth, reopenRequestId.current.id);
+                    reopenRequestId.current = null;
+
+                    await refresh();
+                    setReopenOpen(false);
+                  } catch (cause) {
+                    setReopenError(cause instanceof Error ? cause.message : 'Não foi possível reabrir a fatura.');
+                  } finally { setReopenSaving(false); }
+                }} className="min-h-11 rounded-xl bg-amber-600 px-4 text-sm font-semibold text-white disabled:opacity-60">{reopenSaving ? 'Reabrindo…' : 'Reabrir fatura'}</button>
+              </div>
+            </Modal>}
             {closingEditOpen && selected && statementMonth && <Modal compact title="Fechamento desta fatura"
               subtitle="Informe a data em que o banco fechou esta fatura. Vale só para este mês; para mudar as próximas, edite o cartão."
               onClose={() => setClosingEditOpen(false)}>
@@ -1011,6 +1044,10 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
               onEdit={async (input, mutationRequestId) => { await personalWalletService.updateExpense(input, mutationRequestId); await refresh(); }}
               onDelete={async (id, mutationRequestId) => { await personalWalletService.cancelExpense(id, mutationRequestId); await refresh(); }}
               onScopedInstallmentDelete={handleScopedInstallmentDelete}
+              onToggleAffectsLimit={async (expense, affectsLimit) => {
+                await personalWalletService.setExpenseAffectsLimit(expense.id, affectsLimit);
+                await refresh();
+              }}
               onAdvanceInstallments={handleAdvanceInstallments}
               onCancelConsolidation={async (dueMonth, mutationRequestId) => { await personalWalletService.cancelInvoiceConsolidation(selected.id, dueMonth, mutationRequestId); await refresh(); }}
               className="m-0 border-0 bg-transparent p-0" /> :

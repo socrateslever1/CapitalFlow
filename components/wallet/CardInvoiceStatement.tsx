@@ -36,6 +36,8 @@ type CardInvoiceStatementProps = {
     requestId: string,
   ) => Promise<void>;
   onCancelConsolidation?: (dueMonth: string, requestId: string) => Promise<void>;
+  /** "Considerar no limite do cartão?" — a compra continua na fatura. */
+  onToggleAffectsLimit?: (expense: PersonalWalletExpense, affectsLimit: boolean) => Promise<void>;
   headerAction?: React.ReactNode;
   cycleDates?: InvoiceCycleDates;
   className?: string;
@@ -51,6 +53,7 @@ export const CardInvoiceStatement: React.FC<CardInvoiceStatementProps> = ({
   onDelete,
   onScopedInstallmentDelete,
   onAdvanceInstallments,
+  onToggleAffectsLimit,
   onCancelConsolidation,
   headerAction,
   cycleDates,
@@ -70,6 +73,7 @@ export const CardInvoiceStatement: React.FC<CardInvoiceStatementProps> = ({
   const consolidationRequests = useRef(new Map<string, string>());
   const advanceRequestIds = useRef(new Map<string, string>());
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [limitBusyId, setLimitBusyId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [error, setError] = useState('');
   const deleteRequestIds = useRef(new Map<string, string>());
@@ -348,6 +352,20 @@ export const CardInvoiceStatement: React.FC<CardInvoiceStatementProps> = ({
                       aria-label={`Antecipar parcelas de ${expense.description}`}
                       className="inline-flex min-h-9 items-center justify-center gap-1 rounded-md px-2 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400">
                       <FastForward size={14} aria-hidden="true" /> Antecipar ({futurePending.length})
+                    </button>
+                  )}
+                  {onToggleAffectsLimit && !isCredit && expense.entry_type !== 'INVOICE_OVERRIDE' && (
+                    <button type="button" disabled={limitBusyId === expense.id}
+                      onClick={async () => {
+                        setLimitBusyId(expense.id); setError('');
+                        try { await onToggleAffectsLimit(expense, expense.affects_limit === false); }
+                        catch (cause) { setError(cause instanceof Error ? cause.message : 'Não foi possível alterar o limite.'); }
+                        finally { setLimitBusyId(null); }
+                      }}
+                      aria-pressed={expense.affects_limit === false}
+                      title={expense.affects_limit === false ? 'Fora do limite: continua na fatura, mas não consome o limite. Toque para voltar a considerar.' : 'Toque para não considerar no limite do cartão (continua na fatura).'}
+                      className={`inline-flex min-h-9 items-center justify-center gap-1 rounded-md px-2 text-xs font-semibold hover:bg-slate-700/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-40 ${expense.affects_limit === false ? 'text-amber-300' : 'text-slate-400'}`}>
+                      {expense.affects_limit === false ? 'Fora do limite' : 'No limite'}
                     </button>
                   )}
                   <button type="button" onClick={() => setEditing(expense)} aria-label={`Editar ${expense.description}`}

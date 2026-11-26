@@ -1152,13 +1152,61 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
               }}
               className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white" />
           </label>
+          {(['closing_day', 'due_day'] as const).map(field =>
+            <label key={field} className="space-y-1 text-xs text-slate-300">
+              {field === 'closing_day' ? 'Dia do fechamento (opcional)' : 'Dia do vencimento (opcional)'}
+              <input type="number" min={1} max={31} inputMode="numeric" placeholder="Não informado"
+                value={cardForm[field]} onChange={e => { requestId.current = generateUUID(); setCardForm(v => ({ ...v, [field]: e.target.value })); }}
+                className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white" />
+            </label>
+          )}
+          <fieldset className="sm:col-span-2 space-y-2 rounded-xl border border-slate-800 bg-slate-950/50 p-3">
+            <legend className="px-1 text-xs font-semibold text-slate-200">Conta do banco deste cartão</legend>
+            <div role="radiogroup" aria-label="Conta do banco deste cartão" className="grid grid-cols-3 gap-2">
+              {([
+                ['none', 'Sem conta'],
+                ['existing', 'Conta que já tenho'],
+                ['create', 'Criar conta junto'],
+              ] as const).map(([mode, label]) => {
+                const current = cardForm.account_id === '__create__' ? 'create' : cardForm.account_id ? 'existing' : 'none';
+                const active = current === mode;
+                return <button key={mode} type="button" role="radio" aria-checked={active}
+                  disabled={mode === 'existing' && data.accounts.length === 0}
+                  onClick={() => {
+                    requestId.current = generateUUID();
+                    if (mode === 'create' && !newLinkedAccountNickname.trim()) setNewLinkedAccountNickname(cardForm.issuer || '');
+                    setCardForm(v => ({ ...v, account_id: mode === 'create' ? '__create__' : mode === 'existing' ? (data.accounts[0]?.id || '') : '' }));
+                  }}
+                  className={`min-h-11 rounded-lg border px-2 text-xs font-semibold transition disabled:opacity-40 ${active ? 'border-blue-400 bg-blue-500/15 text-blue-100' : 'border-slate-700 text-slate-300 hover:border-slate-500'}`}>
+                  {label}
+                </button>;
+              })}
+            </div>
+            {cardForm.account_id && cardForm.account_id !== '__create__' && <select name="wallet-card-linked-account" aria-label="Conta vinculada"
+              value={cardForm.account_id} onChange={e => { requestId.current = generateUUID(); setCardForm(v => ({ ...v, account_id: e.target.value })); }}
+              className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white">
+              {data.accounts.map(account => <option key={account.id} value={account.id}>{account.nickname}</option>)}
+            </select>}
+            {cardForm.account_id === '__create__' && <label className="block space-y-1 text-xs text-slate-300">Nome da nova conta
+              <input type="text" required maxLength={120}
+                value={newLinkedAccountNickname} onChange={e => { requestId.current = generateUUID(); setNewLinkedAccountNickname(e.target.value); }}
+                placeholder={`Ex.: ${cardForm.issuer || 'Minha conta'}`}
+                className="w-full rounded-xl border border-blue-500/60 bg-slate-950 p-3 text-white" />
+            </label>}
+            <p className="text-[11px] leading-relaxed text-slate-400">
+              {cardForm.account_id === '__create__'
+                ? 'A conta corrente é criada com saldo zero e vinculada ao cartão na mesma operação. Saldo, Pix e dados bancários você completa depois em Contas.'
+                : cardForm.account_id ? 'O cartão fica vinculado a esta conta.'
+                : 'O cartão fica independente. Você pode vincular uma conta depois em Editar cartão.'}
+            </p>
+          </fieldset>
           <p className="sm:col-span-2 text-xs leading-relaxed text-slate-400">
             Apenas o banco é obrigatório. Sem senha extra, número completo ou CVC.
             Os valores podem ser ajustados depois pela fatura.
           </p>
           <details className="sm:col-span-2 rounded-xl border border-slate-800 bg-slate-950/50">
             <summary className="cursor-pointer px-3 py-3 text-xs font-semibold text-blue-200">
-              Mais informações (opcional): datas, bandeira, titular e vínculo
+              Mais informações (opcional): bandeira e titular
             </summary>
             <div className="grid gap-3 border-t border-slate-800 p-3 sm:grid-cols-2">
               <label className="space-y-1 text-xs text-slate-300">Bandeira
@@ -1166,29 +1214,6 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
                   className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white">
                   {['Mastercard', 'Visa', 'Elo', 'American Express', 'Hipercard'].map(brand => <option key={brand} value={brand}>{brand}</option>)}
                 </select>
-              </label>
-              {(['closing_day', 'due_day'] as const).map(field =>
-                <label key={field} className="space-y-1 text-xs text-slate-300">
-                  {field === 'closing_day' ? 'Dia do fechamento' : 'Dia do vencimento'}
-                  <input type="number" min={1} max={31} inputMode="numeric" placeholder="Não informado"
-                    value={cardForm[field]} onChange={e => { requestId.current = generateUUID(); setCardForm(v => ({ ...v, [field]: e.target.value })); }}
-                    className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white" />
-                </label>
-              )}
-              <label className="space-y-1 text-xs text-slate-300 sm:col-span-2">Conta vinculada (opcional)
-                <select name="wallet-card-linked-account" value={cardForm.account_id} onChange={e => {
-                  requestId.current = generateUUID();
-                  setCardForm(v => ({ ...v, account_id: e.target.value }));
-                }} className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white">
-                  <option value="">Sem vínculo bancário</option>
-                  {data.accounts.map(account => <option key={account.id} value={account.id}>{account.nickname}</option>)}
-                  <option value="__create__">+ Criar conta vinculada agora</option>
-                </select>
-                {cardForm.account_id === '__create__' && <input type="text" required maxLength={120}
-                  value={newLinkedAccountNickname} onChange={e => setNewLinkedAccountNickname(e.target.value)}
-                  placeholder={`Ex.: ${cardForm.issuer || 'Minha conta'} principal`}
-                  className="mt-2 w-full rounded-xl border border-blue-500/60 bg-slate-950 p-3 text-white" />}
-                <span className="mt-1 block text-[11px] text-slate-400">A nova conta e o cartão serão criados e vinculados na mesma operação segura.</span>
               </label>
               <label className="flex items-center gap-2 text-xs text-slate-200 sm:col-span-2">
                 <input type="checkbox" checked={thirdPartyCard} className="h-4 w-4 accent-blue-600"

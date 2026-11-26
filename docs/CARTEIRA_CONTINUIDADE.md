@@ -1725,3 +1725,8 @@ O ícone do olho já acionava o `FinancialPrivacyProvider`, mas os elementos aba
 
 - Modal no celular em largura total, extrato recente sem rolagem interna, notas de auditoria sem texto em inglês e quadro Capital/Encargos/Original em três colunas. Detalhes em `CHANGELOG.md`.
 - **Sem validação em aparelho físico.**
+
+## 26/11/2026 — Conta e cartão no mesmo cadastro, visíveis
+
+- O vínculo de 05/11 existia, mas ficava escondido em seções recolhidas. Agora é uma escolha visível nos dois cadastros; o cartão criado junto com a conta recebe fechamento, vencimento e bandeira. Sem mudança de RPC ou banco. Detalhes em `CHANGELOG.md`.
+- **Sem validação em aparelho físico.**

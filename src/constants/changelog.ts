@@ -22,6 +22,17 @@ export interface ChangelogRelease {
  */
 export const SYSTEM_CHANGELOG: ChangelogRelease[] = [
   {
+    version: '3.5.2',
+    codeOnly: true,
+    date: '26/11/2026',
+    title: 'Conta e cartão no mesmo cadastro',
+    summary: 'Ao criar um cartão você já pode criar a conta, e ao criar uma conta você já pode criar o cartão completo.',
+    items: [
+      { kind: 'MELHORIA', text: 'No cadastro do cartão, escolha logo: sem conta, conta que já tem ou criar a conta junto.' },
+      { kind: 'MELHORIA', text: 'No cadastro da conta, o cartão criado junto já aceita dia do fechamento, vencimento e bandeira.' },
+    ],
+  },
+  {
     version: '3.5.1',
     codeOnly: true,
     date: '26/11/2026',

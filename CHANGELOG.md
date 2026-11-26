@@ -1,5 +1,13 @@
 # Changelog
 
+## 26/11/2026 — Conta e cartão no mesmo cadastro, visíveis
+
+**Melhoria (somente interface; usa as RPCs já existentes `personal_wallet_create_complete_card_with_new_account` e `personal_wallet_create_account_with_existing_card`, de 05/11).**
+- **Novo cartão:** a escolha "Conta do banco deste cartão" saiu de "Mais informações" e virou três opções visíveis — Sem conta, Conta que já tenho, Criar conta junto. O nome da nova conta é sugerido pelo banco do cartão. Dia do fechamento e do vencimento também ficam visíveis. Arquivo: `features/wallet/pages/WalletCardsPage.tsx`.
+- **Nova conta:** "Cartão de crédito desta conta" saiu de "Mais opções bancárias" e virou três opções visíveis — Sem cartão, Cartão que já tenho, Criar cartão junto. O cartão criado junto agora aceita dia do fechamento, dia do vencimento e bandeira (antes só nome, limite e final). Arquivo: `components/wallet/CreateAccountModal.tsx`.
+- Cada opção explica o que fica para depois: saldo, Pix e dados bancários em Contas; fatura atual e compras parceladas na tela Cartões; regra de fechamento em Editar cartão.
+- **Testes:** `npm run test:quality` exit 0; `npm run test:wallet-visual-next` 62/62; `npm run test:wallet-card-opening` 8 + 13 passaram; conferido no app local em 411 px sem salvar dados. Sem validação em aparelho físico.
+
 ## 26/11/2026 — Correções de tela no contrato (celular)
 
 **Correções (somente interface, sem mudança de regra ou banco).**

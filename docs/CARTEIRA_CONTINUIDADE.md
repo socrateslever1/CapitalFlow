@@ -1683,3 +1683,10 @@ O ícone do olho já acionava o `FinancialPrivacyProvider`, mas os elementos aba
 - **Pré-condições conferidas:** a base remota de `wallet_card_first_due_date` era a versão de 19/11 (com `opening_invoice_state`); `finalize_card_funded_loan_v1` remoto tinha o mesmo tamanho de corpo da versão de 22/11, que é a base da nova; `contratos.start_date` existe.
 - **Pós-condições conferidas:** as três versões estão registradas; `private.*` sem execução para `anon`/`authenticated`; RPCs públicas só para `authenticated`; teste do ciclo com cartão fictício confirma o fechamento exclusivo. Nenhum dado alterado.
 - **Pendências:** migrations locais de 17/11 (`card_funded_loan_no_account_debit`) e 19/11 (`open_personal_wallet_to_all_users`, `wallet_allow_same_document_repeated_rows`) não constam no histórico remoto com essas versões; não foram aplicadas nem avaliadas aqui. A troca de `start_date` em um contrato já finalizado não move a compra já criada no cartão.
+
+## 26/11/2026 — Plano de correções e paridade de ciclo; skills alinhadas
+
+- **Plano:** `docs/PLANO_CARTEIRA_PARIDADE.md`, em três fases (erros, ciclo do cartão, ferramentas), com aceite, testes, autorização e ordem de cada item. Nada foi implementado.
+- **Erros encontrados na comparação (sem correção ainda):** o restante da fatura levado à próxima e a antecipação de parcelas são compostos no cliente por várias chamadas separadas (`WalletCardsPage.tsx`); uma falha no meio deixa o dado pela metade.
+- **Skills/agentes alinhados:** `capitalflow-execution-safety` (commit direto na main como padrão do proprietário, atomicidade, procedimento de migration, repositório público), `capitalflow-wallet-ux` (invariantes de fatura e limite; gastos por categoria incluem operações de conta, o que a skill antiga negava), `AGENTS.md` e `docs/AGENT_EXECUTION_CONTRACT.md` (mesmas regras).
+- **Evidência:** somente documentação; `npm run test:quality` executado antes do commit.

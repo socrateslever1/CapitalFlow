@@ -1,5 +1,12 @@
 # Changelog
 
+## 27/11/2026 — Logos dos bancos preenchendo o quadro
+
+**Melhoria (só interface).** Os SVGs dos bancos traziam margem interna (logos em bloco ocupavam ~65% do arquivo) e alguns são só o símbolo, escuro e sem fundo (C6, Nubank), que sumiam no tema escuro. A lista de contas ainda punha um quadro dentro de outro.
+- `assets/bankLogoBounds.ts`: área desenhada de cada um dos 22 logos, medida renderizando os SVGs; `resolveBankLogoDisplay` (`utils/bankLogoRegistry.ts`) recorta o viewBox: logo em bloco preenche o quadro; logo só com símbolo fica centralizado sobre fundo claro.
+- `components/wallet/BankLogo.tsx` usa o recorte (inclusive no cartão); `components/wallet/AccountCardStack.tsx` sem o quadro duplo e com ícone próprio para carteira física.
+- **Testes:** `test:quality`, `test:wallet-visual-next`, Carteira, passos de teste do CI e build passaram; conferido no app local em 411 px (Visão geral e Cartões).
+
 ## 27/11/2026 — Excluir vários de uma vez e notificações com identidade
 
 **Novidade: excluir vários lançamentos da fatura.** Migration `20261127140000_wallet_delete_wrong_expenses_batch.sql` (aplicada e registrada antes do código): `personal_wallet_delete_wrong_expenses(uuid[], uuid)` apaga a lista numa única transação, reaproveitando a exclusão individual (mesmas travas e recusas); se um não puder ser apagado, nada é apagado e o motivo aparece. Ordem estável por cartão; até 200 por vez; repetição responde pelos recibos. Tela: "Selecionar" no extrato da fatura, caixas de seleção, "Selecionar todos" (sem parcelas pagas) e confirmação. A seleção é limpa ao trocar de mês ou de cartão.

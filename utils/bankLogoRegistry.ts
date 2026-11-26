@@ -1,5 +1,6 @@
 import { bankLogoAssetsA } from '../assets/bankLogoAssetsA';
 import { bankLogoAssetsB } from '../assets/bankLogoAssetsB';
+import { bankLogoBounds } from '../assets/bankLogoBounds';
 
 /**
  * Logos estão incorporados ao bundle, sem CDNs ou solicitações externas.
@@ -237,6 +238,38 @@ export function resolveBankLogo(...names: (string | null | undefined)[]): string
   }
   return null;
 }
+const displayCache = new Map<string, { url: string; tile: boolean }>();
+
+/** Recorta o viewBox para a área desenhada: o logo preenche o quadro (bloco) ou fica centralizado com respiro (símbolo). */
+function croppedSvg(svg: string, box: [number, number, number, number], tile: boolean) {
+  const match = svg.match(/viewBox="([^"]+)"/);
+  const [vx, vy, vw, vh] = (match ? match[1] : '0 0 512 512').split(/[\s,]+/).map(Number);
+  let x = vx + box[0] * vw, y = vy + box[1] * vh;
+  let w = (box[2] - box[0]) * vw, h = (box[3] - box[1]) * vh;
+  if (!tile) {
+    const side = Math.max(w, h) * 1.28;
+    x -= (side - w) / 2; y -= (side - h) / 2; w = side; h = side;
+  }
+  const viewBox = [x, y, w, h].map(value => Math.round(value * 100) / 100).join(' ');
+  const withBox = match ? svg.replace(match[0], `viewBox="${viewBox}"`) : svg.replace('<svg', `<svg viewBox="${viewBox}"`);
+  return withBox.replace(/<svg([^>]*?)\swidth="[^"]*"/, '<svg$1').replace(/<svg([^>]*?)\sheight="[^"]*"/, '<svg$1');
+}
+
+/** Logo pronto para exibir: recortado e com a indicação se precisa de fundo claro. */
+export function resolveBankLogoDisplay(...names: (string | null | undefined)[]): { url: string; tile: boolean } | null {
+  for (const name of names) {
+    const brand = findBankBrand(name);
+    if (!brand || !svgs[brand.id]) continue;
+    if (!displayCache.has(brand.id)) {
+      const bounds = bankLogoBounds[brand.id];
+      const svg = bounds ? croppedSvg(svgs[brand.id], bounds.box, bounds.tile) : svgs[brand.id];
+      displayCache.set(brand.id, { url: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg), tile: bounds ? bounds.tile : true });
+    }
+    return displayCache.get(brand.id)!;
+  }
+  return null;
+}
+
 export function getBankLogo(...names: (string | null | undefined)[]): string | null {
   return resolveBankLogo(...names);
 }

@@ -63,9 +63,11 @@ export const AccountCardStack: React.FC<Props> = ({ accounts, onOpen, compact = 
                     className="h-7 w-0.5 shrink-0 rounded-full"
                     style={{ backgroundColor: visual.accent }}
                   />
-                  <span className={`flex shrink-0 items-center justify-center rounded-lg border border-slate-700/80 bg-slate-950 ${compact ? 'h-9 w-9' : 'h-10 w-10'}`}>
-                    {isCash ? <Wallet size={20} className="text-amber-300" /> : <BankLogo name={account.bank_name} alternateName={account.nickname} size="sm" />}
-                  </span>
+                  {isCash
+                    ? <span className={`flex shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 shadow-sm ${compact ? 'h-9 w-9' : 'h-11 w-11'}`}>
+                        <Wallet size={compact ? 18 : 20} className="text-amber-950" />
+                      </span>
+                    : <BankLogo name={account.bank_name} alternateName={account.nickname} size={compact ? 'card' : 'md'} />}
                   <span className="min-w-0 flex-1">
                     <strong className="block truncate text-sm sm:text-base font-semibold text-white">{account.nickname}</strong>
                     <span className="mt-0.5 block truncate text-xs text-slate-400">

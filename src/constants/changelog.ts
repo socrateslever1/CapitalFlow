@@ -22,6 +22,16 @@ export interface ChangelogRelease {
  */
 export const SYSTEM_CHANGELOG: ChangelogRelease[] = [
   {
+    version: '3.6.4',
+    codeOnly: true,
+    date: '27/11/2026',
+    title: 'Logos dos bancos',
+    summary: 'Os logos dos bancos agora preenchem o quadro e aparecem bem no tema escuro.',
+    items: [
+      { kind: 'MELHORIA', text: 'Logos de bancos maiores e centralizados nas contas e nos cartões; o C6 e o Nubank ficam visíveis no fundo escuro.' },
+    ],
+  },
+  {
     version: '3.6.3',
     codeOnly: true,
     date: '27/11/2026',

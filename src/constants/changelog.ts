@@ -22,6 +22,18 @@ export interface ChangelogRelease {
  */
 export const SYSTEM_CHANGELOG: ChangelogRelease[] = [
   {
+    version: '3.5.3',
+    codeOnly: true,
+    date: '26/11/2026',
+    title: 'Importar planilhas e PDF com senha',
+    summary: 'Extratos e faturas em CSV e Excel (.xlsx) agora podem ser importados, e o pedido de senha do PDF ficou mais claro.',
+    items: [
+      { kind: 'NOVIDADE', text: 'Importe extratos e faturas em CSV ou Excel (.xlsx), com leitura no próprio aparelho.' },
+      { kind: 'MELHORIA', text: 'Quando o PDF tem senha, o campo para digitar aparece em destaque no lugar do erro.' },
+      { kind: 'CORRECAO', text: 'A opção de somar contratos agora informa corretamente que o saldo fica congelado, sem novos juros.' },
+    ],
+  },
+  {
     version: '3.5.2',
     codeOnly: true,
     date: '26/11/2026',

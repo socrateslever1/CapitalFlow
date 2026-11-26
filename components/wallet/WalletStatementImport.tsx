@@ -397,9 +397,10 @@ export const WalletStatementImport: React.FC<Props> = ({
           </label>}
           {pdfPasswordRequired && source && <form className="space-y-2 rounded-xl border border-amber-600/30 bg-slate-950 p-3"
             onSubmit={event => { event.preventDefault(); if (pdfPassword && !busy) void parse(false, pdfPassword); }}>
+            <p role="status" className="text-sm font-semibold text-amber-200">{error || 'Este PDF tem senha.'}</p>
             <label className="block text-xs text-slate-200" htmlFor="modal-wallet-pdf-password">Senha do PDF (leitura local)</label>
             <div className="flex gap-2">
-              <input id="modal-wallet-pdf-password" type="password" autoComplete="off" maxLength={256}
+              <input id="modal-wallet-pdf-password" type="password" autoComplete="off" maxLength={256} autoFocus
                 value={pdfPassword} onChange={event => setPdfPassword(event.target.value)}
                 className="min-w-0 flex-1 rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-white"
                 placeholder="Senha do arquivo"/>
@@ -418,7 +419,7 @@ export const WalletStatementImport: React.FC<Props> = ({
                   {source?.name || 'Clique ou arraste a fatura ou extrato aqui'}
                 </span>
                 <p className="text-xs text-slate-400">
-                  Formatos aceitos: <strong>.OFX</strong> ou <strong>.PDF com texto</strong> até 15 MB
+                  Formatos aceitos: <strong>.OFX</strong>, <strong>.CSV</strong>, <strong>.XLSX</strong> ou <strong>.PDF com texto</strong> até 10 MB
                 </p>
               </div>
 
@@ -432,7 +433,7 @@ export const WalletStatementImport: React.FC<Props> = ({
 
               <input
                 type="file"
-                accept=".ofx,.qfx,.pdf,application/pdf"
+                accept=".ofx,.qfx,.pdf,.csv,.xlsx,.xls,application/pdf,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
                 className="sr-only"
                 disabled={busy}
                 onChange={(e) => {
@@ -470,7 +471,7 @@ export const WalletStatementImport: React.FC<Props> = ({
             </div>
           </div>
 
-          {error && (
+          {error && !pdfPasswordRequired && (
             <div role="alert" className="flex items-start gap-2.5 rounded-xl border border-rose-500/40 bg-rose-950/20 p-3.5 text-xs text-rose-300">
               <AlertTriangle size={18} className="shrink-0 text-rose-400 mt-0.5" />
               <div>{error}</div>

@@ -1,5 +1,18 @@
 # Changelog
 
+## 26/11/2026 — Importação por CSV/XLSX, senha de PDF e texto correto da unificação
+
+**Novidade: CSV e XLSX na importação de extrato e fatura** (`utils/statementSpreadsheet.ts`, ligado em `parseSmartFinancialDocument`).
+- Leitura 100% local. Detecta o cabeçalho (data, descrição, valor; ou crédito/débito separados; parcela), separador `;` `,` ou tab, aspas, UTF-8 ou Windows-1252, datas dd/mm/aaaa, ISO, Date e número do Excel, valores "R$ 1.234,56", "1,234.56", "(25,00)" e "25,90 D".
+- Cartão segue a regra do OFX: compra positiva, pagamento/estorno/crédito negativo e desmarcado; faturas que exportam compras negativas são invertidas pela maioria. Linhas de saldo/total são ignoradas. `.xls` antigo pede conversão para `.xlsx` ou `.csv`.
+- Campo de arquivo dos dois importadores aceita `.csv` e `.xlsx`; textos atualizados.
+
+**Melhoria: PDF com senha.** A leitura com senha já funcionava (verificado com PDF de teste criptografado: pede senha, recusa a errada, lê com a certa), mas o pedido aparecia como erro vermelho acima de um campo fácil de não ver. Agora o aviso vermelho dá lugar ao campo de senha em destaque, com o cursor já nele.
+
+**Correção: texto da unificação de contratos** (`features/agreements/components/RenegotiationModal.tsx`). A opção "Unificar contratos sem novo parcelamento" dizia manter "a cobrança normal dos juros", mas a RPC `normal_unify_contracts` zera taxa, multa e mora e congela o saldo (`normalUnificationFrozen`). Renomeada para "Somar contratos com saldo congelado" e textos corrigidos; regra e banco não mudaram. Unificação com juros normais continuando **não existe** e depende de nova RPC (aguarda autorização).
+
+- **Testes:** `tests/wallet/statement-spreadsheet.test.ts` 8/8; `npm run test:wallet-statement-import` 78/78; `npm run test:quality` exit 0; `npm run test:wallet-visual-next` 62/62; `wallet-import-contract` 4/4. No app local: CSV fictício lido (2 itens, 1 compra) sem salvar; PDF fictício com senha desbloqueado. Sem aparelho físico.
+
 ## 26/11/2026 — Conta e cartão no mesmo cadastro, visíveis
 
 **Melhoria (somente interface; usa as RPCs já existentes `personal_wallet_create_complete_card_with_new_account` e `personal_wallet_create_account_with_existing_card`, de 05/11).**

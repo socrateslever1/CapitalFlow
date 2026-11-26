@@ -364,7 +364,7 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
         <div className="flex items-center gap-2">
           <Zap size={16} className="shrink-0 text-emerald-400" />
           <span>
-            <strong className="text-white">OFX e PDF com texto</strong> · leitura 100% local no dispositivo
+            <strong className="text-white">OFX, CSV, XLSX e PDF com texto</strong> · leitura 100% local no dispositivo
           </span>
         </div>
       </div>
@@ -471,7 +471,7 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
             {source ? source.name : 'Arraste ou solte o arquivo aqui'}
           </p>
           <p className="text-xs text-slate-400">
-            Suporta faturas e extratos em <strong>OFX</strong> ou <strong>PDF com texto</strong> (leitura local)
+            Suporta faturas e extratos em <strong>OFX</strong>, <strong>CSV</strong>, <strong>XLSX</strong> ou <strong>PDF com texto</strong> (leitura local)
           </p>
         </div>
 
@@ -479,7 +479,7 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
           {busy ? 'Processando arquivo...' : 'Selecionar do Computador ou Celular'}
           <input
             type="file"
-            accept=".ofx,.qfx,.pdf,application/pdf"
+            accept=".ofx,.qfx,.pdf,.csv,.xlsx,.xls,application/pdf,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
             className="sr-only"
             disabled={busy}
             onChange={(e) => {
@@ -491,7 +491,7 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
       </div>
 
       {/* Alertas e Mensagens */}
-      {error && (
+      {error && !pdfPasswordRequired && (
         <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-500/40 bg-rose-950/20 p-3 text-xs text-rose-300">
           <AlertTriangle size={16} className="shrink-0 text-rose-400 mt-0.5" />
           <span>{error}</span>
@@ -507,9 +507,10 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
 
       {pdfPasswordRequired && source && <form className="space-y-2 rounded-xl border border-amber-600/30 bg-slate-950 p-3"
         onSubmit={event => { event.preventDefault(); if (pdfPassword && !busy) void handleFileProcess(source, false, pdfPassword); }}>
+        <p role="status" className="text-sm font-semibold text-amber-200">{error || 'Este PDF tem senha.'}</p>
         <label className="block text-xs text-slate-200" htmlFor="flat-wallet-pdf-password">Senha do PDF (somente neste dispositivo)</label>
         <div className="flex gap-2">
-          <input id="flat-wallet-pdf-password" type="password" autoComplete="off" maxLength={256}
+          <input id="flat-wallet-pdf-password" type="password" autoComplete="off" maxLength={256} autoFocus
             value={pdfPassword} onChange={event => setPdfPassword(event.target.value)}
             className="min-w-0 flex-1 rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-white"
             placeholder="Informe a senha"/>

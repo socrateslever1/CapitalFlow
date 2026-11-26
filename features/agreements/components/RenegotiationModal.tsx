@@ -325,13 +325,13 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
 
                 if (normalUnificationBlocked) {
                     throw new Error(
-                        "A unificacao normal nao aceita contratos com acordo ativo. Quebre/cancele o acordo antes, ou use o parcelamento de acordo."
+                        "Esta unificação não aceita contratos com acordo ativo. Quebre ou cancele o acordo antes, ou use o parcelamento de acordo."
                     );
                 }
 
                 const clientIds = new Set(loans.map((loan) => String(loan.clientId || '').trim()).filter(Boolean));
                 if (clientIds.size !== 1) {
-                    throw new Error("A unificacao exige contratos vinculados ao mesmo cliente.");
+                    throw new Error("A unificação exige contratos do mesmo cliente.");
                 }
 
                 const firstOpenInstallment = (mainLoan.installments || []).find((inst) => {
@@ -368,7 +368,7 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
                     p_profile_id: profileId
                 });
                 if (unificationError) {
-                    throw new Error(`A unificacao foi cancelada sem alterar os contratos: ${unificationError.message}`);
+                    throw new Error(`A unificação foi cancelada sem alterar os contratos: ${unificationError.message}`);
                 }
 
                 onSuccess();
@@ -490,7 +490,7 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
     const operationWarning = (() => {
 
         if (flowMode === 'NORMAL_UNIFICATION') {
-            return `Ao confirmar, ${mainLoanLabel} será o contrato principal. O saldo atual será a nova base e a cobrança normal continuará.`;
+            return `Ao confirmar, ${mainLoanLabel} será o contrato principal. O saldo atual de todos os contratos fica somado e congelado: não serão cobrados novos juros, multa nem mora.`;
         }
         if (flowMode === 'CAPITAL_ONLY_OPEN') {
             return loans.length > 1
@@ -505,9 +505,9 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
     const flowHelp = (() => {
         if (flowMode === 'NORMAL_UNIFICATION') {
             if (loansWithActiveAgreement.length > 0) {
-                return 'Bloqueado: existe contrato com acordo ativo na selecao. A unificacao normal so aceita contratos sem acordo.';
+                return 'Bloqueado: existe contrato com acordo ativo na seleção. Esta unificação só aceita contratos sem acordo.';
             }
-            return 'Agrupa os contratos e mantém a cobrança normal dos juros e encargos previstos.';
+            return 'Soma os contratos num só com o saldo de hoje (principal + juros e encargos já devidos). O saldo fica congelado: não gera novos juros, multa nem mora.';
         }
         if (flowMode === 'CAPITAL_ONLY_OPEN') {
             return 'Mantém o contrato aberto, sem criar parcelas novas, cobrando apenas o principal restante.';
@@ -599,7 +599,7 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
                                 <button type="button" disabled={normalUnificationBlocked} aria-pressed={flowMode === 'NORMAL_UNIFICATION'}
                                     onClick={() => { setFlowMode('NORMAL_UNIFICATION'); setFormError(null); }}
                                     className={choiceClass + ' w-full disabled:cursor-not-allowed disabled:opacity-40 ' + (flowMode === 'NORMAL_UNIFICATION' ? activeChoice : passiveChoice)}>
-                                    Unificar contratos sem novo parcelamento
+                                    Somar contratos com saldo congelado
                                 </button>
                             )}
                             {flowMode !== 'INSTALLMENT_AGREEMENT' && <p className="text-xs leading-relaxed text-slate-400">{flowHelp}</p>}

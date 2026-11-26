@@ -1730,3 +1730,9 @@ O ícone do olho já acionava o `FinancialPrivacyProvider`, mas os elementos aba
 
 - O vínculo de 05/11 existia, mas ficava escondido em seções recolhidas. Agora é uma escolha visível nos dois cadastros; o cartão criado junto com a conta recebe fechamento, vencimento e bandeira. Sem mudança de RPC ou banco. Detalhes em `CHANGELOG.md`.
 - **Sem validação em aparelho físico.**
+
+## 26/11/2026 — Importação CSV/XLSX, senha de PDF e unificação
+
+- CSV e XLSX entram na importação (leitura local); PDF com senha já funcionava e o pedido de senha ficou em destaque; texto da unificação "normal" corrigido (ela congela o saldo, não cobra juros). Detalhes em `CHANGELOG.md`.
+- **Pendente:** unificação que soma contratos e mantém juros normais exige nova RPC, com autorização do proprietário.
+- **Sem validação em aparelho físico.**

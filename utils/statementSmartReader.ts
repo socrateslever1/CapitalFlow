@@ -1,8 +1,9 @@
 import { classifyStatementDescription, ParsedStatementRow, StatementParseResult, parseStatementPdf } from './walletStatementPdf';
 import { Type } from '@google/genai';
 import { requestGemini } from '../services/secureGemini.service';
+import { isSpreadsheetFile, parseStatementSpreadsheet } from './statementSpreadsheet';
 
-export type SmartSourceType = 'OFX' | 'PDF_NATIVE' | 'IMAGE_AI' | 'PDF_AI';
+export type SmartSourceType = 'OFX' | 'PDF_NATIVE' | 'IMAGE_AI' | 'PDF_AI' | 'SPREADSHEET';
 
 export interface SmartStatementParseResult extends StatementParseResult {
   sourceType: SmartSourceType;
@@ -345,6 +346,12 @@ export async function parseSmartFinancialDocument(
     return parseStatementOfx(file, kind);
   }
 
+  // 1b. Planilhas CSV / XLSX exportadas pelo banco (leitura local)
+  if (isSpreadsheetFile(file)) {
+    const sheet = await parseStatementSpreadsheet(file, kind);
+    return { ...sheet, sourceType: 'SPREADSHEET', costLabel: 'R$ 0,00 (Planilha local)' };
+  }
+
   // 2. Arquivos de Imagem (desativado: leitura 100% local por OFX ou PDF com texto)
   if (
     fileType.startsWith('image/') ||
@@ -369,5 +376,5 @@ export async function parseSmartFinancialDocument(
     };
   }
 
-  throw new Error('Formato não suportado. Envie arquivos OFX ou PDF com texto exportados pelo banco.');
+  throw new Error('Formato não suportado. Envie OFX, CSV, XLSX ou PDF com texto exportados pelo banco.');
 }

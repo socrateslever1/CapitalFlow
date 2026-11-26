@@ -37,8 +37,7 @@ export const InvoiceOverrideModal: React.FC<Props> = ({
   const [mode, setMode] = useState<'CONSOLIDATE' | 'DIFFERENCE'>(isNew ? 'CONSOLIDATE' : 'DIFFERENCE');
   const [month,setMonth]=useState(originalMonth);
   const [dueDate,setDueDate]=useState(initialDueDate || getInvoiceCycleDates(
-    initialDueMonth,card.closing_day,card.due_day,
-  ).dueDate);
+    initialDueMonth, card.closing_day, card.due_day, null, card).dueDate);
   const initialBankTotal=invoiceFactsSummaryForMonth(originalMonth).invoiceTotal;
   const [amount,setAmount]=useState((initialBankTotal ?? initialAmount)>0?(initialBankTotal ?? initialAmount).toFixed(2).replace('.',','):'');
   const [adjustmentNotes, setAdjustmentNotes] = useState('');
@@ -48,7 +47,7 @@ export const InvoiceOverrideModal: React.FC<Props> = ({
   const request=useRef<{key:string;id:string}>({key:'',id:generateUUID()});
   const visualMonth=/^\d{4}-(0[1-9]|1[0-2])$/.test(month)?month:originalMonth;
   const validMonth=/^\d{4}-(0[1-9]|1[0-2])$/.test(month);
-  const dates=getInvoiceCycleDates(visualMonth+'-01',card.closing_day,card.due_day,dueDate);
+  const dates=getInvoiceCycleDates(visualMonth+'-01', card.closing_day, card.due_day, dueDate, card);
   const shortDate=(date:string)=>new Intl.DateTimeFormat('pt-BR',{day:'2-digit',month:'2-digit',timeZone:'UTC'})
     .format(new Date(date+'T12:00:00Z'));
 
@@ -165,7 +164,7 @@ export const InvoiceOverrideModal: React.FC<Props> = ({
                 const next=event.target.value;setMonth(next);
                 if(/^\d{4}-\d{2}$/.test(next)){
                   const summary=invoiceFactsSummaryForMonth(next);
-                  setDueDate(summary.dueDate || getInvoiceCycleDates(next+'-01',card.closing_day,card.due_day).dueDate);
+                  setDueDate(summary.dueDate || getInvoiceCycleDates(next+'-01', card.closing_day, card.due_day, null, card).dueDate);
                   setAmount(summary.invoiceTotal===null?'':summary.invoiceTotal.toFixed(2).replace('.',','));
                 }
               }}

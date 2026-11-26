@@ -6,7 +6,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { WalletSpendingGuide } from '../../features/wallet/components/WalletSpendingGuide';
 import { getWalletSpendingOverview } from '../../features/wallet/domain/walletSpendingInsights';
 
-test('overview fetches ten lightweight sources including exact invoice due dates', () => {
+test('overview fetches eleven lightweight sources including exact invoice dates and cycle rules', () => {
   const service = readFileSync('services/personalWallet.service.ts','utf8');
   const repository = readFileSync('features/wallet/services/walletRepository.ts','utf8');
   const overview = readFileSync('features/wallet/pages/WalletOverviewPage.tsx','utf8');
@@ -21,7 +21,7 @@ test('overview fetches ten lightweight sources including exact invoice due dates
     'personal_wallet_card_invoice_facts',
   ];
   for (const table of expected) assert(query.includes("from('" + table + "')"), table);
-  assert.equal((query.match(/supabase\.from\('/g) ?? []).length, 10);
+  assert.equal((query.match(/supabase\.from\('/g) ?? []).length, 11);
   // Operações de conta só entram filtradas: despesas desde o mês anterior, poucas colunas.
   assert(query.includes("from('personal_wallet_account_operations')"));
   assert.match(query, /\.select\('id,operation_type,from_account_id,amount,category,operation_date,voided_at,voids_operation_id'\)\s*\.eq\('operation_type', 'EXPENSE'\)\.gte\('operation_date', spendingSince\)/);
@@ -32,7 +32,7 @@ test('overview fetches ten lightweight sources including exact invoice due dates
   assert(!query.includes('createSignedUrl'), 'overview should not sign optional images on first paint');
   assert(!query.includes('.limit(') || query.includes('.limit(500)'), 'do not truncate purchases or installments');
   assert(query.includes('getCardCreditPosition'), 'credit must use the canonical calculation');
-  assert(query.includes("select('card_id,due_month,due_date,available_limit,updated_at')"));
+  assert(query.includes("select('card_id,due_month,due_date,closing_date,available_limit,updated_at')"));
   assert(query.includes('bankAvailableReferences:'));
   assert(repository.includes('overviewCache'));
   assert(repository.includes('overviewCache.invalidate()'));

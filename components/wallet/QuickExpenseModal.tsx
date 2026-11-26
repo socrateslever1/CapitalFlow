@@ -24,7 +24,7 @@ import {
   saveCustomExpenseCategory,
 } from '../../features/wallet/utils/walletCustomCategories';
 import { CategoryIconPicker } from './CategoryIconPicker';
-import { getInvoiceCycleDates, getPurchaseInvoiceMonth, resolvePurchaseInvoiceMonth } from './invoiceStatementDomain';
+import { getInvoiceCycleDates, getPurchaseInvoiceMonth, resolvePurchaseInvoiceMonth, type CardCycleSource } from './invoiceStatementDomain';
 import {
   buildCardExpenseNotes,
   resolveCardInstallmentPlan,
@@ -94,13 +94,14 @@ export const resolveFirstInstallmentMonthLabel = (
   dueDay?: number | null,
   explicitMonth?: string | null,
   referenceToday: string = todayIso(),
+  card?: CardCycleSource | null,
 ): { dueDateIso: string; monthInputValue: string; label: string } => {
   // Mesma regra da RPC: fatura pela data da compra; fatura vencida volta para a aberta.
   const dueDateIso = explicitMonth && /^\d{4}-(0[1-9]|1[0-2])/.test(explicitMonth)
     ? explicitMonth.slice(0, 7) + '-01'
     : resolvePurchaseInvoiceMonth({
       purchaseDate: expenseDate, today: referenceToday,
-      closingDay: closingDay ?? null, dueDay: dueDay ?? null,
+      closingDay: closingDay ?? null, dueDay: dueDay ?? null, card,
     });
   return { dueDateIso, monthInputValue: dueDateIso.slice(0, 7), label: formatMonthLabel(dueDateIso) };
 };
@@ -232,6 +233,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
       today,
       selectedCard?.closing_day ?? null,
       selectedCard?.due_day ?? null,
+      selectedCard,
     );
     const effectiveCycleDate =
       expenseDate && /^\d{4}-\d{2}-\d{2}$/.test(expenseDate) && expenseDate > today
@@ -246,7 +248,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
       const candidate = initialDueMonth.slice(0, 7) + '-01';
       if (candidate >= currentOpenMonth) {
         if (selectedCard?.closing_day && selectedCard?.due_day) {
-          const dates = getInvoiceCycleDates(candidate, selectedCard.closing_day, selectedCard.due_day);
+          const dates = getInvoiceCycleDates(candidate, selectedCard.closing_day, selectedCard.due_day, null, selectedCard);
           if (effectiveCycleDate < dates.closingDate) inheritedMonth = candidate;
         } else {
           inheritedMonth = candidate;
@@ -259,8 +261,9 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
       selectedCard?.due_day,
       firstInvoiceMonth || inheritedMonth,
       today,
+      selectedCard,
     );
-  }, [expenseDate, selectedCard?.closing_day, selectedCard?.due_day, firstInvoiceMonth, initialDueMonth, resolvedCardId, selectedCardId]);
+  }, [expenseDate, selectedCard, selectedCard?.closing_day, selectedCard?.due_day, firstInvoiceMonth, initialDueMonth, resolvedCardId, selectedCardId]);
 
   const closedInvoiceWarning = useMemo(() => {
     if (paymentMode !== 'CARD' || !selectedCard) return null;
@@ -757,8 +760,8 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                   </div>
                   {selectedCard && (
                     <p className="text-[11px] text-slate-400">
-                      Fecha {getInvoiceCycleDates(resolvedCycle.dueDateIso, selectedCard.closing_day, selectedCard.due_day).closingDate.slice(8, 10)}/{getInvoiceCycleDates(resolvedCycle.dueDateIso, selectedCard.closing_day, selectedCard.due_day).closingDate.slice(5, 7)}
-                      {' · '}Vence {getInvoiceCycleDates(resolvedCycle.dueDateIso, selectedCard.closing_day, selectedCard.due_day).dueDate.slice(8, 10)}/{getInvoiceCycleDates(resolvedCycle.dueDateIso, selectedCard.closing_day, selectedCard.due_day).dueDate.slice(5, 7)}
+                      Fecha {getInvoiceCycleDates(resolvedCycle.dueDateIso, selectedCard.closing_day, selectedCard.due_day, null, selectedCard).closingDate.slice(8, 10)}/{getInvoiceCycleDates(resolvedCycle.dueDateIso, selectedCard.closing_day, selectedCard.due_day, null, selectedCard).closingDate.slice(5, 7)}
+                      {' · '}Vence {getInvoiceCycleDates(resolvedCycle.dueDateIso, selectedCard.closing_day, selectedCard.due_day, null, selectedCard).dueDate.slice(8, 10)}/{getInvoiceCycleDates(resolvedCycle.dueDateIso, selectedCard.closing_day, selectedCard.due_day, null, selectedCard).dueDate.slice(5, 7)}
                     </p>
                   )}
 

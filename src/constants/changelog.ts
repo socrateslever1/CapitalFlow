@@ -25,6 +25,19 @@ export const SYSTEM_CHANGELOG: ChangelogRelease[] = [
     version: '3.5.0',
     codeOnly: true,
     date: '26/11/2026',
+    title: 'Fechamento da fatura como o do banco',
+    summary: 'O cartão aceita fechamento alguns dias antes do vencimento, vencimento em dia útil e o fechamento real de cada mês.',
+    items: [
+      { kind: 'NOVIDADE', text: 'Escolha se a fatura fecha em um dia fixo ou alguns dias antes do vencimento.' },
+      { kind: 'NOVIDADE', text: 'Vencimento em fim de semana ou feriado nacional pode passar para o próximo dia útil.' },
+      { kind: 'NOVIDADE', text: 'Informe o fechamento real de uma fatura específica, sem mudar o cartão.' },
+      { kind: 'MELHORIA', text: 'Mudar fechamento ou vencimento do cartão vale da fatura aberta em diante; faturas anteriores continuam como estavam.' },
+    ],
+  },
+  {
+    version: '3.5.0',
+    codeOnly: true,
+    date: '26/11/2026',
     title: 'Contrato com várias fontes',
     summary: 'Criar contrato usando mais de uma fonte de capital voltou a funcionar.',
     items: [

@@ -87,7 +87,7 @@ const deriveOverview = (snapshot: WalletOverviewSnapshot, today: string) => {
         const explicitDate=exactDueDates.get(card.id + ':' + cycle.dueMonth.slice(0, 7));
         if (!card.due_day && !explicitDate) return [];
         const { closingDate, dueDate } = getInvoiceCycleDates(
-          cycle.dueMonth, card.closing_day, card.due_day, explicitDate,
+          cycle.dueMonth, card.closing_day, card.due_day, explicitDate, card,
         );
         const competence = closingDate.slice(5,7) + '/' + closingDate.slice(0,4);
         return [{

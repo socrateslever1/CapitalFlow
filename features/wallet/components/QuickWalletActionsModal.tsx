@@ -166,6 +166,7 @@ export const QuickWalletActionsModal: React.FC<QuickWalletActionsModalProps> = (
             today,
             closingDay: targetCard?.closing_day ?? null,
             dueDay: targetCard?.due_day ?? null,
+            card: targetCard,
             settledMonths: getSettledInvoiceMonths(targetId, expenses, installments,
               invoicePayments as { card_id: string; due_month: string }[]),
           }),

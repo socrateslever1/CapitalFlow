@@ -90,6 +90,50 @@ export type PersonalWalletCard = {
   opening_invoice_state?: 'OPEN' | 'CLOSED' | null;
   opening_invoice_month?: string | null;
   invoice_cancel_requests?: Record<string, unknown>;
+  /** Regra do ciclo: dia fixo ou N dias antes do vencimento. */
+  closing_mode?: 'FIXED_DAY' | 'DAYS_BEFORE_DUE' | null;
+  closing_days_before_due?: number | null;
+  /** Vencimento em sábado, domingo ou feriado nacional passa para o próximo dia útil. */
+  due_business_days?: boolean | null;
+  /** Regras vigentes por mês (a mudança no cartão vale do mês da edição em diante). */
+  cycle_settings?: WalletCardCycleSetting[];
+  /** Fechamento e vencimento reais informados por mês (YYYY-MM-01 → data). */
+  invoice_closing_dates?: Record<string, string>;
+  invoice_due_dates?: Record<string, string>;
+};
+
+type CardDateFact = { card_id: string; due_month: string; due_date?: string | null; closing_date?: string | null };
+
+/** Anexa ao cartão as regras de ciclo por mês e as datas reais informadas por fatura. */
+const withCardCycleData = (
+  card: PersonalWalletCard,
+  settings: readonly WalletCardCycleSetting[] | null | undefined,
+  facts: readonly CardDateFact[] | null | undefined,
+): PersonalWalletCard => {
+  const closing: Record<string, string> = {};
+  const due: Record<string, string> = {};
+  for (const fact of facts || []) {
+    if (fact.card_id !== card.id) continue;
+    const month = String(fact.due_month).slice(0, 7) + '-01';
+    if (fact.closing_date) closing[month] = String(fact.closing_date).slice(0, 10);
+    if (fact.due_date) due[month] = String(fact.due_date).slice(0, 10);
+  }
+  return {
+    ...card,
+    cycle_settings: (settings || []).filter(setting => setting.card_id === card.id),
+    invoice_closing_dates: closing,
+    invoice_due_dates: due,
+  };
+};
+
+export type WalletCardCycleSetting = {
+  card_id: string;
+  effective_month: string;
+  closing_mode: 'FIXED_DAY' | 'DAYS_BEFORE_DUE';
+  closing_day: number | null;
+  closing_days_before_due: number | null;
+  due_day: number | null;
+  due_business_days: boolean;
 };
 
 export type PersonalWalletPayable = {
@@ -404,7 +448,7 @@ const personalWalletServiceImpl = {
     const walletReset = await getActiveWalletReset();
     // Despesas pagas pela conta desde o mês anterior: entram no resumo de gastos por categoria.
     const spendingSince = (() => { const now = new Date(); return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1)).toISOString().slice(0, 10); })();
-    const [accounts, cards, expenses, installments, invoicePayments, payables, recurringIncomes, recurringReceipts, cardInvoiceDates, spendingOperations] =
+    const [accounts, cards, expenses, installments, invoicePayments, payables, recurringIncomes, recurringReceipts, cardInvoiceDates, spendingOperations, cycleSettings] =
       await Promise.all([
         loadAllWalletRows((from, to) => supabase.from('personal_wallet_accounts').select('*').order('created_at', { ascending: false }).order('id').range(from, to)),
         loadAllWalletRows((from, to) => supabase.from('personal_wallet_cards').select('*').order('created_at', { ascending: false }).order('id').range(from, to)),
@@ -419,16 +463,20 @@ const personalWalletServiceImpl = {
           .order('reference_month', { ascending: false }).order('id').range(from, to)),
         // Lightweight invoice metadata: exact issuer due dates may differ from
         // the generic day configured for the card. No PAN or sensitive fields.
-        loadAllWalletRows((from, to) => supabase.from('personal_wallet_card_invoice_facts').select('card_id,due_month,due_date,available_limit,updated_at')
+        loadAllWalletRows((from, to) => supabase.from('personal_wallet_card_invoice_facts').select('card_id,due_month,due_date,closing_date,available_limit,updated_at')
           .order('due_month', { ascending: false }).order('card_id').range(from, to)),
         loadAllWalletRows((from, to) => supabase.from('personal_wallet_account_operations')
           .select('id,operation_type,from_account_id,amount,category,operation_date,voided_at,voids_operation_id')
           .eq('operation_type', 'EXPENSE').gte('operation_date', spendingSince)
           .order('operation_date', { ascending: false }).order('id').range(from, to)),
+        loadAllWalletRows((from, to) => supabase.from('personal_wallet_card_cycle_settings')
+          .select('card_id,effective_month,closing_mode,closing_day,closing_days_before_due,due_day,due_business_days')
+          .order('card_id').order('effective_month').range(from, to)),
       ]);
     const loadedExpenses = filterCurrentWalletRows((expenses.data || []) as PersonalWalletExpense[], walletReset, 'expenses');
     const loadedInstallments = filterCurrentWalletRows((installments.data || []) as PersonalWalletExpenseInstallment[], walletReset, 'installments');
-    const calculatedCards = filterCurrentWalletRows((cards.data || []) as PersonalWalletCard[], walletReset, 'cards').map(card => {
+    const calculatedCards = filterCurrentWalletRows((cards.data || []) as PersonalWalletCard[], walletReset, 'cards')
+      .map(card => withCardCycleData(card, cycleSettings.data as WalletCardCycleSetting[], cardInvoiceDates.data as CardDateFact[])).map(card => {
       const initialFuture = Math.max(
         Number(card.initial_future_installments_balance || 0),
         Number(card.opening_unallocated_amount || 0),
@@ -467,7 +515,7 @@ const personalWalletServiceImpl = {
 
   async load() {
     const walletReset = await getActiveWalletReset();
-    const [accounts, cards, expenses, installments, invoicePayments, accountOperations, statementRows, payables, payablePayments, payablePaymentSources, recurringIncomes, recurringReceipts, recurringObligations, capitalSources, cardInvoiceFacts] = await Promise.all([
+    const [accounts, cards, expenses, installments, invoicePayments, accountOperations, statementRows, payables, payablePayments, payablePaymentSources, recurringIncomes, recurringReceipts, recurringObligations, capitalSources, cardInvoiceFacts, cycleSettings] = await Promise.all([
       loadAllWalletRows((from, to) => supabase.from('personal_wallet_accounts').select('*').order('created_at', { ascending: false }).order('id').range(from, to)),
       loadAllWalletRows((from, to) => supabase.from('personal_wallet_cards').select('*').order('created_at', { ascending: false }).order('id').range(from, to)),
       loadAllWalletRows((from, to) => supabase.from('personal_wallet_expenses').select('*').order('expense_date', { ascending: false }).order('id').range(from, to)),
@@ -485,6 +533,9 @@ const personalWalletServiceImpl = {
       loadAllWalletRows((from, to) => supabase.from('personal_wallet_recurring_obligations').select('*').order('created_at', { ascending: false }).order('id').range(from, to)),
       loadAllWalletRows((from, to) => supabase.from('fontes').select('id,profile_id,name,balance,type,logo_url').is('archived_at', null).order('name', { ascending: true }).order('id').range(from, to)),
       loadAllWalletRows((from, to) => supabase.from('personal_wallet_card_invoice_facts').select('*').order('due_month', { ascending: false }).order('card_id').range(from, to)),
+      loadAllWalletRows((from, to) => supabase.from('personal_wallet_card_cycle_settings')
+          .select('card_id,effective_month,closing_mode,closing_day,closing_days_before_due,due_day,due_business_days')
+          .order('card_id').order('effective_month').range(from, to)),
     ]);
     // Acesso somente leitura, isolado por RLS, para classificar financiamentos por cartão
     // no extrato bancário. Não remove nem altera operações contábeis.
@@ -497,7 +548,8 @@ const personalWalletServiceImpl = {
     // Paginated reads fail by throwing; no partial snapshot is returned.
     const loadedExpenses = filterCurrentWalletRows((expenses.data || []) as PersonalWalletExpense[], walletReset, 'expenses');
     const loadedInstallments = filterCurrentWalletRows((installments.data || []) as PersonalWalletExpenseInstallment[], walletReset, 'installments');
-    const rawCards = filterCurrentWalletRows((cards.data || []) as PersonalWalletCard[], walletReset, 'cards');
+    const rawCards = filterCurrentWalletRows((cards.data || []) as PersonalWalletCard[], walletReset, 'cards')
+      .map(card => withCardCycleData(card, cycleSettings.data as WalletCardCycleSetting[], cardInvoiceFacts.data as CardDateFact[]));
     const activeAccounts = filterCurrentWalletRows((accounts.data || []) as PersonalWalletAccount[], walletReset, 'accounts')
       .filter(account => !account.archived_at);
     // Two batched Storage requests replace a separate call for every image.
@@ -854,6 +906,35 @@ const personalWalletServiceImpl = {
     if (error) throw new Error(error.message);
   },
 
+
+  /** Regra do ciclo (dia fixo ou N dias antes do vencimento; vencimento em dia útil). Vale do mês atual em diante. */
+  async setCardCycleRules(cardId: string, input: {
+    closingMode: 'FIXED_DAY' | 'DAYS_BEFORE_DUE';
+    closingDay: number | null;
+    closingDaysBeforeDue: number | null;
+    dueDay: number | null;
+    dueBusinessDays: boolean;
+  }) {
+    const { error } = await supabase.rpc('personal_wallet_set_card_cycle_rules', {
+      p_card_id: cardId,
+      p_closing_mode: input.closingMode,
+      p_closing_day: input.closingDay,
+      p_closing_days_before_due: input.closingDaysBeforeDue,
+      p_due_day: input.dueDay,
+      p_due_business_days: input.dueBusinessDays,
+    });
+    if (error) throw new Error(error.message);
+  },
+
+  /** Fechamento real de uma fatura (só aquele mês). null volta à regra do cartão. */
+  async setInvoiceClosingDate(cardId: string, dueMonth: string, closingDate: string | null) {
+    const { error } = await supabase.rpc('personal_wallet_set_invoice_closing_date', {
+      p_card_id: cardId,
+      p_due_month: `${dueMonth.slice(0, 7)}-01`,
+      p_closing_date: closingDate,
+    });
+    if (error) throw new Error(error.message);
+  },
 
   async createRecurringObligation(input: {
     kind: 'EXPENSE' | 'DEBT'; description: string; creditor_name: string; creditor_type: 'PERSON' | 'COMPANY';

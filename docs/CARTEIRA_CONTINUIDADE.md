@@ -1707,3 +1707,10 @@ O ícone do olho já acionava o `FinancialPrivacyProvider`, mas os elementos aba
 - `20261126140000_restore_loan_funding_allocations.sql` aplicada e registrada (autorizada pelo proprietário). Só cria `finalize_loan_funding_allocations_v1`, igual à de 17/11 exceto pela data da compra no cartão (`start_date`). Conferido antes: `loan_card_wallet_charges` tem chave primária em `loan_id` (o `on conflict` funciona). Conferido depois: função existe, só `authenticated` executa, versão registrada.
 - `20261119220000_open_personal_wallet_to_all_users`: conteúdo idêntico já em produção; o registro da versão no histórico **não foi feito** (bloqueado pela proteção automática da sessão) e fica pendente de autorização.
 - **Pendente:** contratos com várias fontes criados antes desta correção podem estar sem a saída das fontes; não foram alterados. Conferir caso a caso, com autorização, antes de qualquer ajuste.
+
+## 26/11/2026 — Fase 1 do plano: ciclo do cartão
+
+- **Entregue:** itens 1.0 a 1.4 de `docs/PLANO_CARTEIRA_PARIDADE.md` (detalhes em `CHANGELOG.md`). Migration `20261126160000_wallet_card_cycle_rules.sql` aplicada antes do código (o `load()` lê a tabela nova).
+- **Verificação em produção (sem valores):** versão registrada; 3 cartões e 3 regras iniciais; 0 divergências entre o roteamento novo e a fórmula anterior de dia fixo em 41 datas por cartão; `personal_wallet_set_card_cycle_rules` executável só por `authenticated`.
+- **Revisão independente:** reprovada na 1ª versão; bloqueios e itens importantes corrigidos (ver CHANGELOG). Não houve segunda rodada de revisão.
+- **Pendências:** ciclo pelo dia fixo ainda nas telas de importação e linha do tempo; salvar cartão + regra em duas chamadas; feriados locais fora; validação visual em aparelho não realizada.

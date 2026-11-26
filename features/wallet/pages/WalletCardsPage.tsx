@@ -88,6 +88,11 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
   const [overriding, setOverriding] = useState(false);
   const [creatingInvoice, setCreatingInvoice] = useState(false);
   const [invoiceHistoryOpen, setInvoiceHistoryOpen] = useState(false);
+  // Fechamento real informado só para a fatura selecionada (não muda o cartão).
+  const [closingEditOpen, setClosingEditOpen] = useState(false);
+  const [closingEditValue, setClosingEditValue] = useState('');
+  const [closingEditError, setClosingEditError] = useState('');
+  const [closingEditSaving, setClosingEditSaving] = useState(false);
   const [actionMenuOpen, setActionMenuOpen] = useState(false);
   const [cardOpeningModalOpen, setCardOpeningModalOpen] = useState(false);
   const [clearingInvoice, setClearingInvoice] = useState(false);
@@ -314,7 +319,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
     );
   }, [data, selected, invoiceFacts]);
   const suggestedNewInvoiceMonth = selected
-    ? getPurchaseInvoiceMonth(businessDateInManaus(), selected.closing_day, selected.due_day)
+    ? getPurchaseInvoiceMonth(businessDateInManaus(), selected.closing_day, selected.due_day, selected)
     : businessDateInManaus().slice(0, 7) + '-01';
   // Keep the selected value in the list of rendered invoice cycles.
   // A stale cycle from a previously selected card must not make the browser
@@ -348,7 +353,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
       // Limite calculado pela Carteira não é um valor informado pelo emissor.
       availableLimit: editedInvoiceFacts?.available_limit ?? null,
       futureInstallments: facts?.future_installments ?? (isCurrentCycle && Number(selected?.initial_future_installments_balance || 0) > 0 ? Number(selected.initial_future_installments_balance) : null),
-      dueDate: facts?.due_date ?? (selected && targetMonth ? getInvoiceCycleDates(targetMonth, selected.closing_day, selected.due_day).dueDate : null),
+      dueDate: facts?.due_date ?? (selected && targetMonth ? getInvoiceCycleDates(targetMonth, selected.closing_day, selected.due_day, null, selected).dueDate : null),
       warnings: [],
     };
   };
@@ -684,7 +689,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
             onNewExpense={card => {
               setSelectedId(card.id);
               setQuickExpenseCardId(card.id);
-              setQuickExpenseDueMonth(getPurchaseInvoiceMonth(businessDateInManaus(), card.closing_day, card.due_day));
+              setQuickExpenseDueMonth(getPurchaseInvoiceMonth(businessDateInManaus(), card.closing_day, card.due_day, card));
               setQuickExpenseOpen(true);
             }}
             onPayInvoice={card => { setSelectedId(card.id); setPaying(card); }} />
@@ -787,6 +792,16 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
                       className="rounded-lg border border-slate-700 px-2.5 py-1.5 text-[11px] font-semibold text-slate-200 hover:border-blue-500 hover:text-white">
                       + Adicionar fatura
                     </button>
+                    {statementMonth && selected && <button type="button" aria-haspopup="dialog"
+                      onClick={() => {
+                        setClosingEditValue(selected.invoice_closing_dates?.[`${statementMonth.slice(0, 7)}-01`]
+                          || getInvoiceCycleDates(statementMonth, selected.closing_day, selected.due_day, null, selected).closingDate);
+                        setClosingEditError('');
+                        setClosingEditOpen(true);
+                      }}
+                      className="rounded-lg border border-slate-700 px-2.5 py-1.5 text-[11px] font-semibold text-slate-200 hover:border-blue-500 hover:text-white">
+                      Fechamento deste mês
+                    </button>}
                   </div>
                 </div>
                 {selected && (
@@ -800,14 +815,14 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
                       const fact = invoiceFacts.find(item =>
                         item.card_id === selected.id && item.due_month.slice(0, 7) === cycle.dueMonth.slice(0, 7));
                       const bankInvoiceTotal = fact?.invoice_total == null ? null : Number(fact.invoice_total);
-                      const dates = getInvoiceCycleDates(cycle.dueMonth, selected.closing_day, selected.due_day, fact?.due_date);
+                      const dates = getInvoiceCycleDates(cycle.dueMonth, selected.closing_day, selected.due_day, fact?.due_date, selected);
                       const dueLabel = invoiceDueMonthLabel(dates.dueDate);
                       const closing = shortDayMonth(dates.closingDate);
                       const due = dates.dueDate.split('-').reverse().join('/');
                       const status = cycle.amount <= 0 ? 'REFERENCIA' : resolveInvoiceCycleState({
                         dueMonth: cycle.dueMonth, closingDay: selected.closing_day,
                         dueDay: selected.due_day, outstanding: cycle.amount,
-                        hasCycle: true, exactDueDate: savedInvoiceFacts?.due_date ?? fact?.due_date,
+                        hasCycle: true, exactDueDate: savedInvoiceFacts?.due_date ?? fact?.due_date, card: selected,
                       });
                       const label = status === 'REFERENCIA' ? 'Sem lançamentos'
                         : status === 'OPEN' ? 'Aberta'
@@ -870,6 +885,41 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
                 </div>}
               </div>}
             </div>
+            {closingEditOpen && selected && statementMonth && <Modal compact title="Fechamento desta fatura"
+              subtitle="Informe a data em que o banco fechou esta fatura. Vale só para este mês; para mudar as próximas, edite o cartão."
+              onClose={() => setClosingEditOpen(false)}>
+              <form className="space-y-3" onSubmit={async event => {
+                event.preventDefault();
+                if (closingEditSaving) return;
+                setClosingEditSaving(true); setClosingEditError('');
+                try {
+                  await personalWalletService.setInvoiceClosingDate(selected.id, statementMonth, closingEditValue || null);
+                  await refresh();
+                  setClosingEditOpen(false);
+                } catch (cause) {
+                  setClosingEditError(cause instanceof Error ? cause.message : 'Não foi possível salvar o fechamento.');
+                } finally { setClosingEditSaving(false); }
+              }}>
+                <label className="block text-xs text-slate-300">Data do fechamento
+                  <input type="date" required value={closingEditValue} onChange={event => setClosingEditValue(event.target.value)}
+                    className="mt-1.5 w-full min-w-0 rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none focus:border-blue-500" />
+                </label>
+                <p className="text-[11px] text-slate-400">Compras feitas no próprio dia do fechamento entram na fatura seguinte. Lançamentos já registrados não mudam de fatura.</p>
+                {closingEditError && <p role="alert" className="text-xs text-red-300">{closingEditError}</p>}
+                <div className="flex flex-wrap justify-end gap-2">
+                  {selected.invoice_closing_dates?.[`${statementMonth.slice(0, 7)}-01`] && <button type="button" disabled={closingEditSaving}
+                    onClick={async () => {
+                      setClosingEditSaving(true); setClosingEditError('');
+                      try { await personalWalletService.setInvoiceClosingDate(selected.id, statementMonth, null); await refresh(); setClosingEditOpen(false); }
+                      catch (cause) { setClosingEditError(cause instanceof Error ? cause.message : 'Não foi possível remover.'); }
+                      finally { setClosingEditSaving(false); }
+                    }}
+                    className="min-h-11 rounded-xl border border-slate-700 px-4 text-sm font-semibold text-slate-200">Usar a regra do cartão</button>}
+                  <button type="submit" disabled={closingEditSaving}
+                    className="min-h-11 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white disabled:opacity-60">{closingEditSaving ? 'Salvando…' : 'Salvar'}</button>
+                </div>
+              </form>
+            </Modal>}
             {invoiceHistoryOpen && selected && <Modal compact title={`Consultar faturas · ${selected.nickname}`}
               subtitle="Selecione o mês para consultar o extrato correspondente."
               onClose={() => setInvoiceHistoryOpen(false)}>
@@ -878,14 +928,14 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
                   const fact = invoiceFacts.find(item =>
                     item.card_id === selected.id && item.due_month.slice(0, 7) === cycle.dueMonth.slice(0, 7));
                   const bankInvoiceTotal = fact?.invoice_total == null ? null : Number(fact.invoice_total);
-                  const dates = getInvoiceCycleDates(cycle.dueMonth, selected.closing_day, selected.due_day, fact?.due_date);
+                  const dates = getInvoiceCycleDates(cycle.dueMonth, selected.closing_day, selected.due_day, fact?.due_date, selected);
                   const dueLabel = invoiceDueMonthLabel(dates.dueDate);
                       const closing = shortDayMonth(dates.closingDate);
                   const due = dates.dueDate.split('-').reverse().join('/');
                   const state = cycle.amount <= 0 ? 'REFERENCIA' : resolveInvoiceCycleState({
                     dueMonth: cycle.dueMonth, closingDay: selected.closing_day,
                     dueDay: selected.due_day, outstanding: cycle.amount,
-                    hasCycle: true, exactDueDate: fact?.due_date,
+                    hasCycle: true, exactDueDate: fact?.due_date, card: selected,
                   });
                   const label = state === 'REFERENCIA' ? 'Sem lançamentos'
                     : state === 'OPEN' ? 'Aberta'
@@ -957,7 +1007,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
             {selected ? <CardInvoiceStatement cardId={selected.id} dueMonth={statementMonth}
               openingBalance={selectedIsOpeningCycle ? Math.max(Number(selected.initial_future_installments_balance || 0), Number(selected.opening_unallocated_amount || 0)) : 0}
               expenses={data.expenses} installments={data.installments}
-              cycleDates={statementMonth ? getInvoiceCycleDates(statementMonth, selected.closing_day, selected.due_day, savedInvoiceFacts?.due_date) : undefined}
+              cycleDates={statementMonth ? getInvoiceCycleDates(statementMonth, selected.closing_day, selected.due_day, savedInvoiceFacts?.due_date, selected) : undefined}
               onEdit={async (input, mutationRequestId) => { await personalWalletService.updateExpense(input, mutationRequestId); await refresh(); }}
               onDelete={async (id, mutationRequestId) => { await personalWalletService.cancelExpense(id, mutationRequestId); await refresh(); }}
               onScopedInstallmentDelete={handleScopedInstallmentDelete}
@@ -1188,7 +1238,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
       {paying && <PayInvoiceModal card={paying} accounts={data.accounts}
         invoiceAmount={paying.id === selected?.id ? selectedCycle?.amount || 0 : 0}
         minimumPayment={savedInvoiceFacts?.minimum_payment ?? null}
-        dueMonth={statementMonth || undefined} dueDate={statementMonth && selected ? getInvoiceCycleDates(statementMonth, selected.closing_day, selected.due_day, savedInvoiceFacts?.due_date).dueDate : null} onClose={() => setPaying(null)}
+        dueMonth={statementMonth || undefined} dueDate={statementMonth && selected ? getInvoiceCycleDates(statementMonth, selected.closing_day, selected.due_day, savedInvoiceFacts?.due_date, selected).dueDate : null} onClose={() => setPaying(null)}
         onPay={async (cardId, month, accountId, amount, requestId) => {
           await personalWalletService.payInvoicePartial(cardId, month, accountId, amount, requestId);
           await refresh();

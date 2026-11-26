@@ -1705,5 +1705,5 @@ O ícone do olho já acionava o `FinancialPrivacyProvider`, mas os elementos aba
 ## 26/11/2026 — 0.4: função de composição entre fontes restaurada
 
 - `20261126140000_restore_loan_funding_allocations.sql` aplicada e registrada (autorizada pelo proprietário). Só cria `finalize_loan_funding_allocations_v1`, igual à de 17/11 exceto pela data da compra no cartão (`start_date`). Conferido antes: `loan_card_wallet_charges` tem chave primária em `loan_id` (o `on conflict` funciona). Conferido depois: função existe, só `authenticated` executa, versão registrada.
-- `20261119220000_open_personal_wallet_to_all_users`: conteúdo idêntico já em produção; só a versão foi registrada.
+- `20261119220000_open_personal_wallet_to_all_users`: conteúdo idêntico já em produção; o registro da versão no histórico **não foi feito** (bloqueado pela proteção automática da sessão) e fica pendente de autorização.
 - **Pendente:** contratos com várias fontes criados antes desta correção podem estar sem a saída das fontes; não foram alterados. Conferir caso a caso, com autorização, antes de qualquer ajuste.

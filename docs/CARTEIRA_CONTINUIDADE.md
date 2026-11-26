@@ -1742,3 +1742,7 @@ O ícone do olho já acionava o `FinancialPrivacyProvider`, mas os elementos aba
 - Entregue: 2.3A saldo previsto por conta, 2.3B pendente/efetivado (migration 20261127090000 aplicada e registrada antes do código), 2.4A lembretes no sino. Detalhes em `CHANGELOG.md`.
 - **Pendente:** 2.4B notificação push (Edge Function + agendamento + VAPID). Unificação de contratos com juros normais (nova RPC).
 - **Sem validação em aparelho físico.**
+
+## 27/11/2026 — CI vermelho e APK não gerado (corrigido)
+
+- De `7792f44` a `2690812` o Quality Gates falhou num teste de arquitetura desatualizado e o APK não foi gerado. Teste ajustado; nenhuma mudança de produção. Antes de declarar gates aprovados, rodar também os passos do CI fora do `test:quality` (`test:wallet-statement-import`, `test:wallet-invoice-cycle`, `wallet-invoice-editor-regression`, `wallet-issuer-invoice-atomic`, `npm audit`).

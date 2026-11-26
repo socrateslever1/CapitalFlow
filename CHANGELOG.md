@@ -1,5 +1,11 @@
 # Changelog
 
+## 27/11/2026 — CI: Quality Gates e APK voltam a rodar
+
+- **Causa:** desde o commit `7792f44` (Fase 1), `tests/architecture/wallet-invoice-editor-regression.test.mjs` exigia a chamada exata `getInvoiceCycleDates(statementMonth, …, savedInvoiceFacts?.due_date)`, sem o cartão que a Fase 1 passou a enviar. O teste falhava só no CI (fica fora de `npm run test:quality`), deixando o Quality Gates vermelho; o workflow do APK exige o Quality Gates do commit exato aprovado, então **nenhum APK foi gerado de `7792f44` a `2690812`**. Os registros anteriores afirmaram gates locais aprovados, mas não incluíam esse teste.
+- **Correção:** a proteção aceita o parâmetro opcional do cartão; a precedência do vencimento exato continua exigida. Nenhum código de produção mudou.
+- **Verificado localmente:** `test:wallet-statement-import`, `test:wallet-invoice-cycle`, `wallet-invoice-editor-regression`, `wallet-issuer-invoice-atomic`, `agent-pr-gate`, `npm audit --omit=dev --audit-level=high`, `npm run test:quality` e `npm run build` passaram. `test:load` (precisa do preview) não foi rodado localmente.
+
 ## 27/11/2026 — Fase 2 finalizada: pendente/efetivado, saldo previsto por conta e lembretes no sino
 
 **Novidade: lançamento pendente na conta (2.3B)** — migration `20261127090000_wallet_pending_account_operations.sql`, aplicada e registrada em produção **antes** do código.

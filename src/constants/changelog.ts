@@ -24,6 +24,18 @@ export const SYSTEM_CHANGELOG: ChangelogRelease[] = [
   {
     version: '3.5.0',
     codeOnly: true,
+    date: '26/11/2026',
+    title: 'Fatura e parcelas mais seguras',
+    summary: 'Levar o restante da fatura, antecipar parcelas e excluir parcelas agora acontecem de uma vez só, sem risco de ficar pela metade.',
+    items: [
+      { kind: 'CORRECAO', text: 'Levar o restante da fatura para a próxima ou parcelá-lo voltou a funcionar.' },
+      { kind: 'CORRECAO', text: 'Antecipar parcelas mantém a compra e a numeração original; o desconto aparece como crédito na fatura.' },
+      { kind: 'CORRECAO', text: 'Excluir só uma parcela, ou ela e as seguintes, não recria mais a compra e preserva as parcelas pagas.' },
+    ],
+  },
+  {
+    version: '3.5.0',
+    codeOnly: true,
     date: '25/11/2026',
     title: 'Regras da fatura em vigor',
     summary: 'As correções de fatura, edição de lançamento e data de empréstimo no cartão passaram a valer no servidor.',

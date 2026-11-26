@@ -156,8 +156,9 @@ export const CardInvoiceStatement: React.FC<CardInvoiceStatementProps> = ({
     setConfirmingDelete(null);
     setConfirmingDeleteInstallment(null);
     setError('');
-    const requestId = deleteRequestIds.current.get(expense.id) || generateUUID();
-    deleteRequestIds.current.set(expense.id, requestId);
+    const deleteKey = `${expense.id}:${targetInstallment?.id || 'all'}:${chosenScope}`;
+    const requestId = deleteRequestIds.current.get(deleteKey) || generateUUID();
+    deleteRequestIds.current.set(deleteKey, requestId);
     try {
       if (
         onScopedInstallmentDelete &&
@@ -169,7 +170,7 @@ export const CardInvoiceStatement: React.FC<CardInvoiceStatementProps> = ({
       } else {
         await onDelete(expense.id, requestId);
       }
-      deleteRequestIds.current.delete(expense.id);
+      deleteRequestIds.current.delete(deleteKey);
     }
     catch (cause) { setError(cause instanceof Error ? cause.message : 'Não foi possível excluir o lançamento.'); }
     finally { setDeletingId(null); }

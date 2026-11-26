@@ -29,8 +29,7 @@ import { QuickExpenseModal } from '../components/QuickExpenseModal';
 import { Modal, modalPrimaryActionClass, modalSecondaryActionClass } from '../../../components/ui/Modal';
 import { formatWalletMoneyInput, parseWalletMoney } from '../utils/parseWalletMoney';
 import { resolveLiveBrazilianCentsChange, formatPastedBrazilianMoney } from '../utils/liveBrazilianMoneyInput';
-import { buildCardExpenseNotes, parseInstallmentTag, resolveCardInstallmentPlan } from '../utils/cardInstallmentPlan';
-import { calculateInstallmentAdvancement, resolveInvoiceMonthSelection, resolveManualInvoiceMonth } from '../utils/minhasFinancasWalletTools';
+import { resolveInvoiceMonthSelection, resolveManualInvoiceMonth } from '../utils/minhasFinancasWalletTools';
 import { businessDateInManaus } from '../../../utils/businessDate';
 import type { PersonalWalletExpense, PersonalWalletExpenseInstallment } from '../../../services/personalWallet.service';
 import type { InstallmentDeleteScope } from '../../../components/wallet/CardInvoiceStatement';
@@ -494,76 +493,18 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
       ? selected.opening_invoice_month.slice(0, 7) === statementMonth.slice(0, 7)
       : creditPosition?.dueMonth === statementMonth
   ));
+  // Operações com várias escritas rodam numa única RPC transacional e idempotente.
   const handleScopedInstallmentDelete = async (
     expense: PersonalWalletExpense,
     targetInstallment: PersonalWalletExpenseInstallment,
     scope: InstallmentDeleteScope,
     mutationRequestId: string,
   ) => {
-    if (!data || scope === 'ALL') {
+    if (scope === 'ALL') {
       await personalWalletService.cancelExpense(expense.id, mutationRequestId);
-      await refresh();
-      return;
+    } else {
+      await personalWalletService.cancelInstallments(expense.id, targetInstallment.id, scope, mutationRequestId);
     }
-    const pendingInstallments = data.installments
-      .filter((inst) => inst.expense_id === expense.id && inst.status === 'PENDING')
-      .sort((a, b) => a.installment_number - b.installment_number);
-
-    const { startInstallment: origStart, totalInstallments: origTotal } = parseInstallmentTag(expense);
-    const before = pendingInstallments.filter((inst) => inst.installment_number < targetInstallment.installment_number);
-    const after =
-      scope === 'ONLY_CURRENT'
-        ? pendingInstallments.filter((inst) => inst.installment_number > targetInstallment.installment_number)
-        : [];
-
-    await personalWalletService.cancelExpense(expense.id, mutationRequestId);
-
-    if (before.length > 0) {
-      const beforeSum = Math.round(before.reduce((s, i) => s + (Number(i.amount) - Number(i.paid_amount || 0)), 0) * 100) / 100;
-      const plan = resolveCardInstallmentPlan({
-        inputAmount: beforeSum,
-        amountMode: 'TOTAL',
-        startInstallment: origStart,
-        totalInstallments: origTotal,
-      });
-      await personalWalletService.createExpense({
-        description: expense.description,
-        amount: beforeSum,
-        category: expense.category,
-        expense_date: expense.expense_date,
-        due_date: before[0].due_month.slice(0, 10),
-        card_id: expense.card_id,
-        status: 'PENDING',
-        installment_count: before.length,
-        notes: buildCardExpenseNotes(expense.notes || '', {
-          ...plan,
-          notesTag: origTotal > 1 ? `[PARC_INICIAL:${origStart}/${origTotal}]` : null,
-        }),
-      });
-    }
-
-    if (after.length > 0) {
-      const afterSum = Math.round(after.reduce((s, i) => s + (Number(i.amount) - Number(i.paid_amount || 0)), 0) * 100) / 100;
-      const afterStart = origStart + (after[0].installment_number - 1);
-      const plan = resolveCardInstallmentPlan({
-        inputAmount: afterSum,
-        amountMode: 'TOTAL',
-        startInstallment: afterStart,
-        totalInstallments: origTotal,
-      });
-      await personalWalletService.createExpense({
-        description: expense.description,
-        amount: afterSum,
-        category: expense.category,
-        expense_date: expense.expense_date,
-        due_date: after[0].due_month.slice(0, 10),
-        card_id: expense.card_id,
-        status: 'PENDING',
-        installment_count: after.length,
-        notes: buildCardExpenseNotes(expense.notes || '', plan),
-      });
-    }
-
     await refresh();
   };
 
@@ -574,116 +515,30 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
     discountAmount: number,
     mutationRequestId: string,
   ) => {
-    if (!data) return;
-    const preview = calculateInstallmentAdvancement({
-      expense,
-      allInstallments: data.installments,
-      currentDueMonth,
+    if (countToAdvance < 1) return;
+    await personalWalletService.advanceInstallments(
+      expense.id,
+      `${currentDueMonth.slice(0, 7)}-01`,
       countToAdvance,
       discountAmount,
-    });
-    if (!preview.selectedInstallments.length) return;
-
-    const { startInstallment: origStart, totalInstallments: origTotal } = parseInstallmentTag(expense);
-    await personalWalletService.cancelExpense(expense.id, mutationRequestId);
-
-    // 1. Mantém parcelas anteriores/atuais que não foram antecipadas
-    if (preview.keptActiveInstallments.length > 0) {
-      const keptSum = Math.round(
-        preview.keptActiveInstallments.reduce((s, i) => s + (Number(i.amount) - Number(i.paid_amount || 0)), 0) * 100,
-      ) / 100;
-      await personalWalletService.createExpense({
-        description: expense.description,
-        amount: keptSum,
-        category: expense.category,
-        expense_date: expense.expense_date,
-        due_date: preview.keptActiveInstallments[0].due_month.slice(0, 10),
-        card_id: expense.card_id,
-        status: 'PENDING',
-        installment_count: preview.keptActiveInstallments.length,
-        notes: origTotal > 1 ? `[PARC_INICIAL:${origStart}/${origTotal}]` : expense.notes,
-      });
-    }
-
-    // 2. Cria o lançamento das parcelas antecipadas na fatura atual (já líquido do desconto)
-    await personalWalletService.createExpense({
-      description: `${expense.description} (Antecipação ${preview.advancedBadgesLabel})`,
-      amount: preview.netAdvancedAmount,
-      category: expense.category,
-      expense_date: businessDateInManaus(),
-      due_date: `${currentDueMonth.slice(0, 7)}-01`,
-      card_id: expense.card_id,
-      status: 'PENDING',
-      installment_count: 1,
-      notes:
-        preview.discountAmount > 0
-          ? `Antecipação com desconto de ${formatMoney(preview.discountAmount)} (original ${formatMoney(preview.advancedSum)})`
-          : `Parcelas antecipadas para ${currentDueMonth.slice(0, 7)}`,
-    });
-
-    // 3. Se restaram parcelas futuras além das antecipadas, recria a cauda nos meses originais
-    if (preview.remainingTailInstallments.length > 0) {
-      const tailSum = Math.round(
-        preview.remainingTailInstallments.reduce((s, i) => s + (Number(i.amount) - Number(i.paid_amount || 0)), 0) * 100,
-      ) / 100;
-      const tailStart = origStart + (preview.remainingTailInstallments[0].installment_number - 1);
-      await personalWalletService.createExpense({
-        description: expense.description,
-        amount: tailSum,
-        category: expense.category,
-        expense_date: expense.expense_date,
-        due_date: preview.remainingTailInstallments[0].due_month.slice(0, 10),
-        card_id: expense.card_id,
-        status: 'PENDING',
-        installment_count: preview.remainingTailInstallments.length,
-        notes: `[PARC_INICIAL:${tailStart}/${origTotal}]`,
-      });
-    }
-
+      mutationRequestId,
+    );
     await refresh();
   };
 
   const handleInvoiceRemainder = async (action: InvoiceRemainderAction, baseRequestId: string) => {
     if (!paying || !statementMonth || action.mode === 'KEEP_IN_CURRENT') return;
-    if (action.mode === 'ROLL_TO_NEXT') {
-      await personalWalletService.payInvoicePartial(
-        paying.id,
-        statementMonth,
-        null,
-        action.remainderAmount,
-        `${baseRequestId}:roll-clear`,
-      );
-      await personalWalletService.createExpense({
-        description: `Saldo restante da fatura ${statementMonth.slice(5, 7)}/${statementMonth.slice(0, 4)}`,
-        amount: action.remainderAmount,
-        category: 'Outros',
-        expense_date: businessDateInManaus(),
-        due_date: action.nextDueMonth,
-        card_id: paying.id,
-        status: 'PENDING',
-        installment_count: 1,
-        notes: 'Transferido para a próxima fatura',
-      });
-    } else if (action.mode === 'INSTALLMENT_PLAN') {
-      await personalWalletService.payInvoicePartial(
-        paying.id,
-        statementMonth,
-        null,
-        action.remainderPrincipal,
-        `${baseRequestId}:plan-clear`,
-      );
-      await personalWalletService.createExpense({
-        description: `Parcelamento da fatura ${statementMonth.slice(5, 7)}/${statementMonth.slice(0, 4)}`,
-        amount: action.totalFinancedAmount,
-        category: 'Serviços',
-        expense_date: businessDateInManaus(),
-        due_date: action.nextDueMonth,
-        card_id: paying.id,
-        status: 'PENDING',
-        installment_count: action.installmentCount,
-        notes: `Saldo financiado: ${formatMoney(action.remainderPrincipal)} em ${action.installmentCount}x de ${formatMoney(action.installmentAmount)}`,
-      });
-    }
+    const remainder = action.mode === 'ROLL_TO_NEXT' ? action.remainderAmount : action.remainderPrincipal;
+    await personalWalletService.rollInvoiceRemainder({
+      cardId: paying.id,
+      dueMonth: statementMonth,
+      mode: action.mode,
+      nextDueMonth: action.nextDueMonth,
+      expectedRemainder: remainder,
+      installmentCount: action.mode === 'ROLL_TO_NEXT' ? 1 : action.installmentCount,
+      totalAmount: action.mode === 'ROLL_TO_NEXT' ? remainder : action.totalFinancedAmount,
+      requestId: baseRequestId,
+    });
     await refresh();
   };
   const clearUnpaidInvoice = async () => {

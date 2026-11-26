@@ -1,5 +1,14 @@
 # Changelog
 
+## 26/11/2026 — Fase 0: operações de cartão em uma única transação
+
+**Correções (migration `20261126120000_wallet_atomic_card_operations.sql`).** Três operações que a tela montava com várias chamadas separadas passam a ser uma única RPC transacional e idempotente:
+- **Restante da fatura** (`personal_wallet_roll_invoice_remainder`): levar o restante para a próxima fatura ou parcelá-lo quita o restante e lança o valor no destino na mesma transação. Antes, a segunda etapa recebia um `request_id` inválido (`uuid:roll-clear`) e sempre falhava; o pagamento principal ficava registrado e o restante permanecia na fatura atual. O servidor confere o saldo restante enviado pela tela e recusa se mudou; o parcelamento usa a categoria "Parcelamento de fatura".
+- **Antecipação de parcelas** (`personal_wallet_advance_installments`): move as próximas parcelas para a fatura escolhida, preservando a compra e a numeração (5/10 continua 5/10); o desconto vira crédito na mesma fatura. Antes, a compra era cancelada e recriada em até três lançamentos, sem proteção contra repetição. Fatura já paga não é reaberta.
+- **Excluir parcelas** (`personal_wallet_cancel_installments`): "só esta" ou "esta e as seguintes" cancela as parcelas escolhidas e mantém as demais, inclusive as pagas; o total da compra passa a ser o das parcelas restantes. Antes, a compra era cancelada e recriada.
+- **Tela** (`features/wallet/pages/WalletCardsPage.tsx`, `services/personalWallet.service.ts`): cada ação chama só a RPC correspondente.
+- **Testes:** `tests/wallet/wallet-atomic-card-operations.test.ts` (Postgres em memória com as funções reais das migrations: valores, repetição, falha sem efeito parcial, outro usuário, guarda contra chamadas encadeadas na tela).
+
 ## 25/11/2026 — Migrations da Carteira aplicadas no Supabase de produção
 
 **Banco de produção atualizado; sem mudança de código.** Aplicadas, nesta ordem, as migrations que estavam pendentes, cada uma em transação e registrada em `supabase_migrations.schema_migrations` com a versão do arquivo:

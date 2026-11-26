@@ -1571,6 +1571,56 @@ const personalWalletServiceImpl = {
     return data as { card_id: string; due_month: string | null; current_invoice: number; future_commitments: number; committed_limit: number; free_limit: number; replayed: boolean };
   },
 
+  /** Restante da fatura levado à próxima (ou parcelado) numa única transação no servidor. */
+  async rollInvoiceRemainder(input: {
+    cardId: string;
+    dueMonth: string;
+    mode: 'ROLL_TO_NEXT' | 'INSTALLMENT_PLAN';
+    nextDueMonth: string;
+    expectedRemainder: number;
+    installmentCount: number;
+    totalAmount: number;
+    requestId: string;
+  }) {
+    const { data, error } = await supabase.rpc('personal_wallet_roll_invoice_remainder', {
+      p_card_id: input.cardId,
+      p_due_month: input.dueMonth,
+      p_mode: input.mode,
+      p_next_due_month: input.nextDueMonth,
+      p_expected_remainder: input.expectedRemainder,
+      p_installment_count: input.installmentCount,
+      p_total_amount: input.totalAmount,
+      p_request_id: input.requestId,
+    });
+    if (error) throw new Error(error.message);
+    return data as { expense_id: string; replayed: boolean };
+  },
+
+  /** Move as próximas parcelas para a fatura escolhida, sem cancelar nem recriar a compra. */
+  async advanceInstallments(expenseId: string, targetDueMonth: string, count: number, discount: number, requestId: string) {
+    const { data, error } = await supabase.rpc('personal_wallet_advance_installments', {
+      p_expense_id: expenseId,
+      p_target_due_month: targetDueMonth,
+      p_count: count,
+      p_discount: discount,
+      p_request_id: requestId,
+    });
+    if (error) throw new Error(error.message);
+    return data as { advanced_count: number; replayed: boolean };
+  },
+
+  /** Exclui só a parcela escolhida, ou ela e as seguintes, mantendo as demais e a numeração. */
+  async cancelInstallments(expenseId: string, installmentId: string, scope: 'ONLY_CURRENT' | 'CURRENT_AND_NEXT', requestId: string) {
+    const { data, error } = await supabase.rpc('personal_wallet_cancel_installments', {
+      p_expense_id: expenseId,
+      p_installment_id: installmentId,
+      p_scope: scope,
+      p_request_id: requestId,
+    });
+    if (error) throw new Error(error.message);
+    return data as { canceled_count: number; replayed: boolean };
+  },
+
   async payInvoicePartial(cardId: string, dueMonth: string, accountId: string | null, amount: number, requestId: string) {
     if (!Number.isFinite(amount) || amount <= 0 || Math.abs(amount * 100 - Math.round(amount * 100)) > 0.000001) {
       throw new Error('Informe um valor positivo com até duas casas decimais.');

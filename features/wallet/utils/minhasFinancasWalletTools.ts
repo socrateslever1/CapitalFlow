@@ -374,8 +374,9 @@ export function calculateInstallmentAdvancement(input: {
   const keptActiveInstallments = expenseInstallments.filter(
     (inst) => inst.due_month.slice(0, 10) <= normalizedCurrent,
   );
+  // Mesma regra do servidor: só parcelas futuras sem nenhum pagamento podem ser antecipadas.
   const futureInstallments = expenseInstallments.filter(
-    (inst) => inst.due_month.slice(0, 10) > normalizedCurrent,
+    (inst) => inst.due_month.slice(0, 10) > normalizedCurrent && Number(inst.paid_amount || 0) === 0,
   );
 
   const safeCount = Math.min(

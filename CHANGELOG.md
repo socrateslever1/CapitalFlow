@@ -1,5 +1,12 @@
 # Changelog
 
+## 27/11/2026 — Tela da conta mais limpa
+
+**Melhoria (só interface).** `components/wallet/AccountDetailsPage.tsx`, `components/wallet/AccountPendingOperations.tsx`.
+- Botão **"Pendente"** nas ações da conta, ao lado de "Movimentar", abre o lançamento pendente numa janela. O bloco "Pendentes" sem o texto explicativo e só aparece quando há pendências (com Efetivar e Cancelar).
+- Titular, CPF/CNPJ e dados bancários saíram da tela principal da conta; continuam em **Editar conta**.
+- **Testes:** `test:quality`, `test:wallet-visual-next`, Carteira, passos de teste do CI e build passaram; conferido no app local em 411 px sem salvar dados.
+
 ## 27/11/2026 — Lançamento errado é apagado do registro
 
 **Mudança de regra (decisão do proprietário):** "Excluir" passa a apagar do banco o que foi inserido por engano, para não restar registro cancelado que gere dúvida em auditorias. Migration `20261127120000_wallet_delete_wrong_entries.sql`, aplicada e registrada em produção antes do código. `PRODUCT.md` e a skill da Carteira atualizados.

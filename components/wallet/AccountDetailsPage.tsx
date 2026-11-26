@@ -1,6 +1,6 @@
 import { PrivateMoney } from '../../contexts/FinancialPrivacyContext';
 import React, { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, Archive, ArrowLeftRight, CheckCircle2, Copy, QrCode, ReceiptText, ImagePlus, Landmark, Link2, Pencil, Plus, Save, Trash2, MoreHorizontal } from 'lucide-react';
+import { AlertCircle, Archive, ArrowLeftRight, CheckCircle2, Clock3, Copy, QrCode, ReceiptText, ImagePlus, Landmark, Link2, Pencil, Plus, Save, Trash2, MoreHorizontal } from 'lucide-react';
 import {
   PersonalWalletAccount,
   PersonalWalletExpense,
@@ -26,7 +26,7 @@ import { BANK_CATALOG } from '../../utils/bankLogoRegistry';
 import { pixKeyTypeLabel } from './walletPresentation';
 import { AccountMovementModal } from './AccountMovementModal';
 import QuickExpenseModal from '../../features/wallet/components/QuickExpenseModal';
-import { BankAccountDetailsFields, BankAccountDetailsSummary } from './BankAccountDetailsFields';
+import { BankAccountDetailsFields } from './BankAccountDetailsFields';
 import { bankDetailsDraft, normalizeBankDetails } from '../../features/wallet/domain/bankAccountDetails';
 import { getCapitalLinkState, getEligibleAccountCapitalSources } from '../../features/wallet/domain/capitalLink';
 import { calculateBalanceAdjustment, resolveQuickDateShortcuts } from '../../features/wallet/utils/minhasFinancasWalletTools';
@@ -83,6 +83,7 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
   const [pixChargeOpen, setPixChargeOpen] = useState(false);
   const [pixCopied, setPixCopied] = useState(false);
   const [movementOpen, setMovementOpen] = useState(false);
+  const [pendingOpen, setPendingOpen] = useState(false);
   const [expenseOpen, setExpenseOpen] = useState(false);
   const [adjustBalanceOpen, setAdjustBalanceOpen] = useState(false);
   const [realBalanceInput, setRealBalanceInput] = useState(() => formatWalletMoneyInput(String(Number(account.balance || 0))));
@@ -273,6 +274,10 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
           <button type="button" onClick={() => setMovementOpen(true)}
             className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-emerald-500">
             <ArrowLeftRight size={14}/> Movimentar
+          </button>
+          <button type="button" onClick={() => setPendingOpen(true)}
+            className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-950/20 px-2.5 py-1.5 text-xs font-semibold text-amber-200 hover:bg-amber-900/30">
+            <Clock3 size={14}/> Pendente
           </button>
           <button type="button" aria-expanded={showMoreActions} onClick={() => setShowMoreActions(value => !value)}
             className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-800 sm:hidden">
@@ -517,7 +522,7 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
         </Modal>
       )}
 
-      {account.account_type!=='CASH'&&<BankAccountDetailsSummary details={account.bank_details||{}} linkedCards={cards.filter(card=>card.account_id===account.id&&card.status!=='CANCELED').length}/>}
+      {/* Titular, documento e dados bancários ficam em Editar conta: a área de trabalho mostra só o que é usado no dia a dia. */}
       {editing && (
         <Modal
           variant="wallet"
@@ -621,7 +626,8 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
           note="O anel mostra a fatia de cada categoria nas despesas do mês desta conta. Transferências e pagamentos de fatura não entram." /> : null;
       })()}
 
-      <AccountPendingOperations accountId={account.id} pending={pendingOperations} onSaved={onSaved} />
+      <AccountPendingOperations accountId={account.id} pending={pendingOperations} onSaved={onSaved}
+        createOpen={pendingOpen} onCloseCreate={() => setPendingOpen(false)} />
 
       <AccountActivityPanel account={account} accounts={accounts}
         operations={accountOperations} statementRows={statementRows}

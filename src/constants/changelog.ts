@@ -22,6 +22,17 @@ export interface ChangelogRelease {
  */
 export const SYSTEM_CHANGELOG: ChangelogRelease[] = [
   {
+    version: '3.6.2',
+    codeOnly: true,
+    date: '27/11/2026',
+    title: 'Tela da conta mais limpa',
+    summary: 'Botão Pendente nas ações da conta e dados do titular só em Editar conta.',
+    items: [
+      { kind: 'MELHORIA', text: 'O lançamento pendente agora tem botão próprio nas ações da conta; a lista só aparece quando há pendências.' },
+      { kind: 'MELHORIA', text: 'Nome, CPF e dados bancários do titular saíram da tela principal e ficam em Editar conta.' },
+    ],
+  },
+  {
     version: '3.6.1',
     codeOnly: true,
     date: '27/11/2026',

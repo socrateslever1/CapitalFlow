@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
-import { Clock3, Plus } from 'lucide-react';
+import { Clock3 } from 'lucide-react';
+import { Modal } from '../ui/Modal';
 import { personalWalletService, type WalletPendingOperation } from '../../services/personalWallet.service';
 import { formatWalletMoneyInput, parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
 import { generateUUID } from '../../utils/generators';
@@ -18,9 +19,11 @@ export const AccountPendingOperations: React.FC<{
   accountId: string;
   pending: WalletPendingOperation[];
   onSaved: () => Promise<void>;
-}> = ({ accountId, pending, onSaved }) => {
+  /** O formulário abre pelo botão "Pendente" nas ações da conta. */
+  createOpen: boolean;
+  onCloseCreate: () => void;
+}> = ({ accountId, pending, onSaved, createOpen, onCloseCreate }) => {
   const rows = pending.filter(item => item.account_id === accountId && item.status === 'PENDING');
-  const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({ direction: 'IN' as 'IN' | 'OUT', description: '', amount: '', date: businessDateInManaus(), category: '' });
   const [posting, setPosting] = useState<{ id: string; amount: string; date: string } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -35,17 +38,10 @@ export const AccountPendingOperations: React.FC<{
     finally { setBusy(false); }
   };
 
-  return <section className="rounded-xl border border-slate-800 bg-slate-900 p-3 sm:p-4" aria-label="Lançamentos pendentes">
-    <div className="flex flex-wrap items-center justify-between gap-2">
-      <h3 className="flex items-center gap-2 text-sm font-bold text-white"><Clock3 size={16} className="text-amber-300" /> Pendentes</h3>
-      <button type="button" onClick={() => { setCreating(value => !value); setError(''); }}
-        className="inline-flex min-h-9 items-center gap-1 rounded-lg border border-slate-700 px-2.5 text-xs font-semibold text-slate-200 hover:border-slate-500">
-        <Plus size={14} /> Lançamento pendente
-      </button>
-    </div>
-    <p className="mt-1 text-[11px] leading-relaxed text-slate-400">Pendente não muda o saldo nem o extrato. Ao efetivar, o valor entra ou sai da conta. Não repita aqui receitas fixas já cadastradas: elas já entram no previsto.</p>
-
-    {creating && <form className="mt-3 grid gap-2 rounded-lg border border-slate-800 bg-slate-950/50 p-3 sm:grid-cols-2"
+  return <>
+    {createOpen && <Modal compact variant="wallet" title="Lançamento pendente" subtitle="Só muda o saldo quando você efetivar." onClose={onCloseCreate} footerMode="custom">
+    {error && <p role="alert" className="mb-2 text-xs text-rose-300">{error}</p>}
+    <form className="grid gap-2 sm:grid-cols-2"
       onSubmit={event => {
         event.preventDefault();
         void run(async () => {
@@ -57,7 +53,7 @@ export const AccountPendingOperations: React.FC<{
           });
           createRequest.current = generateUUID();
           setForm(value => ({ ...value, description: '', amount: '', category: '' }));
-          setCreating(false);
+          onCloseCreate();
         });
       }}>
       <div role="radiogroup" aria-label="Tipo" className="grid grid-cols-2 gap-2 sm:col-span-2">
@@ -85,12 +81,13 @@ export const AccountPendingOperations: React.FC<{
       <button type="submit" disabled={busy} className="min-h-10 rounded-lg bg-blue-600 text-xs font-semibold text-white disabled:opacity-50 sm:col-span-2">
         {busy ? 'Salvando…' : 'Salvar como pendente'}
       </button>
-    </form>}
+    </form>
+    </Modal>}
 
-    {error && <p role="alert" className="mt-2 text-xs text-rose-300">{error}</p>}
-
-    {rows.length === 0 ? <p className="mt-3 text-xs text-slate-500">Nenhum lançamento pendente.</p>
-      : <ul className="mt-3 divide-y divide-slate-800">
+    {rows.length > 0 && <section className="rounded-xl border border-slate-800 bg-slate-900 p-3 sm:p-4" aria-label="Lançamentos pendentes">
+    <h3 className="flex items-center gap-2 text-sm font-bold text-white"><Clock3 size={16} className="text-amber-300" /> Pendentes</h3>
+    {error && !createOpen && <p role="alert" className="mt-2 text-xs text-rose-300">{error}</p>}
+    <ul className="mt-3 divide-y divide-slate-800">
         {rows.map(item => {
           const remaining = Math.round((item.amount - item.posted_amount) * 100) / 100;
           const open = posting?.id === item.id;
@@ -143,6 +140,7 @@ export const AccountPendingOperations: React.FC<{
             </form>}
           </li>;
         })}
-      </ul>}
-  </section>;
+    </ul>
+    </section>}
+  </>;
 };

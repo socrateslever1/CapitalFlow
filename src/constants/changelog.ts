@@ -22,6 +22,16 @@ export interface ChangelogRelease {
  */
 export const SYSTEM_CHANGELOG: ChangelogRelease[] = [
   {
+    version: '3.7.0',
+    codeOnly: true,
+    date: '27/11/2026',
+    title: 'Somar contratos mantendo os juros',
+    summary: 'Una contratos mensais do mesmo cliente num só, continuando a cobrança normal de juros.',
+    items: [
+      { kind: 'NOVIDADE', text: 'Na unificação, escolha "Somar contratos e manter os juros": o principal é somado e os juros continuam todo mês.' },
+    ],
+  },
+  {
     version: '3.6.5',
     codeOnly: true,
     date: '27/11/2026',

@@ -1765,3 +1765,7 @@ O ícone do olho já acionava o `FinancialPrivacyProvider`, mas os elementos aba
 ## 27/11/2026 — Fase 1 concluída e textos
 
 - Pontas da Fase 1 fechadas: importação de fatura, linha do tempo e ferramentas de fatura usam a regra de ciclo de cada cartão. "Auditável" removido das telas. Detalhes em `CHANGELOG.md`.
+
+## 27/11/2026 — Unificação com juros normais
+
+- Migration 20261127160000 aplicada antes do código; regra e revisão em `CHANGELOG.md`.

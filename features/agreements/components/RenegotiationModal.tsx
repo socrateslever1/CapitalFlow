@@ -81,7 +81,8 @@ const buildRenegotiationDebtSnapshot = (loans: Loan[]) => {
 
 export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, activeUser, onClose, onSuccess }) => {
     const [step, setStep] = useState(1);
-    const [flowMode, setFlowMode] = useState<'INSTALLMENT_AGREEMENT' | 'NORMAL_UNIFICATION' | 'CAPITAL_ONLY_OPEN'>('INSTALLMENT_AGREEMENT');
+    const [flowMode, setFlowMode] = useState<'INSTALLMENT_AGREEMENT' | 'NORMAL_UNIFICATION' | 'KEEP_INTEREST_UNIFICATION' | 'CAPITAL_ONLY_OPEN'>('INSTALLMENT_AGREEMENT');
+    const keepInterestRequest = React.useRef<string | null>(null);
     const [type, setType] = useState<'PARCELADO_COM_JUROS' | 'PARCELADO_SEM_JUROS'>('PARCELADO_SEM_JUROS');
     const [calculationMode, setCalculationMode] = useState<CalculationMode>('BY_VALUE_AND_COUNT');
 
@@ -105,12 +106,15 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
     const [isSaving, setIsSaving] = useState(false);
     const [frequency, setFrequency] = useState<'WEEKLY' | 'BIWEEKLY' | 'MONTHLY'>('MONTHLY');
     const mainLoan = loans[0];
+    const mainIsMonthly = loans.every(loan => String(loan.billingCycle || 'MONTHLY').toUpperCase() === 'MONTHLY');
+    const mainRate = Number((mainLoan as any)?.policiesSnapshot?.interestRate ?? mainLoan?.interestRate ?? 0);
     const mainLoanLabel = mainLoan ? `${mainLoan.debtorName} #${mainLoan.id.slice(0, 6).toUpperCase()}` : 'contrato principal';
     const loansWithActiveAgreement = loans.filter((loan) => {
         const agreementStatus = String(loan.activeAgreement?.status || '').toUpperCase();
         return !!loan.activeAgreement && ['ACTIVE', 'ATIVO'].includes(agreementStatus);
     });
     const normalUnificationBlocked = loans.length < 2 || loansWithActiveAgreement.length > 0;
+    const keepInterestBlocked = loans.length < 2 || loansWithActiveAgreement.length > 0 || !mainIsMonthly || !(mainRate > 0);
 
     useEffect(() => {
         if (!loans || loans.length === 0) return;
@@ -130,6 +134,13 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
 
     const handleSimulate = () => {
         setFormError(null);
+        if (flowMode === 'KEEP_INTEREST_UNIFICATION') {
+            const today = new Date().toISOString().slice(0, 10);
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(firstDueDate) || firstDueDate < today) {
+                setFormError('Informe o primeiro vencimento a partir de hoje.');
+                return;
+            }
+        }
         if (flowMode !== 'INSTALLMENT_AGREEMENT') {
             setStep(2);
             return;
@@ -318,6 +329,37 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
                 return;
             }
 
+            if (flowMode === 'KEEP_INTEREST_UNIFICATION') {
+                const mainLoan = loans[0];
+                const mainLoanId = safeUUID(mainLoan.id);
+                if (!mainLoanId || keepInterestBlocked) throw new Error('Esta unificação só vale para contratos mensais do mesmo cliente, sem acordo ativo.');
+                const firstOpenInstallment = (mainLoan.installments || []).find((inst) => {
+                    const status = String(inst.status || '').toUpperCase();
+                    const open = (Number(inst.principalRemaining) || 0) + (Number(inst.interestRemaining) || 0) + (Number(inst.lateFeeAccrued) || 0);
+                    return !['RENEGOCIADO', 'CANCELADO'].includes(status) && open > 0.05;
+                }) || mainLoan.installments?.[0];
+                const mainInstallmentId = safeUUID(firstOpenInstallment?.id);
+                const profileId = safeUUID((activeUser as any).supervisor_id) || safeUUID(activeUser.id);
+                const loanIds = loans.map((loan) => safeUUID(loan.id));
+                if (!mainInstallmentId || !profileId || loanIds.some((id) => !id)) throw new Error('Contratos inválidos para unificação.');
+                const snapshot = buildRenegotiationDebtSnapshot(loans);
+                if (!keepInterestRequest.current) keepInterestRequest.current = generateUUID();
+                const { error: keepError } = await supabase.rpc('unify_contracts_keep_interest', {
+                    p_main_loan_id: mainLoanId,
+                    p_loan_ids: loanIds as string[],
+                    p_main_installment_id: mainInstallmentId,
+                    p_principal: Number(snapshot.principalDebt.toFixed(2)),
+                    p_charges: Number((snapshot.interestDebt + snapshot.lateFeeDebt).toFixed(2)),
+                    p_first_due_date: firstDueDate,
+                    p_profile_id: profileId,
+                    p_request_id: keepInterestRequest.current,
+                });
+                if (keepError) throw new Error(`A unificação foi cancelada sem alterar os contratos: ${keepError.message}`);
+                keepInterestRequest.current = null;
+                onSuccess();
+                return;
+            }
+
             if (flowMode === 'NORMAL_UNIFICATION') {
                 const mainLoan = loans[0];
                 const mainLoanId = safeUUID(mainLoan.id);
@@ -489,6 +531,9 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
     };
     const operationWarning = (() => {
 
+        if (flowMode === 'KEEP_INTEREST_UNIFICATION') {
+            return `${mainLoanLabel} fica como contrato principal e continua cobrando juros, multa e mora.`;
+        }
         if (flowMode === 'NORMAL_UNIFICATION') {
             return `Ao confirmar, ${mainLoanLabel} será o contrato principal. O saldo atual de todos os contratos fica somado e congelado: não serão cobrados novos juros, multa nem mora.`;
         }
@@ -503,6 +548,12 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
     })();
 
     const flowHelp = (() => {
+        if (flowMode === 'KEEP_INTEREST_UNIFICATION') {
+            if (!mainIsMonthly) return 'Disponível só quando todos os contratos são mensais.';
+            if (!(mainRate > 0)) return 'O contrato principal está sem taxa de juros.';
+            if (loansWithActiveAgreement.length > 0) return 'Bloqueado: há contrato com acordo ativo.';
+            return `Taxa do contrato principal: ${mainRate}% ao mês.`;
+        }
         if (flowMode === 'NORMAL_UNIFICATION') {
             if (loansWithActiveAgreement.length > 0) {
                 return 'Bloqueado: existe contrato com acordo ativo na seleção. Esta unificação só aceita contratos sem acordo.';
@@ -547,7 +598,7 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
             footer={
                 <div className="flex w-full items-center gap-2">
                     {step === 1 ? (
-                        <button type="button" disabled={isSaving || (flowMode === 'NORMAL_UNIFICATION' && normalUnificationBlocked)} onClick={handleSimulate}
+                        <button type="button" disabled={isSaving || (flowMode === 'NORMAL_UNIFICATION' && normalUnificationBlocked) || (flowMode === 'KEEP_INTEREST_UNIFICATION' && keepInterestBlocked)} onClick={handleSimulate}
                             className="flex min-h-11 min-w-0 flex-1 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors duration-150 hover:bg-blue-500 disabled:opacity-50">
                             <Calculator size={16} aria-hidden="true" /> {flowMode === 'INSTALLMENT_AGREEMENT' ? 'Revisar acordo' : 'Continuar'}
                         </button>
@@ -557,7 +608,7 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
                                 className="min-h-11 rounded-lg border border-slate-700 px-3 text-xs font-semibold text-slate-200">Editar</button>
                             <button type="button" onClick={handleConfirm} disabled={isSaving}
                                 className="flex min-h-11 min-w-0 flex-1 items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white transition-colors duration-150 hover:bg-blue-500 disabled:opacity-50">
-                                <CheckCircle2 size={16} aria-hidden="true" /> {isSaving ? 'Salvando...' : 'Confirmar acordo'}
+                                <CheckCircle2 size={16} aria-hidden="true" /> {isSaving ? 'Salvando...' : flowMode === 'INSTALLMENT_AGREEMENT' ? 'Confirmar acordo' : 'Confirmar'}
                             </button>
                         </>
                     )}
@@ -601,6 +652,19 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
                                     className={choiceClass + ' w-full disabled:cursor-not-allowed disabled:opacity-40 ' + (flowMode === 'NORMAL_UNIFICATION' ? activeChoice : passiveChoice)}>
                                     Somar contratos com saldo congelado
                                 </button>
+                            )}
+                            {loans.length > 1 && (
+                                <button type="button" disabled={keepInterestBlocked} aria-pressed={flowMode === 'KEEP_INTEREST_UNIFICATION'}
+                                    onClick={() => { setFlowMode('KEEP_INTEREST_UNIFICATION'); setFormError(null); }}
+                                    className={choiceClass + ' w-full disabled:cursor-not-allowed disabled:opacity-40 ' + (flowMode === 'KEEP_INTEREST_UNIFICATION' ? activeChoice : passiveChoice)}>
+                                    Somar contratos e manter os juros
+                                </button>
+                            )}
+                            {flowMode === 'KEEP_INTEREST_UNIFICATION' && (
+                                <label className="block text-xs font-semibold text-slate-200">Primeiro vencimento
+                                    <input type="date" value={firstDueDate} onChange={event => { setFirstDueDate(event.target.value); setFormError(null); keepInterestRequest.current = null; }}
+                                        className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white" />
+                                </label>
                             )}
                             {flowMode !== 'INSTALLMENT_AGREEMENT' && <p className="text-xs leading-relaxed text-slate-400">{flowHelp}</p>}
                         </section>
@@ -763,8 +827,17 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
                             </>
                         ) : (
                             <div className="rounded-xl border border-slate-700/60 p-4">
-                                <p className="text-sm font-semibold text-slate-100">{flowMode === 'NORMAL_UNIFICATION' ? 'Unificar sem parcelamento' : 'Recuperar somente capital sem criar parcelas'}</p>
-                                <p className="mt-2 text-xs leading-relaxed text-slate-300">{flowHelp}</p>
+                                <p className="text-sm font-semibold text-slate-100">{flowMode === 'KEEP_INTEREST_UNIFICATION' ? 'Somar e manter os juros' : flowMode === 'NORMAL_UNIFICATION' ? 'Unificar sem parcelamento' : 'Recuperar somente capital sem criar parcelas'}</p>
+                                {flowMode === 'KEEP_INTEREST_UNIFICATION' ? (() => {
+                                    const charges = Math.max(0, totalDebt - principalDebt);
+                                    // Sem encargos em aberto, o cálculo mensal cobra principal × taxa na 1ª parcela.
+                                    const firstInterest = charges > 0.005 ? charges : Math.round(principalDebt * mainRate) / 100;
+                                    return <dl className="mt-2 space-y-1 text-xs text-slate-300">
+                                        <div className="flex justify-between"><dt>Principal somado</dt><dd className="tabular-nums">{formatMoney(principalDebt)}</dd></div>
+                                        <div className="flex justify-between"><dt>Juros e mora</dt><dd className="tabular-nums">{formatMoney(firstInterest)}</dd></div>
+                                        <div className="flex justify-between font-semibold text-white"><dt>1ª parcela · {firstDueDate.split('-').reverse().join('/')}</dt><dd className="tabular-nums">{formatMoney(principalDebt + firstInterest)}</dd></div>
+                                    </dl>;
+                                })() : <p className="mt-2 text-xs leading-relaxed text-slate-300">{flowHelp}</p>}
                             </div>
                         )}
                         <div className="flex gap-2 rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2.5">

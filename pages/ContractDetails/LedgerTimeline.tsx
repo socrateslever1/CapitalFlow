@@ -45,6 +45,7 @@ export const LedgerTimeline: React.FC<LedgerTimelineProps> = ({
                 return 'ES';
             case 'RENEGOTIATION_CREATED':
             case 'NORMAL_UNIFICATION_CREATED':
+            case 'UNIFICATION_KEEP_INTEREST':
             case 'CAPITAL_ONLY_RECOVERY_ENABLED':
             case 'CAPITAL_ONLY_RECOVERY_DISABLED':
             case 'AGREEMENT_SCHEDULE_UPDATED':

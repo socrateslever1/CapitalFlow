@@ -1,5 +1,12 @@
 # Changelog
 
+## 27/11/2026 — Unificação de contratos com juros normais
+
+**Novidade (decisão do proprietário).** Migration `20261127160000_unify_contracts_keep_interest.sql` (aplicada e registrada em produção antes do código): `unify_contracts_keep_interest` soma o principal de contratos **mensais** do mesmo cliente no contrato principal; juros e mora em aberto (que já incluem os juros do mês de cada contrato) ficam na 1ª parcela com o novo vencimento; taxa, multa e mora do contrato principal continuam valendo nos ciclos seguintes. Uma transação, idempotente por `request_id`; recusa acordo ativo, outro cliente, contrato não mensal e contrato principal sem taxa. Atualiza `next_due_date`. Registro próprio no extrato ("Contratos somados (juros normais)"), sem o "Desfazer" da unificação congelada.
+- Tela: opção "Somar contratos e manter os juros" com primeiro vencimento e resumo curto.
+- **Revisão independente:** aprovada com ressalvas; corrigidos juros do mês em dobro, contratos não mensais, taxa zerada, próximo vencimento e tipo próprio no extrato. Mantido (regra geral do sistema): multa e mora de atraso incidem sobre principal + encargos da parcela.
+- **Testes:** `tests/agreements/unify-contracts-keep-interest.test.ts` 4/4 (agora em `test:financial`), passos de teste do CI, visual e build. Produção: versão registrada, função só para `authenticated`.
+
 ## 27/11/2026 — Regra do cartão em toda a Carteira e textos mais limpos
 
 **Fase 1 concluída (só interface).** Importação de fatura (`FlatSmartStatementReader`, mês e vencimento sugeridos), linha do tempo (`walletTimeline`), aviso de fatura fechada/paga e ferramentas de antecipar/levar restante (`minhasFinancasWalletTools`) passam a usar a regra de ciclo de cada cartão (fechamento dinâmico, dia útil, fechamento do mês). Para cartões em dia fixo, nada muda.

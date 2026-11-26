@@ -238,7 +238,7 @@ export function resolveBankLogo(...names: (string | null | undefined)[]): string
   }
   return null;
 }
-const displayCache = new Map<string, { url: string; tile: boolean }>();
+const displayCache = new Map<string, { url: string; tile: boolean; bg?: string }>();
 
 /** Recorta o viewBox para a área desenhada: o logo preenche o quadro (bloco) ou fica centralizado com respiro (símbolo). */
 function croppedSvg(svg: string, box: [number, number, number, number], tile: boolean) {
@@ -256,14 +256,14 @@ function croppedSvg(svg: string, box: [number, number, number, number], tile: bo
 }
 
 /** Logo pronto para exibir: recortado e com a indicação se precisa de fundo claro. */
-export function resolveBankLogoDisplay(...names: (string | null | undefined)[]): { url: string; tile: boolean } | null {
+export function resolveBankLogoDisplay(...names: (string | null | undefined)[]): { url: string; tile: boolean; bg?: string } | null {
   for (const name of names) {
     const brand = findBankBrand(name);
     if (!brand || !svgs[brand.id]) continue;
     if (!displayCache.has(brand.id)) {
       const bounds = bankLogoBounds[brand.id];
       const svg = bounds ? croppedSvg(svgs[brand.id], bounds.box, bounds.tile) : svgs[brand.id];
-      displayCache.set(brand.id, { url: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg), tile: bounds ? bounds.tile : true });
+      displayCache.set(brand.id, { url: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg), tile: bounds ? bounds.tile : true, bg: bounds?.bg });
     }
     return displayCache.get(brand.id)!;
   }

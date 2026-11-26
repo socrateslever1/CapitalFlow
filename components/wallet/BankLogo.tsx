@@ -36,7 +36,7 @@ export const BankLogo: React.FC<Props> = ({ name, alternateName, customImage, si
         : localTile ? 'rounded-xl shadow-sm' : 'rounded-xl border border-slate-700/60 bg-slate-800';
   return (
     <div
-      style={style}
+      style={localTile && display?.bg && variant !== 'emblem' ? { backgroundColor: display.bg, ...style } : style}
       className={`relative flex shrink-0 items-center justify-center overflow-hidden ${frame} ${sizes[size]} ${className}`}
     >
       {url ? (

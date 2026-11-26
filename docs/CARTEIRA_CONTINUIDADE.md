@@ -1701,3 +1701,9 @@ O ícone do olho já acionava o `FinancialPrivacyProvider`, mas os elementos aba
 - **0.4 migrations sem registro:** `20261119220000_open_personal_wallet_to_all_users` está no banco com conteúdo idêntico (falta só o registro da versão); `20261119233000_wallet_allow_same_document_repeated_rows` foi substituída por versões posteriores; `20261117150000_card_funded_loan_no_account_debit` teve a maior parte substituída, mas `finalize_loan_funding_allocations_v1` **não existe em produção**, e `services/contracts.service.ts` a chama ao criar contrato com mais de uma fonte. Correção pendente de autorização.
 - **Testes:** `tests/wallet/wallet-atomic-card-operations.test.ts` 14/14 (PGlite com as funções reais); testes TS da Carteira 407/407; `npm run test:quality` exit 0; `npm run test:wallet-visual-next` 62/62. Teste de arquitetura `runtime-text-encoding` falha também na main antes desta mudança (texto com codificação corrompida em `accountStatementDomain.ts`), fora do escopo.
 - **Sem validação visual em aparelho físico.**
+
+## 26/11/2026 — 0.4: função de composição entre fontes restaurada
+
+- `20261126140000_restore_loan_funding_allocations.sql` aplicada e registrada (autorizada pelo proprietário). Só cria `finalize_loan_funding_allocations_v1`, igual à de 17/11 exceto pela data da compra no cartão (`start_date`). Conferido antes: `loan_card_wallet_charges` tem chave primária em `loan_id` (o `on conflict` funciona). Conferido depois: função existe, só `authenticated` executa, versão registrada.
+- `20261119220000_open_personal_wallet_to_all_users`: conteúdo idêntico já em produção; só a versão foi registrada.
+- **Pendente:** contratos com várias fontes criados antes desta correção podem estar sem a saída das fontes; não foram alterados. Conferir caso a caso, com autorização, antes de qualquer ajuste.

@@ -25,6 +25,16 @@ export const SYSTEM_CHANGELOG: ChangelogRelease[] = [
     version: '3.5.0',
     codeOnly: true,
     date: '26/11/2026',
+    title: 'Contrato com várias fontes',
+    summary: 'Criar contrato usando mais de uma fonte de capital voltou a funcionar.',
+    items: [
+      { kind: 'CORRECAO', text: 'Contratos com mais de uma fonte de capital voltam a registrar a saída de cada fonte; no cartão, a compra usa a data do empréstimo.' },
+    ],
+  },
+  {
+    version: '3.5.0',
+    codeOnly: true,
+    date: '26/11/2026',
     title: 'Fatura e parcelas mais seguras',
     summary: 'Levar o restante da fatura, antecipar parcelas e excluir parcelas agora acontecem de uma vez só, sem risco de ficar pela metade.',
     items: [

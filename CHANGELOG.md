@@ -1,5 +1,9 @@
 # Changelog
 
+## 26/11/2026 — Contrato com mais de uma fonte volta a funcionar
+
+**Correção (migration `20261126140000_restore_loan_funding_allocations.sql`, aplicada e registrada em produção).** `finalize_loan_funding_allocations_v1`, chamada por `services/contracts.service.ts` ao criar contrato com mais de uma fonte de capital, não existia no banco: a migration de 17/11 que a criava nunca foi aplicada inteira. O contrato era gravado, mas a saída das fontes falhava. A função foi restaurada a partir daquele arquivo, com a compra no cartão usando a data do empréstimo (`start_date`). Verificado no banco: função criada, executável só por `authenticated`, versão registrada. A migration `20261119220000_open_personal_wallet_to_all_users`, cujo conteúdo já estava no banco, teve só a versão registrada. Testes: `tests/financial/card-funded-loan-wallet-charge.test.ts` 11/11. Contratos criados antes desta correção com várias fontes não foram alterados.
+
 ## 26/11/2026 — Fase 0: operações de cartão em uma única transação
 
 **Correções (migration `20261126120000_wallet_atomic_card_operations.sql`).** Três operações que a tela montava com várias chamadas separadas passam a ser uma única RPC transacional e idempotente:

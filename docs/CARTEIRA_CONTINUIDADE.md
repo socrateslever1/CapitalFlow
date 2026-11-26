@@ -1754,4 +1754,4 @@ O ícone do olho já acionava o `FinancialPrivacyProvider`, mas os elementos aba
 ## 27/11/2026 — Exclusão definitiva de lançamento errado
 
 - Regra do proprietário: excluir apaga do banco o que foi inserido por engano; efeito financeiro realizado segue com estorno. Migration 20261127120000 aplicada antes do código. Detalhes em `CHANGELOG.md`.
-- **Pendente com autorização:** apagar os registros cancelados antigos que ainda existem.
+- Registros cancelados antigos apagados com autorização expressa do proprietário (27/11/2026), numa transação com conferência prévia (sem pagamento, vínculo ou efeito em saldo): 16 lançamentos cancelados, 32 parcelas e 1 par anulado que se compensava. Depois: 0 cancelados, 0 parcelas órfãs, 0 anulados; soma dos saldos das contas inalterada; 125 compras ativas preservadas.

@@ -1,5 +1,14 @@
 # Changelog
 
+## 26/11/2026 — Correções de tela no contrato (celular)
+
+**Correções (somente interface, sem mudança de regra ou banco).**
+- **Janela de recebimento deslocada:** `components/ui/Modal.tsx` — no celular o painel padrão agora ocupa a largura toda (largura máxima só a partir de `sm`); antes ficava preso em `max-w-sm`/`max-w-md` encostado à esquerda em telas maiores que 384 px. A variante da Carteira mantém o tamanho flutuante.
+- **Extrato recente travando a rolagem:** `components/cards/components/LedgerList.tsx` — removida a rolagem interna (`max-h` + `overscroll-contain`) que prendia o toque dentro do card; mostra os 5 lançamentos mais recentes e um botão "Ver extrato completo".
+- **Texto técnico em inglês no extrato:** `utils/auditHelpers.ts` (`humanizeAuditText`) — remove "pelo Payment Engine V4" das notas gravadas, corrige "Unificacao" e formata valores como "R$ 1.300,00". O texto gravado no banco não foi alterado.
+- **Quadro Capital/Encargos/Original desalinhado:** `components/cards/LoanCardComposition/Header.tsx` — três colunas fixas em uma linha ("Valor original" à direita) em vez de 2+1 no celular.
+- **Testes:** `npm run test:quality` exit 0; `npm run test:wallet-visual-next` exit 0; conferido no app local em 411 px (modal ocupa 0–411 px, extrato sem rolagem interna e sem texto em inglês). Sem validação em aparelho físico.
+
 ## 26/11/2026 — Fase 2: considerar no limite, reabrir fatura e lembrete de fechamento
 
 **Novidades (migration `20261126180000_wallet_limit_flag_and_reopen_invoice.sql`, aplicada e registrada em produção antes do código).**

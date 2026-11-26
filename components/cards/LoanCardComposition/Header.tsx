@@ -415,14 +415,14 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         {isExpanded && amountBreakdown.shouldShow && (
-          <div className={`grid gap-2 rounded-lg border border-slate-800/70 bg-slate-950/60 px-2.5 py-2 ${originalContractTotal > ZERO_BALANCE_THRESHOLD ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-2'}`}>
+          <div className={`grid gap-2 rounded-lg border border-slate-800/70 bg-slate-950/60 px-2.5 py-2 ${originalContractTotal > ZERO_BALANCE_THRESHOLD ? 'grid-cols-3' : 'grid-cols-2'}`}>
             <div className="min-w-0">
               <span className="block text-[9px] font-semibold uppercase tracking-wide text-slate-500">Capital</span>
               <strong className="mt-0.5 block whitespace-nowrap text-[11px] font-bold tabular-nums text-slate-200 sm:text-xs">
                 {formatMoney(amountBreakdown.capital, isStealthMode)}
               </strong>
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 text-center">
               <span className="block text-[9px] font-semibold uppercase tracking-wide text-slate-500">Encargos</span>
               <strong className={`mt-0.5 block whitespace-nowrap text-[11px] font-bold tabular-nums sm:text-xs ${amountBreakdown.juros > ZERO_BALANCE_THRESHOLD ? 'text-rose-400' : 'text-slate-300'}`}>
                 {formatMoney(amountBreakdown.juros, isStealthMode)}
@@ -430,7 +430,7 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
             {originalContractTotal > ZERO_BALANCE_THRESHOLD && (
               <div className="min-w-0 text-right">
-                <span className="block text-[9px] font-semibold uppercase tracking-wide text-slate-500">Original</span>
+                <span className="block text-[9px] font-semibold uppercase tracking-wide text-slate-500">Valor original</span>
                 <strong className="mt-0.5 block whitespace-nowrap text-[11px] font-bold tabular-nums text-slate-300 sm:text-xs">
                   {formatMoney(originalContractTotal, isStealthMode)}
                 </strong>

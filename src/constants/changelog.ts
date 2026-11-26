@@ -22,6 +22,19 @@ export interface ChangelogRelease {
  */
 export const SYSTEM_CHANGELOG: ChangelogRelease[] = [
   {
+    version: '3.5.1',
+    codeOnly: true,
+    date: '26/11/2026',
+    title: 'Ajustes de tela no contrato',
+    summary: 'Correções na janela de recebimento, no extrato recente e no resumo do contrato no celular.',
+    items: [
+      { kind: 'CORRECAO', text: 'A janela de registrar recebimento ocupa a tela toda no celular, sem ficar deslocada.' },
+      { kind: 'CORRECAO', text: 'O extrato recente do contrato não trava mais a rolagem da página e mostra os últimos lançamentos com opção de ver todos.' },
+      { kind: 'CORRECAO', text: 'O extrato não mostra mais nomes técnicos em inglês e exibe valores no formato brasileiro.' },
+      { kind: 'CORRECAO', text: 'O resumo Capital, Encargos e Valor original aparece alinhado em uma linha.' },
+    ],
+  },
+  {
     version: '3.5.0',
     codeOnly: true,
     date: '26/11/2026',

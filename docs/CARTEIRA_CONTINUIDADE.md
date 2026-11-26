@@ -1720,3 +1720,8 @@ O ícone do olho já acionava o `FinancialPrivacyProvider`, mas os elementos aba
 - **Entregue:** 2.1 (considerar no limite), 2.2 (reabrir fatura), 2.4A (lembrete de fechamento no app). 2.3A (saldo previsto) já existia no balanço da Visão geral. Detalhes, revisão e limitações em `CHANGELOG.md`.
 - **Pendente do plano:** 2.3B (pendente/efetivado nas contas) e 2.4B (notificação push), que exigem autorização própria; Open Finance fora do escopo.
 - **Sem validação visual em aparelho físico.**
+
+## 26/11/2026 — Correções de tela no contrato
+
+- Modal no celular em largura total, extrato recente sem rolagem interna, notas de auditoria sem texto em inglês e quadro Capital/Encargos/Original em três colunas. Detalhes em `CHANGELOG.md`.
+- **Sem validação em aparelho físico.**

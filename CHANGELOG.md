@@ -1,5 +1,20 @@
 # Changelog
 
+## 27/11/2026 — Fase 2 finalizada: pendente/efetivado, saldo previsto por conta e lembretes no sino
+
+**Novidade: lançamento pendente na conta (2.3B)** — migration `20261127090000_wallet_pending_account_operations.sql`, aplicada e registrada em produção **antes** do código.
+- Tabela `personal_wallet_pending_operations` (RLS: dono + `can_access_personal_wallet`) e RPCs `personal_wallet_create_pending_operation`, `personal_wallet_post_pending_operation` (total ou parcial; cria a operação normal da conta e atualiza o saldo na mesma transação, mesma trava por dono das operações de conta, idempotente por `request_id`) e `personal_wallet_cancel_pending_operation` (cancela só o restante).
+- Pendente não altera saldo nem extrato. A anulação manual (`personal_wallet_void_manual_operation`) passa a recusar movimentações criadas ao efetivar um pendente (trava acrescentada à definição em produção, preservando o acesso `can_access_personal_wallet`).
+- Tela da conta: bloco "Pendentes" com "+ Lançamento pendente", "Efetivar" (valor e data, parcial permitido) e "Cancelar" (`components/wallet/AccountPendingOperations.tsx`).
+
+**Novidade: saldo previsto por conta (2.3A)** — `calculateAccountProjections` em `components/wallet/walletBalanceDomain.ts`: saldo atual + receitas fixas a receber + entradas pendentes − saídas pendentes − contas a pagar − faturas até o fim do mês, por conta; itens sem conta vão para "Sem conta definida" e a soma bate com a "Sobra prevista". Visão geral → Balanço do mês → "Saldo previsto por conta". O total do balanço passa a incluir os pendentes.
+
+**Novidade: lembretes de fatura no sino (2.4A)** — `features/wallet/utils/invoiceReminders.ts` (regra compartilhada com a Visão geral): fatura que fecha ou vence em até 3 dias, sem valores no texto, uma vez por cartão e data. Na Visão geral, o aviso de vencimento só aparece se a fatura ainda tem valor.
+
+- **Revisão independente:** aprovado com ressalvas. Corrigidos: ordem de publicação (migration antes do código), soma por conta com contas ocultas por reinício, anulação de parte efetivada, categoria na repetição da chave, envio duplo simultâneo, lembrete de vencimento sem valor na Visão geral e leitura de lembretes sem internet. Limitações aceitas: pendente de entrada pode duplicar uma receita fixa se o usuário cadastrar os dois (aviso na tela); no sino o aviso de vencimento não confere se a fatura já foi paga.
+- **2.4B (notificação push) não entregue:** exige nova Edge Function e agendamento diário no Supabase com chaves VAPID; não há acesso de publicação de funções nesta sessão.
+- **Testes:** `wallet-pending-operations` 8/8 (Postgres em memória com funções reais), `wallet-account-projection-and-reminders` 3/3, Carteira 455/455, `npm run test:quality` exit 0, `npm run test:wallet-visual-next` 62/62. Produção: versão registrada, RLS ativo, 0 linhas, 3 funções só para `authenticated`, trava de anulação presente. App local: soma por conta = total; bloco Pendentes exibido; nenhum dado criado. Sem aparelho físico.
+
 ## 26/11/2026 — Importação por CSV/XLSX, senha de PDF e texto correto da unificação
 
 **Novidade: CSV e XLSX na importação de extrato e fatura** (`utils/statementSpreadsheet.ts`, ligado em `parseSmartFinancialDocument`).

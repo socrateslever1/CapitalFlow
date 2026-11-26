@@ -82,6 +82,8 @@ export function deriveOverviewFromSnapshot(
     recurringIncomes: full.recurringIncomes,
     recurringReceipts: full.recurringReceipts,
     spendingOperations: full.accountOperations.filter(op => op.operation_type === 'EXPENSE'),
+    // Cópias offline antigas não têm pendentes.
+    pendingOperations: full.pendingOperations || [],
     cardInvoiceDates: resolvedDates,
     bankAvailableReferences: (full.cardInvoiceFacts || [])
       .filter(fact => fact.available_limit != null)

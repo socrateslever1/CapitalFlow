@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import ts from 'typescript';
-import { calculateWalletBalance } from '../../components/wallet/walletBalanceDomain';
+import { calculateAccountProjections, calculateWalletBalance } from '../../components/wallet/walletBalanceDomain';
 import { getBankVisual, getCreditSummary } from '../../components/wallet/walletPresentation';
 import { getEffectiveInvoiceCycles, getInvoiceCycleDates } from '../../components/wallet/invoiceStatementDomain';
 import { getWalletSpendingOverview } from '../../features/wallet/domain/walletSpendingInsights';
@@ -17,10 +17,10 @@ const compiled = ts.transpileModule(source.slice(start, end), {
 }).outputText;
 const deriveOverview = new Function(
   'getBankVisual', 'getCreditSummary', 'getEffectiveInvoiceCycles',
-  'getInvoiceCycleDates', 'getWalletSpendingOverview', 'calculateWalletBalance', 'buildWalletTimeline',
+  'getInvoiceCycleDates', 'getWalletSpendingOverview', 'calculateWalletBalance', 'buildWalletTimeline', 'calculateAccountProjections',
   compiled + '\nreturn deriveOverview;',
 )(getBankVisual, getCreditSummary, getEffectiveInvoiceCycles,
-  getInvoiceCycleDates, getWalletSpendingOverview, calculateWalletBalance, buildWalletTimeline);
+  getInvoiceCycleDates, getWalletSpendingOverview, calculateWalletBalance, buildWalletTimeline, calculateAccountProjections);
 
 test('contas CASH com IDs diferentes permanecem na liquidez e projeção', () => {
   const accounts = [

@@ -10,6 +10,8 @@ import { playNotificationSound } from '../utils/notificationSound';
 import { formatMoney } from '../utils/formatters';
 import { formatBRDate } from '../utils/dateHelpers';
 import { repairMojibake } from '../utils/textEncoding';
+import { personalWalletService } from '../services/personalWallet.service';
+import { buildInvoiceReminders, type InvoiceReminderCard } from '../features/wallet/utils/invoiceReminders';
 
 export interface InAppNotification {
   id: string;
@@ -623,6 +625,28 @@ export const useAppNotifications = ({
           }
         });
       });
+    }
+
+    // C) Carteira: fatura que fecha ou vence em até 3 dias (uma vez por cartão/data).
+    try {
+      const reminderCards = await personalWalletService.loadInvoiceReminderCards();
+      buildInvoiceReminders(reminderCards as InvoiceReminderCard[], todayISO()).forEach((reminder) => {
+        if (notifiedDueLoans.current.has('fatura:' + reminder.key)) return;
+        if (isDismissed('fatura', reminder.key)) return;
+        notifiedDueLoans.current.add('fatura:' + reminder.key);
+        const title = reminder.kind === 'CLOSE' ? 'Fatura vai fechar' : 'Fatura vai vencer';
+        addNotification({
+          title,
+          message: reminder.text,
+          type: reminder.kind === 'DUE' && reminder.days <= 1 ? 'warning' : 'info',
+          item_type: 'fatura',
+          item_id: reminder.key,
+          action_url: '/carteira/cartoes',
+          metadata: { card_id: reminder.cardId, kind: reminder.kind, date: reminder.date, notification_rule: 'wallet_invoice_reminder' },
+        });
+      });
+    } catch {
+      // Lembrete da Carteira é auxiliar: falha de leitura não interrompe os demais avisos.
     }
 
     // B) Jurídico: Vencidos sem assinatura (Notificação de Cobrança)

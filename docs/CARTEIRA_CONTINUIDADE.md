@@ -1736,3 +1736,9 @@ O ícone do olho já acionava o `FinancialPrivacyProvider`, mas os elementos aba
 - CSV e XLSX entram na importação (leitura local); PDF com senha já funcionava e o pedido de senha ficou em destaque; texto da unificação "normal" corrigido (ela congela o saldo, não cobra juros). Detalhes em `CHANGELOG.md`.
 - **Pendente:** unificação que soma contratos e mantém juros normais exige nova RPC, com autorização do proprietário.
 - **Sem validação em aparelho físico.**
+
+## 27/11/2026 — Fase 2 finalizada
+
+- Entregue: 2.3A saldo previsto por conta, 2.3B pendente/efetivado (migration 20261127090000 aplicada e registrada antes do código), 2.4A lembretes no sino. Detalhes em `CHANGELOG.md`.
+- **Pendente:** 2.4B notificação push (Edge Function + agendamento + VAPID). Unificação de contratos com juros normais (nova RPC).
+- **Sem validação em aparelho físico.**

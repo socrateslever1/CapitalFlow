@@ -12,10 +12,12 @@ import {
   personalWalletService,
   WalletRecurringIncome,
   WalletRecurringObligation,
+  WalletPendingOperation,
 } from '../../services/personalWallet.service';
 import type { CapitalSource } from '../../types';
 import { formatMoney } from '../../utils/formatters';
 import { AccountActivityPanel } from './AccountActivityPanel';
+import { AccountPendingOperations } from './AccountPendingOperations';
 import { CategoryBreakdownPanel } from './CategoryBreakdownPanel';
 import { elapsedDaysInPeriod, getAccountCategoryBreakdown } from '../../features/wallet/domain/walletCategoryBreakdown';
 import { WalletPixCharge } from './WalletPixCharge';
@@ -52,6 +54,7 @@ type Props = {
   recurringIncomes: WalletRecurringIncome[];
   recurringReceipts: { income_id: string; reference_month: string }[];
   recurringObligations: WalletRecurringObligation[];
+  pendingOperations?: WalletPendingOperation[];
   onBack: () => void;
   onSaved: () => Promise<void>;
   ownerName?: string;
@@ -72,7 +75,7 @@ const typeLabels: Record<string, string> = {
 const inputClass = 'w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none focus:border-emerald-500';
 const labelClass = 'block space-y-1 text-xs font-semibold text-slate-300';
 
-export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, expenses, installments, invoicePayments, accountOperations, statementRows, cardFundedLoanIds, recurringIncomes, recurringReceipts, recurringObligations, onBack, onSaved, ownerName, ownerCity, capitalSources, canTransferCapital = false, profileId, onCreateAccount }) => {
+export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, expenses, installments, invoicePayments, accountOperations, statementRows, cardFundedLoanIds, recurringIncomes, recurringReceipts, recurringObligations, pendingOperations = [], onBack, onSaved, ownerName, ownerCity, capitalSources, canTransferCapital = false, profileId, onCreateAccount }) => {
   const [editing, setEditing] = useState(false);
   const [showMoreActions, setShowMoreActions] = useState(false);
   const [capitalTransferOpen, setCapitalTransferOpen] = useState(false);
@@ -617,6 +620,8 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
           elapsedDays={elapsedDaysInPeriod(month + '-01', month + '-31', today)}
           note="O anel mostra a fatia de cada categoria nas despesas do mês desta conta. Transferências e pagamentos de fatura não entram." /> : null;
       })()}
+
+      <AccountPendingOperations accountId={account.id} pending={pendingOperations} onSaved={onSaved} />
 
       <AccountActivityPanel account={account} accounts={accounts}
         operations={accountOperations} statementRows={statementRows}

@@ -22,6 +22,18 @@ export interface ChangelogRelease {
  */
 export const SYSTEM_CHANGELOG: ChangelogRelease[] = [
   {
+    version: '3.6.0',
+    codeOnly: true,
+    date: '27/11/2026',
+    title: 'Pendentes, previsto por conta e lembretes',
+    summary: 'Lançamentos pendentes na conta, saldo previsto de cada conta e lembretes de fatura no sino.',
+    items: [
+      { kind: 'NOVIDADE', text: 'Registre entradas e saídas pendentes na conta e efetive quando acontecerem, inteiras ou em parte. Pendente não mexe no saldo.' },
+      { kind: 'NOVIDADE', text: 'Veja o saldo previsto de cada conta até o fim do mês, na Visão geral.' },
+      { kind: 'NOVIDADE', text: 'O sino avisa quando a fatura de um cartão vai fechar ou vencer nos próximos 3 dias.' },
+    ],
+  },
+  {
     version: '3.5.3',
     codeOnly: true,
     date: '26/11/2026',

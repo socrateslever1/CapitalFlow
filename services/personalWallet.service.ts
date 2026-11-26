@@ -41,6 +41,11 @@ export type WalletRecurringIncome = {
   id: string; user_id: string; description: string; category: string; amount: number;
   receipt_day: number; destination_account_id: string; active: boolean; created_at: string;
 };
+/** Lançamento pendente da conta (Fase 2.3B): não altera saldo até ser efetivado. */
+export type WalletPendingOperation = {
+  id: string; account_id: string; direction: 'IN' | 'OUT'; description: string; category: string;
+  amount: number; posted_amount: number; expected_date: string; status: 'PENDING' | 'POSTED' | 'CANCELED'; created_at: string;
+};
 export type WalletRecurringReceipt = { id: string; income_id: string; reference_month: string; operation_id: string };
 
 export type PersonalWalletAccount = {
@@ -450,7 +455,7 @@ const personalWalletServiceImpl = {
     const walletReset = await getActiveWalletReset();
     // Despesas pagas pela conta desde o mês anterior: entram no resumo de gastos por categoria.
     const spendingSince = (() => { const now = new Date(); return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1)).toISOString().slice(0, 10); })();
-    const [accounts, cards, expenses, installments, invoicePayments, payables, recurringIncomes, recurringReceipts, cardInvoiceDates, spendingOperations, cycleSettings] =
+    const [accounts, cards, expenses, installments, invoicePayments, payables, recurringIncomes, recurringReceipts, cardInvoiceDates, spendingOperations, cycleSettings, pendingOperations] =
       await Promise.all([
         loadAllWalletRows((from, to) => supabase.from('personal_wallet_accounts').select('*').order('created_at', { ascending: false }).order('id').range(from, to)),
         loadAllWalletRows((from, to) => supabase.from('personal_wallet_cards').select('*').order('created_at', { ascending: false }).order('id').range(from, to)),
@@ -475,6 +480,9 @@ const personalWalletServiceImpl = {
         loadAllWalletRows((from, to) => supabase.from('personal_wallet_card_cycle_settings')
           .select('card_id,effective_month,closing_mode,closing_day,closing_days_before_due,due_day,due_business_days')
           .order('card_id').order('effective_month').range(from, to)),
+        loadAllWalletRows((from, to) => supabase.from('personal_wallet_pending_operations')
+          .select('id,account_id,direction,description,category,amount,posted_amount,expected_date,status,created_at')
+          .eq('status', 'PENDING').order('expected_date', { ascending: true }).order('id').range(from, to)),
       ]);
     const loadedExpenses = filterCurrentWalletRows((expenses.data || []) as PersonalWalletExpense[], walletReset, 'expenses');
     const loadedInstallments = filterCurrentWalletRows((installments.data || []) as PersonalWalletExpenseInstallment[], walletReset, 'installments');
@@ -506,6 +514,8 @@ const personalWalletServiceImpl = {
       recurringIncomes: filterCurrentWalletRows((recurringIncomes.data || []) as WalletRecurringIncome[], walletReset, 'recurringIncomes'),
       recurringReceipts: filterCurrentWalletRows((recurringReceipts.data || []) as WalletRecurringReceipt[], walletReset, 'recurringReceipts'),
       spendingOperations: filterCurrentWalletRows((spendingOperations.data || []) as WalletAccountOperation[], walletReset, 'accountOperations'),
+      pendingOperations: visiblePendingOperations(pendingOperations.data,
+        filterCurrentWalletRows((accounts.data || []) as PersonalWalletAccount[], walletReset, 'accounts')),
       cardInvoiceDates: ((cardInvoiceDates.data || []) as Array<{ card_id: string; due_month: string; due_date: string | null }>).filter(fact => calculatedCards.some(card => card.id === fact.card_id)),
       // Same issuer reference used by the card details. Optional bank facts
       // must not be confused with the calculated ledger balance.
@@ -518,7 +528,7 @@ const personalWalletServiceImpl = {
 
   async load() {
     const walletReset = await getActiveWalletReset();
-    const [accounts, cards, expenses, installments, invoicePayments, accountOperations, statementRows, payables, payablePayments, payablePaymentSources, recurringIncomes, recurringReceipts, recurringObligations, capitalSources, cardInvoiceFacts, cycleSettings] = await Promise.all([
+    const [accounts, cards, expenses, installments, invoicePayments, accountOperations, statementRows, payables, payablePayments, payablePaymentSources, recurringIncomes, recurringReceipts, recurringObligations, capitalSources, cardInvoiceFacts, cycleSettings, pendingOperations] = await Promise.all([
       loadAllWalletRows((from, to) => supabase.from('personal_wallet_accounts').select('*').order('created_at', { ascending: false }).order('id').range(from, to)),
       loadAllWalletRows((from, to) => supabase.from('personal_wallet_cards').select('*').order('created_at', { ascending: false }).order('id').range(from, to)),
       loadAllWalletRows((from, to) => supabase.from('personal_wallet_expenses').select('*').order('expense_date', { ascending: false }).order('id').range(from, to)),
@@ -539,6 +549,9 @@ const personalWalletServiceImpl = {
       loadAllWalletRows((from, to) => supabase.from('personal_wallet_card_cycle_settings')
           .select('card_id,effective_month,closing_mode,closing_day,closing_days_before_due,due_day,due_business_days')
           .order('card_id').order('effective_month').range(from, to)),
+        loadAllWalletRows((from, to) => supabase.from('personal_wallet_pending_operations')
+          .select('id,account_id,direction,description,category,amount,posted_amount,expected_date,status,created_at')
+          .eq('status', 'PENDING').order('expected_date', { ascending: true }).order('id').range(from, to)),
     ]);
     // Acesso somente leitura, isolado por RLS, para classificar financiamentos por cartão
     // no extrato bancário. Não remove nem altera operações contábeis.
@@ -607,6 +620,7 @@ const personalWalletServiceImpl = {
       recurringReceipts: filterCurrentWalletRows((recurringReceipts.data || []) as WalletRecurringReceipt[], walletReset, 'recurringReceipts'),
       recurringObligations: filterCurrentWalletRows((recurringObligations.data || []) as WalletRecurringObligation[], walletReset, 'recurringObligations'),
       capitalSources: (capitalSources.data || []) as CapitalSource[],
+      pendingOperations: visiblePendingOperations(pendingOperations.data, accountsWithImages),
       cardInvoiceFacts: ((cardInvoiceFacts.data || []) as WalletCardInvoiceFacts[])
         .filter(fact => cardsWithImages.some(card => card.id === fact.card_id)),
     };
@@ -635,6 +649,45 @@ const personalWalletServiceImpl = {
       .select('id').eq('request_id',requestId).limit(1).maybeSingle();
     if(error) throw new Error(error.message);
     return Boolean(data?.id);
+  },
+
+  /** Cartões ativos com regra de ciclo, para os lembretes de fatura do sino (3 consultas leves, sem valores). */
+  async loadInvoiceReminderCards(): Promise<PersonalWalletCard[]> {
+    const [cards, settings, facts] = await Promise.all([
+      supabase.from('personal_wallet_cards')
+        .select('id,nickname,status,closing_day,due_day,closing_mode,closing_days_before_due,due_business_days').neq('status', 'CANCELED'),
+      supabase.from('personal_wallet_card_cycle_settings')
+        .select('card_id,effective_month,closing_mode,closing_day,closing_days_before_due,due_day,due_business_days'),
+      supabase.from('personal_wallet_card_invoice_facts').select('card_id,due_month,due_date,closing_date'),
+    ]);
+    if (cards.error) throw new Error(cards.error.message);
+    return ((cards.data || []) as PersonalWalletCard[])
+      .map(card => withCardCycleData(card, (settings.data || []) as WalletCardCycleSetting[], (facts.data || []) as CardDateFact[]));
+  },
+
+  /** Lançamento pendente: não mexe no saldo até ser efetivado. */
+  async createPendingOperation(input: { accountId: string; direction: 'IN' | 'OUT'; amount: number; description: string; category: string; expectedDate: string; requestId: string }) {
+    const { data, error } = await supabase.rpc('personal_wallet_create_pending_operation', {
+      p_account_id: input.accountId, p_direction: input.direction, p_amount: input.amount,
+      p_description: input.description, p_category: input.category, p_expected_date: input.expectedDate,
+      p_request_id: input.requestId,
+    });
+    if (error) throw new Error(error.message);
+    return String(data);
+  },
+
+  /** Efetiva total ou parte do pendente: cria a operação da conta na mesma transação. */
+  async postPendingOperation(input: { pendingId: string; amount: number; date: string; requestId: string }) {
+    const { data, error } = await supabase.rpc('personal_wallet_post_pending_operation', {
+      p_pending_id: input.pendingId, p_amount: input.amount, p_operation_date: input.date, p_request_id: input.requestId,
+    });
+    if (error) throw new Error(error.message);
+    return data as { operation_id: string; remaining: number; status: 'PENDING' | 'POSTED'; replayed?: boolean };
+  },
+
+  async cancelPendingOperation(pendingId: string) {
+    const { error } = await supabase.rpc('personal_wallet_cancel_pending_operation', { p_pending_id: pendingId });
+    if (error) throw new Error(error.message);
   },
 
   async recordAccountOperation(input: RecordWalletOperation) {
@@ -1752,9 +1805,18 @@ const READ_ONLY_WALLET_METHODS = new Set<keyof typeof personalWalletServiceImpl>
   'getCardVault',
   'getCardLoginVault',
   'ensureDefaultCashAccount',
+  'loadInvoiceReminderCards',
 ]);
 
 export { assertWalletOnlineForWrite };
+
+const visiblePendingOperations = (rows: unknown, accounts: unknown): WalletPendingOperation[] => {
+  const accountIds = new Set(((accounts || []) as Array<{ id: string; archived_at?: string | null }>)
+    .filter(account => !account.archived_at).map(account => account.id));
+  return ((rows || []) as WalletPendingOperation[])
+    .filter(row => accountIds.has(row.account_id))
+    .map(row => ({ ...row, amount: Number(row.amount), posted_amount: Number(row.posted_amount || 0) }));
+};
 
 export const personalWalletService: typeof personalWalletServiceImpl = guardWalletWrites(
   personalWalletServiceImpl,

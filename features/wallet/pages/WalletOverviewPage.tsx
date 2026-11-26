@@ -11,7 +11,8 @@ import type {
 } from '../../../services/personalWallet.service';
 import { formatMoney } from '../../../utils/formatters';
 import { BankLogo } from '../../../components/wallet/BankLogo';
-import { calculateWalletBalance, describeWalletBalanceFact } from '../../../components/wallet/walletBalanceDomain';
+import { buildInvoiceReminders } from '../utils/invoiceReminders';
+import { calculateAccountProjections, calculateWalletBalance, describeWalletBalanceFact } from '../../../components/wallet/walletBalanceDomain';
 import { getEffectiveInvoiceCycles, getInvoiceCycleDates, getPurchaseInvoiceMonth } from '../../../components/wallet/invoiceStatementDomain';
 import { getBankVisual, getCreditSummary } from '../../../components/wallet/walletPresentation';
 import { walletRepository, type WalletOverviewSnapshot } from '../services/walletRepository';
@@ -118,6 +119,20 @@ const deriveOverview = (snapshot: WalletOverviewSnapshot, today: string) => {
     openCardInvoices: currentInvoiceTotal,
     payables: snapshot.payables,
     month,
+    pendingOperations: snapshot.pendingOperations || [],
+  });
+  // Saldo previsto por conta: mesmas parcelas do total, distribuídas pela conta de cada item.
+  const accountProjections = calculateAccountProjections({
+    accounts,
+    recurringIncomes: snapshot.recurringIncomes,
+    receivedIncomeIds: receivedIds,
+    payables: snapshot.payables,
+    invoices: invoiceList.filter(invoice => invoice.dueDate.slice(0, 7) <= month).map(invoice => ({
+      accountId: cards.find(card => card.id === invoice.id.split(':')[0])?.account_id || null,
+      amount: invoice.amount,
+    })),
+    pendingOperations: snapshot.pendingOperations || [],
+    month,
   });
 
   const openPayables: Commitment[] = snapshot.payables.filter(isOpenPayable)
@@ -166,7 +181,7 @@ const deriveOverview = (snapshot: WalletOverviewSnapshot, today: string) => {
     accounts, cards, bankAvailableReferences: snapshot.bankAvailableReferences || [],
     cardMovements: { expenses: snapshot.expenses },
     accountBalance, institutionCount: institutionKeys.size,
-    credit, currentInvoiceTotal, balance, upcoming, spending, overdueCount, overdueInvoiceCount, dueSoonCount,
+    credit, currentInvoiceTotal, balance, accountProjections, upcoming, spending, overdueCount, overdueInvoiceCount, dueSoonCount,
     timelineEvents,
   };
 };
@@ -250,7 +265,7 @@ export const WalletOverviewPage: React.FC<Props> = ({ activeUser, onNavigate }) 
     </section>;
   }
 
-  const { accounts, cards, balance, credit, upcoming } = overview;
+  const { accounts, cards, balance, credit, upcoming, accountProjections } = overview;
   const deficit = balance.projectedBalance < 0;
 
   return <section aria-label="Visão geral da carteira"
@@ -270,21 +285,12 @@ export const WalletOverviewPage: React.FC<Props> = ({ activeUser, onNavigate }) 
       pendingIncome={balance.pendingRecurringIncome} spending={overview.spending} onNavigate={onNavigate}/>
 
     {(() => {
-      // Lembrete no app: fatura que fecha em até 3 dias (regra de ciclo de cada cartão). Vencimentos próximos já aparecem no guia acima.
+      // Lembrete no app: fatura que fecha ou vence em até 3 dias (regra de ciclo de cada cartão).
       const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Manaus' }).format(new Date());
-      const daysUntil = (day: string) => Math.round((Date.parse(day + 'T12:00:00Z') - Date.parse(today + 'T12:00:00Z')) / 86400000);
-      const reminders = cards.flatMap(card => {
-        if (!card.due_day) return [];
-        try {
-          const open = getPurchaseInvoiceMonth(today, card.closing_day, card.due_day, card);
-          const dates = getInvoiceCycleDates(open, card.closing_day, card.due_day, null, card);
-          const items: { key: string; text: string }[] = [];
-          const toClose = daysUntil(dates.closingDate);
-          if (toClose >= 0 && toClose <= 3) items.push({ key: card.id + ':close',
-            text: `${card.nickname}: fatura fecha ${toClose === 0 ? 'hoje' : toClose === 1 ? 'amanhã' : `em ${toClose} dias`} (${dates.closingDate.slice(8, 10)}/${dates.closingDate.slice(5, 7)}).` });
-          return items;
-        } catch { return []; }
-      });
+      // Vencimento só avisa se a fatura ainda tem valor a pagar.
+      const reminders = buildInvoiceReminders(cards, today)
+        .filter(item => item.kind === 'CLOSE' || overview.upcoming.some(invoice => invoice.id.startsWith(item.cardId + ':') && invoice.dueDate === item.date))
+        .map(item => ({ key: item.key, text: item.text }));
       if (!reminders.length) return null;
       return <aside aria-label="Lembretes de fatura" className="rounded-xl border border-amber-500/30 bg-amber-950/20 p-3">
         <p className="text-xs font-bold text-amber-200">Lembretes de fatura</p>
@@ -326,6 +332,25 @@ export const WalletOverviewPage: React.FC<Props> = ({ activeUser, onNavigate }) 
           <dd className={`mt-1 break-words text-lg font-bold tabular-nums ${privacyHidden ? 'text-slate-300' : deficit ? 'text-rose-300' : 'text-emerald-300'}`}><PrivateMoney value={money(balance.projectedBalance)} /></dd>
         </div>
       </dl>
+      {accountProjections.length > 0 && <details className="mt-3 rounded-xl border border-slate-800 bg-slate-950/40">
+        <summary className="cursor-pointer px-3 py-2.5 text-xs font-semibold text-blue-200">Saldo previsto por conta</summary>
+        <ul className="divide-y divide-slate-800 border-t border-slate-800">
+          {accountProjections.map(item => <li key={item.accountId || 'none'} className="px-3 py-2.5">
+            <div className="flex items-center justify-between gap-2 text-xs">
+              <span className="min-w-0 truncate font-semibold text-slate-100">{item.name}</span>
+              <span className={`shrink-0 font-bold tabular-nums ${item.projected < 0 ? 'text-rose-300' : 'text-emerald-300'}`}><PrivateMoney value={money(item.projected)} /></span>
+            </div>
+            <dl className="mt-1 space-y-0.5 text-[11px] text-slate-400">
+              {item.accountId && <div className="flex justify-between gap-2"><dt>Saldo atual</dt><dd className="tabular-nums"><PrivateMoney value={money(item.balance)} /></dd></div>}
+              {item.lines.map(line => <div key={line.label} className="flex justify-between gap-2"><dt>{line.label}</dt>
+                <dd className={`tabular-nums ${line.amount < 0 ? 'text-rose-300/90' : 'text-emerald-300/90'}`}>{line.amount < 0 ? '− ' : '+ '}<PrivateMoney value={money(Math.abs(line.amount))} /></dd></div>)}
+            </dl>
+          </li>)}
+        </ul>
+        <p className="border-t border-slate-800 px-3 py-2 text-[11px] leading-relaxed text-slate-500">
+          Projeção até o fim de {today.slice(5, 7)}/{today.slice(0, 4)}, somente leitura: inclui itens vencidos e não pagos. Faturas entram na conta vinculada ao cartão; itens sem conta ficam em "Sem conta definida". Valores das faturas são calculados pelos lançamentos.
+        </p>
+      </details>}
     </article>
 
     {/* 2. SEÇÃO COMPROMISSOS PRÓXIMOS */}

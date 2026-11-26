@@ -6,7 +6,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { WalletSpendingGuide } from '../../features/wallet/components/WalletSpendingGuide';
 import { getWalletSpendingOverview } from '../../features/wallet/domain/walletSpendingInsights';
 
-test('overview fetches eleven lightweight sources including exact invoice dates and cycle rules', () => {
+test('overview fetches twelve lightweight sources including exact invoice dates, cycle rules and pending operations', () => {
   const service = readFileSync('services/personalWallet.service.ts','utf8');
   const repository = readFileSync('features/wallet/services/walletRepository.ts','utf8');
   const overview = readFileSync('features/wallet/pages/WalletOverviewPage.tsx','utf8');
@@ -21,7 +21,9 @@ test('overview fetches eleven lightweight sources including exact invoice dates 
     'personal_wallet_card_invoice_facts',
   ];
   for (const table of expected) assert(query.includes("from('" + table + "')"), table);
-  assert.equal((query.match(/supabase\.from\('/g) ?? []).length, 11);
+  assert.equal((query.match(/supabase\.from\('/g) ?? []).length, 12);
+  // Lançamentos pendentes: só os ainda pendentes, para o saldo previsto.
+  assert.match(query, /from\('personal_wallet_pending_operations'\)[\s\S]*?\.eq\('status', 'PENDING'\)/);
   // Operações de conta só entram filtradas: despesas desde o mês anterior, poucas colunas.
   assert(query.includes("from('personal_wallet_account_operations')"));
   assert.match(query, /\.select\('id,operation_type,from_account_id,amount,category,operation_date,voided_at,voids_operation_id'\)\s*\.eq\('operation_type', 'EXPENSE'\)\.gte\('operation_date', spendingSince\)/);

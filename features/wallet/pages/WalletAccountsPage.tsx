@@ -95,7 +95,7 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
         {data && (selected ? <AccountDetailsPage account={selected} accounts={data.accounts} cards={data.cards} capitalSources={data.capitalSources}
             expenses={data.expenses} installments={data.installments} invoicePayments={data.invoicePayments} accountOperations={data.accountOperations}
             statementRows={data.statementRows} cardFundedLoanIds={data.cardFundedLoanIds} recurringIncomes={data.recurringIncomes} recurringReceipts={data.recurringReceipts}
-            recurringObligations={data.recurringObligations} onBack={closeAccount} onSaved={async () => { await refresh(); }}
+            recurringObligations={data.recurringObligations} pendingOperations={data.pendingOperations} onBack={closeAccount} onSaved={async () => { await refresh(); }}
             ownerName={activeUser?.fullName || activeUser?.name} ownerCity={activeUser?.city}
             canTransferCapital={canTransferCapital} profileId={activeUser?.profile_id || activeUser?.id}
             onCreateAccount={() => startCreate('CHECKING')} /> : <>

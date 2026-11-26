@@ -111,6 +111,21 @@ export const notificationCenterService = {
     return request;
   },
 
+  /** Já existe aviso deste item desde a data informada (lido ou não)? Evita repetir entre aparelhos. */
+  async existsForItem(profileId: string, itemType: string, itemId: string, sinceIso: string) {
+    if (!profileId || profileId === 'DEMO' || !UUID_REGEX.test(itemId)) return false;
+    const { data, error } = await supabase
+      .from('notificacoes')
+      .select('id')
+      .eq('profile_id', profileId)
+      .eq('item_type', itemType)
+      .eq('item_id', itemId)
+      .gte('created_at', sinceIso)
+      .limit(1);
+    if (error) return false;
+    return (data || []).length > 0;
+  },
+
   async create(input: PersistedNotificationInput) {
     if (!input.profileId || input.profileId === 'DEMO') return null;
 

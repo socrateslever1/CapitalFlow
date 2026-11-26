@@ -17,6 +17,21 @@ export type InvoiceReminder = {
   text: string;
 };
 
+/** UUID estável a partir de um texto (o banco de notificações só aceita UUID em item_id). */
+export function stableReminderUuid(key: string): string {
+  const parts: string[] = [];
+  for (let round = 0; round < 4; round++) {
+    let hash = 0x811c9dc5 ^ round;
+    for (let i = 0; i < key.length; i++) {
+      hash ^= key.charCodeAt(i);
+      hash = Math.imul(hash, 0x01000193) >>> 0;
+    }
+    parts.push(hash.toString(16).padStart(8, '0'));
+  }
+  const hex = parts.join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-a${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
+}
+
 const when = (days: number) => days === 0 ? 'hoje' : days === 1 ? 'amanhã' : `em ${days} dias`;
 
 /**

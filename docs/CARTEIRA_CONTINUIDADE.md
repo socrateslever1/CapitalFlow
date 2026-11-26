@@ -1755,3 +1755,9 @@ O ícone do olho já acionava o `FinancialPrivacyProvider`, mas os elementos aba
 
 - Regra do proprietário: excluir apaga do banco o que foi inserido por engano; efeito financeiro realizado segue com estorno. Migration 20261127120000 aplicada antes do código. Detalhes em `CHANGELOG.md`.
 - Registros cancelados antigos apagados com autorização expressa do proprietário (27/11/2026), numa transação com conferência prévia (sem pagamento, vínculo ou efeito em saldo): 16 lançamentos cancelados, 32 parcelas e 1 par anulado que se compensava. Depois: 0 cancelados, 0 parcelas órfãs, 0 anulados; soma dos saldos das contas inalterada; 125 compras ativas preservadas.
+
+## 27/11/2026 — Exclusão em lote, notificações e aviso repetido
+
+- Exclusão em lote (migration 20261127140000, aplicada antes do código), notificações com foto/logo/cor e correção do aviso de fatura duplicado (UUID estável + checagem no banco). Detalhes em `CHANGELOG.md`.
+- Registro anterior com contagem de testes errada (10/10 e 17/17) corrigido para 8/8 e 16/16; a mensagem do commit 5562cbb mantém o número antigo.
+- **Sem validação em aparelho físico.**

@@ -1043,6 +1043,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
               cycleDates={statementMonth ? getInvoiceCycleDates(statementMonth, selected.closing_day, selected.due_day, savedInvoiceFacts?.due_date, selected) : undefined}
               onEdit={async (input, mutationRequestId) => { await personalWalletService.updateExpense(input, mutationRequestId); await refresh(); }}
               onDelete={async (id, mutationRequestId) => { await personalWalletService.removeCardEntry(data.expenses.find(item => item.id === id), id, mutationRequestId); await refresh(); }}
+              onDeleteMany={async (ids, requestId) => { await personalWalletService.deleteWrongExpenses(ids, requestId); await refresh(); }}
               onScopedInstallmentDelete={handleScopedInstallmentDelete}
               onToggleAffectsLimit={async (expense, affectsLimit) => {
                 await personalWalletService.setExpenseAffectsLimit(expense.id, affectsLimit);

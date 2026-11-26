@@ -22,6 +22,18 @@ export interface ChangelogRelease {
  */
 export const SYSTEM_CHANGELOG: ChangelogRelease[] = [
   {
+    version: '3.6.3',
+    codeOnly: true,
+    date: '27/11/2026',
+    title: 'Excluir vários e notificações',
+    summary: 'Selecione vários lançamentos da fatura para excluir, e as notificações mostram o banco ou o cliente.',
+    items: [
+      { kind: 'NOVIDADE', text: 'No extrato da fatura, toque em Selecionar para excluir vários lançamentos de uma vez.' },
+      { kind: 'MELHORIA', text: 'Notificações mostram o logo do banco, a foto do cliente e uma cor para cada tipo de aviso.' },
+      { kind: 'CORRECAO', text: 'O aviso de fatura não aparece mais repetido.' },
+    ],
+  },
+  {
     version: '3.6.2',
     codeOnly: true,
     date: '27/11/2026',

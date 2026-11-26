@@ -1,5 +1,17 @@
 # Changelog
 
+## 27/11/2026 — Excluir vários de uma vez e notificações com identidade
+
+**Novidade: excluir vários lançamentos da fatura.** Migration `20261127140000_wallet_delete_wrong_expenses_batch.sql` (aplicada e registrada antes do código): `personal_wallet_delete_wrong_expenses(uuid[], uuid)` apaga a lista numa única transação, reaproveitando a exclusão individual (mesmas travas e recusas); se um não puder ser apagado, nada é apagado e o motivo aparece. Ordem estável por cartão; até 200 por vez; repetição responde pelos recibos. Tela: "Selecionar" no extrato da fatura, caixas de seleção, "Selecionar todos" (sem parcelas pagas) e confirmação. A seleção é limpa ao trocar de mês ou de cartão.
+
+**Melhoria: notificações.** `components/notifications/NotificationAvatar.tsx` + `layout/HeaderBar.tsx`: foto do cliente (ou iniciais), logo do banco do cartão ou ícone do tipo, com cor por significado (vai vencer, vence hoje, vencida, fatura, pagamento, cadastro) na faixa lateral e no indicador. Os avisos de cobrança guardam nome e foto do cliente nos metadados (RLS de `notificacoes` restringe ao perfil e equipe).
+
+**Correção: aviso de fatura repetido.** O identificador do aviso não era UUID e era gravado vazio, quebrando a deduplicação e o "lido". Agora usa UUID estável por cartão e data (`stableReminderUuid`) e confere no banco se já avisou (`notificationCenterService.existsForItem`) antes de criar. Avisos de fatura dispensados antes desta versão podem aparecer uma última vez.
+
+- **Revisão independente:** aprovado com ressalvas; corrigidos seleção ao trocar de mês, ordem por cartão e "selecionar todos" com parcela paga.
+- **Correção de registro:** a entrada anterior ("Lançamento errado é apagado do registro") informava contagens de testes erradas; corrigidas para 8/8 e 16/16.
+- **Testes:** `wallet-delete-wrong-entries` 9/9 (lote tudo ou nada e repetição), Carteira 466/466, `test:quality`, `test:wallet-visual-next`, passos de teste do CI, `npm audit` e build passaram. Sem aparelho físico.
+
 ## 27/11/2026 — Tela da conta mais limpa
 
 **Melhoria (só interface).** `components/wallet/AccountDetailsPage.tsx`, `components/wallet/AccountPendingOperations.tsx`.
@@ -16,7 +28,7 @@
 - Repetição da mesma requisição responde "já apagado" por `personal_wallet_deletion_receipts` (só identificadores, sem valor nem descrição).
 - Fatura consolidada mantém a exclusão própria (`removeCardEntry` → `cancelExpense`). Pagamentos, empréstimos e faturas pagas continuam corrigidos por estorno rastreável.
 - **Revisão independente:** reprovada na 1ª rodada (corrida com pagamento de fatura, estorno de reabertura apagável, compras de "levar o restante"/antecipação, fatura consolidada); corrigido e aprovado com ressalvas na 2ª. Ressalvas aceitas: repetição da exclusão por parcela não confere a opção; compra em mês consolidado por valor fechado não reduz esse mês.
-- **Testes:** `wallet-delete-wrong-entries` 10/10 e `wallet-atomic-card-operations` 17/17 (Postgres em memória, funções reais); Carteira 464/464; `test:quality`, `test:wallet-visual-next`, `test:wallet-statement-import`, `test:wallet-invoice-cycle`, proteções da fatura, `npm audit` e build passaram. Produção: versão registrada, 3 funções só para `authenticated`. Registros cancelados antigos (16 compras e 1 par anulado) **não foram apagados**: dependem de autorização própria.
+- **Testes:** `wallet-delete-wrong-entries` 8/8 e `wallet-atomic-card-operations` 16/16 (corrigido em 27/11: o registro anterior dizia 10/10 e 17/17) (Postgres em memória, funções reais); Carteira 464/464; `test:quality`, `test:wallet-visual-next`, `test:wallet-statement-import`, `test:wallet-invoice-cycle`, proteções da fatura, `npm audit` e build passaram. Produção: versão registrada, 3 funções só para `authenticated`. Registros cancelados antigos (16 compras e 1 par anulado) **não foram apagados**: dependem de autorização própria.
 
 ## 27/11/2026 — CI: Quality Gates e APK voltam a rodar
 

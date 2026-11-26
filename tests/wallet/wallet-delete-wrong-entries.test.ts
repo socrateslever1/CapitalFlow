@@ -49,6 +49,7 @@ before(async () => {
     create table public.personal_wallet_pending_operations(owner_user_id uuid, mutation_requests jsonb default '{}');
   `);
   await db.exec(MIGRATION);
+  await db.exec(readFileSync('supabase/migrations/20261127140000_wallet_delete_wrong_expenses_batch.sql', 'utf8'));
 });
 
 beforeEach(async () => {
@@ -160,6 +161,21 @@ test('recusa estorno de pagamento de fatura, anulado sem par e conta arquivada',
   await db.exec(`update public.personal_wallet_accounts set archived_at = now() where id = '${account}'`);
   await assert.rejects(delOp(op(32), 35), /arquivada/);
   assert.equal(await balance(), 500);
+});
+
+test('excluir vários: tudo ou nada; repetir não duplica', async () => {
+  const extra = uuid(70);
+  await db.exec(`insert into public.personal_wallet_expenses(id, owner_user_id, card_id) values ('${extra}', '${user}', '${card}');
+    insert into public.personal_wallet_expense_installments(expense_id) values ('${extra}');`);
+  const batch = (ids: string[], req: number) => db.query<{ r: Record<string, unknown> }>(
+    `select public.personal_wallet_delete_wrong_expenses(array[${ids.map(id => `'${id}'`).join(',')}]::uuid[], '${uuid(req)}') as r`);
+  await assert.rejects(batch([purchase, extra, paid], 80), /Nada foi apagado/);
+  assert.equal(await count('public.personal_wallet_expenses', `id in ('${purchase}','${extra}')`), 2, 'nada apagado quando um falha');
+  const done = (await batch([purchase, extra], 81)).rows[0].r;
+  assert.equal(done.deleted, 2);
+  assert.equal(await count('public.personal_wallet_expenses', `id in ('${purchase}','${extra}')`), 0);
+  assert.equal((await batch([purchase, extra], 81)).rows[0].r.deleted, 2, 'repetir responde pelos recibos');
+  await assert.rejects(batch([], 82), /ao menos um/);
 });
 
 test('a migration não altera dados existentes', () => {

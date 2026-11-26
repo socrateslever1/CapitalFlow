@@ -11,7 +11,7 @@ import { formatMoney } from '../utils/formatters';
 import { formatBRDate } from '../utils/dateHelpers';
 import { repairMojibake } from '../utils/textEncoding';
 import { personalWalletService } from '../services/personalWallet.service';
-import { buildInvoiceReminders, type InvoiceReminderCard } from '../features/wallet/utils/invoiceReminders';
+import { buildInvoiceReminders, stableReminderUuid, type InvoiceReminderCard } from '../features/wallet/utils/invoiceReminders';
 
 export interface InAppNotification {
   id: string;
@@ -620,6 +620,8 @@ export const useAppNotifications = ({
                   milestone: milestone.key,
                   milestone_date: milestoneDate,
                   notification_rule: BILLING_NOTIFICATION_RULE,
+                  client_name: loan.debtorName || null,
+                  avatar_url: loan.clientAvatarUrl || null,
                 }
             });
           }
@@ -630,21 +632,27 @@ export const useAppNotifications = ({
     // C) Carteira: fatura que fecha ou vence em até 3 dias (uma vez por cartão/data).
     try {
       const reminderCards = await personalWalletService.loadInvoiceReminderCards();
-      buildInvoiceReminders(reminderCards as InvoiceReminderCard[], todayISO()).forEach((reminder) => {
-        if (notifiedDueLoans.current.has('fatura:' + reminder.key)) return;
-        if (isDismissed('fatura', reminder.key)) return;
-        notifiedDueLoans.current.add('fatura:' + reminder.key);
+      const since = new Date(Date.now() - 4 * 86400000).toISOString();
+      for (const reminder of buildInvoiceReminders(reminderCards as InvoiceReminderCard[], todayISO())) {
+        const itemId = stableReminderUuid(reminder.key);
+        if (notifiedDueLoans.current.has('fatura:' + itemId)) continue;
+        notifiedDueLoans.current.add('fatura:' + itemId);
+        if (isDismissed('fatura', itemId)) continue;
+        // Outro aparelho ou recarga já avisou: não repete.
+        if (notificationProfileId && await notificationCenterService.existsForItem(notificationProfileId, 'fatura', itemId, since)) continue;
+        const card = (reminderCards as Array<{ id: string; issuer?: string | null; nickname?: string }>).find(item => item.id === reminder.cardId);
         const title = reminder.kind === 'CLOSE' ? 'Fatura vai fechar' : 'Fatura vai vencer';
         addNotification({
           title,
           message: reminder.text,
           type: reminder.kind === 'DUE' && reminder.days <= 1 ? 'warning' : 'info',
           item_type: 'fatura',
-          item_id: reminder.key,
+          item_id: itemId,
           action_url: '/carteira/cartoes',
-          metadata: { card_id: reminder.cardId, kind: reminder.kind, date: reminder.date, notification_rule: 'wallet_invoice_reminder' },
+          metadata: { card_id: reminder.cardId, kind: reminder.kind, date: reminder.date, notification_rule: 'wallet_invoice_reminder',
+            bank: card?.issuer || card?.nickname || null },
         });
-      });
+      }
     } catch {
       // Lembrete da Carteira é auxiliar: falha de leitura não interrompe os demais avisos.
     }

@@ -28,6 +28,7 @@ import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-mo
 import { resolveNotificationTarget } from '../utils/notificationRouting';
 import { notificationService } from '../services/notification.service';
 import { AndroidApkNotice } from '../components/system/AndroidApkNotice';
+import { NotificationAvatar, notificationTone, toneClasses } from '../components/notifications/NotificationAvatar';
 import { AndroidNativeUpdateNotice, useAndroidNativeUpdateAvailable } from '../components/system/AndroidNativeUpdateNotice';
 import { AppUpdateBanner } from '../components/system/AppUpdateBanner';
 import { pushSubscriptionService } from '../services/pushSubscription.service';
@@ -71,14 +72,8 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
   const deleteOpacity = useTransform(x, [-120, -60, 0], [1, 0.5, 0]);
   const deleteScale = useTransform(x, [-120, -60, 0], [1, 0.9, 0.8]);
   const isDraggingRef = useRef(false);
-  const toneDotClass =
-    notif.type === 'error'
-      ? 'bg-rose-400'
-      : notif.type === 'warning'
-        ? 'bg-amber-400'
-        : notif.type === 'success'
-          ? 'bg-emerald-400'
-          : 'bg-blue-400';
+  const tone = toneClasses[notificationTone(notif)];
+  const toneDotClass = tone.dot;
 
   return (
     <div className="relative overflow-hidden rounded-lg">
@@ -118,15 +113,9 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
         }}
         className="relative cursor-pointer rounded-lg border border-white/[0.06] bg-[linear-gradient(180deg,rgba(15,23,42,0.92),rgba(8,15,30,0.98))] px-3 py-2.5 shadow-[0_16px_32px_-24px_rgba(0,0,0,0.9)]"
       >
-        <div className="pointer-events-none absolute inset-y-2.5 left-0 w-[3px] rounded-full bg-white/10" />
+        <div className={`pointer-events-none absolute inset-y-2.5 left-0 w-[3px] rounded-full ${tone.stripe}`} />
         <div className="flex items-start gap-2.5">
-          <div
-            className={`mt-0.5 h-8 w-8 shrink-0 rounded-lg border border-white/5 shadow-inner flex items-center justify-center ${getNotificationBg(
-              notif.type
-            )}`}
-          >
-            <Bell size={14} strokeWidth={1.8} className={getNotificationColor(notif.type)} />
-          </div>
+          <NotificationAvatar notif={notif} />
 
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-3">

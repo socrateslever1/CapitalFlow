@@ -22,6 +22,8 @@ type CardInvoiceStatementProps = {
   installments: PersonalWalletExpenseInstallment[];
   onEdit: (input: UpdatePersonalWalletExpense, requestId: string) => Promise<void>;
   onDelete: (expenseId: string, requestId: string) => Promise<void>;
+  /** Excluir vários de uma vez (uma única operação no banco). */
+  onDeleteMany?: (expenseIds: string[], requestId: string) => Promise<void>;
   onScopedInstallmentDelete?: (
     expense: PersonalWalletExpense,
     installment: PersonalWalletExpenseInstallment,
@@ -51,6 +53,7 @@ export const CardInvoiceStatement: React.FC<CardInvoiceStatementProps> = ({
   installments,
   onEdit,
   onDelete,
+  onDeleteMany,
   onScopedInstallmentDelete,
   onAdvanceInstallments,
   onToggleAffectsLimit,
@@ -62,6 +65,13 @@ export const CardInvoiceStatement: React.FC<CardInvoiceStatementProps> = ({
 }) => {
   const [editing, setEditing] = useState<PersonalWalletExpense | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState<PersonalWalletExpense | null>(null);
+  const [selecting, setSelecting] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [confirmingMany, setConfirmingMany] = useState(false);
+  const [deletingMany, setDeletingMany] = useState(false);
+  const manyRequest = useRef<{ key: string; id: string } | null>(null);
+  // Trocar de mês ou de cartão limpa a seleção: nunca excluir o que não está na tela.
+  useEffect(() => { setSelecting(false); setSelectedIds(new Set()); setConfirmingMany(false); }, [dueMonth, cardId]);
   const [confirmingDeleteInstallment, setConfirmingDeleteInstallment] = useState<PersonalWalletExpenseInstallment | null>(null);
   const [deleteScope, setDeleteScope] = useState<InstallmentDeleteScope>('ALL');
   const [advancingExpense, setAdvancingExpense] = useState<PersonalWalletExpense | null>(null);
@@ -233,6 +243,13 @@ export const CardInvoiceStatement: React.FC<CardInvoiceStatementProps> = ({
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {onDeleteMany && (
+            <button type="button" aria-pressed={selecting}
+              onClick={() => { setSelecting(value => !value); setSelectedIds(new Set()); setError(''); }}
+              className="min-h-9 rounded-md px-2 text-[11px] font-semibold text-slate-300 hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-blue-400">
+              {selecting ? 'Cancelar seleção' : 'Selecionar'}
+            </button>
+          )}
           {(openingBreakdown || openingBalance > 0) && (
             <button type="button" aria-expanded={showInitialDetails}
               aria-controls="invoice-initial-details" onClick={() => setShowInitialDetails(value => !value)}
@@ -321,7 +338,17 @@ export const CardInvoiceStatement: React.FC<CardInvoiceStatementProps> = ({
             const isOverride = expense.entry_type === 'INVOICE_OVERRIDE';
             const remainingAmount = Number(installment.amount) - Number(installment.paid_amount || 0);
             return (
-              <article key={installment.id} className={`min-w-0 ${isOverride ? 'my-1 rounded-lg border border-amber-500/30 bg-amber-950/20 px-2.5 py-2' : 'py-2.5'}`}>
+              <article key={installment.id} className={`relative min-w-0 ${isOverride ? 'my-1 rounded-lg border border-amber-500/30 bg-amber-950/20 px-2.5 py-2' : 'py-2.5'} ${selecting && !isOverride ? 'pl-9' : ''}`}>
+                {selecting && !isOverride && (
+                  <input type="checkbox" aria-label={`Selecionar ${expense.description}`}
+                    checked={selectedIds.has(expense.id)}
+                    onChange={event => setSelectedIds(current => {
+                      const next = new Set(current);
+                      if (event.target.checked) next.add(expense.id); else next.delete(expense.id);
+                      return next;
+                    })}
+                    className="absolute left-1.5 top-3 h-5 w-5 accent-rose-500" />
+                )}
                 <div className="flex min-w-0 items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className={`flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm font-semibold ${isOverride ? 'text-amber-200' : isCredit ? 'text-emerald-200' : 'text-slate-100'}`}>
@@ -460,6 +487,46 @@ export const CardInvoiceStatement: React.FC<CardInvoiceStatementProps> = ({
           </form>
         </Modal>
       )}
+      {selecting && (
+        <div className="sticky bottom-2 z-10 mt-2 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-700 bg-slate-900/95 p-2 shadow-xl backdrop-blur">
+          <span className="text-xs font-semibold text-slate-200">{selectedIds.size} selecionado(s)</span>
+          <div className="flex gap-2">
+            <button type="button" onClick={() => setSelectedIds(new Set(visibleEntries
+              .filter(({ expense, installment }) => expense.entry_type !== 'INVOICE_OVERRIDE'
+                && installment.status !== 'PAID' && Number(installment.paid_amount || 0) === 0)
+              .map(({ expense }) => expense.id)))}
+              className="min-h-9 rounded-lg border border-slate-700 px-3 text-xs font-semibold text-slate-200">Selecionar todos</button>
+            <button type="button" disabled={!selectedIds.size} onClick={() => { setError(''); setConfirmingMany(true); }}
+              className="inline-flex min-h-9 items-center gap-1 rounded-lg bg-rose-600 px-3 text-xs font-semibold text-white disabled:opacity-40">
+              <Trash2 size={13} /> Excluir
+            </button>
+          </div>
+        </div>
+      )}
+      {confirmingMany && onDeleteMany && <Modal compact title={`Excluir ${selectedIds.size} lançamento(s)?`} subtitle="Saem do registro; fatura e limite são recalculados." icon={<AlertTriangle size={17} />} onClose={() => setConfirmingMany(false)} busy={deletingMany}>
+        <div className="space-y-3">
+          <p className="text-sm leading-relaxed text-slate-300">Se algum não puder ser apagado (parcela paga ou vínculo), nada é apagado e o motivo aparece aqui.</p>
+          {error && <p role="alert" className="rounded-lg border border-rose-500/30 bg-rose-950/30 px-3 py-2 text-xs text-rose-200">{error}</p>}
+          <div className="grid gap-2 sm:grid-cols-2">
+            <button type="button" disabled={deletingMany} className={modalPrimaryActionClass} onClick={async () => {
+              const visibleIds = new Set(visibleEntries.map(({ expense }) => expense.id));
+              const ids = [...selectedIds].filter(id => visibleIds.has(id)).sort();
+              if (!ids.length) { setError('Nenhum lançamento selecionado nesta fatura.'); return; }
+              const key = ids.join(',');
+              if (manyRequest.current?.key !== key) manyRequest.current = { key, id: generateUUID() };
+              setDeletingMany(true); setError('');
+              try {
+                await onDeleteMany(ids, manyRequest.current.id);
+                manyRequest.current = null;
+                setConfirmingMany(false); setSelecting(false); setSelectedIds(new Set());
+              } catch (cause) {
+                setError(cause instanceof Error ? cause.message : 'Não foi possível excluir os lançamentos.');
+              } finally { setDeletingMany(false); }
+            }}><Trash2 size={14} /> {deletingMany ? 'Excluindo…' : 'Excluir selecionados'}</button>
+            <button type="button" disabled={deletingMany} onClick={() => setConfirmingMany(false)} className={modalSecondaryActionClass}>Manter</button>
+          </div>
+        </div>
+      </Modal>}
       {confirmingDelete && <Modal compact title="Excluir lançamento?" subtitle="A fatura e o limite serão recalculados." icon={<AlertTriangle size={17} />} onClose={() => { setConfirmingDelete(null); setConfirmingDeleteInstallment(null); }}>
         <div className="space-y-4">
           <p className="text-sm leading-relaxed text-slate-300">Excluir <strong className="text-white">{confirmingDelete.description}</strong> deste extrato?</p>

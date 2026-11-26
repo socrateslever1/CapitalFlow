@@ -655,7 +655,7 @@ const personalWalletServiceImpl = {
   async loadInvoiceReminderCards(): Promise<PersonalWalletCard[]> {
     const [cards, settings, facts] = await Promise.all([
       supabase.from('personal_wallet_cards')
-        .select('id,nickname,status,closing_day,due_day,closing_mode,closing_days_before_due,due_business_days').neq('status', 'CANCELED'),
+        .select('id,nickname,issuer,status,closing_day,due_day,closing_mode,closing_days_before_due,due_business_days').neq('status', 'CANCELED'),
       supabase.from('personal_wallet_card_cycle_settings')
         .select('card_id,effective_month,closing_mode,closing_day,closing_days_before_due,due_day,due_business_days'),
       supabase.from('personal_wallet_card_invoice_facts').select('card_id,due_month,due_date,closing_date'),
@@ -1736,6 +1736,17 @@ const personalWalletServiceImpl = {
   async removeCardEntry(expense: { id: string; entry_type?: string | null } | undefined, expenseId: string, requestId = generateUUID()) {
     if (expense?.entry_type && expense.entry_type !== 'PURCHASE') return this.cancelExpense(expenseId, requestId);
     return this.deleteWrongExpense(expenseId, requestId);
+  },
+
+  /** Vários lançamentos da fatura de uma vez: tudo ou nada, numa única transação. */
+  async deleteWrongExpenses(expenseIds: string[], requestId = generateUUID()) {
+    if (!expenseIds.length) throw new Error('Selecione ao menos um lançamento.');
+    const { data, error } = await supabase.rpc('personal_wallet_delete_wrong_expenses', {
+      p_expense_ids: expenseIds,
+      p_request_id: requestId,
+    });
+    if (error) throw new Error(error.message);
+    return data as { deleted: number; card_ids: string[] };
   },
 
   /** Movimentação manual lançada por engano: apaga do banco e devolve o efeito no saldo. */

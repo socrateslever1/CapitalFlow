@@ -25,6 +25,18 @@ export const SYSTEM_CHANGELOG: ChangelogRelease[] = [
     version: '3.5.0',
     codeOnly: true,
     date: '25/11/2026',
+    title: 'Regras da fatura em vigor',
+    summary: 'As correções de fatura, edição de lançamento e data de empréstimo no cartão passaram a valer no servidor.',
+    items: [
+      { kind: 'CORRECAO', text: 'Compras vão para a fatura da data da compra; compra feita no dia do fechamento entra na fatura seguinte.' },
+      { kind: 'CORRECAO', text: 'Trocar só a descrição, a categoria ou a observação de um lançamento não refaz mais as parcelas.' },
+      { kind: 'CORRECAO', text: 'Empréstimos novos pagos no cartão geram a compra com a data do empréstimo.' },
+    ],
+  },
+  {
+    version: '3.5.0',
+    codeOnly: true,
+    date: '25/11/2026',
     title: 'Cartões lado a lado no computador',
     summary: 'No computador os cartões aparecem juntos, com medidor de limite; empréstimos pagos no cartão usam a data do empréstimo.',
     items: [

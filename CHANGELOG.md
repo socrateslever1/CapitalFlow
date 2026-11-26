@@ -1,5 +1,14 @@
 # Changelog
 
+## 25/11/2026 — Migrations da Carteira aplicadas no Supabase de produção
+
+**Banco de produção atualizado; sem mudança de código.** Aplicadas, nesta ordem, as migrations que estavam pendentes, cada uma em transação e registrada em `supabase_migrations.schema_migrations` com a versão do arquivo:
+- `20261124120000_wallet_purchase_date_invoice_routing` — fatura escolhida pela data da compra, com fechamento exclusivo (`private.wallet_card_first_due_date`, `wallet_card_due_in_month`, `wallet_card_cycle_due_for_date`).
+- `20261124150000_wallet_edit_expense_preserve_installments` — edição só de texto preserva as parcelas; a recriação mantém a numeração original.
+- `20261125090000_card_funded_loan_uses_start_date` — compra no cartão de empréstimo financiado usa `start_date` (limitada a hoje).
+
+**Verificação antes de aplicar:** as versões remotas de `wallet_card_first_due_date` (19/11) e `finalize_card_funded_loan_v1` (22/11, conferida pelo tamanho idêntico do corpo) eram as bases das novas migrations; a coluna `contratos.start_date` existe. **Verificação depois de aplicar:** as três versões estão registradas; as funções `private.*` não são executáveis por `anon` nem por `authenticated`; as RPCs públicas são executáveis só por `authenticated`; o teste do ciclo com um cartão fictício (fecha dia 24, vence dia 5) dá 23/11 → vencimento em 05/12 e 24/11 → vencimento em 05/01. Nenhum dado existente foi alterado. Aplicado pelo SQL Editor do painel, porque o conector do Supabase não estava disponível na sessão. Migrations locais antigas que não aparecem no histórico remoto (17/11 e 19/11) não foram tocadas.
+
 ## 25/11/2026 — Cartões no modo web e data da compra de empréstimo financiado por cartão
 
 **Código na main (produção); migration ainda não aplicada no Supabase.**

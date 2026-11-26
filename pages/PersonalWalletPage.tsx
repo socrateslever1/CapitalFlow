@@ -557,7 +557,7 @@ export const PersonalWalletPage: React.FC<PersonalWalletPageProps> = ({ activeUs
                 dueMonth={invoices.find(invoice => invoice.cardId === activeStackCard.id)?.dueMonth || null}
                 expenses={data.expenses} installments={data.installments}
                 onEdit={async (input, mutationRequestId) => { await personalWalletService.updateExpense(input, mutationRequestId); await refresh(); setSuccess('Lançamento atualizado. Fatura e limite recalculados.'); }}
-                onDelete={async (expenseId, mutationRequestId) => { await personalWalletService.cancelExpense(expenseId, mutationRequestId); await refresh(); setSuccess('Lançamento excluído. Fatura e limite recalculados.'); }}
+                onDelete={async (expenseId, mutationRequestId) => { await personalWalletService.removeCardEntry(data.expenses.find(item => item.id === expenseId), expenseId, mutationRequestId); await refresh(); setSuccess('Lançamento excluído. Fatura e limite recalculados.'); }}
                 className="m-0 border-0 bg-transparent p-0"
                 headerAction={<button type="button" onClick={() => setStatementImportOpen(true)} className="rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-[10px] font-bold text-cyan-300">Importar PDF da fatura</button>}
               />
@@ -802,7 +802,7 @@ export const PersonalWalletPage: React.FC<PersonalWalletPageProps> = ({ activeUs
             setSuccess('Lançamento atualizado. Fatura e limite recalculados.');
           }}
           onDeleteExpense={async (expenseId, mutationRequestId) => {
-              await personalWalletService.cancelExpense(expenseId, mutationRequestId);
+              await personalWalletService.removeCardEntry(data.expenses.find(item => item.id === expenseId), expenseId, mutationRequestId);
             const wallet = await personalWalletService.load();
             setData(wallet);
             setSelectedCardForDetail(wallet.cards.find(card => card.id === selectedCardForDetail.id) || null);

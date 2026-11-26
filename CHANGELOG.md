@@ -1,5 +1,16 @@
 # Changelog
 
+## 27/11/2026 — Lançamento errado é apagado do registro
+
+**Mudança de regra (decisão do proprietário):** "Excluir" passa a apagar do banco o que foi inserido por engano, para não restar registro cancelado que gere dúvida em auditorias. Migration `20261127120000_wallet_delete_wrong_entries.sql`, aplicada e registrada em produção antes do código. `PRODUCT.md` e a skill da Carteira atualizados.
+- `personal_wallet_delete_wrong_expense`: compra do cartão sai com parcelas e marcação de importação; posição do cartão recalculada. Travas na ordem do pagamento de fatura (cartão → parcelas → compra). Recusa parcela paga, vínculo com empréstimo/conta a pagar e compra gerada por "levar o restante" ou antecipação com desconto.
+- `personal_wallet_delete_wrong_operation`: movimentação manual da conta sai e o saldo é devolvido na mesma transação; par já anulado sai inteiro sem mexer no saldo. Recusa pagamento de fatura, transferência, saldo inicial/ajuste, estorno, anulado sem par, conta arquivada, entrada já gasta e vínculo com receita fixa, capital, cartão ou pendente efetivado.
+- `personal_wallet_cancel_installments` (só esta / esta e as seguintes) apaga as parcelas em vez de cancelar; sem parcelas restantes, a compra inteira sai.
+- Repetição da mesma requisição responde "já apagado" por `personal_wallet_deletion_receipts` (só identificadores, sem valor nem descrição).
+- Fatura consolidada mantém a exclusão própria (`removeCardEntry` → `cancelExpense`). Pagamentos, empréstimos e faturas pagas continuam corrigidos por estorno rastreável.
+- **Revisão independente:** reprovada na 1ª rodada (corrida com pagamento de fatura, estorno de reabertura apagável, compras de "levar o restante"/antecipação, fatura consolidada); corrigido e aprovado com ressalvas na 2ª. Ressalvas aceitas: repetição da exclusão por parcela não confere a opção; compra em mês consolidado por valor fechado não reduz esse mês.
+- **Testes:** `wallet-delete-wrong-entries` 10/10 e `wallet-atomic-card-operations` 17/17 (Postgres em memória, funções reais); Carteira 464/464; `test:quality`, `test:wallet-visual-next`, `test:wallet-statement-import`, `test:wallet-invoice-cycle`, proteções da fatura, `npm audit` e build passaram. Produção: versão registrada, 3 funções só para `authenticated`. Registros cancelados antigos (16 compras e 1 par anulado) **não foram apagados**: dependem de autorização própria.
+
 ## 27/11/2026 — CI: Quality Gates e APK voltam a rodar
 
 - **Causa:** desde o commit `7792f44` (Fase 1), `tests/architecture/wallet-invoice-editor-regression.test.mjs` exigia a chamada exata `getInvoiceCycleDates(statementMonth, …, savedInvoiceFacts?.due_date)`, sem o cartão que a Fase 1 passou a enviar. O teste falhava só no CI (fica fora de `npm run test:quality`), deixando o Quality Gates vermelho; o workflow do APK exige o Quality Gates do commit exato aprovado, então **nenhum APK foi gerado de `7792f44` a `2690812`**. Os registros anteriores afirmaram gates locais aprovados, mas não incluíam esse teste.

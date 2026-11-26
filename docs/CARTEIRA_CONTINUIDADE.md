@@ -1750,3 +1750,8 @@ O ícone do olho já acionava o `FinancialPrivacyProvider`, mas os elementos aba
 ## 27/11/2026 — Limpeza de dados autorizada pelo proprietário
 
 - A pedido expresso do proprietário, as compras de um cartão importadas de uma fatura errada (já canceladas pelo app), suas parcelas e as marcações de importação foram apagadas definitivamente em produção, numa única transação com checagem prévia (todas canceladas, sem vínculo com empréstimo, conta a pagar ou pagamento de fatura). Cartão, regra de ciclo e conta vinculada mantidos. Verificado depois: 0 compras, 0 marcações e 0 parcelas órfãs nesse cartão; demais cartões intactos. Sem código alterado.
+
+## 27/11/2026 — Exclusão definitiva de lançamento errado
+
+- Regra do proprietário: excluir apaga do banco o que foi inserido por engano; efeito financeiro realizado segue com estorno. Migration 20261127120000 aplicada antes do código. Detalhes em `CHANGELOG.md`.
+- **Pendente com autorização:** apagar os registros cancelados antigos que ainda existem.

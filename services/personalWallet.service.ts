@@ -1718,6 +1718,37 @@ const personalWalletServiceImpl = {
     if (error) throw new Error(error.message);
   },
 
+  /** Compra lançada por engano: apaga do banco (com parcelas e marcação de importação) e recalcula o cartão. */
+  async deleteWrongExpense(expenseId: string, requestId = generateUUID()) {
+    if (!expenseId || !requestId) throw new Error('Identificador do lançamento ausente.');
+    const { data, error } = await supabase.rpc('personal_wallet_delete_wrong_expense', {
+      p_expense_id: expenseId,
+      p_request_id: requestId,
+    });
+    if (error) throw new Error(error.message);
+    return data as { card_id: string; deleted: boolean; replayed: boolean };
+  },
+
+  /**
+   * Excluir lançamento da fatura: compra é apagada do banco; fatura consolidada e demais tipos
+   * mantêm a exclusão própria (cancelamento), que desfaz a consolidação.
+   */
+  async removeCardEntry(expense: { id: string; entry_type?: string | null } | undefined, expenseId: string, requestId = generateUUID()) {
+    if (expense?.entry_type && expense.entry_type !== 'PURCHASE') return this.cancelExpense(expenseId, requestId);
+    return this.deleteWrongExpense(expenseId, requestId);
+  },
+
+  /** Movimentação manual lançada por engano: apaga do banco e devolve o efeito no saldo. */
+  async deleteWrongAccountOperation(operationId: string, requestId = generateUUID()) {
+    if (!/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(operationId)) throw new Error('Selecione um lançamento válido.');
+    const { data, error } = await supabase.rpc('personal_wallet_delete_wrong_operation', {
+      p_operation_id: operationId,
+      p_request_id: requestId,
+    });
+    if (error) throw new Error(error.message);
+    return data as { deleted: boolean; replayed: boolean };
+  },
+
   async cancelExpense(expenseId: string, requestId = generateUUID()) {
     if (!expenseId || !requestId) throw new Error('Identificador do lançamento ausente.');
     const { data, error } = await supabase.rpc('personal_wallet_cancel_expense_idempotent', {

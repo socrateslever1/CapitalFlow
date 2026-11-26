@@ -88,6 +88,14 @@ before(async () => {
     returns jsonb language sql as $$ select private.wallet_recalculate_card_position(p_owner_id, p_card_id, date_trunc('month', current_date)::date) $$;`);
   const migration = readFileSync(MIGRATIONS + '20261126120000_wallet_atomic_card_operations.sql', 'utf8');
   await db.exec(migration.replace(/^\s*notify pgrst[^\n]*\n/m, ''));
+  // 27/11: exclusão de parcelas apaga em vez de cancelar (migration de lançamentos errados).
+  await db.exec(`create table auth.users(id uuid primary key);
+    create table public.personal_wallet_statement_rows(id uuid primary key default gen_random_uuid(), owner_user_id uuid, expense_id uuid);
+    create table public.loan_card_wallet_charges(expense_id uuid);
+    create table public.personal_wallet_payable_payments(expense_id uuid);
+    create table public.personal_wallet_payable_payment_sources(expense_id uuid);`);
+  await db.exec(readFileSync(MIGRATIONS + '20261127120000_wallet_delete_wrong_entries.sql', 'utf8')
+    .replace(/references auth\.users\(id\) on delete restrict/g, ''));
 });
 
 beforeEach(async () => {
@@ -197,12 +205,23 @@ test('excluir só a parcela atual mantém as outras e a numeração', async () =
   await db.query(call);
   const state = await rows<{ installment_number: number; status: string }>(`select installment_number, status
     from public.personal_wallet_expense_installments where expense_id='${purchase}' order by installment_number`);
-  assert.deepEqual(state.filter(r => r.status === 'CANCELED').map(r => r.installment_number), [3]);
+  // A parcela excluída sai do banco; as demais mantêm a numeração.
+  assert.deepEqual(state.map(r => r.installment_number), [1, 2, 4, 5, 6, 7, 8, 9, 10]);
+  assert.ok(state.every(r => r.status !== 'CANCELED'));
   const expense = await one<{ amount: string; status: string }>(`select amount, status from public.personal_wallet_expenses where id='${purchase}'`);
   assert.equal(Number(expense.amount), 900);
   assert.equal(expense.status, 'PENDING');
   assert.equal(await invoice('2027-03-01'), 0);
   assert.equal(await invoice('2027-04-01'), 100);
+  assert.equal(((await one<{ r: Record<string, unknown> }>(call)).r).replayed, true);
+});
+
+test('excluir todas as parcelas apaga a compra inteira; repetir responde pelo recibo', async () => {
+  const first = await one<{ id: string }>(`select id from public.personal_wallet_expense_installments where expense_id='${purchase}' and installment_number=1`);
+  const call = `select public.personal_wallet_cancel_installments('${purchase}','${first.id}','CURRENT_AND_NEXT','${uuid(40)}') as r`;
+  assert.equal(((await one<{ r: Record<string, unknown> }>(call)).r).deleted, true);
+  assert.equal((await rows(`select 1 from public.personal_wallet_expenses where id='${purchase}'`)).length, 0);
+  assert.equal((await rows(`select 1 from public.personal_wallet_expense_installments where expense_id='${purchase}'`)).length, 0);
   assert.equal(((await one<{ r: Record<string, unknown> }>(call)).r).replayed, true);
 });
 
@@ -276,4 +295,12 @@ test('a tela não compõe operações financeiras com chamadas encadeadas', () =
   assert.doesNotMatch(scoped, /createExpense/);
   // request_id composto com sufixo deixa de existir (não é um uuid válido).
   assert.doesNotMatch(page, /:roll-clear|:plan-clear/);
+});
+
+test('excluir parcela de compra gerada por antecipação com desconto é recusado em qualquer opção', async () => {
+  await db.exec(`update public.personal_wallet_expenses set mutation_requests = mutation_requests
+    || jsonb_build_object('${uuid(60)}', jsonb_build_object('operation', 'ADVANCE_INSTALLMENTS', 'discount', 5)) where id='${purchase}'`);
+  const target = await one<{ id: string }>(`select id from public.personal_wallet_expense_installments where expense_id='${purchase}' and installment_number=5`);
+  await fails(`select public.personal_wallet_cancel_installments('${purchase}','${target.id}','ONLY_CURRENT','${uuid(61)}')`, /antecipacao/);
+  assert.equal((await rows(`select 1 from public.personal_wallet_expense_installments where expense_id='${purchase}'`)).length, 10);
 });

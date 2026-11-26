@@ -40,7 +40,7 @@ test('edição manual exposta somente para operações elegíveis, com calculado
   const service=repoFile('services/personalWallet.service.ts');
   const sql=repoFile('supabase/migrations/20261120215500_wallet_manual_edit_description_cleanup.sql');
   assert.match(ui,/personalWalletService\.editManualAccountOperation/);
-  assert.match(ui,/personalWalletService\.voidManualAccountOperation/);
+  assert.match(ui,/personalWalletService\.deleteWrongAccountOperation/);
   assert.match(ui,/onSaved\(\)/);
   assert.match(ui,/<FinancialCalculatorInput required className=\{input\} value=\{editAmount\}/);
   assert.match(ui,/Editar movimentação/);

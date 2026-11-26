@@ -78,6 +78,7 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
   const [openingSaving,setOpeningSaving]=useState(false);
   const [openingModalOpen,setOpeningModalOpen]=useState(false);
   const [voidTarget,setVoidTarget]=useState<WalletAccountOperation|null>(null);
+  const deleteRequestRef=useRef<{id:string;request:string}|null>(null);
   const [editTarget,setEditTarget]=useState<WalletAccountOperation|null>(null);
   const [editAmount,setEditAmount]=useState('');
   const [editDescription,setEditDescription]=useState('');
@@ -225,11 +226,13 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
     setVoidingId(operation.id);
     setError(''); setSuccess('');
     try {
-      await personalWalletService.voidManualAccountOperation(operation.id);
+      if (deleteRequestRef.current?.id !== operation.id) deleteRequestRef.current = { id: operation.id, request: generateUUID() };
+      await personalWalletService.deleteWrongAccountOperation(operation.id, deleteRequestRef.current.request);
+      deleteRequestRef.current = null;
       notifyFinancialDataChanged({ wallet: true, capital: Boolean(account.capital_source_id) });
       await onSaved();
       setVoidTarget(null);
-      setSuccess('Lançamento excluído do extrato e saldo corrigido. Histórico de auditoria preservado.');
+      setSuccess('Lançamento apagado e saldo corrigido.');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Não foi possível excluir o lançamento.');
     } finally {
@@ -584,7 +587,7 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
             Excluir o lançamento <strong className="text-white">{voidTarget.description}</strong> ({formatMoney(Number(voidTarget.amount))})?
           </p>
           <p className="rounded-lg border border-slate-800 bg-slate-950 p-3 text-slate-400">
-            O valor será devolvido ou debitado da conta automaticamente. A trilha de auditoria será preservada.
+            O lançamento é apagado do registro e o saldo da conta é corrigido automaticamente. Não fica histórico desse lançamento.
           </p>
           {error && <p role="alert" className="rounded-lg border border-rose-700/50 p-3 text-xs text-rose-300">{error}</p>}
         </div>

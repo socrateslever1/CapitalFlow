@@ -22,6 +22,17 @@ export interface ChangelogRelease {
  */
 export const SYSTEM_CHANGELOG: ChangelogRelease[] = [
   {
+    version: '3.6.1',
+    codeOnly: true,
+    date: '27/11/2026',
+    title: 'Excluir apaga de verdade',
+    summary: 'Lançamento inserido por engano agora é apagado do registro ao ser excluído.',
+    items: [
+      { kind: 'MELHORIA', text: 'Excluir uma compra do cartão, uma parcela ou uma movimentação da conta apaga o registro, sem deixar lançamento cancelado.' },
+      { kind: 'MELHORIA', text: 'O que já foi pago ou está ligado a outro registro continua protegido e é desfeito pelo estorno próprio.' },
+    ],
+  },
+  {
     version: '3.6.0',
     codeOnly: true,
     date: '27/11/2026',

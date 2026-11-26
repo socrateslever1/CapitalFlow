@@ -15,3 +15,9 @@ description: Melhora a interface Minha Carteira do CapitalFlow sem regressões f
 8. Fluxos financeiros apenas por serviços/RPCs existentes, e operações com várias escritas apenas por RPC atômica (ver `capitalflow-execution-safety`). Interface de aconselhamento não grava, paga, altera nem remove.
 9. Testes: `npm run test:wallet-visual-next`, `npm run test:wallet-overview`, `npm run test:wallet-pages`, `npm run test:wallet-invoice-cycle`, `npm run test:quality`. Validar o código e, quando possível, o render no navegador; não confundir as duas coisas.
 10. Após a entrega, atualizar `docs/CARTEIRA_CONTINUIDADE.md` com decisões, riscos e evidências. Não alegar produção APK sem verificar o GitHub Actions e release.
+
+## Exclusão de lançamento errado
+
+- "Excluir" compra do cartão, parcela ou movimentação manual da conta **apaga do banco** (RPCs `personal_wallet_delete_wrong_expense`, `personal_wallet_delete_wrong_operation`, `personal_wallet_cancel_installments`), sem deixar registro cancelado.
+- Pago, vinculado a empréstimo/conta a pagar/receita fixa/capital/pendente efetivado ou pagamento de fatura: não apaga; usa o estorno próprio (reabrir fatura, estorno do contrato).
+- Não criar novo fluxo de exclusão que só marque `CANCELED`.

@@ -511,7 +511,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
     mutationRequestId: string,
   ) => {
     if (scope === 'ALL') {
-      await personalWalletService.cancelExpense(expense.id, mutationRequestId);
+      await personalWalletService.removeCardEntry(expense, expense.id, mutationRequestId);
     } else {
       await personalWalletService.cancelInstallments(expense.id, targetInstallment.id, scope, mutationRequestId);
     }
@@ -1042,7 +1042,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
               expenses={data.expenses} installments={data.installments}
               cycleDates={statementMonth ? getInvoiceCycleDates(statementMonth, selected.closing_day, selected.due_day, savedInvoiceFacts?.due_date, selected) : undefined}
               onEdit={async (input, mutationRequestId) => { await personalWalletService.updateExpense(input, mutationRequestId); await refresh(); }}
-              onDelete={async (id, mutationRequestId) => { await personalWalletService.cancelExpense(id, mutationRequestId); await refresh(); }}
+              onDelete={async (id, mutationRequestId) => { await personalWalletService.removeCardEntry(data.expenses.find(item => item.id === id), id, mutationRequestId); await refresh(); }}
               onScopedInstallmentDelete={handleScopedInstallmentDelete}
               onToggleAffectsLimit={async (expense, affectsLimit) => {
                 await personalWalletService.setExpenseAffectsLimit(expense.id, affectsLimit);

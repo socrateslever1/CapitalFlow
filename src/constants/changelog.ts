@@ -22,6 +22,17 @@ export interface ChangelogRelease {
  */
 export const SYSTEM_CHANGELOG: ChangelogRelease[] = [
   {
+    version: '3.6.5',
+    codeOnly: true,
+    date: '27/11/2026',
+    title: 'Regra do cartão em toda a Carteira',
+    summary: 'Importação de fatura e linha do tempo seguem a regra de fechamento de cada cartão, e telas sem termos técnicos.',
+    items: [
+      { kind: 'MELHORIA', text: 'Importar fatura e a linha do tempo usam o fechamento e o vencimento configurados em cada cartão.' },
+      { kind: 'MELHORIA', text: 'Saldo inicial virou um botão simples, sem texto técnico.' },
+    ],
+  },
+  {
     version: '3.6.4',
     codeOnly: true,
     date: '27/11/2026',

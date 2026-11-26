@@ -13,7 +13,7 @@ import { formatMoney } from '../../utils/formatters';
 import { FinancialCalculatorInput } from '../forms/FinancialCalculatorInput';
 import { parseWalletSignedMoney } from '../../features/wallet/utils/parseWalletMoney';
 import { CardInvoiceSummaryPreview } from './CardInvoiceSummaryPreview';
-import { getInvoiceCycleDates } from './invoiceStatementDomain';
+import { getInvoiceCycleDates, type CardCycleSource } from './invoiceStatementDomain';
 import { issuerMatchesBank, type CardInvoiceSummary } from '../../utils/cardInvoiceSummary';
 import { detectPreviouslyImported, detectRecoverableStatementRows } from '../../utils/walletStatementDuplicates';
 import type { WalletStatementRow } from '../../services/personalWallet.service';
@@ -48,6 +48,8 @@ type Props = {
   initialDueMonth?: string | null;
   closingDay?: number | null;
   dueDay?: number | null;
+  /** Regras de ciclo do cartão (fechamento dinâmico, dia útil, fechamento do mês). */
+  cardCycle?: CardCycleSource | null;
   hasOpening?: boolean;
   onClose?: () => void;
   onImported: () => Promise<void>;
@@ -85,6 +87,7 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
   initialDueMonth,
   closingDay,
   dueDay,
+  cardCycle,
   hasOpening = false,
   onClose,
   onImported,
@@ -385,7 +388,7 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
             {(() => {
               if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(dueMonth) || (!closingDay && !dueDay)) return null;
               try {
-                const dates = getInvoiceCycleDates(dueMonth + '-01', closingDay ?? null, dueDay ?? null);
+                const dates = getInvoiceCycleDates(dueMonth + '-01', closingDay ?? null, dueDay ?? null, null, cardCycle);
                 const closeFmt = `${dates.closingDate.slice(8, 10)}/${dates.closingDate.slice(5, 7)}/${dates.closingDate.slice(0, 4)}`;
                 const dueFmt = `${dates.dueDate.slice(8, 10)}/${dates.dueDate.slice(5, 7)}/${dates.dueDate.slice(0, 4)}`;
                 return (
@@ -425,7 +428,7 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
         statementRows={rows}
         suggestedDueDate={(() => {
           if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(dueMonth) || !dueDay) return null;
-          try { return getInvoiceCycleDates(dueMonth + '-01', closingDay ?? null, dueDay).dueDate; } catch { return null; }
+          try { return getInvoiceCycleDates(dueMonth + '-01', closingDay ?? null, dueDay, null, cardCycle).dueDate; } catch { return null; }
         })()}
         estimatedUsedLimit={targetEstimatedUsedLimit}
         estimatedFutureCommitments={targetEstimatedFutureCommitments}

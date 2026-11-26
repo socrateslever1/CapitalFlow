@@ -149,7 +149,7 @@ export const LedgerTimeline: React.FC<LedgerTimelineProps> = ({
                                                             e.stopPropagation();
                                                             onReverseTransaction(entry, loan);
                                                         }}
-                                                        className="min-h-8 min-w-8 rounded-md border border-rose-500/20 bg-rose-500/10 p-2 text-rose-400 hover:bg-rose-500/20" aria-label="Estornar lançamento auditável"
+                                                        className="min-h-8 min-w-8 rounded-md border border-rose-500/20 bg-rose-500/10 p-2 text-rose-400 hover:bg-rose-500/20" aria-label="Estornar lançamento"
                                                         title="Estornar Transação"
                                                     >
                                                         <RefreshCcw size={12} />

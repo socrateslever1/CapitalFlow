@@ -23,7 +23,7 @@ test('Conta usa janelas suspensas para Receita, Receber, Despesa, Pagar, Transfe
   }
   assert.match(activitySource, /Saldo inicial/);
   assert.match(activitySource, /<Modal[\s\S]*variant="wallet"[\s\S]*title=\{labels\[action\]\}/);
-  assert.match(activitySource, /<Modal[\s\S]*variant="wallet"[\s\S]*title="Saldo inicial auditável"/);
+  assert.match(activitySource, /<Modal[\s\S]*variant="wallet"[\s\S]*title="Saldo inicial"/);
   assert.match(activitySource, /<Modal[\s\S]*variant="wallet"[\s\S]*title="Excluir lançamento"/);
   assert.doesNotMatch(activitySource, /window\.confirm/);
   assert.match(activitySource, /const requestId=transactionRef\.current\.id/);

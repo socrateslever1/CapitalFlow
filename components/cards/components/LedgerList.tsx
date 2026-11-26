@@ -123,7 +123,7 @@ export const LedgerList: React.FC<LedgerListProps> = ({
                     onClick={(event) => { event.stopPropagation(); onReverseTransaction(entry, loan); }}
                     className="inline-flex min-h-8 items-center gap-1 rounded-md border border-rose-500/35 px-2 text-[10px] font-semibold text-rose-300 hover:bg-rose-500/10"
                     aria-label={`Estornar lançamento ${entry.id.slice(0, 8)}`}
-                    title="Estornar este recebimento pela rotina auditável"
+                    title="Estornar este recebimento"
                   >
                     <Undo2 size={12}/> Estornar
                   </button>

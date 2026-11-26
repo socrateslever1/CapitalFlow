@@ -71,7 +71,7 @@ export const ExecutionPipeline: React.FC<ExecutionPipelineProps> = ({ fullAuditD
                 >
                     <Package size={16}/> Baixar Pacote Jurídico (JSON + PDF)
                 </button>
-                <p className="text-[9px] text-slate-500 mt-2">Inclui snapshot JSON auditável e PDF impresso.</p>
+                <p className="text-[9px] text-slate-500 mt-2">Inclui o registro do documento e o PDF impresso.</p>
             </div>
         </div>
     );

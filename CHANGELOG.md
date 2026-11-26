@@ -1,5 +1,13 @@
 # Changelog
 
+## 27/11/2026 — Regra do cartão em toda a Carteira e textos mais limpos
+
+**Fase 1 concluída (só interface).** Importação de fatura (`FlatSmartStatementReader`, mês e vencimento sugeridos), linha do tempo (`walletTimeline`), aviso de fatura fechada/paga e ferramentas de antecipar/levar restante (`minhasFinancasWalletTools`) passam a usar a regra de ciclo de cada cartão (fechamento dinâmico, dia útil, fechamento do mês). Para cartões em dia fixo, nada muda.
+
+**Textos:** removido "auditável" das telas (termo técnico) e o texto explicativo do saldo inicial; o "Saldo inicial" virou um botão ao lado de "Importar PDF".
+
+- **Testes:** `test:wallet-statement-import`, `test:wallet-invoice-cycle`, proteções da fatura, `test:wallet-visual-next`, Carteira e build passaram. `test:quality` local falha só em `wallet-expense-sheet-navigation` ("Registrar despesa"), por alteração local da barra de ações da conta que **não** faz parte deste commit.
+
 ## 27/11/2026 — Logos dos bancos preenchendo o quadro
 
 **Melhoria (só interface).** Os SVGs dos bancos traziam margem interna (logos em bloco ocupavam ~65% do arquivo) e alguns são só o símbolo, escuro e sem fundo (C6, Nubank), que sumiam no tema escuro. A lista de contas ainda punha um quadro dentro de outro.

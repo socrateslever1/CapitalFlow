@@ -1,4 +1,4 @@
-import { getInvoiceCycleDates, getPurchaseInvoiceMonth, resolveInvoiceCycleState, type InvoiceCycleState } from '../../../components/wallet/invoiceStatementDomain';
+import { getInvoiceCycleDates, getPurchaseInvoiceMonth, resolveInvoiceCycleState, type CardCycleSource, type InvoiceCycleState } from '../../../components/wallet/invoiceStatementDomain';
 import type { PersonalWalletExpense, PersonalWalletExpenseInstallment } from '../../../services/personalWallet.service';
 import { formatInstallmentBadgeLabel } from './cardInstallmentPlan';
 import { businessDateInManaus } from '../../../utils/businessDate';
@@ -134,6 +134,8 @@ export function describeCardCycleDates(input: {
   dueDay: number | null;
   exactDueDate?: string | null;
   todayIso?: string;
+  /** Regras de ciclo do cartão (fechamento dinâmico, dia útil, fechamento do mês). */
+  card?: CardCycleSource | null;
 }): CardCycleDateInsights {
   const today = resolveQuickDateShortcuts(input.todayIso).today;
   const dates = getInvoiceCycleDates(
@@ -141,6 +143,7 @@ export function describeCardCycleDates(input: {
     input.closingDay,
     input.dueDay,
     input.exactDueDate,
+    input.card,
   );
   const closingDateFormatted = dates.closingDate.split('-').reverse().join('/');
   const dueDateFormatted = dates.dueDate.split('-').reverse().join('/');
@@ -202,10 +205,11 @@ export function checkClosedOrPaidInvoiceWarning(input: {
   outstanding?: number;
   paid?: boolean;
   todayIso?: string;
+  card?: CardCycleSource | null;
 }): ClosedOrPaidInvoiceWarning {
   const normalizedMonth = `${input.dueMonth.slice(0, 7)}-01`;
   const today = resolveQuickDateShortcuts(input.todayIso).today;
-  const dates = getInvoiceCycleDates(normalizedMonth, input.closingDay, input.dueDay);
+  const dates = getInvoiceCycleDates(normalizedMonth, input.closingDay, input.dueDay, null, input.card);
   const closingShort = `${dates.closingDate.slice(8, 10)}/${dates.closingDate.slice(5, 7)}`;
   // Fechamento exclusivo: compra no dia do fechamento já vai para a fatura seguinte.
   const lastPurchaseDate = new Date(Date.parse(dates.closingDate + 'T00:00:00Z') - 86_400_000).toISOString().slice(0, 10);
@@ -228,11 +232,12 @@ export function checkClosedOrPaidInvoiceWarning(input: {
       hasCycle: true,
       paid: input.paid,
       today,
+      card: input.card,
     });
   }
 
   const steppedNext = stepInvoiceMonth(normalizedMonth, 1);
-  const currentOpenDueMonth = getPurchaseInvoiceMonth(today, input.closingDay, input.dueDay);
+  const currentOpenDueMonth = getPurchaseInvoiceMonth(today, input.closingDay, input.dueDay, input.card);
   const next = currentOpenDueMonth > steppedNext.dueMonthIso
     ? stepInvoiceMonth(currentOpenDueMonth, 0)
     : steppedNext;

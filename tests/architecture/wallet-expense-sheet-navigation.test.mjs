@@ -48,7 +48,7 @@ test('card-specific expense actions lock the selected card and default historica
   // completa (data da compra, fechamento exclusivo) fica no domínio compartilhado.
   assert.match(sheet, /resolvePurchaseInvoiceMonth\(\{\s*purchaseDate: expenseDate, today: referenceToday/);
   assert.match(sheet, /if \(candidate >= currentOpenMonth\)/);
-  assert.match(cycle, /const currentOpenDueMonth = getPurchaseInvoiceMonth\(today, input\.closingDay, input\.dueDay\)/);
+  assert.match(cycle, /const currentOpenDueMonth = getPurchaseInvoiceMonth\(today, input\.closingDay, input\.dueDay(?:, input\.card)?\)/);
   assert.match(sheet, /Selecionar próxima fatura/);
   assert.match(card, /requestedStatementMonth,[\s\S]*?suggestedNewInvoiceMonth/);
   assert.match(card, /setQuickExpenseDueMonth\(suggestedNewInvoiceMonth\)/);

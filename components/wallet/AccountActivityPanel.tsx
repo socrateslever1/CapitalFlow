@@ -179,7 +179,7 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
       notifyFinancialDataChanged({ wallet: true, capital: Boolean(account.capital_source_id) });
       await onSaved();
       openingRef.current={signature:'',id:generateUUID()};setOpeningAmount('');setOpeningModalOpen(false);
-      setSuccess('Saldo inicial registrado de forma auditável.');
+      setSuccess('Saldo inicial registrado.');
     }catch(err:any){setError(err?.message||'Não foi possível registrar o saldo inicial.');}
     finally{setOpeningSaving(false);}
   };
@@ -261,16 +261,11 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
         <button type="button" onClick={()=>setImportOpen(true)} className="flex items-center gap-2 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-xs font-semibold text-cyan-200">
           <FileUp size={15}/> Importar PDF
         </button>
-      </div>
-      {canInitializeOpening&&<div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-cyan-800/50 bg-cyan-950/20 p-4">
-        <div className="min-w-0 flex-1">
-          <h3 className="text-sm font-bold text-cyan-100">Saldo inicial auditável</h3>
-          <p className="text-xs text-cyan-300/80">Disponível somente antes da primeira movimentação e sem alterar saldos existentes automaticamente.</p>
-        </div>
-        <button type="button" onClick={()=>{setError('');setSuccess('');setOpeningModalOpen(true);}} className="min-h-10 rounded-lg bg-cyan-700 px-4 py-2 text-xs font-bold text-white hover:bg-cyan-600">
+        {canInitializeOpening&&<button type="button" onClick={()=>{setError('');setSuccess('');setOpeningModalOpen(true);}}
+          className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-cyan-700 px-3 py-1.5 text-xs font-bold text-white hover:bg-cyan-600">
           Saldo inicial
-        </button>
-      </div>}
+        </button>}
+      </div>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
         {([
           ['INCOME',ArrowDownLeft,'Receita'],
@@ -511,7 +506,7 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
       <Modal
         variant="wallet"
         compact
-        title="Saldo inicial auditável"
+        title="Saldo inicial"
         subtitle={account.nickname}
         busy={openingSaving}
         onClose={() => { if (!openingSaving) { setOpeningModalOpen(false); setError(''); } }}
@@ -527,7 +522,6 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
         }
       >
         <form id="account-opening-form" onSubmit={submitOpening} className="space-y-3">
-          <p className="text-xs text-cyan-200/80">Disponível somente antes da primeira movimentação e sem alterar saldos existentes automaticamente.</p>
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="text-xs text-slate-300">Valor (R$)<FinancialCalculatorInput required className={input} value={openingAmount} onCommit={setOpeningAmount} fieldLabel="saldo inicial" placeholder="0,00"/></label>
             <label className="text-xs text-slate-300">Data<input required type="date" max={localToday()} className={input} value={openingDate} onChange={e=>setOpeningDate(e.target.value)}/></label>

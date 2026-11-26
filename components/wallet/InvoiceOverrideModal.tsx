@@ -234,7 +234,7 @@ export const InvoiceOverrideModal: React.FC<Props> = ({
           : mode === 'DIFFERENCE' && adjustmentPreview.kind === 'DECREASE' && onRecordAdjustmentCredit
             ? `Será criado um crédito de ajuste de − ${formatMoney(adjustmentPreview.absDelta)} nesta fatura, abatendo o saldo sem travar compras futuras.`
             : hasExistingConsolidation
-              ? 'Corrigir o mês desloca a consolidação existente com histórico auditável. Se houver outra cobrança igual no destino, o banco só a reúne após verificar valores e pagamentos.'
+              ? 'A consolidação passa para o mês corrigido.'
               : 'Uma fatura formada por compras individuais deve ser corrigida pelos lançamentos, sem gerar uma nova consolidação de outro mês.'}
       </p>
       {error&&<p role="alert" className="mt-3 rounded-lg bg-rose-950/50 px-3 py-2 text-xs text-rose-200">{error}</p>}

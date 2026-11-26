@@ -273,6 +273,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
       dueDay: selectedCard.due_day,
       expenseDate,
       outstanding: Number(selectedCard.current_bill || 0) || 1,
+      card: selectedCard,
     });
   }, [paymentMode, selectedCard, resolvedCycle.dueDateIso, expenseDate]);
 

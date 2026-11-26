@@ -1761,3 +1761,7 @@ O ícone do olho já acionava o `FinancialPrivacyProvider`, mas os elementos aba
 - Exclusão em lote (migration 20261127140000, aplicada antes do código), notificações com foto/logo/cor e correção do aviso de fatura duplicado (UUID estável + checagem no banco). Detalhes em `CHANGELOG.md`.
 - Registro anterior com contagem de testes errada (10/10 e 17/17) corrigido para 8/8 e 16/16; a mensagem do commit 5562cbb mantém o número antigo.
 - **Sem validação em aparelho físico.**
+
+## 27/11/2026 — Fase 1 concluída e textos
+
+- Pontas da Fase 1 fechadas: importação de fatura, linha do tempo e ferramentas de fatura usam a regra de ciclo de cada cartão. "Auditável" removido das telas. Detalhes em `CHANGELOG.md`.

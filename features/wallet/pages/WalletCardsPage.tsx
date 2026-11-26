@@ -1019,6 +1019,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
                     setStatementMonth(month);
                   }}
                   initialDueMonth={statementMonth || suggestedNewInvoiceMonth}
+                  cardCycle={selected}
                   closingDay={selected.closing_day}
                   dueDay={selected.due_day}
                   hasOpening={Boolean(selected.initial_balance_occurred_at)}

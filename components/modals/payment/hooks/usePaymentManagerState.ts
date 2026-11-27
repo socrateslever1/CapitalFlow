@@ -148,7 +148,7 @@ export const usePaymentManagerState = ({ data, paymentType, setPaymentType, avAm
             const paymentDate = parseDateOnlyUTC(realPaymentDateStr);
             const dueDate = parseDateOnlyUTC(data.inst.dueDate);
             const overdue = paymentDate > dueDate;
-            const preservesOriginalCycle = overdue && (forgivenessMode !== 'NONE' || lateFeeForgiven > 0.05);
+            const preservesOriginalCycle = !['MONTHLY', 'GIRO', 'REVOLVING'].includes(String(resolvedBillingCycle)) && overdue && (forgivenessMode !== 'NONE' || lateFeeForgiven > 0.05);
             const nextDate = suggestRenewalDueDate({
                 loan: data.loan,
                 inst: data.inst,

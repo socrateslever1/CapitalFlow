@@ -51,7 +51,7 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
     const { activeUser: modalActiveUser, sources: modalSources } = useModal();
     const [lateFeeForgiven, setLateFeeForgiven] = useState(0);
     const {
-        manualDateStr, setManualDateStr,
+        manualDateStr, setManualDateStr, manualDateEdited,
         realPaymentDateStr, setRealPaymentDateStr,
         subMode, setSubMode,
         forgivenessMode, setForgivenessMode,
@@ -150,7 +150,7 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
         : baseDecision;
     const effectiveOperation = automaticDecision.operationType;
     const effectiveManualDate = effectiveOperation === 'RENEW_KEEP_PENDING' || effectiveOperation === 'CAPITALIZE_RENEWAL' || effectiveOperation === 'DISCOUNT_RENEWAL'
-        ? (manualDateStr ? parseDateOnlyUTC(manualDateStr) : null)
+        ? (manualDateStr && (manualDateEdited || effectiveOperation !== 'RENEW_KEEP_PENDING' || !['MONTHLY', 'GIRO', 'REVOLVING'].includes(String(resolvedBillingCycle))) ? parseDateOnlyUTC(manualDateStr) : null)
         : null;
     const effectiveForgivenessMode: ForgivenessMode = lateFeeForgiven > 0.05 && forgivenessMode === 'NONE'
         ? 'FINE_AND_MORA'
@@ -319,7 +319,7 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
                                 />
 
                                 {previewError && <p className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-xs font-bold text-rose-300">{previewError}</p>}
-                                {backendPreview && <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4 text-xs text-slate-200"><p className="font-black uppercase text-emerald-300">Confira o resultado</p><p className="mt-2">Valor recebido: {formatMoney(backendPreview.amount_received)} · Capital abatido: {formatMoney(backendPreview.principal_paid)} · Encargos recebidos: {formatMoney(backendPreview.interest_paid + backendPreview.late_fee_paid)}</p>{(backendPreview.principal_forgiven + backendPreview.interest_forgiven + backendPreview.late_fee_forgiven) > 0.05 && <p className="mt-1 font-bold text-rose-200">Desconto aplicado: {formatMoney(backendPreview.principal_forgiven + backendPreview.interest_forgiven + backendPreview.late_fee_forgiven)}</p>}<p className="mt-1">Saldo restante: {formatMoney(Number((backendPreview.after as any)?.total || 0))}</p></div>}
+                                {backendPreview && <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4 text-xs text-slate-200"><p className="font-black uppercase text-emerald-300">Confira o resultado</p><p className="mt-2">Valor recebido: {formatMoney(backendPreview.amount_received)} · Capital abatido: {formatMoney(backendPreview.principal_paid)} · Encargos recebidos: {formatMoney(backendPreview.interest_paid + backendPreview.late_fee_paid)}</p>{(backendPreview.principal_forgiven + backendPreview.interest_forgiven + backendPreview.late_fee_forgiven) > 0.05 && <p className="mt-1 font-bold text-rose-200">Desconto aplicado: {formatMoney(backendPreview.principal_forgiven + backendPreview.interest_forgiven + backendPreview.late_fee_forgiven)}</p>}<p className="mt-1">Saldo restante: {formatMoney(Number(backendPreview.after?.total || 0))}</p>{backendPreview.after?.automatic_cycle_renewal === true && <p className="mt-2 font-bold text-emerald-300">Novo vencimento: {String(backendPreview.after.due_date).split('-').reverse().join('/')} · Encargos pendentes: {formatMoney(Number(backendPreview.after.late_fee || 0))}</p>}</div>}
 
                                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                                     {(resolvedBillingCycle === 'DAILY_FREE' || resolvedBillingCycle === 'DAILY_FIXED_TERM') ? (
@@ -349,7 +349,7 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
                                                  <button onClick={toggleInterestAutoFill} className={`w-full px-3 py-2 rounded-lg text-[10px] font-black uppercase border transition-all ${autoFillMode === 'INTEREST' ? 'bg-orange-600 border-orange-500 text-white' : 'border-orange-900/50 bg-orange-900/20 text-orange-400'}`}>
                                                     {effectiveLateFeeDue > 0.05 ? 'Juros + atraso' : 'Somente juros'}
                                                 </button>
-                                                {safeParse(avAmount) > 0 && <div className="mt-6 bg-slate-950/50 border border-slate-800/50 p-5 rounded-lg space-y-4"><p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Impacto do Recebimento</p><p className="text-sm text-slate-200 font-bold leading-relaxed">{(() => { const val = safeParse(avAmount); const totalDue = payableTotal; const interestDue = payableInterestDue; if (isCapitalOnlyRecovery) return val >= debtBreakdown.principal - 0.05 ? 'Quitação sem juros.' : `Abate ${formatMoney(val)} diretamente do capital.`; if (val >= totalDue - 0.05) return 'Quitação total: o contrato será encerrado.'; if (val >= interestDue - 0.05) { const amort = val - interestDue; return amort > 0.05 ? `Quita os encargos e abate ${formatMoney(amort)} do capital.` : 'Quita os encargos do período.'; } return `Pagamento parcial: ainda restam ${formatMoney(Math.max(0, interestDue - val))} em juros/encargos.`; })()}</p></div>}
+                                                {safeParse(avAmount) > 0 && <div className="mt-6 bg-slate-950/50 border border-slate-800/50 p-5 rounded-lg space-y-4"><p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Impacto do Recebimento</p><p className="text-sm text-slate-200 font-bold leading-relaxed">{(() => { const val = safeParse(avAmount); const totalDue = payableTotal; const interestDue = payableInterestDue; if (isCapitalOnlyRecovery) return val >= debtBreakdown.principal - 0.05 ? 'Quitação sem juros.' : `Abate ${formatMoney(val)} diretamente do capital.`; if (val >= totalDue - 0.05) return 'Quitação total: o contrato será encerrado.'; if (['MONTHLY', 'GIRO', 'REVOLVING'].includes(String(resolvedBillingCycle)) && debtBreakdown.interest > 0 && val >= debtBreakdown.interest - 0.005 && val < interestDue - 0.005) return `Juros do ciclo quitados: renovação automática. Encargos restantes: ${formatMoney(Math.max(0, interestDue - val))}.`; if (val >= interestDue - 0.05) { const amort = val - interestDue; return amort > 0.05 ? `Quita os encargos e abate ${formatMoney(amort)} do capital.` : 'Quita os encargos do período.'; } return `Pagamento parcial: ainda restam ${formatMoney(Math.max(0, interestDue - val))} em juros/encargos.`; })()}</p></div>}
                                             </div>
                                         </div>
                                     )}

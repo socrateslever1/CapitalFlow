@@ -28,6 +28,10 @@ export const SYSTEM_CHANGELOG: ChangelogRelease[] = [
     title: 'Carteira completa e visual novo',
     summary: 'Pendentes, previsto por conta, aviso de fatura no celular, exclusão definitiva, unificação com juros e ícones novos no app.',
     items: [
+      { kind: 'MELHORIA', text: 'Ícones dos botões e das abas animam de forma bem visível ao tocar, abrir ou passar o mouse.' },
+      { kind: 'CORRECAO', text: 'O ícone do topo do Atendimento agora é o mesmo da aba Chat, no padrão das outras páginas.' },
+      { kind: 'CORRECAO', text: 'Atendimento: abas Ativos e Clientes, Gerenciar conversas e botões do topo no mesmo padrão da Carteira.' },
+      { kind: 'MELHORIA', text: 'Seletores do Painel, Simulador, Pix, cobrança diária e documentos jurídicos no mesmo padrão das abas da Carteira, com letra normal e ícones próprios.' },
       { kind: 'NOVIDADE', text: 'Em Editar cartão, escolha se quer receber no celular o aviso de fatura desse cartão.' },
       { kind: 'NOVIDADE', text: 'Notificação no celular, todo dia às 8h, quando a fatura vai fechar ou vencer, sem mostrar valores.' },
       { kind: 'NOVIDADE', text: 'Na unificação, escolha "Somar contratos e manter os juros": o principal é somado e os juros continuam todo mês.' },

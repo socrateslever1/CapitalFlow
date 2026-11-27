@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { isAppleMobile } from '../../utils/appleMobile';
 import { X, MessageCircle, Palette, ChevronLeft } from 'lucide-react';
+import { AppIcon } from '../../components/icons/AppIcons';
 import { supportChatService } from '../../services/supportChat.service';
 import { ChatSidebar } from './components/ChatSidebar';
 import { UnifiedChat } from '../../components/chat/UnifiedChat';
@@ -137,8 +138,8 @@ export default function OperatorSupportChat({ activeUser, onClose }: { activeUse
 
       <div className="shrink-0 border-b border-slate-800/70 bg-slate-950 px-2 py-4 sm:px-6 md:pt-safe">
         <div className="grid grid-cols-[3rem_minmax(0,1fr)_auto] items-center gap-3">
-          <div className="page-header-icon flex items-center justify-center rounded-full border border-blue-500/30 bg-blue-600 text-white shadow-lg shadow-blue-950/30">
-            <MessageCircle size={22} />
+          <div data-cf-icon-active="true" className="page-header-icon cf-icon-header-in flex items-center justify-center rounded-full border border-slate-700/70 bg-slate-900 shadow-lg shadow-black/30">
+            <AppIcon name="assistant" size={28} />
           </div>
 
           <div className="min-w-0">
@@ -150,17 +151,17 @@ export default function OperatorSupportChat({ activeUser, onClose }: { activeUse
             {selectedChat && (
               <button
                 onClick={() => setSelectedChat(null)}
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-800 bg-slate-900 text-slate-400 transition-all hover:bg-slate-800 hover:text-white active:scale-95"
+                className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-800 bg-slate-900 text-slate-300 transition-colors hover:bg-slate-800 hover:text-white motion-safe:active:scale-95"
                 title="Voltar para conversas"
                 aria-label="Voltar para conversas"
               >
                 <ChevronLeft size={20} />
               </button>
             )}
-            <button onClick={() => setChatTheme(prev => prev === 'dark' ? 'blue' : 'dark')} className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-800 bg-slate-900 text-slate-400 transition-all hover:bg-slate-800 hover:text-white" title="Alternar tema" aria-label="Alternar tema">
+            <button onClick={() => setChatTheme(prev => prev === 'dark' ? 'blue' : 'dark')} className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-800 bg-slate-900 text-slate-300 transition-colors hover:bg-slate-800 hover:text-white motion-safe:active:scale-95" title="Alternar tema" aria-label="Alternar tema">
               <Palette size={18}/>
             </button>
-            <button onClick={onClose} className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-800 bg-slate-900 text-slate-400 transition-all hover:border-rose-900 hover:bg-rose-950/30 hover:text-white" title="Fechar atendimento" aria-label="Fechar atendimento">
+            <button onClick={onClose} className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-800 bg-slate-900 text-slate-300 transition-colors hover:bg-slate-800 hover:text-white motion-safe:active:scale-95" title="Fechar atendimento" aria-label="Fechar atendimento">
               <X size={18}/>
             </button>
           </div>

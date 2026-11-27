@@ -224,7 +224,7 @@ export const LegalPage: React.FC<LegalPageProps> = (props) => {
           actions={<div className="flex items-center gap-2 w-full sm:w-auto">
                 <button
                     onClick={() => setSubView('PROFILE')}
-                    className="flex-1 md:flex-none px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg transition-all flex items-center justify-center gap-2 text-[10px] font-black uppercase border border-slate-700"
+                    className="flex-1 md:flex-none px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg transition-all flex items-center justify-center gap-2 text-sm font-semibold border border-slate-700"
                 >
                     <User size={15}/> Perfil Jurídico
                 </button>

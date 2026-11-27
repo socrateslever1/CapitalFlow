@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { CheckSquare, Clock, Target, ArrowRightLeft, CalendarClock, Calendar } from 'lucide-react';
+import { AppIcon } from '../../../components/icons/AppIcons';
 import { formatBRDate, parseDateOnlyUTC, addCollectionDaysUTC, normalizeCollectionDaysMode } from '../../../utils/dateHelpers';
 import { cleanNumberStr } from '../../../utils/formatters';
 
@@ -67,18 +68,18 @@ export const FlexibleDailyScreen: React.FC<FlexibleDailyScreenProps> = ({
     return (
         <div className="space-y-5 animate-in slide-in-from-right">
             {/* Seletor de Tipo de Recebimento */}
-            <div className="flex p-1 bg-slate-950 rounded-full border border-slate-800">
+            <div className="cf-seg">
                 <button 
                     onClick={() => setSetSubMode('DAYS')} 
-                    className={`flex-1 py-2.5 rounded-full text-[10px] font-black uppercase transition-all flex items-center justify-center gap-2 ${subMode === 'DAYS' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500'}`}
+                    type="button" data-active={subMode === 'DAYS'} className="cf-seg-tab"
                 >
-                    <Clock size={14}/> Pagar Diária
+                    <AppIcon name="clock" size={20} muted={!(subMode === 'DAYS')} /> Pagar diária
                 </button>
                 <button 
                     onClick={() => setSetSubMode('AMORTIZE')} 
-                    className={`flex-1 py-2.5 rounded-full text-[10px] font-black uppercase transition-all flex items-center justify-center gap-2 ${subMode === 'AMORTIZE' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-500'}`}
+                    type="button" data-active={subMode === 'AMORTIZE'} className="cf-seg-tab"
                 >
-                    <Target size={14}/> Amortizar Capital
+                    <AppIcon name="goals" size={20} muted={!(subMode === 'AMORTIZE')} /> Amortizar capital
                 </button>
             </div>
 

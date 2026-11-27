@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Calculator, DollarSign, Calendar, Percent, RefreshCcw, TrendingUp, Clock, Play, Divide, X, Minus, Plus, Equal } from 'lucide-react';
+import { AppIcon } from '../../components/icons/AppIcons';
 
 import { Modal } from '../ui/Modal';
 
@@ -138,24 +139,24 @@ export const CalculatorModal = ({ onClose }: { onClose: () => void }) => {
                 <div className="max-w-3xl mx-auto space-y-6">
 
                     {/* Seletor de Modalidade */}
-                <div className="flex p-1 bg-slate-950 rounded-full border border-slate-800">
+                <div className="cf-seg">
                     <button
                         onClick={() => { setMode('MONTHLY'); setDuration('1'); }}
-                        className={`flex-1 py-3 rounded-full text-[10px] font-black uppercase transition-all flex items-center justify-center gap-2 ${mode === 'MONTHLY' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'text-slate-500 hover:text-white'}`}
+                        type="button" data-active={mode === 'MONTHLY'} className="cf-seg-tab"
                     >
-                        <Calendar size={14}/> Mensal
+                        <AppIcon name="calendar" size={20} muted={!(mode === 'MONTHLY')} /> Mensal
                     </button>
                     <button
                         onClick={() => { setMode('DAILY'); setDuration('30'); }}
-                        className={`flex-1 py-3 rounded-full text-[10px] font-black uppercase transition-all flex items-center justify-center gap-2 ${mode === 'DAILY' ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/20' : 'text-slate-500 hover:text-white'}`}
+                        type="button" data-active={mode === 'DAILY'} className="cf-seg-tab"
                     >
-                        <Clock size={14}/> Diário
+                        <AppIcon name="clock" size={20} muted={!(mode === 'DAILY')} /> Diário
                     </button>
                     <button
                         onClick={() => setMode('BASIC')}
-                        className={`flex-1 py-3 rounded-full text-[10px] font-black uppercase transition-all flex items-center justify-center gap-2 ${mode === 'BASIC' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/20' : 'text-slate-500 hover:text-white'}`}
+                        type="button" data-active={mode === 'BASIC'} className="cf-seg-tab"
                     >
-                        <Calculator size={14}/> Calc
+                        <AppIcon name="simulator" size={20} muted={!(mode === 'BASIC')} /> Calculadora
                     </button>
                 </div>
 

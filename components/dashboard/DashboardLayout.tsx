@@ -13,9 +13,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 }) => {
   return (
     <div className="flex flex-col gap-4">
-      <div className="md:hidden bg-slate-900 p-1 rounded-lg border border-slate-800 flex relative">
-          <button onClick={() => setMobileDashboardTab('CONTRACTS')} className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${mobileDashboardTab === 'CONTRACTS' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}>Contratos</button>
-          <button onClick={() => setMobileDashboardTab('BALANCE')} className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${mobileDashboardTab === 'BALANCE' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}>Balanço</button>
+      <div className="md:hidden cf-seg">
+          <button onClick={() => setMobileDashboardTab('CONTRACTS')} type="button" data-active={mobileDashboardTab === 'CONTRACTS'} className="cf-seg-tab">Contratos</button>
+          <button onClick={() => setMobileDashboardTab('BALANCE')} type="button" data-active={mobileDashboardTab === 'BALANCE'} className="cf-seg-tab">Balanço</button>
       </div>
 
       <div className="flex flex-col lg:flex-row gap-4">

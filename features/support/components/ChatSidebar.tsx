@@ -1,6 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
-import { Search, MessageCircle, Users, ChevronRight, CheckSquare, Square, Trash2, X, ChevronDown } from 'lucide-react';
+import { Search, Users, ChevronRight, CheckSquare, Square, Trash2, X, ChevronDown } from 'lucide-react';
+import { AppIcon } from '../../../components/icons/AppIcons';
 import { groupContractsByDebtorName } from '../../../utils/chatGroupHelpers';
 
 interface ChatSidebarProps {
@@ -166,25 +167,33 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                     />
                     </div>
 
-                    <div className="flex bg-slate-900 p-1 rounded-lg">
+                    <div className="flex gap-0.5 rounded-xl border border-slate-800 bg-slate-900/70 p-0.5">
                         <button
+                            type="button"
                             onClick={() => setActiveTab('ACTIVE')}
-                            className={`flex-1 py-2 text-[10px] font-black uppercase rounded-lg transition-all flex items-center justify-center gap-1 ${activeTab === 'ACTIVE' ? 'bg-slate-800 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}
+                            aria-current={activeTab === 'ACTIVE' ? 'page' : undefined}
+                            className={`relative isolate flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg px-2 py-1.5 text-sm font-semibold transition-colors ${activeTab === 'ACTIVE' ? 'text-blue-100' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}
                         >
-                            <MessageCircle size={12}/> Ativos
+                            {activeTab === 'ACTIVE' && <span aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 rounded-lg bg-blue-600/20 ring-1 ring-inset ring-blue-500/50" />}
+                            <span data-cf-icon-active={activeTab === 'ACTIVE'} className={`inline-flex ${activeTab === 'ACTIVE' ? '' : 'cf-icon-interactive'}`}><AppIcon name="chat" size={22} muted={activeTab !== 'ACTIVE'} /></span>
+                            Ativos
                         </button>
                         <button
+                            type="button"
                             onClick={() => setActiveTab('CLIENTS')}
-                            className={`flex-1 py-2 text-[10px] font-black uppercase rounded-lg transition-all flex items-center justify-center gap-1 ${activeTab === 'CLIENTS' ? 'bg-slate-800 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}
+                            aria-current={activeTab === 'CLIENTS' ? 'page' : undefined}
+                            className={`relative isolate flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg px-2 py-1.5 text-sm font-semibold transition-colors ${activeTab === 'CLIENTS' ? 'text-blue-100' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}
                         >
-                            <Users size={12}/> Clientes
+                            {activeTab === 'CLIENTS' && <span aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 rounded-lg bg-blue-600/20 ring-1 ring-inset ring-blue-500/50" />}
+                            <span data-cf-icon-active={activeTab === 'CLIENTS'} className={`inline-flex ${activeTab === 'CLIENTS' ? '' : 'cf-icon-interactive'}`}><AppIcon name="clients" size={22} muted={activeTab !== 'CLIENTS'} /></span>
+                            Clientes
                         </button>
                     </div>
 
                     {activeTab === 'ACTIVE' && displayList.length > 0 && (
                         <div className="flex justify-end">
-                             <button onClick={enterSelectionMode} className="text-[10px] text-rose-500 hover:text-rose-400 font-bold uppercase flex items-center gap-1">
-                                 <Trash2 size={12}/> Gerenciar Chats
+                             <button type="button" onClick={enterSelectionMode} className="flex min-h-9 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-rose-300 transition-colors hover:bg-rose-950/30 hover:text-rose-200">
+                                 <AppIcon name="trash" size={18} /> Gerenciar conversas
                              </button>
                         </div>
                     )}

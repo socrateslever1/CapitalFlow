@@ -7,6 +7,7 @@ import { legalService } from "../services/legalService";
 import { safeUUID } from "../../../utils/uuid";
 import { Printer, Scale, FileSignature, Loader2, ShieldCheck, Check, FileText, Activity, Users, User, Copy, MessageSquare, Link } from "lucide-react";
 import { LegalReportView } from './LegalReportView';
+import { AppIcon } from '../../../components/icons/AppIcons';
 import { buildPublicAppUrl } from '../../../utils/publicAppUrl';
 
 interface LegalDocumentModalProps {
@@ -110,15 +111,15 @@ export const LegalDocumentModal: React.FC<LegalDocumentModalProps> = ({ agreemen
     return (
         <Modal onClose={onClose} title="Gestão de Título Executivo">
             <div className="flex flex-col h-[85vh]">
-                <div className="flex bg-slate-950 p-1 rounded-lg border border-slate-800 mb-4">
-                    <button onClick={() => setViewMode('DOC')} className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase flex items-center justify-center gap-2 ${viewMode === 'DOC' ? 'bg-slate-800 text-white' : 'text-slate-500'}`}>
-                        <FileText size={14}/> Documento
+                <div className="cf-seg mb-4">
+                    <button onClick={() => setViewMode('DOC')} type="button" data-active={viewMode === 'DOC'} className="cf-seg-tab">
+                        <AppIcon name="scroll" size={20} muted={!(viewMode === 'DOC')} /> Documento
                     </button>
-                    <button onClick={() => setViewMode('SIGNATURES')} className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase flex items-center justify-center gap-2 ${viewMode === 'SIGNATURES' ? 'bg-slate-800 text-white' : 'text-slate-500'}`}>
-                        <FileSignature size={14}/> Assinaturas
+                    <button onClick={() => setViewMode('SIGNATURES')} type="button" data-active={viewMode === 'SIGNATURES'} className="cf-seg-tab">
+                        <AppIcon name="edit" size={20} muted={!(viewMode === 'SIGNATURES')} /> Assinaturas
                     </button>
-                    <button onClick={() => setViewMode('REPORT')} className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase flex items-center justify-center gap-2 ${viewMode === 'REPORT' ? 'bg-slate-800 text-white' : 'text-slate-500'}`}>
-                        <Activity size={14}/> Auditoria
+                    <button onClick={() => setViewMode('REPORT')} type="button" data-active={viewMode === 'REPORT'} className="cf-seg-tab">
+                        <AppIcon name="gauge" size={20} muted={!(viewMode === 'REPORT')} /> Auditoria
                     </button>
                 </div>
 

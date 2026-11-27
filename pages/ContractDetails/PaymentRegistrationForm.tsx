@@ -184,7 +184,7 @@ export const PaymentRegistrationForm: React.FC<PaymentRegistrationFormProps> = (
                                 setAutoFillMode('TOTAL');
                                 setAvAmount(debtBreakdown.total - lateFeeForgiven > 0 ? (debtBreakdown.total - lateFeeForgiven).toFixed(2) : '');
                             }}
-                            className={`flex-1 px-3 py-2 rounded-lg text-[10px] font-black uppercase border transition-all flex flex-col items-center justify-center gap-0.5 ${
+                            className={`flex-1 px-3 py-2 rounded-lg text-sm font-semibold border transition-all flex flex-col items-center justify-center gap-0.5 ${
                                 autoFillMode === 'TOTAL'
                                     ? 'bg-blue-600 border-blue-500 text-white shadow-[0_0_15px_rgba(37,99,235,0.4)]'
                                     : 'border-slate-800 bg-slate-950 text-slate-400 hover:text-white'
@@ -196,7 +196,7 @@ export const PaymentRegistrationForm: React.FC<PaymentRegistrationFormProps> = (
                             <button
                                 type="button"
                                 onClick={toggleInterestAutoFill}
-                                className={`flex-1 px-3 py-2 rounded-lg text-[10px] font-black uppercase border transition-all flex flex-col items-center justify-center gap-0.5 ${
+                                className={`flex-1 px-3 py-2 rounded-lg text-sm font-semibold border transition-all flex flex-col items-center justify-center gap-0.5 ${
                                     autoFillMode === 'INTEREST'
                                         ? 'bg-orange-600 border-orange-500 text-white shadow-[0_0_15px_rgba(234,88,12,0.5)]'
                                         : 'border-orange-900/50 bg-orange-900/20 text-orange-400 hover:bg-orange-800 hover:text-white'
@@ -210,7 +210,7 @@ export const PaymentRegistrationForm: React.FC<PaymentRegistrationFormProps> = (
                     <div className="flex gap-2 mb-8">
                         <button
                             onClick={toggleInterestAutoFill}
-                            className={`flex-1 px-3 py-2 rounded-lg text-[10px] font-black uppercase border transition-all flex flex-col items-center justify-center gap-0.5 ${
+                            className={`flex-1 px-3 py-2 rounded-lg text-sm font-semibold border transition-all flex flex-col items-center justify-center gap-0.5 ${
                                 autoFillMode === 'INTEREST'
                                     ? 'bg-orange-600 border-orange-500 text-white shadow-[0_0_15px_rgba(234,88,12,0.5)]'
                                     : 'border-orange-900/50 bg-orange-900/20 text-orange-400 hover:bg-orange-800 hover:text-white'

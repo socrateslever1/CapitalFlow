@@ -1,3 +1,7 @@
+## 27/11/2026 — Animação dos ícones mais visível
+
+- `index.css`: pulo do ícone inteiro ao ativar (`cf-icon-pop`), partes internas com amplitude maior, cabeçalho com entrada maior, hover e toque mais marcados. Respeita movimento reduzido. Cabeçalho do Atendimento passou ao ícone próprio `assistant` (antes lucide em círculo azul); abas, "Gerenciar conversas" e botões do topo do Atendimento no padrão da Carteira. Não validado em celular físico. Classes `cf-seg`/`cf-seg-tab` para seletores em 6 telas e texto normal nos botões de ação em caixa alta de 7 telas.
+
 ## 27/11/2026 — Verificação da paridade com o Minhas Finanças
 
 - Todos os itens das Fases 0, 1 e 2 de `docs/PLANO_CARTEIRA_PARIDADE.md` conferidos no código (banco, tela e testes); tabela na seção "Verificação no código".

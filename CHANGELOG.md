@@ -1,5 +1,15 @@
 # Changelog
 
+## 27/11/2026 — Ajustes do Antigravity integrados (cartões e conta)
+
+**Melhorias (só interface), feitas localmente no Antigravity em 26/11 e integradas após testes.**
+- **Frente do cartão** (`components/wallet/BankStack.tsx`): Limite, Gasto e Restante lado a lado, com tamanho que se ajusta à largura do cartão; sem o desenho do chip. Sem resposta do banco o Restante mostra "—", nunca a estimativa provisória; a origem (banco ou estimado) fica no título do campo.
+- **Editor de cartão** (`components/wallet/CardEditModal.tsx`): 12 cores prontas além da cor personalizada (mesmo campo `primary_color`); removido o bloco amarelo de aviso.
+- **Página de cartões** (`features/wallet/pages/WalletCardsPage.tsx`): removido o aviso repetido de fatura vazia.
+- **Conta** (`components/wallet/AccountDetailsPage.tsx`): no celular, atalho "Despesa" curto e opções no botão de três pontos.
+- Testes de arquitetura ajustados ao novo formato (`wallet-pages`, `wallet-card-web-layout`, `wallet-ui-architecture`). Os registros originais estavam espalhados entre entradas antigas; consolidados aqui.
+- **Testes:** `test:quality`, `test:wallet-visual-next`, Carteira, importação, ciclo e proteções da fatura passaram. Sem aparelho físico.
+
 ## 27/11/2026 — Ícones próprios na Carteira e aviso no celular por cartão
 
 - **Ícones das abas** (`components/wallet/WalletNavIcons.tsx`): Geral, Cartões, Contas e Pagar ganham desenhos próprios e coloridos no lugar dos ícones genéricos.

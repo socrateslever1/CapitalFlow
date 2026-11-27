@@ -41,9 +41,9 @@ test('cartão mostra limite (do banco ou estimado) e o medidor "Gasto" no celula
   assert.doesNotMatch(stack, /Titular · copiar/);
   assert.match(stack, /variant="emblem" size="xs"/);
   assert.match(stack, /aspect-\[1\.586\/1\] w-full touch-pan-y/);
-  assert.match(stack, /hasBankLimit \? 'Limite disponível' : 'Limite estimado'/);
-  assert.match(stack, /Gasto <PrivateMoney value=\{formatMoney\(spent\)\} \/>/);
+  assert.match(stack, /CardLimitValues limit=\{Number\(card\.credit_limit\)\}/);
+  assert.match(stack, /formatMoney\(spentFromAvailable\(limit, remaining\)\)/);
   // A origem (banco ou estimado) continua disponível ao passar o mouse.
-  assert.match(stack, /title=\{availableLabel\}/);
-  assert.match(stack, /title=\{availability\.label\}/);
+  assert.match(stack, /title=\{origin\}/);
+  assert.match(stack, /origin=\{availability\.label\}/);
 });

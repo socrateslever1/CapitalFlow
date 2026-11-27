@@ -29,7 +29,9 @@ test('existing account detail and card expense buttons share canonical expense f
   const detail = read('components/wallet/AccountDetailsPage.tsx');
   const card = read('features/wallet/pages/WalletCardsPage.tsx');
   const sheet = read('components/wallet/QuickExpenseModal.tsx');
-  assert.match(detail, /Registrar despesa/);
+  // No celular o rótulo visível é "Despesa"; "Registrar " continua para leitores de tela.
+  assert.match(detail, /<span className="sr-only sm:not-sr-only">Registrar <\/span>/);
+  assert.match(detail, /despesa<\/span>/);
   assert.match(detail, /initialMode="ACCOUNT" initialAccountId=\{account\.id\}/);
   assert.match(card, /defaultMethod="CARD"/);
   assert.match(sheet, /personalWalletService\.recordAccountOperation\(/);

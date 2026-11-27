@@ -269,7 +269,7 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
         <div className="flex flex-wrap items-center gap-1.5">
           <button type="button" onClick={() => setExpenseOpen(true)}
             className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg bg-rose-600 px-2.5 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-rose-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300">
-            <ReceiptText size={14}/> Registrar despesa
+            <ReceiptText size={14}/> <span><span className="sr-only sm:not-sr-only">Registrar </span><span className="capitalize sm:normal-case">despesa</span></span>
           </button>
           <button type="button" onClick={() => setMovementOpen(true)}
             className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-emerald-500">
@@ -279,9 +279,9 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
             className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-950/20 px-2.5 py-1.5 text-xs font-semibold text-amber-200 hover:bg-amber-900/30">
             <Clock3 size={14}/> Pendente
           </button>
-          <button type="button" aria-expanded={showMoreActions} onClick={() => setShowMoreActions(value => !value)}
-            className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-800 sm:hidden">
-            <MoreHorizontal size={14}/> {showMoreActions ? 'Ocultar' : 'Mais opções'}
+          <button type="button" aria-label={showMoreActions ? 'Ocultar opções' : 'Mais opções'} aria-expanded={showMoreActions} onClick={() => setShowMoreActions(value => !value)}
+            className="inline-flex min-h-9 min-w-9 items-center justify-center rounded-lg border border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800 focus-visible:ring-2 focus-visible:ring-slate-300 sm:hidden">
+            <MoreHorizontal size={16} aria-hidden="true"/>
           </button>
           <div className={`${showMoreActions ? 'flex w-full flex-wrap' : 'hidden'} gap-1.5 sm:flex sm:w-auto sm:flex-wrap`}>
           <button type="button" onClick={() => {

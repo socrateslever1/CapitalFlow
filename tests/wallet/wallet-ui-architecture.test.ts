@@ -167,6 +167,6 @@ test('cartão não apresenta cálculo como limite real e separa referência banc
   assert.match(cards, /bankAvailableRequest\.current\.signature !== signature/);
   // "Limite disponível" só para valor informado pelo banco; estimativa continua identificada como tal.
   assert.doesNotMatch(bank, />Limite disponível<\/small>/);
-  assert.match(bank, /hasBankLimit \? 'Limite disponível' : 'Limite estimado'/);
-  assert.match(bank, /availability\.fromBank \? 'Limite disponível' : 'Limite estimado'/);
+  assert.match(bank, /CardLimitValues limit=\{Number\(selected\.credit_limit\)\}.*origin=\{availableLabel\}/);
+  assert.match(bank, /CardLimitValues limit=\{Number\(card\.credit_limit\)\}.*origin=\{availability\.label\}/);
 });

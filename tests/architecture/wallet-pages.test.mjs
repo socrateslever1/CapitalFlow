@@ -137,7 +137,9 @@ test('bank credit limit does not flash estimate while per-card facts are unresol
   assert.match(page, /bankLimitStatus=\{bankLimitStatus\}/);
   assert.match(page, /bankAvailableReferences=\{data\.cardInvoiceFacts\}/);
   assert.doesNotMatch(page, /\[invoiceFacts, setInvoiceFacts\] = useState/);
-  assert.match(stack, /limitState === 'READY' \? formatMoney\(available\) : '—'/);
+  // Sem resposta do banco o cartão mostra '—' (CardLimitValues recebe null), nunca a estimativa provisória.
+  assert.match(stack, /remaining=\{limitState === 'READY' \? available : null\}/);
+  assert.match(stack, /remaining === null \? '—'/);
 });
 
 test('a slower manual fact refresh cannot replace the current card generation', () => {

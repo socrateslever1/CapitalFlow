@@ -815,13 +815,8 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
                     </button>}
                   </div>
                 </div>
-                {selected && (
+                {selected && invoiceCycles.some(cycle => cycle.dueMonth === statementMonth) && (
                   <div className="mt-2 space-y-1.5" role="group" aria-label="Faturas registradas">
-                    {invoiceCycles.length === 0 && (
-                      <p className="rounded-xl border border-dashed border-slate-700 p-4 text-xs text-slate-400">
-                        Nenhuma fatura registrada. Adicione uma fatura ou lance uma compra no cartão.
-                      </p>
-                    )}
                     {invoiceCycles.filter(cycle => cycle.dueMonth === statementMonth).map(cycle => {
                       const fact = invoiceFacts.find(item =>
                         item.card_id === selected.id && item.due_month.slice(0, 7) === cycle.dueMonth.slice(0, 7));

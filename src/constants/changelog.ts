@@ -22,6 +22,18 @@ export interface ChangelogRelease {
  */
 export const SYSTEM_CHANGELOG: ChangelogRelease[] = [
   {
+    version: '3.7.3',
+    codeOnly: true,
+    date: '27/11/2026',
+    title: 'Cartões e conta mais claros',
+    summary: 'Limite, gasto e restante na frente do cartão, cores prontas para o cartão e ações da conta mais compactas.',
+    items: [
+      { kind: 'MELHORIA', text: 'A frente do cartão mostra Limite, Gasto e Restante lado a lado.' },
+      { kind: 'MELHORIA', text: 'Escolha uma de 12 cores prontas para o cartão ou uma cor personalizada.' },
+      { kind: 'MELHORIA', text: 'No celular, os atalhos da conta ocupam menos espaço.' },
+    ],
+  },
+  {
     version: '3.7.2',
     codeOnly: true,
     date: '27/11/2026',

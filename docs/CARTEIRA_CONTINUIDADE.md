@@ -1777,3 +1777,7 @@ O ícone do olho já acionava o `FinancialPrivacyProvider`, mas os elementos aba
 ## 27/11/2026 — Plano concluído
 
 - Ícones próprios nas abas e opção de aviso por cartão (migration 20261127200000). Fases 0, 1 e 2 do plano entregues; pendente só o item opcional 0.5.
+
+## 27/11/2026 — Ajustes do Antigravity integrados
+
+- Frente do cartão com Limite/Gasto/Restante, paleta de cores no editor, aviso de fatura vazia removido e atalhos compactos na conta. Testes de arquitetura ajustados ao novo formato. Detalhes em `CHANGELOG.md`. Sem aparelho físico.

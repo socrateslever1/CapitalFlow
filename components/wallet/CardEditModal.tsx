@@ -1,5 +1,5 @@
 import React,{useState} from 'react';
-import {AlertTriangle,Archive,CreditCard,LockKeyhole,Save,Trash2} from 'lucide-react';
+import {Archive,CreditCard,LockKeyhole,Save,Trash2} from 'lucide-react';
 import {PersonalWalletCard,PersonalWalletAccount,personalWalletService} from '../../services/personalWallet.service';
 import {BANK_CATALOG} from '../../utils/bankLogoRegistry';
 import {formatMoney} from '../../utils/formatters';
@@ -135,7 +135,29 @@ export const CardEditModal:React.FC<Props>=({card,accounts,onClose,onSaved})=>{
      {form.closing_mode==='DAYS_BEFORE_DUE'&&Number(form.closing_days_before_due)>0&&(Number(form.closing_days_before_due)<5||Number(form.closing_days_before_due)>15)&&<p className="col-span-2 text-[11px] text-amber-300">A maioria dos cartões fecha entre 7 e 10 dias antes do vencimento. Confira com a fatura do banco.</p>}
      <p className="col-span-2 text-[11px] text-slate-400">Mudanças em fechamento e vencimento valem a partir deste mês; faturas anteriores continuam como estavam. Feriados estaduais e municipais não são considerados.</p>
     </div>
-    <label className="text-xs text-slate-300"><span className="block">Cor no app</span><input type="color" value={form.primary_color} onChange={e=>change('primary_color',e.target.value)} className="mt-1 h-12 w-full cursor-pointer rounded-lg border border-slate-700 bg-slate-950 p-1"/></label>
+    <fieldset className="space-y-2">
+      <legend className="text-xs text-slate-300">Cor do cartão no app</legend>
+      <div className="flex flex-wrap gap-1">
+        {[
+          ['Preto', '#171717'], ['Grafite', '#334155'], ['Prata', '#87939f'],
+          ['Champanhe', '#a89473'], ['Dourado', '#b88628'], ['Laranja', '#c05c26'],
+          ['Vermelho', '#b83238'], ['Rosa', '#be3276'], ['Rosé', '#ac717d'],
+          ['Roxo', '#773ab0'], ['Azul', '#315d91'], ['Turquesa', '#137e89'],
+        ].map(([label, color]) => {
+          const selected = form.primary_color.toLowerCase() === color;
+          return <button key={color} type="button" title={label} aria-label={label} aria-pressed={selected}
+            onClick={() => change('primary_color', color)}
+            className="grid size-11 place-items-center rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-400">
+            <span aria-hidden="true" style={{ backgroundColor: color }}
+              className={`size-7 rounded-md border border-white/20 ${selected ? 'ring-2 ring-white ring-offset-2 ring-offset-slate-950' : ''}`} />
+          </button>;
+        })}
+      </div>
+      <label className="flex items-center gap-2 text-xs text-slate-300">
+        <input type="color" value={form.primary_color} onChange={e=>change('primary_color',e.target.value)} className="size-11 cursor-pointer rounded-lg border border-slate-700 bg-slate-950 p-1"/>
+        Cor personalizada
+      </label>
+    </fieldset>
     <div className="space-y-1 text-xs text-slate-300">
      <span className="block">Status</span>
      <SelectOptionList
@@ -145,7 +167,6 @@ export const CardEditModal:React.FC<Props>=({card,accounts,onClose,onSaved})=>{
       onChange={value=>change('status',value)}
      />
     </div>
-    <p className="flex gap-2 rounded-xl border border-amber-700/40 bg-amber-950/20 p-3 text-xs text-amber-200 sm:col-span-2"><AlertTriangle size={17} className="shrink-0"/>Arquivar preserva o histórico e retira o cartão da carteira ativa. Excluir é permanente e só é permitido sem faturas, lançamentos ou limite utilizado. Bloquear no CapitalFlow não bloqueia o cartão no banco.</p>
     {error&&<p role="alert" className="text-xs text-rose-300 sm:col-span-2">{error}</p>}
    </div>
    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-800 px-4 pt-4 text-xs">

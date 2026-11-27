@@ -54,7 +54,6 @@ export const cardLimitUsagePercent = (creditLimit: number, available: number): n
 const LimitMeter: React.FC<{ percent: number | null; spent: number; className?: string }> = ({ percent, spent, className = '' }) => percent === null ? null : (
   <span className={`block ${className}`} role="meter" aria-label={`Gasto ${formatMoney(spent)}, ${percent}% do limite`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}>
     <span className="flex items-baseline justify-between gap-2 text-[10px] font-bold text-white/90">
-      <span className="truncate">Gasto <PrivateMoney value={formatMoney(spent)} /></span>
       <span className="shrink-0 tabular-nums">{percent}% do limite</span>
     </span>
     <span className="mt-0.5 block h-1.5 overflow-hidden rounded-full bg-white/25">
@@ -67,7 +66,23 @@ const LimitMeter: React.FC<{ percent: number | null; spent: number; className?: 
 const spentFromAvailable = (creditLimit: number, available: number): number =>
   Math.max(0, Math.round((Math.max(0, Number(creditLimit) || 0) - available) * 100) / 100);
 
-const Chip = () => <svg viewBox="0 0 42 33" width="36" height="29" aria-label="Chip EMV"><rect x="1" y="1" width="40" height="31" rx="6" fill="#DFC48C" stroke="#977844"/><path d="M14 1v31M28 1v31M1 11h40M1 22h40M14 11h14v11H14z" fill="none" stroke="#977844" strokeWidth="1.5"/></svg>;
+const CardLimitValues: React.FC<{ limit: number; remaining: number | null; origin: string }> = ({ limit, remaining, origin }) => (
+  <span className="@container grid w-full min-w-0 grid-cols-3 rounded-lg bg-black/20 py-1.5 text-center tabular-nums" title={origin}>
+    <span className="min-w-0 px-1">
+      <small className="block text-[10px] font-bold uppercase text-white/80">Limite</small>
+      <strong className="mt-0.5 block text-[clamp(0.625rem,4.3cqi,0.875rem)] leading-tight font-bold [overflow-wrap:anywhere]"><PrivateMoney value={formatMoney(limit)} /></strong>
+    </span>
+    <span className="min-w-0 border-l border-white/15 px-1">
+      <small className="block text-[10px] font-bold uppercase text-white/80">Gasto</small>
+      <strong className="mt-0.5 block text-[clamp(0.625rem,4.3cqi,0.875rem)] leading-tight font-bold [overflow-wrap:anywhere]"><PrivateMoney value={remaining === null ? '—' : formatMoney(spentFromAvailable(limit, remaining))} /></strong>
+    </span>
+    <span className="min-w-0 border-l border-white/15 px-1">
+      <small className="block text-[10px] font-bold uppercase text-white/80" aria-label={`Restante · ${origin}`}>Restante</small>
+      <strong className="mt-0.5 block text-[clamp(0.625rem,4.3cqi,0.875rem)] leading-tight font-bold [overflow-wrap:anywhere]"><PrivateMoney value={remaining === null ? '—' : formatMoney(remaining)} /></strong>
+    </span>
+  </span>
+);
+
 
 const Network = ({ brand }: { brand: string | null }) => {
   const value = (brand || '').toLowerCase();
@@ -219,8 +234,7 @@ export const BankStack: React.FC<Props> = ({ accounts, cards, onCard, onEditCard
                     <Network brand={card.brand}/>
                   </span>
                   <span className="flex items-center justify-between gap-2">
-                    <Chip/>
-                    <span className="min-w-0 text-right" title={availability.label}><small className="block truncate whitespace-nowrap text-[10px] font-bold uppercase text-white/80">{availability.fromBank ? 'Limite disponível' : 'Limite estimado'}</small><strong className="block truncate text-base font-black"><PrivateMoney value={availability.ready ? formatMoney(availability.amount) : '—'} /></strong></span>
+                    <CardLimitValues limit={Number(card.credit_limit)} remaining={availability.ready ? availability.amount : null} origin={availability.label} />
                   </span>
                   <span className="font-mono text-sm font-bold tracking-[0.11em]">{card.last_four ? `•••• •••• •••• ${card.last_four}` : '•••• •••• •••• ----'}</span>
                   <LimitMeter percent={usage} spent={spentFromAvailable(Number(card.credit_limit), availability.amount)} className="mt-auto" />
@@ -300,8 +314,7 @@ export const BankStack: React.FC<Props> = ({ accounts, cards, onCard, onEditCard
                       <Network brand={selected.brand}/>
                     </div>
                     <div className="flex items-center justify-between gap-3">
-                      <Chip/>
-                      <div className="min-w-0 text-right" title={availableLabel}><small className="block truncate whitespace-nowrap text-[10px] font-bold uppercase text-white/80">{hasBankLimit ? 'Limite disponível' : 'Limite estimado'}</small><strong className="block truncate text-sm font-black sm:text-base"><PrivateMoney value={limitState === 'READY' ? formatMoney(available) : '—'} /></strong></div>
+                      <CardLimitValues limit={Number(selected.credit_limit)} remaining={limitState === 'READY' ? available : null} origin={availableLabel} />
                     </div>
                     <button type="button" data-card-section="number" onPointerDown={event => event.stopPropagation()} onClick={event => { void handleCopyField('number', event); }} disabled={!selected.last_four} aria-label="Copiar apenas os quatro últimos dígitos do cartão" title="Copiar final do cartão" className="flex min-h-8 min-w-0 items-center justify-between gap-2 rounded-lg border border-white/15 bg-black/20 px-2.5 py-1.5 text-left transition hover:bg-black/30">
                       <span className="min-w-0 whitespace-nowrap font-mono text-[clamp(0.68rem,3.1vw,0.95rem)] font-bold tracking-[0.11em] text-white">{maskedNumber}</span>

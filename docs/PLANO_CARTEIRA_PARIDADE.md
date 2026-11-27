@@ -98,9 +98,9 @@ Base comum: **um único resolvedor de datas do ciclo**, `private.wallet_card_cyc
 
 ## Situação em 27/11/2026
 
-- Fase 0: entregue (0.1, 0.2, 0.3, 0.4). 0.5 opcional, não feito.
+- Fase 0: entregue (0.1 a 0.5; 0.5 em 27/11 com autorização).
 - Fase 1: entregue (1.0 a 1.4). Limitações: importação e linha do tempo usam ciclo de dia fixo; salvar cartão faz duas chamadas.
-- Fase 2: entregue 2.1, 2.2, 2.3A, 2.3B e 2.4A. **2.4B (push) pendente.**
+- Fase 2: entregue completa (2.1, 2.2, 2.3A, 2.3B, 2.4A e 2.4B).
 
 ## Fora do escopo agora
 

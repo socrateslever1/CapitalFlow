@@ -1781,3 +1781,8 @@ O ícone do olho já acionava o `FinancialPrivacyProvider`, mas os elementos aba
 ## 27/11/2026 — Ajustes do Antigravity integrados
 
 - Frente do cartão com Limite/Gasto/Restante, paleta de cores no editor, aviso de fatura vazia removido e atalhos compactos na conta. Testes de arquitetura ajustados ao novo formato. Detalhes em `CHANGELOG.md`. Sem aparelho físico.
+
+## 27/11/2026 — Item 0.5: data das compras de empréstimo (correção autorizada)
+
+- Com autorização expressa do proprietário, 2 compras de cartão ligadas a empréstimo, criadas antes de 25/11, passaram a usar a data do empréstimo. Transação única com checagens (nenhuma parcela paga; a fatura não muda). Cada compra guarda o registro da correção (`mutation_requests.correcao-data-0-5`: data anterior, nova e momento). Depois: 0 divergências; ambas continuam na mesma fatura. Sem código alterado.
+- **Plano concluído:** Fases 0, 1 e 2, incluindo o item 0.5.

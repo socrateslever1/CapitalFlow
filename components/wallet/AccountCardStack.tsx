@@ -19,6 +19,10 @@ export const AccountCardStack: React.FC<Props> = ({ accounts, onOpen, compact = 
   const privacyHidden = useFinancialPrivacy();
   const [showHint, setShowHint] = useState(false);
   const total = useMemo(() => accounts.reduce((sum, account) => sum + Number(account.balance || 0), 0), [accounts]);
+  // Maior saldo primeiro; empate fica em ordem alfabética para não pular de lugar.
+  const sortedAccounts = useMemo(() => [...accounts].sort((a, b) =>
+    Math.round(Number(b.balance || 0) * 100) - Math.round(Number(a.balance || 0) * 100)
+    || a.nickname.localeCompare(b.nickname, 'pt-BR')), [accounts]);
 
   return (
     <section aria-label="Contas e saldos" className="space-y-4">
@@ -47,7 +51,7 @@ export const AccountCardStack: React.FC<Props> = ({ accounts, onOpen, compact = 
         </div>
       ) : (
         <div className={compact ? 'divide-y divide-slate-800' : 'grid min-w-0 gap-2.5 sm:grid-cols-2 2xl:grid-cols-3'}>
-          {accounts.map(account => {
+          {sortedAccounts.map(account => {
             const isCash = account.account_type === 'CASH';
             const visual = getBankVisual(account.institution_key || account.bank_name || account.nickname);
             const balanceValue = Number(account.balance || 0);

@@ -1,5 +1,9 @@
 # Changelog
 
+## 27/11/2026 — Contas com maior saldo primeiro
+
+**Melhoria (só interface).** `components/wallet/AccountCardStack.tsx`: "Suas contas" passa a listar a conta com mais saldo primeiro (comparação em centavos; empate em ordem alfabética). Novo teste `tests/wallet/account-card-stack-order.test.tsx` incluído em `test:wallet-visual-next`.
+
 ## 27/11/2026 — Fundo dos botões de movimentar conta
 
 **Melhoria (só interface, registro retroativo do commit e47e683).** `components/wallet/AccountActivityPanel.tsx`: Receita, Receber, Despesa, Pagar e Transferir deixam o fundo quase preto com borda forte por placas levemente elevadas (`bg-slate-800/45` com contorno sutil), realce azul do padrão da Carteira na opção aberta e animação do ícone ao tocar. Conferido no app local; não validado em celular físico.

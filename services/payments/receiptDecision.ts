@@ -60,12 +60,16 @@ export function resolveReceiptDecision(input: ReceiptDecisionInput): ReceiptDeci
     return { action: input.businessAction, operationType: 'DISCOUNT_RENEWAL', isRecurring, needsBusinessChoice: false };
   }
 
-  if (amount < interest - EPSILON) {
+  const isMonthlyRenewal = ['MONTHLY', 'GIRO', 'REVOLVING'].includes(String(input.billingCycle || '').toUpperCase());
+  if (isMonthlyRenewal && interest <= 0) {
+    return { action: 'AUTOMATIC', operationType: 'KEEP_PENDING', isRecurring, needsBusinessChoice: false };
+  }
+  if (amount < interest - (isMonthlyRenewal ? 0.005 : EPSILON)) {
     return { action: 'CAPITALIZE_REMAINDER', operationType: 'CAPITALIZE_RENEWAL', isRecurring, needsBusinessChoice: true };
   }
 
   // Juros mensais quitados renovam o ciclo; encargos remanescentes permanecem pendentes.
-  if (!['MONTHLY', 'GIRO', 'REVOLVING'].includes(String(input.billingCycle || '').toUpperCase()) && lateFee > EPSILON && amount < interest + lateFee - EPSILON) {
+  if (!isMonthlyRenewal && lateFee > EPSILON && amount < interest + lateFee - EPSILON) {
     return { action: 'AUTOMATIC', operationType: 'KEEP_PENDING', isRecurring, needsBusinessChoice: false };
   }
 

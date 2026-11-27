@@ -601,18 +601,21 @@ run('modo de recebimento acompanha o valor informado sem bloquear a troca manual
   assert.equal(inferReceiptMode(220, 520, 120), 'CUSTOM');
 });
 
-run('recebimento recorrente renova só quando o atraso efetivo foi regularizado', () => {
+run('recebimento mensal renova quando os juros são quitados e preserva atraso', () => {
   assert.equal(resolveReceiptDecision({ amountReceived: 120, principal: 400, interest: 120, lateFee: 0, billingCycle: 'MONTHLY' }).operationType, 'RENEW_KEEP_PENDING');
   assert.equal(resolveReceiptDecision({ amountReceived: 220, principal: 400, interest: 120, lateFee: 0, billingCycle: 'MONTHLY' }).operationType, 'RENEW_KEEP_PENDING');
-  assert.equal(resolveReceiptDecision({ amountReceived: 120, principal: 400, interest: 120, lateFee: 30, billingCycle: 'MONTHLY' }).operationType, 'KEEP_PENDING');
-  assert.equal(resolveReceiptDecision({ amountReceived: 149, principal: 400, interest: 120, lateFee: 30, billingCycle: 'MONTHLY' }).operationType, 'KEEP_PENDING');
+  assert.equal(resolveReceiptDecision({ amountReceived: 120, principal: 400, interest: 120, lateFee: 30, billingCycle: 'MONTHLY' }).operationType, 'RENEW_KEEP_PENDING');
+  assert.equal(resolveReceiptDecision({ amountReceived: 149, principal: 400, interest: 120, lateFee: 30, billingCycle: 'MONTHLY' }).operationType, 'RENEW_KEEP_PENDING');
   assert.equal(resolveReceiptDecision({ amountReceived: 150, principal: 400, interest: 120, lateFee: 30, billingCycle: 'MONTHLY' }).operationType, 'RENEW_KEEP_PENDING');
   assert.equal(resolveReceiptDecision({ amountReceived: 80, principal: 400, interest: 120, lateFee: 0, billingCycle: 'MONTHLY' }).needsBusinessChoice, true);
+  assert.equal(resolveReceiptDecision({ amountReceived: 119.99, principal: 400, interest: 120, lateFee: 30, billingCycle: 'MONTHLY' }).needsBusinessChoice, true);
+  assert.equal(resolveReceiptDecision({ amountReceived: 120, principal: 400, interest: 120, lateFee: 30, billingCycle: 'WEEKLY' }).operationType, 'KEEP_PENDING');
+  assert.equal(resolveReceiptDecision({ amountReceived: 20, principal: 400, interest: 0, lateFee: 30, billingCycle: 'MONTHLY' }).operationType, 'KEEP_PENDING');
   assert.equal(resolveReceiptDecision({ amountReceived: 200, principal: 600, interest: 0, lateFee: 0, billingCycle: 'MONTHLY' }).operationType, 'PRINCIPAL_REDUCTION');
   assert.equal(resolveReceiptDecision({ amountReceived: 200, principal: 400, interest: 0, lateFee: 0, billingCycle: 'MONTHLY', businessAction: 'PRINCIPAL_REDUCTION' }).operationType, 'PRINCIPAL_REDUCTION');
 });
 
-run('cenário de juros 300 e atraso 169 não duplica opções nem renova atraso aberto', () => {
+run('cenário de juros 300 e atraso 169 renova sem perdoar atraso', () => {
   const base = {
     loan: { billingCycle: 'MONTHLY' } as any,
     selectedInst: { dueDate: '2026-10-02', principalRemaining: 1000, interestRemaining: 300, lateFeeAccrued: 169 } as any,
@@ -625,8 +628,9 @@ run('cenário de juros 300 e atraso 169 não duplica opções nem renova atraso 
   assertMoney(charged.displayedAmount, 300, 'somente juros');
   assert.equal(charged.canReceiveChargesOnly, true);
   assert.equal(charged.needsBusinessChoice, false);
-  assert.equal(charged.automaticDecision.operationType, 'KEEP_PENDING');
+  assert.equal(charged.automaticDecision.operationType, 'RENEW_KEEP_PENDING');
   assert.ok(charged.receiptEffect.includes('continua pendente'));
+  assert.ok(charged.receiptEffect.includes('renova por 30 dias'));
 
   const waived = buildInstallmentReceiptModel({ ...base, lateFeeForgiven: 169 });
   assertMoney(waived.displayedAmount, 300, 'juros após dispensa');

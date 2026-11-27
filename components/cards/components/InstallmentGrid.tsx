@@ -662,6 +662,9 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                             <p className="text-[8px] font-bold uppercase text-slate-500">Saldo depois</p>
                                             <p className="mt-1 text-sm font-black text-white">{reviewPreview ? formatMoney(Number((reviewPreview.after as any)?.total || 0), isStealthMode) : 'Conforme a condição'}</p>
                                         </div>
+                                        {reviewPreview?.after?.automatic_cycle_renewal === true && (
+                                            <p className="mt-2 text-xs font-bold text-emerald-300">Novo vencimento: {String(reviewPreview.after.due_date).split('-').reverse().join('/')} · Encargos pendentes: {formatMoney(Number(reviewPreview.after.late_fee || 0), isStealthMode)}</p>
+                                        )}
                                         {reviewPreview && (
                                             <>
                                                 <div className="rounded-lg bg-slate-950/70 p-2.5">
@@ -760,7 +763,8 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                     const effectiveOperation = hasActiveOffer ? 'KEEP_PENDING' : finalDecision.operationType;
                                     const paymentDate = parseDateOnlyUTC(paymentDateStr);
                                     const advancesDueDate = ['RENEW_KEEP_PENDING', 'CAPITALIZE_RENEWAL', 'DISCOUNT_RENEWAL'].includes(effectiveOperation);
-                                    const suggestedRenewalDate = advancesDueDate
+                                    const automaticMonthlyRenewal = effectiveOperation === 'RENEW_KEEP_PENDING' && ['MONTHLY', 'GIRO', 'REVOLVING'].includes(String(loan.billingCycle || '').toUpperCase());
+                                    const suggestedRenewalDate = advancesDueDate && !automaticMonthlyRenewal
                                         ? suggestRenewalDueDate({
                                             loan,
                                             inst: selectedInst,

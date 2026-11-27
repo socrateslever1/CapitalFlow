@@ -102,6 +102,35 @@ Base comum: **um único resolvedor de datas do ciclo**, `private.wallet_card_cyc
 - Fase 1: entregue (1.0 a 1.4). Limitações: importação e linha do tempo usam ciclo de dia fixo; salvar cartão faz duas chamadas.
 - Fase 2: entregue completa (2.1, 2.2, 2.3A, 2.3B, 2.4A e 2.4B).
 
+## Verificação no código (27/11/2026, segunda rodada)
+
+Conferido item a item no código atual (migrations, telas e testes), não só pelo registro:
+
+| Item | Banco | Tela | Testes |
+|---|---|---|---|
+| 0.1 restante da fatura (`personal_wallet_roll_invoice_remainder`) | sim | sim | sim |
+| 0.2 antecipação (`personal_wallet_advance_installments`) | sim | sim | sim |
+| 1.0 resolvedor (`wallet_card_cycle_dates` / `getInvoiceCycleDates`) | sim | sim | sim |
+| 1.1 configuração por mês (`personal_wallet_card_cycle_settings`) | sim | sim | sim |
+| 1.2 fechamento N dias antes (`DAYS_BEFORE_DUE`) | sim | sim | sim |
+| 1.3 vencimento em dia útil com feriados nacionais | sim (`wallet_card_cycle_rules`) | sim | sim |
+| 1.4 fechamento informado do mês (`closing_date`) | sim | sim | sim |
+| 2.1 considerar no limite (`affects_limit`) | sim | sim | sim |
+| 2.2 reabrir fatura paga | sim | sim | sim |
+| 2.3A previsto por conta (`calculateAccountProjections`) | não precisa | sim | sim |
+| 2.3B pendente/efetivado (`personal_wallet_pending_operations`) | sim | sim | sim |
+| 2.4A aviso no sino (`buildInvoiceReminders`) | não precisa | sim | sim |
+| 2.4B push diário (`wallet_invoice_push_reminders`) | sim | sim | via 2.4A |
+
+- Limitação resolvida: linha do tempo e importação da fatura já usam as regras do cartão (passam o cartão ao resolvedor).
+- Limitação que continua: salvar o cartão faz duas chamadas (`updateCardMetadata` e `setCardCycleRules` em `CardEditModal.tsx`). Só configuração, sem valores; se a segunda falhar, o nome/limite muda e o ciclo não.
+
+### Onde o CapitalFlow já vai além
+Integração da Carteira com contratos e fontes de capital, operações financeiras em RPC única e idempotente, leitura de fatura/extrato em PDF (com senha), CSV e XLSX, exclusão definitiva com recibo, cofre do cartão com PIN, logos dos bancos e previsão de 30 dias por conta.
+
+### O que o Minhas Finanças tem e o CapitalFlow ainda não (candidatos, sem compromisso)
+Orçamento por categoria, objetivos (metas de economia), tags e subcategorias, regras automáticas de categorização na importação, calendário de vencimentos, busca global de lançamentos, importação de NFC-e e widgets de tela inicial. Open Finance segue fora do escopo.
+
 ## Fora do escopo agora
 
 - **Open Finance (item 9):** depende de agregador contratado (custo, LGPD, consentimento, certificação). Registrar como estudo separado; nada desta fase deve impedir a futura importação automática.

@@ -1,3 +1,8 @@
+## 27/11/2026 — Verificação da paridade com o Minhas Finanças
+
+- Todos os itens das Fases 0, 1 e 2 de `docs/PLANO_CARTEIRA_PARIDADE.md` conferidos no código (banco, tela e testes); tabela na seção "Verificação no código".
+- Limitação pendente: salvar cartão em duas chamadas (`CardEditModal.tsx`). Só documentação; nenhum código alterado.
+
 ## 27/11/2026 — Barra inferior e Central de Alertas padronizadas
 
 - `layout/BottomNav.tsx` segue o padrão visual da navegação da Carteira (`features/wallet/WalletModule.tsx`).

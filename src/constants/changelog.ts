@@ -28,6 +28,7 @@ export const SYSTEM_CHANGELOG: ChangelogRelease[] = [
     title: 'Carteira completa e visual novo',
     summary: 'Pendentes, previsto por conta, aviso de fatura no celular, exclusão definitiva, unificação com juros e ícones novos no app.',
     items: [
+      { kind: 'CORRECAO', text: 'Editar conta mostra o cartão já cadastrado e o limite real dele, sem perguntar de novo se a conta tem cartão.' },
       { kind: 'MELHORIA', text: 'Ícones dos botões e das abas animam de forma bem visível ao tocar, abrir ou passar o mouse.' },
       { kind: 'CORRECAO', text: 'O ícone do topo do Atendimento agora é o mesmo da aba Chat, no padrão das outras páginas.' },
       { kind: 'CORRECAO', text: 'Atendimento: abas Ativos e Clientes, Gerenciar conversas e botões do topo no mesmo padrão da Carteira.' },

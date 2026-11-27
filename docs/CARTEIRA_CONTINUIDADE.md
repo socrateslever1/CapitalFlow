@@ -1,3 +1,7 @@
+## 27/11/2026 — Editar conta reconhece o cartão já cadastrado
+
+- `AccountDetailsPage`: `linkedCards` (mesmo `account_id`, ou mesmo `institution_key` sem conta) esconde o campo informativo de cartão e mostra o limite real; ao salvar, limpa `has_credit_card`/`credit_card_limit` de `bank_details`. Sem migração.
+
 ## 27/11/2026 — Animação dos ícones mais visível
 
 - `index.css`: pulo do ícone inteiro ao ativar (`cf-icon-pop`), partes internas com amplitude maior, cabeçalho com entrada maior, hover e toque mais marcados. Respeita movimento reduzido. Cabeçalho do Atendimento passou ao ícone próprio `assistant` (antes lucide em círculo azul); abas, "Gerenciar conversas" e botões do topo do Atendimento no padrão da Carteira. Não validado em celular físico. Classes `cf-seg`/`cf-seg-tab` para seletores em 6 telas e texto normal nos botões de ação em caixa alta de 7 telas.

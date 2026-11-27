@@ -80,6 +80,10 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
   const [showMoreActions, setShowMoreActions] = useState(false);
   const [capitalTransferOpen, setCapitalTransferOpen] = useState(false);
   const [bankDetails,setBankDetails]=useState(()=>bankDetailsDraft(account.bank_details));
+  // Cartões já cadastrados desta conta (vínculo direto ou mesmo banco sem conta definida):
+  // o limite real é o do cartão, então a edição não pergunta de novo se a conta tem cartão.
+  const linkedCards = cards.filter(card => card.account_id === account.id
+    || (!card.account_id && !!account.institution_key && card.institution_key === account.institution_key));
   const [pixChargeOpen, setPixChargeOpen] = useState(false);
   const [pixCopied, setPixCopied] = useState(false);
   const [movementOpen, setMovementOpen] = useState(false);
@@ -169,7 +173,7 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
         pix_key: form.pix_key || null,
         notes: form.notes || null,
         capital_source_id: form.capital_source_id || null,
-        bank_details:normalizeBankDetails(bankDetails),
+        bank_details:normalizeBankDetails(linkedCards.length ? {...bankDetails,has_credit_card:false,credit_card_limit:''} : bankDetails),
       }, image);
       setImage(null);
       setImagePreview('');
@@ -611,7 +615,15 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
               </span>
             </label>
           </div>
-          {form.account_type!=='CASH'&&<BankAccountDetailsFields value={bankDetails} onChange={setBankDetails}/>}
+          {form.account_type!=='CASH'&&linkedCards.length>0&&<div className="rounded-xl border border-slate-800 bg-slate-800/30 p-3">
+            <p className="text-sm font-semibold text-slate-200">{linkedCards.length>1?'Cartões vinculados a esta conta':'Cartão vinculado a esta conta'}</p>
+            <ul className="mt-2 space-y-1.5">{linkedCards.map(card=><li key={card.id} className="flex items-center justify-between gap-3 text-sm">
+              <span className="min-w-0 truncate text-slate-300">{card.nickname}{card.last_four?` · final ${card.last_four}`:''}</span>
+              <span className="shrink-0 tabular-nums text-slate-200">Limite <PrivateMoney value={formatMoney(Number(card.credit_limit||0))}/></span>
+            </li>)}</ul>
+            <p className="mt-2 text-xs text-slate-400">O limite usado nas contas é o do cartão. Para mudar, edite o cartão em Cartões.</p>
+          </div>}
+          {form.account_type!=='CASH'&&<BankAccountDetailsFields value={bankDetails} onChange={setBankDetails} showCreditCard={!linkedCards.length}/>}
         </form>
         </Modal>
       )}

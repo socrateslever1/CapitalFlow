@@ -11,7 +11,7 @@ test('visão geral e relatório explicam o balanço em português sem números d
   assert.ok(overview.includes('Sobra prevista após compromissos'));
   assert.ok(report.includes('Como calculamos a sobra prevista'));
   assert.ok(overview.includes('Recursos do mês'));
-  assert.ok(overview.includes('Compromissos do mês'));
+  assert.ok(overview.includes('Compromissos (próx. 30 dias)'));
   assert.ok(overview.includes('PrivateMoney value={money(balance.projectedBalance)}'));
   assert.ok(!overview.includes('<details className="group mt-3'));
   assert.ok(!overview.includes('describeWalletBalanceFact(balance.facts.'));

@@ -12,7 +12,8 @@ export type AppIconName =
   | 'admin' | 'settings' | 'menu' | 'edit' | 'whatsapp' | 'portal' | 'promissory' | 'attach' | 'notes'
   | 'calendar' | 'contractLate' | 'contractDone' | 'contractCapital' | 'pix' | 'offer' | 'receive' | 'details'
   | 'banknote' | 'briefcase' | 'exposure' | 'growth' | 'gauge' | 'ai' | 'trend' | 'percent' | 'scroll' | 'printer'
-  | 'shieldCheck' | 'bank' | 'clock' | 'walletGreen' | 'chat' | 'income' | 'expense' | 'transfer';
+  | 'shieldCheck' | 'bank' | 'clock' | 'walletGreen' | 'chat' | 'income' | 'expense' | 'transfer'
+  | 'trash' | 'userPlus';
 
 const paths: Record<AppIconName, React.ReactNode> = {
   // Painel: gráfico de barras sobre um quadro.
@@ -332,6 +333,18 @@ const paths: Record<AppIconName, React.ReactNode> = {
     <path d="M7 9.5h9.5M14 7l2.5 2.5L14 12" stroke="#a5f3fc" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none" />
     <path d="M17 14.5H7.5M10 12l-2.5 2.5L10 17" stroke="#fde68a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none" />
   </>,
+  trash: <>
+    <path d="M4.5 6.5h15" stroke="#fb7185" strokeWidth="2" strokeLinecap="round" />
+    <path d="M9.5 4h5" stroke="#fda4af" strokeWidth="2" strokeLinecap="round" />
+    <path d="M6.5 7.5h11l-1 12.2a1.8 1.8 0 0 1-1.8 1.8H9.3a1.8 1.8 0 0 1-1.8-1.8z" fill="#e11d48" />
+    <path d="M10 11v6.5M14 11v6.5" stroke="#ffe4e6" strokeWidth="1.6" strokeLinecap="round" />
+  </>,
+  userPlus: <>
+    <circle cx="9.5" cy="8.5" r="3.5" fill="#60a5fa" />
+    <path d="M3.5 20a6 6 0 0 1 12 0z" fill="#2563eb" />
+    <circle cx="18" cy="15.5" r="3.6" fill="#10b981" />
+    <path d="M18 13.7v3.6M16.2 15.5h3.6" stroke="#ecfdf5" strokeWidth="1.6" strokeLinecap="round" />
+  </>,
 };
 
 const onColorPaths: Partial<Record<AppIconName, React.ReactNode>> = {
@@ -384,6 +397,18 @@ const onColorPaths: Partial<Record<AppIconName, React.ReactNode>> = {
     <rect x="3" y="4" width="18" height="5" rx="1.5" fill="#dbeafe" />
     <path d="M4.5 9h15v9.5a2 2 0 0 1-2 2h-11a2 2 0 0 1-2-2z" fill="#ffffff" />
     <rect x="9.5" y="11.5" width="5" height="2" rx="1" fill="#2563eb" />
+  </>,
+  trash: <>
+    <path d="M4.5 6.5h15" stroke="#ffe4e6" strokeWidth="2" strokeLinecap="round" />
+    <path d="M9.5 4h5" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" />
+    <path d="M6.5 7.5h11l-1 12.2a1.8 1.8 0 0 1-1.8 1.8H9.3a1.8 1.8 0 0 1-1.8-1.8z" fill="#ffffff" />
+    <path d="M10 11v6.5M14 11v6.5" stroke="#e11d48" strokeWidth="1.6" strokeLinecap="round" />
+  </>,
+  userPlus: <>
+    <circle cx="9.5" cy="8.5" r="3.5" fill="#ffffff" />
+    <path d="M3.5 20a6 6 0 0 1 12 0z" fill="#dbeafe" />
+    <circle cx="18" cy="15.5" r="3.6" fill="#34d399" />
+    <path d="M18 13.7v3.6M16.2 15.5h3.6" stroke="#064e3b" strokeWidth="1.6" strokeLinecap="round" />
   </>,
 };
 

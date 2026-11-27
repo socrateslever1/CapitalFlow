@@ -1,3 +1,10 @@
+## 27/11/2026 — Compromissos dos próximos 30 dias e consistência do painel
+
+- Carteira: `calculateWalletBalance` e `calculateAccountProjections` aceitam `horizonDate` opcional (sem ele, comportamento antigo do mês). A Visão geral usa hoje+30 para faturas, contas a pagar e pendentes; vencidos sempre entram.
+- Painel: Saídas do gráfico Evolução incluem o empréstimo inicial; Auditor IA lê as estatísticas do painel e o balanço mensal.
+- Clientes: risco só com contratos abertos.
+- Testes reais: ver CHANGELOG.md (mesma data). Sem migração. Limitação: não validado em celular físico; divergência de saldo de um cliente entre telas (principal x dívida total) segue para confirmação.
+
 ## 25/11/2026 — Cartões no web (fileira, mouse, medidor) e data de compra de empréstimo por cartão
 
 - **Pedido:** opções 1 + 3 + 4 para o cartão no modo web (cartões lado a lado, interação de mouse, medidor de limite) e correção da data da compra gerada por empréstimo financiado por cartão (já registrada como risco em 20/11: `finalize_card_funded_loan_v1` usava `created_at`).

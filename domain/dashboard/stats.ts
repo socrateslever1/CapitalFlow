@@ -7,6 +7,8 @@ import { resolveProfitBalance } from '../../utils/profitBalance';
 import { isTestSource } from '../../utils/testSource';
 import { businessMonthInManaus, shiftBusinessMonth } from '../../utils/businessDate';
 
+const LEND_TYPES = new Set(['LOAN_INITIAL', 'LOAN_CREATED', 'NEW_LOAN', 'LEND_MORE', 'NOVO_APORTE', 'APORTE']);
+
 const isUnifiedChildLoan = (loan: Loan): boolean => {
   const notes = String(loan.notes || '');
   return (
@@ -104,12 +106,12 @@ export const buildDashboardStats = (loansRaw: Loan[], sources: any[] = [], activ
   const onTimeCount = classifiedLoans.filter(c => c.classification === 'EM_DIA' && !isUnifiedChildLoan(c.loan)).length;
 
   const rawPieData = [
-      { name: 'Em Dia', value: onTimeCount, color: '#3b82f6' },
-      { name: 'Atrasados', value: lateCount, color: '#f43f5e' },
-      { name: 'Quitados', value: paidCount, color: '#10b981' }
+      { name: 'Em Dia', value: onTimeCount, color: '#059669' },
+      { name: 'Atrasados', value: lateCount, color: '#d97706' },
+      { name: 'Quitados', value: paidCount, color: '#4338ca' }
   ];
   if (renegotiatedCount > 0) {
-      rawPieData.push({ name: 'Renegociados', value: renegotiatedCount, color: '#f97316' });
+      rawPieData.push({ name: 'Renegociados', value: renegotiatedCount, color: '#7e22ce' });
   }
 
   const totalPieValue = rawPieData.reduce((acc, item) => acc + item.value, 0);
@@ -151,7 +153,7 @@ export const buildDashboardStats = (loansRaw: Loan[], sources: any[] = [], activ
           
           if (originalTx) {
              if (originalTx.type?.includes('PAYMENT')) isPaymentReversal = true;
-             if (originalTx.type === 'LEND_MORE' || originalTx.type === 'NOVO_APORTE' || originalTx.type === 'NEW_LOAN') isLendReversal = true;
+             if (LEND_TYPES.has(String(originalTx.type))) isLendReversal = true;
           } else {
              // Fallback
              isPaymentReversal = (Number(t.interestDelta || 0) < 0 || Number(t.lateFeeDelta || 0) < 0 || t.type === 'AGREEMENT_PAYMENT_REVERSED');
@@ -159,7 +161,8 @@ export const buildDashboardStats = (loansRaw: Loan[], sources: any[] = [], activ
           }
       }
 
-      if (t.type === 'LEND_MORE' || t.type === 'NOVO_APORTE' || t.type === 'NEW_LOAN' || isLendReversal) {
+      // Empréstimo inicial também é saída de caixa (antes ficava de fora e a série 'Saídas' zerava).
+      if (LEND_TYPES.has(String(t.type)) || isLendReversal) {
         monthlyDataMap[key].Saidas += t.amount;
       } else if (t.type?.includes('PAYMENT') || isPaymentReversal) {
         monthlyDataMap[key].Entradas += t.amount;
@@ -179,9 +182,30 @@ export const buildDashboardStats = (loansRaw: Loan[], sources: any[] = [], activ
     return m1.localeCompare(m2);
   });
 
+  // Concentração: participação dos 3 maiores devedores no capital em aberto e exposição ao risco.
+  const principalByDebtor = new Map<string, number>();
+  activeLoans.forEach(c => {
+    const principal = loanEngine.computeRemainingBalance(c.loan).principalRemaining;
+    if (principal <= ZERO_BALANCE_THRESHOLD) return;
+    const key = String((c.loan as any).clientId || c.loan.debtorName || c.loan.id);
+    principalByDebtor.set(key, (principalByDebtor.get(key) || 0) + principal);
+  });
+  const top3Principal = [...principalByDebtor.values()].sort((a, b) => b - a).slice(0, 3).reduce((a, b) => a + b, 0);
+  const topDebtorsShare = totalLent > 0 ? top3Principal / totalLent : 0;
+  const exposureShare = totalLent > 0 ? totalAtRisk / totalLent : 0;
+  const topLateLoans = activeLoans
+    .filter(c => c.classification === 'ATRASADO' || c.classification === 'CRITICO')
+    .map(c => ({ name: c.loan.debtorName, amount: roundMoney(loanEngine.computeRemainingBalance(c.loan).totalRemaining), days: c.riskProfile.daysLate }))
+    .sort((a, b) => b.days - a.days || b.amount - a.amount)
+    .slice(0, 5);
+
   return {
       totalLent: roundMoney(totalLent),
       activeCount,
+      lateCount,
+      topDebtorsShare,
+      exposureShare,
+      topLateLoans,
       totalReceived: roundMoney(totalProfitRealized),
       receivedThisMonth: roundMoney(receivedThisMonth),
       expectedProfit: roundMoney(totalProjectedProfit),

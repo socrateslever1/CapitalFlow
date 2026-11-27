@@ -110,7 +110,10 @@ export const calculateWalletBalance = (input: {
   month: string;
   /** Lançamentos pendentes previstos até o fim do mês (entradas somam, saídas subtraem). */
   pendingOperations?: WalletPendingOperation[];
+  /** Data limite (YYYY-MM-DD) dos compromissos; sem ela vale o fim do mês. */
+  horizonDate?: string;
 }): WalletBalanceSummary => {
+  const due = (date: unknown) => dueWithin(date, input.month, input.horizonDate);
   const accountBalance = input.accounts.reduce((sum, account) => sum + Number(account.balance || 0), 0);
   const pendingRecurringIncome = input.recurringIncomes
     .filter(income => income.active && !input.receivedIncomeIds.has(income.id))
@@ -118,11 +121,11 @@ export const calculateWalletBalance = (input: {
   const monthPayables = input.payables
     // Contas do mês e contas vencidas ainda não pagas entram na projeção.
     .filter(payable => !['PAID', 'CANCELED'].includes(payable.status) && Boolean(payable.due_date)
-      && String(payable.due_date).slice(0, 7) <= input.month)
+      && due(payable.due_date))
     .reduce((sum, payable) => sum + Number(payable.outstanding_balance || 0), 0);
   const openCardInvoices = Math.max(0, Number(input.openCardInvoices || 0));
-  const pendingIn = pendingRemaining(input.pendingOperations, 'IN', input.month);
-  const pendingOut = pendingRemaining(input.pendingOperations, 'OUT', input.month);
+  const pendingIn = pendingRemaining(input.pendingOperations, 'IN', input.month, undefined, input.horizonDate);
+  const pendingOut = pendingRemaining(input.pendingOperations, 'OUT', input.month, undefined, input.horizonDate);
   const totalResources = accountBalance + pendingRecurringIncome + pendingIn;
   const totalLiabilities = openCardInvoices + monthPayables + pendingOut;
   const projectedBalance = totalResources - totalLiabilities;
@@ -144,10 +147,14 @@ export const calculateWalletBalance = (input: {
 
 const cents = (value: number) => Math.round(value * 100) / 100;
 
-const pendingRemaining = (rows: WalletPendingOperation[] | undefined, direction: 'IN' | 'OUT', month: string, accountId?: string) =>
+/** Vence até a data limite (quando informada) ou até o fim do mês; vencidos sempre entram. */
+const dueWithin = (date: unknown, month: string, horizonDate?: string) =>
+  horizonDate ? String(date).slice(0, 10) <= horizonDate : String(date).slice(0, 7) <= month;
+
+const pendingRemaining = (rows: WalletPendingOperation[] | undefined, direction: 'IN' | 'OUT', month: string, accountId?: string, horizonDate?: string) =>
   (rows || [])
     .filter(row => row.status === 'PENDING' && row.direction === direction
-      && String(row.expected_date).slice(0, 7) <= month && (!accountId || row.account_id === accountId))
+      && dueWithin(row.expected_date, month, horizonDate) && (!accountId || row.account_id === accountId))
     .reduce((sum, row) => sum + Math.max(0, Number(row.amount) - Number(row.posted_amount || 0)), 0);
 
 export type AccountProjectionLine = { label: string; amount: number };
@@ -172,6 +179,7 @@ export function calculateAccountProjections(input: {
   invoices: Array<{ accountId: string | null; amount: number }>;
   pendingOperations?: WalletPendingOperation[];
   month: string;
+  horizonDate?: string;
 }): AccountProjection[] {
   const ids = new Set(input.accounts.map(account => account.id));
   const owner = (id: string | null | undefined) => (id && ids.has(id) ? id : null);
@@ -180,7 +188,7 @@ export function calculateAccountProjections(input: {
     .reduce((sum, income) => sum + Number(income.amount || 0), 0);
   const payables = (accountId: string | null) => input.payables
     .filter(payable => !['PAID', 'CANCELED'].includes(payable.status) && Boolean(payable.due_date)
-      && String(payable.due_date).slice(0, 7) <= input.month && owner(payable.origin_account_id) === accountId)
+      && dueWithin(payable.due_date, input.month, input.horizonDate) && owner(payable.origin_account_id) === accountId)
     .reduce((sum, payable) => sum + Number(payable.outstanding_balance || 0), 0);
   const invoices = (accountId: string | null) => input.invoices
     .filter(invoice => owner(invoice.accountId) === accountId)
@@ -188,8 +196,8 @@ export function calculateAccountProjections(input: {
   // Pendente de conta fora da lista (arquivada/oculta) vai para "Sem conta definida": as somas batem com o total.
   const orphanPending = (input.pendingOperations || []).filter(row => !ids.has(row.account_id));
   const build = (accountId: string | null, name: string, balance: number): AccountProjection => {
-    const pendingIn = accountId ? pendingRemaining(input.pendingOperations, 'IN', input.month, accountId) : pendingRemaining(orphanPending, 'IN', input.month);
-    const pendingOut = accountId ? pendingRemaining(input.pendingOperations, 'OUT', input.month, accountId) : pendingRemaining(orphanPending, 'OUT', input.month);
+    const pendingIn = accountId ? pendingRemaining(input.pendingOperations, 'IN', input.month, accountId, input.horizonDate) : pendingRemaining(orphanPending, 'IN', input.month, undefined, input.horizonDate);
+    const pendingOut = accountId ? pendingRemaining(input.pendingOperations, 'OUT', input.month, accountId, input.horizonDate) : pendingRemaining(orphanPending, 'OUT', input.month, undefined, input.horizonDate);
     const lines: AccountProjectionLine[] = [
       { label: 'Receitas fixas a receber', amount: cents(incomes(accountId)) },
       { label: 'Entradas pendentes', amount: cents(pendingIn) },

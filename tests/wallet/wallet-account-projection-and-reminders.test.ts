@@ -71,3 +71,11 @@ test('lembretes: fecha e vence em até 3 dias, sem valores no texto; cartão can
   assert.ok(texts.every(t => !/R\$/.test(t)));
   assert.equal(new Set(reminders.map(r => r.key)).size, reminders.length);
 });
+
+test('compromissos dos próximos 30 dias entram mesmo vencendo no mês seguinte', () => {
+  const base = { accounts, recurringIncomes: [], receivedIncomeIds: new Set<string>(), openCardInvoices: 0, month: '2026-11' };
+  const payables = [{ id: 'x', status: 'PENDING', due_date: '2026-12-05', outstanding_balance: 100, origin_account_id: 'a1' }] as never[];
+  assert.equal(calculateWalletBalance({ ...base, payables }).projectedBalance, 1200, 'sem horizonte: só o mês atual');
+  assert.equal(calculateWalletBalance({ ...base, payables, horizonDate: '2026-12-26' }).projectedBalance, 1100);
+  assert.equal(calculateWalletBalance({ ...base, payables, horizonDate: '2026-12-01' }).projectedBalance, 1200, 'fora do horizonte');
+});

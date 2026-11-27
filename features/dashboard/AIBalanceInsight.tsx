@@ -3,10 +3,22 @@ import { Loader2, Sparkles, RefreshCw } from 'lucide-react';
 import { BrainCircuit, ShieldAlert, Target, Gauge } from '../../components/icons/brandIcons';
 import { Loan, CapitalSource, UserProfile } from '../../types';
 import { processNaturalLanguageCommand, AIResponse } from '../../services/geminiService';
-import { loanEngine } from '../../domain/loanEngine';
+import { buildMonthlyBalances } from '../../domain/finance/monthlyBalance';
+import { loadFinancialMovements } from '../../services/finance/monthlyBalance.service';
+import { businessMonthInManaus } from '../../utils/businessDate';
 import { filterOperationalSources, isTestSource } from '../../utils/testSource';
 
-export const AIBalanceInsight: React.FC<{ loans: Loan[], sources: CapitalSource[], activeUser: UserProfile | null }> = ({ loans, sources, activeUser }) => {
+type DashboardStatsForAudit = {
+    totalLent: number; activeCount: number; lateCount: number; interestBalance: number;
+    totalAtRisk: number; exposureShare: number; topDebtorsShare: number;
+    topLateLoans: Array<{ name: string; amount: number; days: number }>;
+};
+
+/**
+ * Veredito do Auditor: usa exatamente os números do Balanço Financeiro e da Saúde da Carteira
+ * (buildDashboardStats) e os Recebimentos do mês (buildMonthlyBalances), sem cálculo próprio.
+ */
+export const AIBalanceInsight: React.FC<{ loans: Loan[], sources: CapitalSource[], activeUser: UserProfile | null; stats: DashboardStatsForAudit; profileId?: string | null }> = ({ loans, sources, activeUser, stats, profileId }) => {
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [result, setResult] = useState<AIResponse | null>(null);
 
@@ -14,42 +26,31 @@ export const AIBalanceInsight: React.FC<{ loans: Loan[], sources: CapitalSource[
         setIsAnalyzing(true);
         try {
             const operationalSources = filterOperationalSources(sources);
-            const testSourceIds = new Set(
-                sources
-                    .filter((source) => isTestSource(source))
-                    .map((source) => String(source.id))
-                    .filter(Boolean)
-            );
-            const operationalLoans = loans.filter((loan) => !testSourceIds.has(String((loan as any).sourceId || (loan as any).source_id || '')));
-            const caixaLivreSource = operationalSources.find(s => {
-                const n = (s.name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "");
-                return n.includes('caixa livre') || n.includes('lucro') || n.includes('disponivel') || n.includes('balance');
-            });
-            const interestBalance = caixaLivreSource ? Number(caixaLivreSource.balance) : (Number(activeUser?.interestBalance) || 0);
-
+            let monthIn = 0;
+            let monthOut = 0;
+            if (profileId) {
+                try {
+                    const excluded = new Set(sources.filter(isTestSource).map(source => String(source.id)));
+                    const balances = buildMonthlyBalances(await loadFinancialMovements(profileId), excluded, profileId);
+                    const month = businessMonthInManaus();
+                    const current = balances.find(balance => balance.month === month);
+                    monthIn = current?.totalReceived || 0;
+                    monthOut = current?.lent || 0;
+                } catch { /* sem histórico do mês: fluxo fica zerado e o texto informa */ }
+            }
             const context = {
                 type: 'OPERATOR_AUDIT',
                 isDemo: activeUser?.id === 'DEMO',
-                totalLent: operationalLoans.reduce((acc, l) => {
-                    const balance = loanEngine.computeRemainingBalance(l);
-                    if (l.isArchived || balance.totalRemaining <= 0.5) return acc;
-                    const notes = String(l.notes || '');
-                    const isUnified = notes.includes('[UNIFICADO EM') || notes.includes('[LEGADO_PARCELAMENTO:') || notes.includes('[LEGADO_UNIFICACAO_NORMAL:');
-                    if (isUnified) return acc;
-
-                    return acc + balance.principalRemaining;
-                }, 0),
-                interestBalance: interestBalance,
-                lateCount: operationalLoans.filter(l => {
-                    if (l.isArchived) return false;
-                    if (loanEngine.computeRemainingBalance(l).totalRemaining <= 0.5) return false;
-                    const notes = String(l.notes || '');
-                    const isUnified = notes.includes('[UNIFICADO EM') || notes.includes('[LEGADO_PARCELAMENTO:') || notes.includes('[LEGADO_UNIFICACAO_NORMAL:');
-                    if (isUnified) return false;
-                    return l.installments.some(i => i.status === 'LATE');
-                }).length,
+                totalLent: stats.totalLent,
+                activeCount: stats.activeCount,
+                lateCount: stats.lateCount,
+                interestBalance: stats.interestBalance,
+                totalAtRisk: stats.totalAtRisk,
+                exposureShare: stats.exposureShare,
+                topDebtorsShare: stats.topDebtorsShare,
+                topLateLoans: stats.topLateLoans,
+                monthFlow: { in: monthIn, out: monthOut },
                 sourceLiquidity: operationalSources.reduce((acc, s) => acc + s.balance, 0),
-                portfolioHealth: operationalLoans.map(l => ({ name: l.debtorName, status: l.isArchived ? 'ARCHIVED' : 'ACTIVE' }))
             };
             const res = await processNaturalLanguageCommand("Realize um Veredito de Auditoria Técnica sobre esta carteira.", context);
             setResult(res);
@@ -72,7 +73,7 @@ export const AIBalanceInsight: React.FC<{ loans: Loan[], sources: CapitalSource[
                         <BrainCircuit size={20}/>
                     </div>
                     <div>
-                        <h3 className="text-[10px] font-black text-white uppercase tracking-[0.2em]">Veredito do Auditor IA</h3>
+                        <h3 className="text-[10px] font-black text-white uppercase tracking-[0.2em]">Veredito do Auditor <span className="whitespace-nowrap">IA</span></h3>
                         <p className="text-[9px] text-blue-400 font-bold uppercase tracking-widest flex items-center gap-1.5 mt-1">
                             <Sparkles size={10}/> Chief Risk Officer
                         </p>

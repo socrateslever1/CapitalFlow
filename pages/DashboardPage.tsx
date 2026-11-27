@@ -392,7 +392,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                   </div>
               </div>
 
-              <AIBalanceInsight loans={loans} sources={sources} activeUser={activeUser} />
+              <AIBalanceInsight loans={loans} sources={sources} activeUser={activeUser} stats={stats} profileId={profileId} />
               </div>
           </aside>
       </div>

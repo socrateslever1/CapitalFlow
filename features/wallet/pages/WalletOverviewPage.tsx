@@ -104,8 +104,12 @@ const deriveOverview = (snapshot: WalletOverviewSnapshot, today: string) => {
   );
   // A projeção do mês inclui faturas do mês e faturas vencidas ainda não pagas:
   // dívida atrasada não some da previsão.
+  // Compromissos: tudo que vence nos próximos 30 dias, mais o que já venceu e não foi pago.
+  const horizon = new Date(today + 'T12:00:00Z');
+  horizon.setUTCDate(horizon.getUTCDate() + 30);
+  const horizonDate = horizon.toISOString().slice(0, 10);
   const currentInvoiceTotal = sum(
-    invoiceList.filter(invoice => invoice.dueDate.slice(0, 7) <= month),
+    invoiceList.filter(invoice => invoice.dueDate <= horizonDate),
     invoice => invoice.amount,
   );
   const receivedIds = new Set(snapshot.recurringReceipts
@@ -120,6 +124,7 @@ const deriveOverview = (snapshot: WalletOverviewSnapshot, today: string) => {
     payables: snapshot.payables,
     month,
     pendingOperations: snapshot.pendingOperations || [],
+    horizonDate,
   });
   // Saldo previsto por conta: mesmas parcelas do total, distribuídas pela conta de cada item.
   const accountProjections = calculateAccountProjections({
@@ -127,12 +132,13 @@ const deriveOverview = (snapshot: WalletOverviewSnapshot, today: string) => {
     recurringIncomes: snapshot.recurringIncomes,
     receivedIncomeIds: receivedIds,
     payables: snapshot.payables,
-    invoices: invoiceList.filter(invoice => invoice.dueDate.slice(0, 7) <= month).map(invoice => ({
+    invoices: invoiceList.filter(invoice => invoice.dueDate <= horizonDate).map(invoice => ({
       accountId: cards.find(card => card.id === invoice.id.split(':')[0])?.account_id || null,
       amount: invoice.amount,
     })),
     pendingOperations: snapshot.pendingOperations || [],
     month,
+    horizonDate,
   });
 
   const openPayables: Commitment[] = snapshot.payables.filter(isOpenPayable)
@@ -324,7 +330,7 @@ export const WalletOverviewPage: React.FC<Props> = ({ activeUser, onNavigate }) 
           <dd className="mt-1 break-words text-base font-bold tabular-nums text-emerald-300 sm:text-lg"><PrivateMoney value={money(balance.totalResources)} /></dd>
         </div>
         <div className="min-w-0 p-3 sm:border-r sm:border-slate-800 sm:p-4">
-          <dt className="text-xs font-medium text-slate-300">Compromissos do mês</dt>
+          <dt className="text-xs font-medium text-slate-300">Compromissos (próx. 30 dias)</dt>
           <dd className="mt-1 break-words text-base font-bold tabular-nums text-rose-300 sm:text-lg"><PrivateMoney value={money(balance.totalLiabilities)} /></dd>
         </div>
         <div className={`col-span-2 min-w-0 border-t border-slate-800 p-3 sm:col-span-1 sm:border-t-0 sm:p-4 ${privacyHidden ? 'bg-slate-950/30' : deficit ? 'bg-rose-950/15' : 'bg-emerald-950/10'}`}>
@@ -348,7 +354,7 @@ export const WalletOverviewPage: React.FC<Props> = ({ activeUser, onNavigate }) 
           </li>)}
         </ul>
         <p className="border-t border-slate-800 px-3 py-2 text-[11px] leading-relaxed text-slate-500">
-          Projeção até o fim de {today.slice(5, 7)}/{today.slice(0, 4)}, somente leitura: inclui itens vencidos e não pagos. Faturas entram na conta vinculada ao cartão; itens sem conta ficam em "Sem conta definida". Valores das faturas são calculados pelos lançamentos.
+          Próximos 30 dias, incluindo o que já venceu. Faturas entram na conta vinculada ao cartão.
         </p>
       </details>}
     </article>

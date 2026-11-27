@@ -1,5 +1,20 @@
 # Changelog
 
+## 27/11/2026 — Auditor IA, gráfico Evolução, compromissos da Carteira e risco de clientes
+
+**Correção.**
+- `domain/dashboard/stats.ts`: `LOAN_INITIAL`/`LOAN_CREATED`/`APORTE` passam a contar como saída no gráfico **Evolução** (a série Saídas ficava zerada); estatísticas expõem `lateCount`, `exposureShare`, `topDebtorsShare` e `topLateLoans`. Cores da rosca alinhadas aos ícones dos filtros (em dia verde, atrasado âmbar, quitado índigo, renegociado roxo; vermelho fica para atraso crítico).
+- `features/dashboard/AIBalanceInsight.tsx` + `services/internalAI.service.ts`: o **Veredito do Auditor IA** usa os mesmos números do Balanço/Saúde da Carteira (`buildDashboardStats`) e os Recebimentos do mês (`buildMonthlyBalances`), sem cálculo paralelo; acusa concentração crítica quando a exposição ao risco passa de 50% do capital ou os 3 maiores devedores passam de 40%.
+- `components/wallet/walletBalanceDomain.ts` + `WalletOverviewPage.tsx`: **Compromissos (próx. 30 dias)** — faturas, contas a pagar e pendentes que vencem nos próximos 30 dias (mais os vencidos) entram no previsto; antes só o mês corrente, e uma fatura vencendo no início do mês seguinte mostrava R$ 0.
+- `pages/ClientsPage.tsx`: risco do cliente considera só contratos não arquivados com saldo em aberto; sem contrato aberto mostra "Sem histórico". Rótulo "CRÍTICO" com acento.
+- `layout/AppShell.tsx`: espaço inferior maior no conteúdo para os botões flutuantes não cobrirem o fim da página.
+- Inclui no código os botões do topo de Clientes e ícones `portal`/`userPlus` (Antigravity), já descritos na entrada "Botões e ícones do cabeçalho de Clientes".
+- **Testes:** novo `tests/financial/dashboard-auditor-consistency.test.ts` (3/3) e teste de horizonte de 30 dias (4/4 no arquivo). `test:quality`, `test:wallet-visual-next` (62), `test:wallet-statement-import` (78), `test:wallet-invoice-cycle` (10), `test:financial`, testes de arquitetura da fatura, `npm audit --omit=dev --audit-level=high` e build passaram. Sem migração nem alteração de RPC. Não verificado em celular físico.
+
+## 27/11/2026 — Botões e ícones do cabeçalho de Clientes
+
+**Melhoria (só interface).** `pages/ClientsPage.tsx` e `components/icons/AppIcons.tsx`: botões **Novo Link de Inscrição**, **Excluir Vários** e **Novo Cliente** padronizados em altura única (`h-9`, `whitespace-nowrap`, sem quebra em duas linhas) e atualizados com os ícones próprios (`portal`, `trash` e `userPlus`, com variante clara `onColor` sobre botões coloridos).
+
 ## 27/11/2026 — Perfil → Atualizações com uma entrada por dia
 
 - `src/constants/changelog.ts`: as 14 entradas de 27/11 e as 7 de 26/11 foram reunidas em uma entrada por dia (todos os itens mantidos, sem repetição, novidades primeiro). Lista: 36 → 17 entradas.

@@ -1769,3 +1769,7 @@ O ícone do olho já acionava o `FinancialPrivacyProvider`, mas os elementos aba
 ## 27/11/2026 — Unificação com juros normais
 
 - Migration 20261127160000 aplicada antes do código; regra e revisão em `CHANGELOG.md`.
+
+## 27/11/2026 — Fase 2.4B concluída (push de fatura)
+
+- Migrations 20261127180000 e 20261127190000 aplicadas; função `wallet-invoice-reminders` publicada; rotina diária ativa. Desligar a verificação de JWT da função foi recusado pela política de segurança; a rotina envia a chave pública do app guardada no Vault. Fases 0, 1 e 2 concluídas; pendente só o botão por cartão para desligar o push e o item opcional 0.5.

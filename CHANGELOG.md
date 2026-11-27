@@ -1,5 +1,12 @@
 # Changelog
 
+## 27/11/2026 — Notificação push de fatura (Fase 2.4B)
+
+**Novidade.** Migrations `20261127180000_wallet_invoice_push_reminders.sql` e `20261127190000_wallet_push_reminders_cron_auth.sql` (aplicadas e registradas em produção) e Edge Function `wallet-invoice-reminders` (publicada pelo painel).
+- O banco lista, pela regra de ciclo de cada cartão, a fatura que fecha ou vence em até 3 dias (vencimento só com valor a pagar); cada aviso é enviado uma única vez (`personal_wallet_push_reminders_sent`). Coluna `push_reminders` por cartão (padrão ligado; botão na tela ainda não feito).
+- Rotina diária `pg_cron` às 08:00 (Manaus) chama a função via `pg_net`. A função mantém a verificação de JWT (chave pública do app guardada no Vault) e exige o segredo próprio da rotina, também no Vault. Texto sem valores. Inscrições expiradas são removidas.
+- **Verificado em produção:** chamada de teste respondeu 200 (`1` aviso, enviado a `8` aparelhos inscritos).
+
 ## 27/11/2026 — Unificação de contratos com juros normais
 
 **Novidade (decisão do proprietário).** Migration `20261127160000_unify_contracts_keep_interest.sql` (aplicada e registrada em produção antes do código): `unify_contracts_keep_interest` soma o principal de contratos **mensais** do mesmo cliente no contrato principal; juros e mora em aberto (que já incluem os juros do mês de cada contrato) ficam na 1ª parcela com o novo vencimento; taxa, multa e mora do contrato principal continuam valendo nos ciclos seguintes. Uma transação, idempotente por `request_id`; recusa acordo ativo, outro cliente, contrato não mensal e contrato principal sem taxa. Atualiza `next_due_date`. Registro próprio no extrato ("Contratos somados (juros normais)"), sem o "Desfazer" da unificação congelada.

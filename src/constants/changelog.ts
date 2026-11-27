@@ -22,6 +22,16 @@ export interface ChangelogRelease {
  */
 export const SYSTEM_CHANGELOG: ChangelogRelease[] = [
   {
+    version: '3.7.1',
+    codeOnly: true,
+    date: '27/11/2026',
+    title: 'Aviso de fatura no celular',
+    summary: 'O celular avisa quando a fatura de um cartão vai fechar ou vencer nos próximos 3 dias.',
+    items: [
+      { kind: 'NOVIDADE', text: 'Notificação no celular, todo dia às 8h, quando a fatura vai fechar ou vencer, sem mostrar valores.' },
+    ],
+  },
+  {
     version: '3.7.0',
     codeOnly: true,
     date: '27/11/2026',

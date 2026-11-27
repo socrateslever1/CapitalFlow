@@ -13,7 +13,7 @@ import {notifyFinancialDataChanged} from '../../utils/appSyncEvents';
 type Props={card:PersonalWalletCard;accounts:PersonalWalletAccount[];onClose:()=>void;onSaved:()=>Promise<void>};
 const field='mt-1 min-h-12 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white';
 export const CardEditModal:React.FC<Props>=({card,accounts,onClose,onSaved})=>{
- const [form,setForm]=useState({nickname:card.nickname,issuer:card.issuer||'',brand:card.brand||'',account_id:card.account_id||'',last_four:card.last_four||'',cardholder_name:card.cardholder_name||'',expiry_month:card.expiry_month?String(card.expiry_month):'',expiry_year:card.expiry_year?String(card.expiry_year):'',credit_limit:String(card.credit_limit),closing_day:String(card.closing_day||''),due_day:String(card.due_day||''),closing_mode:card.closing_mode==='DAYS_BEFORE_DUE'?'DAYS_BEFORE_DUE':'FIXED_DAY',closing_days_before_due:String(card.closing_days_before_due||''),due_business_days:card.due_business_days?'yes':'no',status:card.status,primary_color:card.primary_color||getBankVisual(card.issuer||card.nickname).accent});
+ const [form,setForm]=useState({nickname:card.nickname,issuer:card.issuer||'',brand:card.brand||'',account_id:card.account_id||'',last_four:card.last_four||'',cardholder_name:card.cardholder_name||'',expiry_month:card.expiry_month?String(card.expiry_month):'',expiry_year:card.expiry_year?String(card.expiry_year):'',credit_limit:String(card.credit_limit),closing_day:String(card.closing_day||''),due_day:String(card.due_day||''),closing_mode:card.closing_mode==='DAYS_BEFORE_DUE'?'DAYS_BEFORE_DUE':'FIXED_DAY',closing_days_before_due:String(card.closing_days_before_due||''),due_business_days:card.due_business_days?'yes':'no',push_reminders:card.push_reminders===false?'no':'yes',status:card.status,primary_color:card.primary_color||getBankVisual(card.issuer||card.nickname).accent});
  const [saving,setSaving]=useState(false);
  const [deleteConfirm,setDeleteConfirm]=useState(false);
  const [archiveConfirm,setArchiveConfirm]=useState(false);
@@ -53,6 +53,10 @@ export const CardEditModal:React.FC<Props>=({card,accounts,onClose,onSaved})=>{
      closingDaysBeforeDue:dynamicClosing?daysBefore:null,
      dueDay:Number(form.due_day),dueBusinessDays:form.due_business_days==='yes',
     });
+   }
+   // Aviso de fatura no celular: liga ou desliga só este cartão.
+   if((form.push_reminders==='yes')!==(card.push_reminders!==false)){
+    await personalWalletService.setCardPushReminders(card.id,form.push_reminders==='yes');
    }
    notifyFinancialDataChanged({wallet:true,sourceOrigins:true});await onSaved();onClose();
  }catch(reason){setError(reason instanceof Error?reason.message:'Erro ao salvar');}
@@ -127,6 +131,7 @@ export const CardEditModal:React.FC<Props>=({card,accounts,onClose,onSaved})=>{
       :<label className="min-w-0 text-xs text-slate-300"><span className="block truncate">Fechamento (dia)</span><input type="number" min="1" max="31" className={field} value={form.closing_day} onChange={e=>change('closing_day',e.target.value)}/></label>}
      <label className="min-w-0 text-xs text-slate-300"><span className="block truncate">Vencimento (dia)</span><input type="number" min="1" max="31" className={field} value={form.due_day} onChange={e=>change('due_day',e.target.value)}/></label>
      <label className="col-span-2 flex min-h-11 items-center gap-2 text-xs text-slate-300"><input type="checkbox" className="h-4 w-4 accent-blue-500" checked={form.due_business_days==='yes'} onChange={e=>change('due_business_days',e.target.checked?'yes':'no')}/>Vencimento em fim de semana ou feriado nacional passa para o próximo dia útil</label>
+     <label className="col-span-2 flex min-h-11 items-center gap-2 text-xs text-slate-300"><input type="checkbox" className="h-4 w-4 accent-blue-500" checked={form.push_reminders==='yes'} onChange={e=>change('push_reminders',e.target.checked?'yes':'no')}/>Avisar no celular quando a fatura for fechar ou vencer</label>
      {form.closing_mode==='DAYS_BEFORE_DUE'&&Number(form.closing_days_before_due)>0&&(Number(form.closing_days_before_due)<5||Number(form.closing_days_before_due)>15)&&<p className="col-span-2 text-[11px] text-amber-300">A maioria dos cartões fecha entre 7 e 10 dias antes do vencimento. Confira com a fatura do banco.</p>}
      <p className="col-span-2 text-[11px] text-slate-400">Mudanças em fechamento e vencimento valem a partir deste mês; faturas anteriores continuam como estavam. Feriados estaduais e municipais não são considerados.</p>
     </div>

@@ -100,6 +100,8 @@ export type PersonalWalletCard = {
   closing_days_before_due?: number | null;
   /** Vencimento em sábado, domingo ou feriado nacional passa para o próximo dia útil. */
   due_business_days?: boolean | null;
+  /** Aviso de fatura no celular (padrão ligado). */
+  push_reminders?: boolean | null;
   /** Regras vigentes por mês (a mudança no cartão vale do mês da edição em diante). */
   cycle_settings?: WalletCardCycleSetting[];
   /** Fechamento e vencimento reais informados por mês (YYYY-MM-01 → data). */
@@ -663,6 +665,11 @@ const personalWalletServiceImpl = {
     if (cards.error) throw new Error(cards.error.message);
     return ((cards.data || []) as PersonalWalletCard[])
       .map(card => withCardCycleData(card, (settings.data || []) as WalletCardCycleSetting[], (facts.data || []) as CardDateFact[]));
+  },
+
+  async setCardPushReminders(cardId: string, enabled: boolean) {
+    const { error } = await supabase.rpc('personal_wallet_set_card_push_reminders', { p_card_id: cardId, p_enabled: enabled });
+    if (error) throw new Error(error.message);
   },
 
   /** Lançamento pendente: não mexe no saldo até ser efetivado. */

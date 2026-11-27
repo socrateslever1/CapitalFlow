@@ -1,5 +1,11 @@
 # Changelog
 
+## 27/11/2026 — Ícones próprios na Carteira e aviso no celular por cartão
+
+- **Ícones das abas** (`components/wallet/WalletNavIcons.tsx`): Geral, Cartões, Contas e Pagar ganham desenhos próprios e coloridos no lugar dos ícones genéricos.
+- **Aviso no celular por cartão:** em Editar cartão, "Avisar no celular quando a fatura for fechar ou vencer". Migration `20261127200000_wallet_card_push_reminders_toggle.sql` (aplicada e registrada; só `authenticated`).
+- **Testes:** visual, proteções da fatura e build passaram; conferido no app local em 411 px.
+
 ## 27/11/2026 — Notificação push de fatura (Fase 2.4B)
 
 **Novidade.** Migrations `20261127180000_wallet_invoice_push_reminders.sql` e `20261127190000_wallet_push_reminders_cron_auth.sql` (aplicadas e registradas em produção) e Edge Function `wallet-invoice-reminders` (publicada pelo painel).

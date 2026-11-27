@@ -22,6 +22,17 @@ export interface ChangelogRelease {
  */
 export const SYSTEM_CHANGELOG: ChangelogRelease[] = [
   {
+    version: '3.7.2',
+    codeOnly: true,
+    date: '27/11/2026',
+    title: 'Ícones novos e aviso por cartão',
+    summary: 'Abas da Carteira com ícones próprios e opção de desligar o aviso no celular em cada cartão.',
+    items: [
+      { kind: 'MELHORIA', text: 'Geral, Cartões, Contas e Pagar ganharam ícones próprios e coloridos.' },
+      { kind: 'NOVIDADE', text: 'Em Editar cartão, escolha se quer receber no celular o aviso de fatura desse cartão.' },
+    ],
+  },
+  {
     version: '3.7.1',
     codeOnly: true,
     date: '27/11/2026',

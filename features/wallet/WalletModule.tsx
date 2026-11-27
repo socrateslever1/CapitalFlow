@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, CalendarClock, CreditCard, Landmark, LayoutDashboard, LockKeyhole, TrendingUp, WifiOff } from 'lucide-react';
+import { AccountsIcon, CardsIcon, OverviewIcon, PayablesIcon } from '../../components/wallet/WalletNavIcons';
 import { useLocation, useNavigate } from 'react-router-dom';
 import type { UserProfile } from '../../types';
 import { useWalletAccess } from './hooks/useWalletAccess';
@@ -131,8 +132,12 @@ const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUse
                 ? 'bg-blue-600/20 text-blue-100 ring-1 ring-inset ring-blue-500/50'
                 : 'text-slate-300 hover:bg-slate-800 hover:text-white'
             }`}>
-            <Icon size={15} strokeWidth={active ? 2.2 : 1.9} aria-hidden="true"
-              className={active ? 'text-blue-300' : 'text-slate-400 group-hover:text-slate-200'}/>
+            {item.key === 'visao-geral' ? <OverviewIcon active={active}/>
+              : item.key === 'cartoes' ? <CardsIcon active={active}/>
+              : item.key === 'contas' ? <AccountsIcon active={active}/>
+              : item.key === 'dividas' ? <PayablesIcon active={active}/>
+              : <Icon size={15} strokeWidth={active ? 2.2 : 1.9} aria-hidden="true"
+                  className={active ? 'text-blue-300' : 'text-slate-400 group-hover:text-slate-200'}/>}
             <span className="whitespace-nowrap text-[10px] font-semibold leading-tight sm:hidden">{mobileLabel}</span>
             <span className="hidden whitespace-nowrap text-sm font-semibold sm:inline">{item.label}</span>
           </button>

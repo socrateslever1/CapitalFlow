@@ -5,6 +5,7 @@ import type { PersonalWalletExpense, UpdatePersonalWalletExpense } from '../../s
 import { generateUUID } from '../../utils/generators';
 import { parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
 import { FinancialCalculatorInput } from '../forms/FinancialCalculatorInput';
+import { CategoryPickerField } from './CategoryIconPicker';
 
 type ExpenseEditModalProps = {
   expense: PersonalWalletExpense;
@@ -76,14 +77,10 @@ export const ExpenseEditModal: React.FC<ExpenseEditModalProps> = ({ expense, com
           <label className="block text-xs font-bold text-slate-300">Descrição
             <input autoFocus maxLength={240} required value={description} onChange={(e) => setDescription(e.target.value)} className={`${fieldClass} mt-1.5`} />
           </label>
-          <div className="grid grid-cols-2 gap-3">
-            <label className="block text-xs font-bold text-slate-300">Valor
-              <FinancialCalculatorInput required value={amount} onCommit={setAmount} fieldLabel="valor do lançamento" className={`${fieldClass} mt-1.5`} />
-            </label>
-            <label className="block text-xs font-bold text-slate-300">Categoria
-              <input maxLength={100} value={category} onChange={(e) => setCategory(e.target.value)} className={`${fieldClass} mt-1.5`} />
-            </label>
-          </div>
+          <label className="block text-xs font-bold text-slate-300">Valor
+            <FinancialCalculatorInput required value={amount} onCommit={setAmount} fieldLabel="valor do lançamento" className={`${fieldClass} mt-1.5`} />
+          </label>
+          <CategoryPickerField value={category} onChange={setCategory} />
           <div className="grid grid-cols-2 gap-3">
             <label className="block text-xs font-bold text-slate-300">Data da compra
               <span className="relative mt-1.5 block"><CalendarDays className="pointer-events-none absolute left-3 top-3 text-slate-500" size={15} /><input type="date" required value={expenseDate} onChange={(e) => setExpenseDate(e.target.value)} className={`${fieldClass} pl-9`} /></span>

@@ -143,7 +143,7 @@ export const ScopedCollectionAutomation: React.FC<Props> = ({
 
       {open && (
         <div className="space-y-3 border-t border-emerald-500/10 p-3">
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <div className="grid grid-cols-2 gap-2">
             <label className="text-[8px] font-black uppercase text-slate-500">Recorrência
               <select value={effective.overdue_cadence} onChange={(event) => patch({ overdue_cadence: event.target.value as CollectionPolicy['overdue_cadence'] })} className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950 p-2 text-[10px] text-white">
                 {cadenceOptions.map(([value, text]) => <option key={value} value={value}>{text}</option>)}
@@ -178,7 +178,7 @@ export const ScopedCollectionAutomation: React.FC<Props> = ({
                   <Plus size={11} /> Adicionar
                 </button>
               </div>
-              <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-3">
+              <div className="grid grid-cols-3 gap-1.5">
                 {effectiveHours.map((hour, index) => (
                   <label key={`${hour}-${index}`} className="flex items-center gap-1 rounded-md border border-slate-800 bg-slate-900 px-2">
                     <select value={hour} onChange={(event) => updateHour(index, Number(event.target.value))} className="h-9 min-w-0 flex-1 bg-transparent text-[10px] font-bold text-white outline-none">

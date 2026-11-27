@@ -337,37 +337,39 @@ export const SimulatorPanel: React.FC<SimulatorPanelProps> = ({
 
             {selectedModality !== 'INSTALLMENT_FIXED' ? (
               <>
-                <div>
-                  <label className={labelClass}>
-                    {calculationMode === 'REVERSE' ? 'Valor do pagamento desejado (R$)' : 'Valor do capital (R$)'}
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xs font-black text-blue-500">R$</span>
-                    <input
-                      type="number"
-                      value={calculationMode === 'REVERSE' ? targetInstallment : principal}
-                      onChange={(event) => {
-                        const value = cleanNumberInput(event.target.value);
-                        calculationMode === 'REVERSE' ? setTargetInstallment(value) : setPrincipal(value);
-                      }}
-                      className={`${inputClass} pl-11 text-base`}
-                    />
+                <div className="grid grid-cols-[minmax(0,1fr)_7.5rem] gap-3 sm:grid-cols-2">
+                  <div className="min-w-0">
+                    <label className={labelClass}>
+                      {calculationMode === 'REVERSE' ? 'Pagamento desejado (R$)' : 'Valor do capital (R$)'}
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xs font-black text-blue-500">R$</span>
+                      <input
+                        type="number"
+                        value={calculationMode === 'REVERSE' ? targetInstallment : principal}
+                        onChange={(event) => {
+                          const value = cleanNumberInput(event.target.value);
+                          calculationMode === 'REVERSE' ? setTargetInstallment(value) : setPrincipal(value);
+                        }}
+                        className={`${inputClass} pl-11 text-base`}
+                      />
+                    </div>
                   </div>
-                </div>
 
-                <div>
-                  <label className={labelClass}>
-                    {selectedModality === 'MONTHLY' ? 'Juros (%) mensal' : 'Taxa (%) mensal'}
-                  </label>
-                  <div className="relative">
-                    <Percent className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-blue-500" size={17} />
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={interestRate}
-                      onChange={(event) => setInterestRate(cleanNumberInput(event.target.value))}
-                      className={`${inputClass} pl-11 text-base`}
-                    />
+                  <div className="min-w-0">
+                    <label className={labelClass}>
+                      {selectedModality === 'MONTHLY' ? 'Juros (%) mensal' : 'Taxa (%) mensal'}
+                    </label>
+                    <div className="relative">
+                      <Percent className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-blue-500" size={16} />
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={interestRate}
+                        onChange={(event) => setInterestRate(cleanNumberInput(event.target.value))}
+                        className={`${inputClass} pl-10 text-base`}
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -391,25 +393,27 @@ export const SimulatorPanel: React.FC<SimulatorPanelProps> = ({
                     className={inputClass}
                   />
                 </div>
-                <div>
-                  <label className={labelClass}>Margem do cliente (%)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={customerMarginPercent}
-                    onChange={(event) => setCustomerMarginPercent(cleanNumberInput(event.target.value))}
-                    className={inputClass}
-                  />
-                </div>
-                <div>
-                  <label className={labelClass}>Parcelas do banco</label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={fundingInstallmentsCount}
-                    onChange={(event) => setFundingInstallmentsCount(cleanNumberInput(event.target.value))}
-                    className={inputClass}
-                  />
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="min-w-0">
+                    <label className={labelClass}>Margem do cliente (%)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={customerMarginPercent}
+                      onChange={(event) => setCustomerMarginPercent(cleanNumberInput(event.target.value))}
+                      className={inputClass}
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <label className={labelClass}>Parcelas do banco</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={fundingInstallmentsCount}
+                      onChange={(event) => setFundingInstallmentsCount(cleanNumberInput(event.target.value))}
+                      className={inputClass}
+                    />
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   {(['TOTAL', 'RATE'] as const).map((mode) => (

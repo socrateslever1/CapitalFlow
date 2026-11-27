@@ -416,44 +416,46 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
               />
             </label>
 
-            <label className={labelClass}>
-              Tipo de Conta
-              <select
-                disabled={isPhysicalWallet}
-                value={accountType}
-                onChange={(e) => {
-                  const next = e.target.value;
-                  setAccountType(next);
-                  if (next === 'CASH' && !nickname) setNickname('Carteira física');
-                }}
-                className={inputClass}
-              >
-                {isPhysicalWallet ? (
-                  <option value="CASH">Carteira Física (Dinheiro)</option>
-                ) : (
-                  <>
-                    <option value="CHECKING">Conta Corrente</option>
-                    <option value="PAYMENT">Conta de Pagamento</option>
-                    <option value="SAVINGS">Poupança</option>
-                    <option value="INVESTMENT">Investimento</option>
-                  </>
-                )}
-              </select>
-            </label>
+            <div className="grid grid-cols-2 gap-3 sm:col-span-2">
+              <label className={`${labelClass} min-w-0`}>
+                Tipo de Conta
+                <select
+                  disabled={isPhysicalWallet}
+                  value={accountType}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    setAccountType(next);
+                    if (next === 'CASH' && !nickname) setNickname('Carteira física');
+                  }}
+                  className={inputClass}
+                >
+                  {isPhysicalWallet ? (
+                    <option value="CASH">Carteira Física (Dinheiro)</option>
+                  ) : (
+                    <>
+                      <option value="CHECKING">Conta Corrente</option>
+                      <option value="PAYMENT">Conta de Pagamento</option>
+                      <option value="SAVINGS">Poupança</option>
+                      <option value="INVESTMENT">Investimento</option>
+                    </>
+                  )}
+                </select>
+              </label>
 
-            <label className={labelClass}>
-              Saldo Inicial (R$)
-              <FinancialCalculatorInput
-                value={initialBalance}
-                onCommit={(next) => {
-                  openingRequestIdRef.current = generateUUID();
-                  setInitialBalance(next);
-                }}
-                placeholder="0,00"
-                fieldLabel="saldo inicial"
-                className={inputClass}
-              />
-            </label>
+              <label className={`${labelClass} min-w-0`}>
+                Saldo Inicial (R$)
+                <FinancialCalculatorInput
+                  value={initialBalance}
+                  onCommit={(next) => {
+                    openingRequestIdRef.current = generateUUID();
+                    setInitialBalance(next);
+                  }}
+                  placeholder="0,00"
+                  fieldLabel="saldo inicial"
+                  className={inputClass}
+                />
+              </label>
+            </div>
 
             {!isPhysicalWallet ? (
               <>
@@ -596,21 +598,25 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
                 <label className={labelClass}>Limite de crédito (R$)
                   <FinancialCalculatorInput value={newCardLimit} onCommit={setNewCardLimit} fieldLabel="limite do cartão" placeholder="Ex.: 1.500,00" className={inputClass}/>
                 </label>
-                <label className={labelClass}>Dia do fechamento (opcional)
-                  <input type="number" min={1} max={31} inputMode="numeric" value={newCardClosingDay} onChange={event => setNewCardClosingDay(event.target.value.replace(/\D/g, '').slice(0, 2))} placeholder="Ex.: 25" className={inputClass}/>
-                </label>
-                <label className={labelClass}>Dia do vencimento (opcional)
-                  <input type="number" min={1} max={31} inputMode="numeric" value={newCardDueDay} onChange={event => setNewCardDueDay(event.target.value.replace(/\D/g, '').slice(0, 2))} placeholder="Ex.: 5" className={inputClass}/>
-                </label>
-                <label className={labelClass}>Bandeira (opcional)
-                  <select value={newCardBrand} onChange={event => setNewCardBrand(event.target.value)} className={inputClass}>
-                    <option value="">Não informada</option>
-                    {['Mastercard', 'Visa', 'Elo', 'American Express', 'Hipercard'].map(brand => <option key={brand} value={brand}>{brand}</option>)}
-                  </select>
-                </label>
-                <label className={labelClass}>Final do cartão (opcional)
-                  <input inputMode="numeric" maxLength={4} value={newCardLastFour} onChange={event => setNewCardLastFour(event.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="1234" className={inputClass}/>
-                </label>
+                <div className="grid grid-cols-2 gap-3 sm:col-span-2">
+                  <label className={`${labelClass} min-w-0`}>Fechamento (dia)
+                    <input type="number" min={1} max={31} inputMode="numeric" aria-label="Dia do fechamento (opcional)" value={newCardClosingDay} onChange={event => setNewCardClosingDay(event.target.value.replace(/\D/g, '').slice(0, 2))} placeholder="Ex.: 25" className={inputClass}/>
+                  </label>
+                  <label className={`${labelClass} min-w-0`}>Vencimento (dia)
+                    <input type="number" min={1} max={31} inputMode="numeric" aria-label="Dia do vencimento (opcional)" value={newCardDueDay} onChange={event => setNewCardDueDay(event.target.value.replace(/\D/g, '').slice(0, 2))} placeholder="Ex.: 5" className={inputClass}/>
+                  </label>
+                </div>
+                <div className="grid grid-cols-[minmax(0,1fr)_6.5rem] gap-3 sm:col-span-2 sm:grid-cols-2">
+                  <label className={`${labelClass} min-w-0`}>Bandeira (opcional)
+                    <select value={newCardBrand} onChange={event => setNewCardBrand(event.target.value)} className={inputClass}>
+                      <option value="">Não informada</option>
+                      {['Mastercard', 'Visa', 'Elo', 'American Express', 'Hipercard'].map(brand => <option key={brand} value={brand}>{brand}</option>)}
+                    </select>
+                  </label>
+                  <label className={`${labelClass} min-w-0`}>Final (4 díg.)
+                    <input inputMode="numeric" maxLength={4} aria-label="Final do cartão (opcional)" value={newCardLastFour} onChange={event => setNewCardLastFour(event.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="1234" className={inputClass}/>
+                  </label>
+                </div>
               </div>}
               <p className="text-[11px] leading-relaxed text-slate-400">
                 {mode === 'create'

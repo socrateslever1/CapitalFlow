@@ -40,13 +40,17 @@ export function normalizeMobileNavOrder(value: unknown): AppTab[] {
   return items;
 }
 
-export function moveMobileTab(order: readonly AppTab[], selected: AppTab, target: AppTab): AppTab[] {
-  const current = normalizeMobileNavOrder(order);
+export function moveTabInOrder(order: readonly AppTab[], selected: AppTab, target: AppTab): AppTab[] {
+  const current = [...order];
   if (selected === target || !current.includes(selected) || !current.includes(target)) return current;
   const next = current.filter(tab => tab !== selected);
   const targetIndex = next.indexOf(target);
   next.splice(targetIndex, 0, selected);
   return next;
+}
+
+export function moveMobileTab(order: readonly AppTab[], selected: AppTab, target: AppTab): AppTab[] {
+  return moveTabInOrder(normalizeMobileNavOrder(order), selected, target);
 }
 
 export type StoredNavigation = {

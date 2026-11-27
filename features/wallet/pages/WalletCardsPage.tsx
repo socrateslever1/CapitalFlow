@@ -1111,52 +1111,56 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
               onChange={e => { requestId.current = generateUUID(); setCardForm(v => ({ ...v, nickname: e.target.value })); }}
               className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white" />
           </label>
-          <label className="space-y-1 text-xs text-slate-300">
-            Final do cartão (opcional)
-            <input name="wallet-card-last-four" autoComplete="off" inputMode="numeric" maxLength={4} pattern="[0-9]{4}" placeholder="Ex.: 1234"
-              value={cardForm.last_four}
-              onChange={e => { requestId.current = generateUUID(); setCardForm(v => ({ ...v, last_four: e.target.value.replace(/\D/g, '').slice(0, 4) })); }}
-              className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white" />
-          </label>
-          <label className="space-y-1 text-xs text-slate-300 sm:col-span-2">
-            Limite total (R$, opcional)
-            <input name="wallet-card-credit-limit" autoComplete="off" inputMode="decimal" placeholder="Pode informar ou importar pela fatura depois"
-              value={cardForm.credit_limit}
-              onChange={e => {
-                const input = e.currentTarget;
-                const next = resolveLiveBrazilianCentsChange(input.value, cardForm.credit_limit, (e.nativeEvent as InputEvent).inputType);
-                if (!next) return;
-                input.setCustomValidity('');
-                requestId.current = generateUUID();
-                setCardForm(v => ({ ...v, credit_limit: next.value }));
-                requestAnimationFrame(() => {
-                  if (document.activeElement === input) input.setSelectionRange(next.caret, next.caret);
-                });
-              }}
-              onPaste={e => {
-                e.preventDefault();
-                try {
-                  const next = formatPastedBrazilianMoney(e.clipboardData.getData('text'));
-                  e.currentTarget.setCustomValidity('');
-                  requestId.current = generateUUID();
-                  setCardForm(v => ({ ...v, credit_limit: next }));
-                  const input = e.currentTarget;
-                  requestAnimationFrame(() => { if (document.activeElement === input) input.setSelectionRange(next.length, next.length); });
-                } catch {
-                  // Falha na colagem nunca substitui um valor válido anterior.
-                  e.currentTarget.setCustomValidity('Limite colado inválido.');
-                }
-              }}
-              className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white" />
-          </label>
-          {(['closing_day', 'due_day'] as const).map(field =>
-            <label key={field} className="space-y-1 text-xs text-slate-300">
-              {field === 'closing_day' ? 'Dia do fechamento (opcional)' : 'Dia do vencimento (opcional)'}
-              <input type="number" min={1} max={31} inputMode="numeric" placeholder="Não informado"
-                value={cardForm[field]} onChange={e => { requestId.current = generateUUID(); setCardForm(v => ({ ...v, [field]: e.target.value })); }}
+          <div className="grid grid-cols-[6.5rem_minmax(0,1fr)] gap-3 sm:col-span-2 sm:grid-cols-[9rem_minmax(0,1fr)]">
+            <label className="min-w-0 space-y-1 text-xs text-slate-300">
+              Final (4 díg.)
+              <input name="wallet-card-last-four" aria-label="Final do cartão (opcional)" autoComplete="off" inputMode="numeric" maxLength={4} pattern="[0-9]{4}" placeholder="Ex.: 1234"
+                value={cardForm.last_four}
+                onChange={e => { requestId.current = generateUUID(); setCardForm(v => ({ ...v, last_four: e.target.value.replace(/\D/g, '').slice(0, 4) })); }}
                 className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white" />
             </label>
-          )}
+            <label className="min-w-0 space-y-1 text-xs text-slate-300">
+              Limite total (R$, opcional)
+              <input name="wallet-card-credit-limit" autoComplete="off" inputMode="decimal" placeholder="Ex.: 2.500,00"
+                value={cardForm.credit_limit}
+                onChange={e => {
+                  const input = e.currentTarget;
+                  const next = resolveLiveBrazilianCentsChange(input.value, cardForm.credit_limit, (e.nativeEvent as InputEvent).inputType);
+                  if (!next) return;
+                  input.setCustomValidity('');
+                  requestId.current = generateUUID();
+                  setCardForm(v => ({ ...v, credit_limit: next.value }));
+                  requestAnimationFrame(() => {
+                    if (document.activeElement === input) input.setSelectionRange(next.caret, next.caret);
+                  });
+                }}
+                onPaste={e => {
+                  e.preventDefault();
+                  try {
+                    const next = formatPastedBrazilianMoney(e.clipboardData.getData('text'));
+                    e.currentTarget.setCustomValidity('');
+                    requestId.current = generateUUID();
+                    setCardForm(v => ({ ...v, credit_limit: next }));
+                    const input = e.currentTarget;
+                    requestAnimationFrame(() => { if (document.activeElement === input) input.setSelectionRange(next.length, next.length); });
+                  } catch {
+                    // Falha na colagem nunca substitui um valor válido anterior.
+                    e.currentTarget.setCustomValidity('Limite colado inválido.');
+                  }
+                }}
+                className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white" />
+            </label>
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:col-span-2">
+            {(['closing_day', 'due_day'] as const).map(field =>
+              <label key={field} className="min-w-0 space-y-1 text-xs text-slate-300">
+                {field === 'closing_day' ? 'Fechamento (dia)' : 'Vencimento (dia)'}
+                <input type="number" min={1} max={31} inputMode="numeric" aria-label={field === 'closing_day' ? 'Dia do fechamento (opcional)' : 'Dia do vencimento (opcional)'} placeholder="Opcional"
+                  value={cardForm[field]} onChange={e => { requestId.current = generateUUID(); setCardForm(v => ({ ...v, [field]: e.target.value })); }}
+                  className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white" />
+              </label>
+            )}
+          </div>
           <fieldset className="sm:col-span-2 space-y-2 rounded-xl border border-slate-800 bg-slate-950/50 p-3">
             <legend className="px-1 text-xs font-semibold text-slate-200">Conta do banco deste cartão</legend>
             <div role="radiogroup" aria-label="Conta do banco deste cartão" className="grid grid-cols-3 gap-2">
@@ -1230,16 +1234,18 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
                   onChange={e => { requestId.current = generateUUID(); setCardForm(v => ({ ...v, cardholder_name: e.target.value })); }}
                   className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white" />
               </label>
-              <label className="space-y-1 text-xs text-slate-300">Validade — mês
-                <input type="number" min={1} max={12} placeholder="MM" value={cardForm.expiry_month}
-                  onChange={e => { requestId.current = generateUUID(); setCardForm(v => ({ ...v, expiry_month: e.target.value })); }}
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white" />
-              </label>
-              <label className="space-y-1 text-xs text-slate-300">Validade — ano
-                <input type="number" min={2000} max={2200} placeholder="AAAA" value={cardForm.expiry_year}
-                  onChange={e => { requestId.current = generateUUID(); setCardForm(v => ({ ...v, expiry_year: e.target.value })); }}
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white" />
-              </label>
+              <div className="grid grid-cols-2 gap-3 sm:col-span-2">
+                <label className="min-w-0 space-y-1 text-xs text-slate-300">Validade — mês
+                  <input type="number" min={1} max={12} placeholder="MM" value={cardForm.expiry_month}
+                    onChange={e => { requestId.current = generateUUID(); setCardForm(v => ({ ...v, expiry_month: e.target.value })); }}
+                    className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white" />
+                </label>
+                <label className="min-w-0 space-y-1 text-xs text-slate-300">Validade — ano
+                  <input type="number" min={2000} max={2200} placeholder="AAAA" value={cardForm.expiry_year}
+                    onChange={e => { requestId.current = generateUUID(); setCardForm(v => ({ ...v, expiry_year: e.target.value })); }}
+                    className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white" />
+                </label>
+              </div>
             </div>
           </details>
           <label className="flex items-center gap-2 text-xs text-slate-200 sm:col-span-2">

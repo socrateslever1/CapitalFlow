@@ -19,9 +19,13 @@ test('salvamento não ignora erros e mantém ordem local quando a rede falha', (
  assert.match(state, /retryPendingNavigation\(searchId\)/);
  assert.match(state, /setMobileNavOrder\(mobile\)/);
  assert.doesNotMatch(state, /if \(error\) console\.error\(error\)/);
+ const header=read('layout/HeaderBar.tsx');
+ assert.match(header,/moveTabInOrder\(previous, dragged\.tab, target\)/);
+ assert.match(header,/await saveNavOrder\(draftNavOrder\)/);
+ assert.match(header,/disabled=\{savingNav\}/);
  const profile=read('pages/ProfilePage.tsx');
- assert.match(profile,/await saveNavConfig\(newNav, newHub\)/);
- assert.match(profile,/disabled=\{menuSaving\}/);
+ assert.doesNotMatch(profile,/Barra Superior \(Fixo\)/);
+ assert.doesNotMatch(profile,/Personalizar Menus/);
 });
 test('a preferência móvel é separada da configuração desktop, com RLS existente', () => {
  const migration=read('supabase/migrations/20261106220000_profile_mobile_navigation_order.sql');
@@ -31,8 +35,10 @@ test('a preferência móvel é separada da configuração desktop, com RLS exist
  const app=read('App.tsx'),shell=read('layout/AppShell.tsx');
  assert.match(app,/mobileNavOrder=\{mobileNavOrder\}/);
  assert.match(app,/desktopNavOrder=\{visibleHubOrder\}/);
+ assert.match(app,/saveDesktopNavOrder=/);
  assert.match(app,/navOrder=\{visibleHubOrder\}/);
  assert.match(shell,/navOrder=\{desktopNavOrder\}/);
+ assert.match(shell,/saveNavOrder=\{saveDesktopNavOrder\}/);
  assert.match(shell,/saveMobileNavOrder=\{saveMobileNavOrder\}/);
  const types=read('types.ts');
  assert.match(types,/ui_mobile_nav_order\?: AppTab\[\]/);

@@ -5,6 +5,29 @@
 **Correção (só interface).** `components/wallet/AccountDetailsPage.tsx`: quando a conta já tem cartão (vinculado à conta ou do mesmo banco sem conta definida), a edição não pergunta mais "Possui cartão de crédito"; mostra o cartão vinculado com o limite real dele e explica que o limite usado nas contas é o do cartão. O "Limite de crédito informado" da conta era só anotação (não entrava em cálculo) e deixa de ser salvo nesse caso, evitando dois limites diferentes.
 - **Testes:** conferido no app local com conta e cartão do mesmo banco; `test:quality` e build. Não validado em celular físico.
 
+- **Melhoria (27/11/2026):** em Movimentar conta, Despesa inclui a opção Pago todo mês para cadastrar despesas fixas e dívidas recorrentes no mesmo formulário.
+
+- **Melhoria (27/11/2026):** o atalho Receita abre direto no formulário. A opção Recebo todo mês muda o cadastro para receita fixa na mesma tela.
+
+- **Melhoria (27/11/2026):** categorias com seletor por ícones em movimentações, despesas e compromissos. Despesas fixas usam a janela compartilhada, e os atalhos distinguem Receita avulsa de Receita fixa.
+
+- **Melhoria (27/11/2026):** os atalhos de movimentação da conta ocupam três colunas e são mais compactos no celular.
+
+## 27/11/2026 — Formulários com campos curtos lado a lado (Carteira, Empréstimos, Simulador, Perfil e Lembretes)
+
+**Melhoria (só interface).** Campos naturalmente curtos que antes empilhavam em largura total passaram a ficar lado a lado em 21 formulários do app:
+- **Carteira:** `BankAccountDetailsFields.tsx` (`Agência + Dígito`, `Número da conta + Dígito + Operação`, cheque especial), `AccountDetailsPage.tsx` (`Apelido + Banco`, `Tipo de conta + Tipo da chave PIX`, além da correção do texto cortado no seletor de logotipo/imagem), `QuickExpenseModal.tsx` (`Data + Conta de Origem` lado a lado no modo Conta/PIX), `CreateAccountModal.tsx` (`Tipo de Conta + Saldo Inicial`, `Fechamento + Vencimento`, `Bandeira + Final`), `WalletCardsPage.tsx` (`Final + Limite total`, `Fechamento + Vencimento`, `Validade mês + ano`), `CardInitialBalancesModal.tsx`, `CardOpeningFields.tsx`, `AccountMovementModal.tsx`, `AccountPendingOperations.tsx`, `RecurringIncomePanel.tsx`, `RecurringObligationsPanel.tsx`, `WalletPayablesPanel.tsx`, `InvoiceOverrideModal.tsx`, `QuickIncomeModal.tsx`, `QuickWalletActionsModal.tsx` e `WalletPayablesPage.tsx`.
+- **Empréstimos, Pagamentos e Simulador:** `LoanFormFinancialSection.tsx` (`Principal + Juros`, `Data Empréstimo + Vencimento (1º)`, `Multa + Mora`, `Data + Valor cobrado`, parcelas), `SimulatorPanel.tsx`, `PaymentRegistrationForm.tsx` e `PaymentOfferModal.tsx`.
+- **Perfil, Cobrança e Lembretes:** `ProfilePage.tsx` (`Juros + Multa + Mora` e `Meta de Capital + Meta de Lucro`), `CollectionAutomation.tsx`, `ScopedCollectionAutomation.tsx` e `ReminderFormModal.tsx`.
+
+## 27/11/2026 — Editor de posição direto na barra superior (Web) e limpeza de menus no Perfil
+
+**Melhoria (só interface).** `layout/HeaderBar.tsx`, `layout/AppShell.tsx`, `layout/navigationPreferences.ts`, `App.tsx`, `pages/ProfilePage.tsx`: removida a lista manual "Personalizar Menus" (`Barra Superior (Fixo)` / `Menu Lateral`) de **Perfil → Preferências & Menus** em Web e Mobile; adicionado editor inline de posição por arraste direto na barra superior desktop (botão grade `⋮⋮` → arrastar abas → `Concluir`/`Cancelar`), alinhado ao editor já existente na barra inferior mobile e reutilizando `saveNavConfig` com persistência local + sincronização.
+
+## 27/11/2026 — Cidade e Estado (UF) lado a lado no Perfil
+
+**Melhoria (só interface).** `pages/ProfilePage.tsx`: campos **Cidade** e **Estado (UF)** passam a ficar lado a lado também no celular (`grid-cols-[minmax(0,1fr)_5.5rem]`), preservando a grade `4 + 2` em telas maiores.
+
 ## 27/11/2026 — Animação dos ícones mais visível
 
 **Melhoria (só interface).** `index.css`: ao ativar uma aba, o ícone inteiro dá um pulo (`cf-icon-pop`, 560 ms, até 122% com leve giro), além das partes internas, que agora têm amplitude maior e duram 680 ms. Ícone do cabeçalho entra de 60% com giro (620 ms). Ao passar o mouse, o ícone sobe e cresce 16%; ao tocar no celular, afunda para 82%. Movimento reduzido continua desligando tudo. Vale para barra inferior, abas da Carteira e cabeçalhos de página. **Correção:** o cabeçalho do Atendimento (`features/support/OperatorSupportChat.tsx`) usava um ícone genérico (lucide `MessageCircle` em círculo azul) e passou ao ícone próprio `assistant` no fundo escuro, igual às outras páginas e à aba Chat. Abas Ativos/Clientes (`ChatSidebar.tsx`) no padrão das abas da Carteira (ícones próprios `chat`/`clients`, texto normal, realce azul), "Gerenciar conversas" com ícone próprio `trash` e texto normal, e botões do topo (voltar, tema, fechar) no quadrado neutro `rounded-xl` da Central de Alertas. **Varredura dos outros botões:** novas classes compartilhadas `cf-seg`/`cf-seg-tab` (`index.css`, ativo por `data-active`) no padrão das abas da Carteira, aplicadas aos seletores Contratos/Balanço do Painel (`DashboardPage.tsx`, `DashboardLayout.tsx`), Mensal/Diário/Calculadora (`CalculatorModal.tsx`), Pagar diária/Amortizar (`FlexibleDailyScreen.tsx`), Pix direto/InfinitePay (`InstallmentPixModal.tsx`) e Documento/Assinaturas/Auditoria (`LegalDocumentModal.tsx`), com ícones próprios no lugar dos genéricos. Botões de ação em caixa alta com letra miúda passaram a texto normal `text-sm font-semibold` (`AgreementView`, `PaymentRegistrationForm`, `NotificacaoCobrancaView`, `MasterScreen`, `LegalContractPage`, `LegalPage`, `AIAssistantModal`); cores de significado (juros em laranja, quitação em verde) mantidas.

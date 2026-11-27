@@ -1,6 +1,7 @@
 import React,{useState,useEffect,useRef} from 'react';
-import { createPortal } from 'react-dom';
-import {Repeat,Plus,Check,X,CalendarDays,PauseCircle,PlayCircle} from 'lucide-react';
+import {Repeat,Plus,Check,CalendarDays,PauseCircle,PlayCircle} from 'lucide-react';
+import {Modal,modalPrimaryActionClass} from '../ui/Modal';
+import {CategoryPickerField} from './CategoryIconPicker';
 import {personalWalletService,PersonalWalletAccount,PersonalWalletCard,WalletRecurringObligation} from '../../services/personalWallet.service';
 import {formatMoney} from '../../utils/formatters';
 import {FinancialCalculatorInput} from '../forms/FinancialCalculatorInput';
@@ -46,20 +47,23 @@ export const RecurringObligationsPanel:React.FC<Props>=({accounts,cards,items,on
   <div className="space-y-2">{items.map(item=><div key={item.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/70 px-3 py-3"><div className="min-w-0"><strong className="block truncate text-sm text-slate-200">{item.description}</strong><p className="truncate text-xs text-slate-400">{item.creditor_name} · {item.kind==='EXPENSE'?'Despesa':'Dívida'} · dia {item.due_day}</p><strong className="text-xs text-amber-300"><PrivateMoney value={formatMoney(item.amount)} /></strong></div><button type="button" disabled={busy} aria-label={(item.active?'Pausar ':'Reativar ')+item.description} onClick={()=>run(()=>personalWalletService.setRecurringObligationActive(item.id,!item.active),item.active?'Recorrência pausada.':'Recorrência reativada.')} className="rounded-lg border border-slate-700 p-2 text-slate-300">{item.active?<PauseCircle size={19}/>:<PlayCircle size={19}/>}</button></div>)}</div>
   {notice&&<p role="status" className="text-xs text-emerald-300">{notice}</p>}
   {error&&<p role="alert" className="text-xs text-rose-300">{error}</p>}
-  {open&&createPortal(<div role="dialog" aria-modal="true" aria-label="Nova despesa ou dívida fixa" className="fixed inset-0 z-[2500] flex items-end justify-center bg-black/80 sm:items-center sm:p-4"><form onSubmit={submit} className="max-h-[95dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl border border-slate-700 bg-slate-900 p-5 text-white sm:rounded-3xl">
-   <div className="flex items-center justify-between"><h3 className="text-base font-bold">Nova despesa ou dívida fixa</h3><button type="button" aria-label="Fechar" onClick={()=>setOpen(false)}><X size={18}/></button></div>
-   <div className="mt-4 grid gap-3 sm:grid-cols-2">
-    <label className="text-xs">Tipo<select className={field} value={form.kind} onChange={e=>update('kind',e.target.value)}><option value="EXPENSE">Despesa fixa</option><option value="DEBT">Dívida recorrente</option></select></label>
-    <label className="text-xs">Credor<select className={field} value={form.creditor_type} onChange={e=>update('creditor_type',e.target.value)}><option value="PERSON">Pessoa física</option><option value="COMPANY">Empresa</option></select></label>
+  {open&&<Modal onClose={()=>setOpen(false)} title="Nova despesa ou dívida fixa" icon={<Repeat size={16}/>} size="lg" busy={busy}
+   footer={<button type="submit" form="recurring-obligation-form" disabled={busy} className={modalPrimaryActionClass}><Check size={16}/>{busy?'Salvando...':'Salvar recorrência'}</button>}>
+   <form id="recurring-obligation-form" onSubmit={submit} className="grid gap-3 sm:grid-cols-2">
+    <div className="grid grid-cols-2 gap-3 sm:col-span-2">
+     <label className="min-w-0 text-xs">Tipo<select className={field} value={form.kind} onChange={e=>update('kind',e.target.value)}><option value="EXPENSE">Despesa fixa</option><option value="DEBT">Dívida recorrente</option></select></label>
+     <label className="min-w-0 text-xs">Credor<select className={field} value={form.creditor_type} onChange={e=>update('creditor_type',e.target.value)}><option value="PERSON">Pessoa física</option><option value="COMPANY">Empresa</option></select></label>
+    </div>
     <label className="text-xs">Descrição<input className={field} required maxLength={240} placeholder="Aluguel, internet, energia" value={form.description} onChange={e=>update('description',e.target.value)}/></label>
     <label className="text-xs">Nome do credor<input className={field} required maxLength={240} value={form.creditor_name} onChange={e=>update('creditor_name',e.target.value)}/></label>
-    <label className="text-xs">Categoria<input className={field} required value={form.category} onChange={e=>update('category',e.target.value)}/></label>
-    <label className="text-xs">Valor mensal (R$)<FinancialCalculatorInput className={field} required centsEntry value={form.amount} onChange={e=>update('amount',e.target.value)}/></label>
-    <label className="text-xs">Dia de vencimento<input className={field} required type="number" min="1" max="31" value={form.due_day} onChange={e=>update('due_day',e.target.value)}/></label>
-    <label className="text-xs">Origem do pagamento<select className={field} required value={form.origin} onChange={e=>update('origin',e.target.value)}><option value="">Selecione</option><optgroup label="Conta bancária">{accounts.map(a=><option key={a.id} value={'ACCOUNT:'+a.id}>{a.nickname}</option>)}</optgroup><optgroup label="Cartão">{cards.filter(c=>c.status==='ACTIVE').map(c=><option key={c.id} value={'CARD:'+c.id}>{c.nickname}</option>)}</optgroup></select></label>
-   </div>
-   {error&&<p className="mt-3 text-xs text-rose-300">{error}</p>}
-   <button type="submit" disabled={busy} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-bold disabled:opacity-50"><Check size={16}/>{busy?'Salvando...':'Salvar recorrência'}</button>
-  </form></div>,document.body)}
+    <CategoryPickerField value={form.category} onChange={value=>update('category',value)} className="sm:col-span-2" />
+    <div className="grid grid-cols-[minmax(0,1fr)_7.5rem] gap-3 sm:col-span-2 sm:grid-cols-2">
+     <label className="min-w-0 text-xs">Valor mensal (R$)<FinancialCalculatorInput className={field} required centsEntry value={form.amount} onChange={e=>update('amount',e.target.value)}/></label>
+     <label className="min-w-0 text-xs">Vencimento (dia)<input className={field} required type="number" min="1" max="31" aria-label="Dia de vencimento" value={form.due_day} onChange={e=>update('due_day',e.target.value)}/></label>
+    </div>
+    <label className="text-xs sm:col-span-2">Origem do pagamento<select className={field} required value={form.origin} onChange={e=>update('origin',e.target.value)}><option value="">Selecione</option><optgroup label="Conta bancária">{accounts.map(a=><option key={a.id} value={'ACCOUNT:'+a.id}>{a.nickname}</option>)}</optgroup><optgroup label="Cartão">{cards.filter(c=>c.status==='ACTIVE').map(c=><option key={c.id} value={'CARD:'+c.id}>{c.nickname}</option>)}</optgroup></select></label>
+    {error&&<p role="alert" className="text-xs text-rose-300 sm:col-span-2">{error}</p>}
+   </form>
+  </Modal>}
  </section>;
 };

@@ -373,7 +373,7 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
           </div>
         )}
 
-        <div className={`grid ${isInstallmentFixed ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'} gap-4`}>
+        <div className={`grid ${isInstallmentFixed ? 'grid-cols-1' : 'grid-cols-[minmax(0,1fr)_7.5rem] sm:grid-cols-2'} gap-3 sm:gap-4`}>
           <div className="space-y-1">
             <label className="text-[9px] text-slate-500 font-black uppercase ml-2">{isEditing ? 'Capital atual' : 'Principal'}</label>
             <FinancialCalculatorInput required type="text" min="0.01" step="0.01" value={formData.principal || ''} onChange={e => {
@@ -408,8 +408,8 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
 
         {!isInstallmentFixed && <LoanTotalPreview formData={formData} setFormData={setFormData} />}
 
-        <div className="grid grid-cols-1 gap-4">
-          <div className="space-y-1">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4">
+          <div className="min-w-0 space-y-1">
             <label className="text-[9px] text-slate-500 font-black uppercase ml-2">Data Empréstimo</label>
             <input
               required
@@ -433,7 +433,7 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
               className={dateInputClass}
             />
           </div>
-          <div className="space-y-1">
+          <div className="min-w-0 space-y-1">
             <label className="text-[9px] text-blue-400 font-black uppercase ml-2 flex items-center gap-1"><CalendarDays size={10} /> Vencimento (1º)</label>
             <input
               required
@@ -442,11 +442,11 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
               onChange={e => setManualFirstDueDate(e.target.value)}
               className={`${dateInputClass} border-blue-500/30 focus:border-blue-500/50`}
             />
-            <p className="ml-2 text-[10px] text-slate-500">Sugerido conforme a modalidade. Você pode alterar livremente o vencimento.</p>
           </div>
+          <p className="col-span-2 ml-2 -mt-2 text-[10px] text-slate-500">Sugerido conforme a modalidade. Você pode alterar livremente o vencimento.</p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4">
           <div className="space-y-1">
             <label className="text-[9px] text-slate-500 font-black uppercase ml-2">Multa (%)</label>
             <FinancialCalculatorInput rate type="text" step="0.1" value={formData.finePercent || ''} onChange={e => setFormData({ ...formData, finePercent: cleanNumberStr(e.target.value) })} centsEntry className="w-full bg-slate-950/50 border border-slate-800/80 rounded-lg px-5 py-4 text-white text-sm outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 transition-all" />
@@ -565,29 +565,29 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
                 <span>Compra já realizada e cobrada pelo banco</span>
               </label>
               {formData.cardPurchaseAlreadyCharged === true && (
-                <div className="grid grid-cols-1 gap-3 border-t border-slate-800 pt-3 sm:grid-cols-2">
-                  <label className="block space-y-1 text-xs text-slate-300">
-                    <span>Data da compra no cartão</span>
-                    <input type="date" required value={formData.cardPurchaseChargeDate || ''}
+                <div className="grid grid-cols-2 gap-3 border-t border-slate-800 pt-3">
+                  <label className="block min-w-0 space-y-1 text-xs text-slate-300">
+                    <span>Data da compra</span>
+                    <input type="date" required aria-label="Data da compra no cartão" value={formData.cardPurchaseChargeDate || ''}
                       max={toISODateOnlyUTC(new Date())}
                       onChange={(event) => setFormData((current: any) => ({ ...current, cardPurchaseChargeDate: event.target.value }))}
                       className={dateInputClass} />
                   </label>
-                  <label className="block space-y-1 text-xs text-slate-300">
-                    <span>Valor já cobrado pelo cartão (R$)</span>
-                    <FinancialCalculatorInput type="text" centsEntry required
+                  <label className="block min-w-0 space-y-1 text-xs text-slate-300">
+                    <span>Valor cobrado (R$)</span>
+                    <FinancialCalculatorInput type="text" centsEntry required aria-label="Valor já cobrado pelo cartão (R$)"
                       value={formData.cardPurchaseChargedAmount || ''}
                       onChange={(event) => setFormData((current: any) => ({ ...current, cardPurchaseChargedAmount: event.target.value }))}
                       className={strongInputClass} placeholder="419,96" />
                   </label>
-                  <label className="block space-y-1 text-xs text-slate-300 sm:col-span-2">
+                  <label className="col-span-2 block space-y-1 text-xs text-slate-300">
                     <span>Identificação da compra no extrato</span>
                     <input type="text" required minLength={8} maxLength={160}
                       value={formData.cardPurchaseBankReference || ''}
                       onChange={(event) => setFormData((current: any) => ({ ...current, cardPurchaseBankReference: event.target.value }))}
                       className={inputClass} placeholder="RecargaPay 20/11 23:28" />
                   </label>
-                  <p className="text-[11px] leading-relaxed text-amber-200 sm:col-span-2">
+                  <p className="col-span-2 text-[11px] leading-relaxed text-amber-200">
                     Usar somente se a compra já foi autorizada pelo banco. O registro não solicitará novo crédito:
                     se o limite contábil estiver errado, a diferença continuará visível até ser conciliada.
                     Nenhum capital será debitado novamente da fonte vinculada.
@@ -688,7 +688,7 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
 
         {interestFreeInstallment && (
           <div className="rounded-lg border border-emerald-500/20 bg-emerald-950/10 p-3 space-y-3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-[7.5rem_minmax(0,1fr)] sm:grid-cols-2 gap-3">
               <div>
                 <label className="ml-1 text-[9px] font-black uppercase text-slate-500">Número de parcelas</label>
                 <input type="number" min="1" value={formData.fundingInstallmentsCount || ''} onChange={e => setFormData((current: any) => {
@@ -771,7 +771,7 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
                     </div>
                   </>
                 )}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-3 sm:gap-4">
                   <div><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Quantidade de parcelas</label><input type="number" min="1" value={formData.fundingInstallmentsCount || ''} onChange={e => setFormData((current: any) => {
                     const mode = (current.fundingCalculationMode || 'TOTAL') as FundingCalculationMode;
                     return synchronizeFundingValues(current, mode, getFundingSourceValue(current, mode), { fundingInstallmentsCount: e.target.value });

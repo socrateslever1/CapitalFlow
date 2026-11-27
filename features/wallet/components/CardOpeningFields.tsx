@@ -215,7 +215,7 @@ export const CardOpeningFields: React.FC<Props> = ({
           <p className="text-xs text-slate-400">
             Informe o limite disponível mostrado pelo banco para calcular o usado. A fatura atual é independente do limite comprometido.
           </p>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-2 gap-3">
             <label className="text-xs text-slate-300">
               Fatura atual (R$)
               <input

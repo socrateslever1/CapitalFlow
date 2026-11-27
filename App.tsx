@@ -499,6 +499,7 @@ return (
             onOpenSupport={() => ui.openModal('SUPPORT_CHAT')}
             navOrder={visibleHubOrder}
             desktopNavOrder={visibleHubOrder}
+            saveDesktopNavOrder={(nextOrder: AppTab[]) => saveNavConfig(navOrder, nextOrder)}
             mobileNavOrder={mobileNavOrder}
             saveMobileNavOrder={saveMobileNavOrder}
             onGoBack={goBack}

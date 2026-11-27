@@ -279,7 +279,7 @@ export const PaymentRegistrationForm: React.FC<PaymentRegistrationFormProps> = (
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+                <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-8">
                     <div className="bg-slate-950 p-4 rounded-lg border border-slate-800 space-y-2">
                         <label className="text-[9px] font-black uppercase text-slate-500 block tracking-widest">Data Recebimento</label>
                         <input type="date" value={realPaymentDateStr} onChange={(e) => setRealPaymentDateStr(e.target.value)} className="bg-transparent text-white font-bold text-sm outline-none w-full appearance-none cursor-pointer" />

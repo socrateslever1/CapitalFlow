@@ -42,6 +42,7 @@ interface AppShellProps {
   onOpenSupport?: () => void;
   navOrder: string[];
   desktopNavOrder: string[];
+  saveDesktopNavOrder?: (order: AppTab[]) => Promise<void>;
   mobileNavOrder: AppTab[];
   saveMobileNavOrder: (order: AppTab[]) => Promise<void>;
   onGoBack?: () => void;
@@ -60,7 +61,7 @@ interface AppShellProps {
 }
 
 export const AppShell: React.FC<AppShellProps> = ({
-  children, toast, clearToast, activeTab, setActiveTab, activeUser, isLoadingData, onOpenNav, onNewLoan, isStealthMode, toggleStealthMode, onOpenSupport, navOrder, desktopNavOrder, mobileNavOrder, saveMobileNavOrder, onGoBack, isInHub, title, subtitle, notifications, removeNotification, clearAllNotifications, onNavigate, activeModal, addNotification, onCloseSupport, clients, onRefresh
+  children, toast, clearToast, activeTab, setActiveTab, activeUser, isLoadingData, onOpenNav, onNewLoan, isStealthMode, toggleStealthMode, onOpenSupport, navOrder, desktopNavOrder, saveDesktopNavOrder, mobileNavOrder, saveMobileNavOrder, onGoBack, isInHub, title, subtitle, notifications, removeNotification, clearAllNotifications, onNavigate, activeModal, addNotification, onCloseSupport, clients, onRefresh
 }) => {
   const remindersState = useReminders(activeUser?.id);
   const [termsPending, setTermsPending] = useState(false);
@@ -238,6 +239,7 @@ export const AppShell: React.FC<AppShellProps> = ({
         isStealthMode={isStealthMode}
         toggleStealthMode={toggleStealthMode}
         navOrder={desktopNavOrder}
+        saveNavOrder={saveDesktopNavOrder}
         notifications={notifications}
         removeNotification={removeNotification}
         clearAllNotifications={clearAllNotifications}

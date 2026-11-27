@@ -173,7 +173,7 @@ export const CardInitialBalancesModal: React.FC<CardInitialBalancesModalProps> =
           Informe o limite disponível exibido pelo banco. O limite usado será calculado pela diferença com o limite total.
           A fatura atual é separada: ela não representa necessariamente todo o limite comprometido.
         </p>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-2 gap-3">
           <label className="text-xs text-slate-300">
             Limite total (R$)
             <input required type="text" inputMode="decimal" placeholder="0,00" value={limit}

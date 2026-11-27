@@ -565,7 +565,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
             </label>
 
             {/* Categoria */}
-            <div className={`min-w-0 ${paymentMode === 'CARD' ? 'sm:col-span-2' : ''}`}>
+            <div className="min-w-0 sm:col-span-2">
               <div className="flex min-h-6 items-center justify-between gap-1.5">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                   <Tag size={11} className="mr-1 inline text-blue-400" />
@@ -624,62 +624,6 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                 </div>
               )}
             </div>
-
-            {/* Data (no modo Conta fica ao lado da Categoria; no modo Cartão fica dentro do bloco Fatura do cartão) */}
-            {paymentMode === 'ACCOUNT' && (
-            <div className="min-w-0">
-              <div className="flex min-h-6 items-center justify-between gap-1.5">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                  <Calendar size={11} className="mr-1 inline text-emerald-400" />
-                  Data da Compra
-                </span>
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      resetIdempotencyKey();
-                      setExpenseDate(quickDates.today);
-                      setError('');
-                    }}
-                    className={`rounded-md border px-2 py-0.5 text-[10px] font-bold transition ${
-                      dateTag === 'TODAY'
-                        ? 'border-emerald-500/60 bg-emerald-500/20 text-emerald-200'
-                        : 'border-slate-700 bg-slate-900 text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    Hoje
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      resetIdempotencyKey();
-                      setExpenseDate(quickDates.yesterday);
-                      setError('');
-                    }}
-                    className={`rounded-md border px-2 py-0.5 text-[10px] font-bold transition ${
-                      dateTag === 'YESTERDAY'
-                        ? 'border-emerald-500/60 bg-emerald-500/20 text-emerald-200'
-                        : 'border-slate-700 bg-slate-900 text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    Ontem
-                  </button>
-                </div>
-              </div>
-              <input
-                type="date"
-                required
-                aria-label="Data da Compra"
-                value={expenseDate}
-                onChange={(e) => {
-                  resetIdempotencyKey();
-                  setExpenseDate(e.target.value);
-                  setError('');
-                }}
-                className="mt-1.5 min-h-12 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm font-semibold text-white outline-none focus:border-blue-500"
-              />
-            </div>
-            )}
 
             {/* Fluxo Condicional: Cartão vs Conta */}
             {paymentMode === 'CARD' ? (
@@ -976,29 +920,86 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                 </div>
               </>
             ) : (
-              <div className="sm:col-span-2">
-                <span className={labelClass}>Conta Bancária / Carteira de Origem</span>
-                <div className="mt-1">
-                  <SelectOptionList
-                    ariaLabel="Conta Bancária / Carteira de Origem"
-                    value={selectedAccountId}
-                    placeholder="Selecione a conta para débito"
-                    triggerIcon={<Landmark size={16} className="shrink-0 text-blue-300" />}
-                    options={accounts.map((acc) => ({
-                      value: acc.id,
-                      label: acc.nickname,
-                      subtitle: 'Saldo disponível',
-                      rightValue: formatMoney(Number(acc.balance || 0)),
-                      icon: <QuickAccountLogo account={acc} />,
-                    }))}
-                    onChange={(next) => {
+              <div className="grid grid-cols-[minmax(0,9.5rem)_minmax(0,1fr)] gap-2.5 sm:col-span-2 sm:grid-cols-[minmax(0,11.5rem)_minmax(0,1fr)] sm:gap-3">
+                <div className="min-w-0">
+                  <div className="flex min-h-6 items-center justify-between gap-1">
+                    <span className="truncate text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      <Calendar size={11} className="mr-1 inline text-emerald-400" />
+                      Data
+                    </span>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          resetIdempotencyKey();
+                          setExpenseDate(quickDates.today);
+                          setError('');
+                        }}
+                        className={`rounded-md border px-1.5 py-0.5 text-[10px] font-bold transition ${
+                          dateTag === 'TODAY'
+                            ? 'border-emerald-500/60 bg-emerald-500/20 text-emerald-200'
+                            : 'border-slate-700 bg-slate-900 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        Hoje
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          resetIdempotencyKey();
+                          setExpenseDate(quickDates.yesterday);
+                          setError('');
+                        }}
+                        className={`rounded-md border px-1.5 py-0.5 text-[10px] font-bold transition ${
+                          dateTag === 'YESTERDAY'
+                            ? 'border-emerald-500/60 bg-emerald-500/20 text-emerald-200'
+                            : 'border-slate-700 bg-slate-900 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        Ontem
+                      </button>
+                    </div>
+                  </div>
+                  <input
+                    type="date"
+                    required
+                    aria-label="Data da Compra"
+                    value={expenseDate}
+                    onChange={(e) => {
                       resetIdempotencyKey();
-                      setSelectedAccountId(next);
+                      setExpenseDate(e.target.value);
+                      setError('');
                     }}
+                    className="mt-1.5 min-h-12 w-full rounded-lg border border-slate-700 bg-slate-950 px-2.5 py-2 text-xs sm:text-sm font-semibold text-white outline-none focus:border-blue-500"
                   />
                 </div>
+
+                <div className="min-w-0">
+                  <div className="flex min-h-6 items-center">
+                    <span className={`${labelClass} truncate`}>Conta de Origem</span>
+                  </div>
+                  <div className="mt-1.5">
+                    <SelectOptionList
+                      ariaLabel="Conta Bancária / Carteira de Origem"
+                      value={selectedAccountId}
+                      placeholder="Selecione a conta"
+                      triggerIcon={<Landmark size={16} className="shrink-0 text-blue-300" />}
+                      options={accounts.map((acc) => ({
+                        value: acc.id,
+                        label: acc.nickname,
+                        subtitle: 'Saldo disponível',
+                        rightValue: formatMoney(Number(acc.balance || 0)),
+                        icon: <QuickAccountLogo account={acc} />,
+                      }))}
+                      onChange={(next) => {
+                        resetIdempotencyKey();
+                        setSelectedAccountId(next);
+                      }}
+                    />
+                  </div>
+                </div>
                 {selectedAccount && amountValue > Number(selectedAccount.balance || 0) && (
-                  <span className="mt-1.5 block text-[11px] font-semibold text-amber-300">
+                  <span className="col-span-2 -mt-1 block text-[11px] font-semibold text-amber-300">
                     Atenção: o valor excede o saldo disponível na conta ({formatMoney(Number(selectedAccount.balance || 0))}).
                   </span>
                 )}

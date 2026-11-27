@@ -21,8 +21,11 @@ import {
   FolderSearch,
   CreditCard,
   ShieldCheck,
+  GripVertical,
+  Check,
 } from 'lucide-react';
-import { UserProfile } from '../types';
+import { AppTab, UserProfile } from '../types';
+import { moveTabInOrder } from './navigationPreferences';
 import { Tooltip } from '../components/ui/Tooltip';
 import { InAppNotification } from '../hooks/useAppNotifications';
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
@@ -46,6 +49,7 @@ interface HeaderBarProps {
   isStealthMode: boolean;
   toggleStealthMode: () => void;
   navOrder: string[];
+  saveNavOrder?: (order: AppTab[]) => Promise<void>;
   notifications?: InAppNotification[];
   removeNotification?: (id: string) => void;
   clearAllNotifications?: () => void;
@@ -173,6 +177,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   isStealthMode,
   toggleStealthMode,
   navOrder,
+  saveNavOrder,
   notifications = [],
   removeNotification,
   clearAllNotifications,
@@ -187,8 +192,84 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   const [startX, setStartX] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [editingNav, setEditingNav] = useState(false);
+  const [savingNav, setSavingNav] = useState(false);
+  const [draftNavOrder, setDraftNavOrder] = useState<AppTab[]>(() => (navOrder || []) as AppTab[]);
+  const [navNotice, setNavNotice] = useState('');
+  const draggedTabRef = useRef<{ tab: AppTab; pointer: number } | null>(null);
   const hasNativeApkUpdate = useAndroidNativeUpdateAvailable();
   const alertBadgeCount = notifications.length + (hasNativeApkUpdate ? 1 : 0);
+
+  useEffect(() => {
+    if (!editingNav) {
+      setDraftNavOrder((navOrder || []) as AppTab[]);
+    }
+  }, [navOrder, editingNav]);
+
+  const enterNavEdit = () => {
+    setDraftNavOrder((navOrder || []) as AppTab[]);
+    setNavNotice('');
+    setEditingNav(true);
+    draggedTabRef.current = null;
+  };
+
+  const cancelNavEdit = () => {
+    if (savingNav) return;
+    setDraftNavOrder((navOrder || []) as AppTab[]);
+    setEditingNav(false);
+    draggedTabRef.current = null;
+  };
+
+  const finishNavEdit = async () => {
+    if (savingNav || !saveNavOrder) return;
+    setSavingNav(true);
+    try {
+      await saveNavOrder(draftNavOrder);
+      setNavNotice('');
+    } catch {
+      setNavNotice('Ordem salva neste navegador. Sincronização pendente.');
+    } finally {
+      setSavingNav(false);
+      setEditingNav(false);
+      draggedTabRef.current = null;
+    }
+  };
+
+  const onNavTabPointerDown = (event: React.PointerEvent<HTMLButtonElement>, tab: AppTab) => {
+    if (!editingNav || savingNav) return;
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    draggedTabRef.current = { tab, pointer: event.pointerId };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const onNavTabPointerMove = (event: React.PointerEvent<HTMLButtonElement>) => {
+    const dragged = draggedTabRef.current;
+    if (!editingNav || !dragged || dragged.pointer !== event.pointerId) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const scroll = scrollRef.current;
+    if (scroll) {
+      const rect = scroll.getBoundingClientRect();
+      if (event.clientX < rect.left + 34) scroll.scrollLeft -= 17;
+      if (event.clientX > rect.right - 34) scroll.scrollLeft += 17;
+    }
+    const target = document.elementFromPoint(event.clientX, event.clientY)
+      ?.closest<HTMLElement>('[data-desktop-nav-tab]')
+      ?.dataset.desktopNavTab as AppTab | undefined;
+    if (target && target !== dragged.tab) {
+      setDraftNavOrder((previous) => moveTabInOrder(previous, dragged.tab, target));
+    }
+  };
+
+  const onNavTabPointerEnd = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (draggedTabRef.current?.pointer !== event.pointerId) return;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    draggedTabRef.current = null;
+  };
 
   useEffect(() => {
     setShowNotifications(false);
@@ -266,7 +347,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   };
 
   const handlePointerDown = (e: React.PointerEvent) => {
-    if (!scrollRef.current || e.pointerType !== 'mouse') return;
+    if (editingNav || !scrollRef.current || e.pointerType !== 'mouse') return;
     setIsDragging(true);
     setHasDragged(false);
     setStartX(e.pageX - scrollRef.current.offsetLeft);
@@ -568,40 +649,118 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             </div>
           </div>
 
-          <nav
-            ref={scrollRef}
-            onPointerDown={handlePointerDown}
-            onPointerUp={handlePointerUp}
-            onPointerMove={handlePointerMove}
-            className={`hidden md:flex w-full lg:w-auto lg:flex-1 order-3 lg:order-2 bg-slate-900/50 backdrop-blur-md p-1 rounded-lg border border-slate-800/50 gap-1 overflow-x-auto scrollbar-hide lg:mx-2 mt-2 lg:mt-0 min-w-0 ${
-              isDragging ? 'cursor-grabbing' : 'cursor-grab'
-            }`}
-            style={{ WebkitOverflowScrolling: 'touch' }}
+          <div
+            data-editing-nav={editingNav ? 'true' : undefined}
+            className="hidden md:flex flex-col w-full lg:w-auto lg:flex-1 order-3 lg:order-2 lg:mx-2 mt-2 lg:mt-0 min-w-0"
           >
-            {(navOrder || []).map((tab) => {
-                const isActive = activeTab === tab;
-                return (
+            <div className="flex items-center gap-1.5 min-w-0">
+              <nav
+                ref={scrollRef}
+                onPointerDown={handlePointerDown}
+                onPointerUp={handlePointerUp}
+                onPointerMove={handlePointerMove}
+                className={`flex flex-1 bg-slate-900/50 backdrop-blur-md p-1 rounded-lg border gap-1 overflow-x-auto scrollbar-hide min-w-0 ${
+                  editingNav
+                    ? 'border-blue-500/40 select-none'
+                    : isDragging
+                      ? 'border-slate-800/50 cursor-grabbing'
+                      : 'border-slate-800/50 cursor-grab'
+                }`}
+                style={{ WebkitOverflowScrolling: 'touch', touchAction: editingNav ? 'none' : 'pan-x' }}
+              >
+                {(editingNav ? draftNavOrder : ((navOrder || []) as AppTab[])).map((tab) => {
+                  const isActive = activeTab === tab;
+                  return (
+                    <button
+                      key={tab}
+                      type="button"
+                      data-desktop-nav-tab={tab}
+                      aria-label={editingNav ? `Arrastar ${getTabLabel(tab)}` : getTabLabel(tab)}
+                      aria-current={!editingNav && isActive ? 'page' : undefined}
+                      onPointerDown={(event) => onNavTabPointerDown(event, tab)}
+                      onPointerMove={onNavTabPointerMove}
+                      onPointerUp={onNavTabPointerEnd}
+                      onPointerCancel={onNavTabPointerEnd}
+                      onClick={(event) => {
+                        if (editingNav) {
+                          event.preventDefault();
+                          return;
+                        }
+                        if (!hasDragged) setActiveTab(tab);
+                      }}
+                      className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+                        editingNav
+                          ? 'cursor-grab touch-none border border-dashed border-slate-600 text-slate-200 hover:border-blue-400/70 hover:bg-slate-800/70'
+                          : isActive
+                            ? 'text-white shadow-xl shadow-blue-500/20'
+                            : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                      }`}
+                      style={
+                        editingNav
+                          ? { touchAction: 'none' }
+                          : {
+                              background: isActive
+                                ? `linear-gradient(135deg, ${primaryColor}, ${primaryColor}dd)`
+                                : 'transparent',
+                            }
+                      }
+                    >
+                      {getTabIcon(tab, !editingNav && isActive)} <span>{getTabLabel(tab)}</span>
+                    </button>
+                  );
+                })}
+              </nav>
+
+              {saveNavOrder && (
+                editingNav ? (
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      type="button"
+                      aria-label="Cancelar organização das abas"
+                      title="Cancelar"
+                      disabled={savingNav}
+                      onClick={cancelNavEdit}
+                      className="flex h-8 items-center gap-1 rounded-lg border border-slate-700 bg-slate-900 px-2 text-[10px] font-bold text-slate-300 hover:bg-slate-800 hover:text-white transition-colors disabled:opacity-50"
+                    >
+                      <X size={13} />
+                      <span className="hidden xl:inline">Cancelar</span>
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Salvar ordem das abas"
+                      title="Salvar ordem"
+                      disabled={savingNav}
+                      onClick={() => void finishNavEdit()}
+                      className="flex h-8 items-center gap-1 rounded-lg bg-blue-600 px-2.5 text-[10px] font-bold text-white hover:bg-blue-500 transition-colors disabled:opacity-50"
+                    >
+                      <Check size={13} />
+                      <span>{savingNav ? 'Salvando' : 'Concluir'}</span>
+                    </button>
+                  </div>
+                ) : (
                   <button
-                    key={tab}
-                    onClick={() => {
-                      if (!hasDragged) setActiveTab(tab);
-                    }}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
-                      isActive
-                        ? 'text-white shadow-xl shadow-blue-500/20'
-                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
-                    }`}
-                    style={{
-                      background: isActive
-                        ? `linear-gradient(135deg, ${primaryColor}, ${primaryColor}dd)`
-                        : 'transparent',
-                    }}
+                    type="button"
+                    aria-label="Organizar ordem das abas"
+                    title="Organizar abas"
+                    onClick={enterNavEdit}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-800 bg-slate-900/90 text-slate-400 hover:border-slate-700 hover:bg-slate-800 hover:text-white transition-colors"
                   >
-                    {getTabIcon(tab, isActive)} <span>{getTabLabel(tab)}</span>
+                    <GripVertical size={14} />
                   </button>
-                );
-              })}
-          </nav>
+                )
+              )}
+            </div>
+            {editingNav && (
+              <p className="mt-1 px-1 text-[10px] font-medium text-blue-300/90">
+                Arraste as abas para reorganizar a barra superior e clique em Concluir.
+              </p>
+            )}
+            {navNotice && !editingNav && (
+              <p role="status" className="mt-1 px-1 text-[10px] font-medium text-amber-300">
+                {navNotice}
+              </p>
+            )}
+          </div>
 
           <div id="header-right-section" className="flex items-center gap-1.5 sm:gap-3 order-2 lg:order-3 shrink-0">
             <div id="mobile-actions" className="flex items-center gap-1.5 sm:gap-2 md:hidden">

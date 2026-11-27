@@ -80,13 +80,13 @@ const OrdinaryReceipt: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         onChange={setAccountId}
       />
     </div>
-    <div className="grid gap-3 sm:grid-cols-2">
-      <label className={labelClass}>Valor recebido (R$)
+    <div className="grid grid-cols-2 gap-3">
+      <label className={`${labelClass} min-w-0`}>Valor recebido (R$)
         <FinancialCalculatorInput required autoComplete="off" placeholder="Ex.: 250,50"
           className={inputClass} value={amount} fieldLabel="valor recebido" onCommit={setAmount} disabled={saving}/>
       </label>
-      <label className={labelClass}>Data do recebimento
-        <input required type="date" max={today()} className={inputClass} value={date}
+      <label className={`${labelClass} min-w-0`}>Data
+        <input required type="date" max={today()} aria-label="Data do recebimento" className={inputClass} value={date}
           onChange={e => setDate(e.target.value)} disabled={saving}/>
       </label>
     </div>

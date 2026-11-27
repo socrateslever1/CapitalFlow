@@ -81,7 +81,7 @@ export const CollectionAutomation: React.FC<Props> = ({ profileId, showToast }) 
       <button type="button" onClick={() => patch({ enabled: !policy.enabled })} className={`rounded-full px-4 py-2 text-[10px] font-black uppercase ${policy.enabled ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-400'}`}>{policy.enabled ? 'Automação ativa' : 'Automação desligada'}</button>
     </div>
 
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+    <div className="grid grid-cols-2 gap-3 md:gap-4">
       <label className="text-[10px] font-black uppercase text-slate-500">Recorrência após atraso<select value={policy.overdue_cadence} onChange={(e) => patch({ overdue_cadence: e.target.value as CollectionCadence })} className="mt-2 w-full rounded-lg border border-slate-800 bg-slate-900 p-3 text-xs text-white">{Object.entries(cadenceLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
       <label className="text-[10px] font-black uppercase text-slate-500">Tom da mensagem<select value={policy.tone} onChange={(e) => patch({ tone: e.target.value as CollectionTone })} className="mt-2 w-full rounded-lg border border-slate-800 bg-slate-900 p-3 text-xs text-white">{Object.entries(toneLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
     </div>
@@ -97,7 +97,7 @@ export const CollectionAutomation: React.FC<Props> = ({ profileId, showToast }) 
             <Plus size={12} /> Adicionar
           </button>
         </div>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <div className="grid grid-cols-3 gap-2">
           {sendHours.map((hour, index) => (
             <label key={`${hour}-${index}`} className="flex items-center gap-2 rounded-md border border-slate-800 bg-slate-950 px-3">
               <select value={hour} onChange={(event) => updateHour(index, Number(event.target.value))} className="h-11 min-w-0 flex-1 bg-transparent text-xs font-bold text-white outline-none">

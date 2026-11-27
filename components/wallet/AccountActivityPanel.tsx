@@ -5,6 +5,7 @@ import { formatMoney } from '../../utils/formatters';
 import { PrivateMoney } from '../../contexts/FinancialPrivacyContext';
 import { getAccountMovementPreview, getAccountTransferPreview } from '../../features/wallet/domain/accountTransferPreview';
 import { generateUUID } from '../../utils/generators';
+import { businessDateInManaus } from '../../utils/businessDate';
 import { FinancialCalculatorInput } from '../forms/FinancialCalculatorInput';
 import { parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
 import { WalletStatementImport } from './WalletStatementImport';
@@ -13,6 +14,7 @@ import { Modal, modalPrimaryActionClass } from '../ui/Modal';
 import { SelectOptionList } from '../ui/SelectOptionList';
 import { AppIcon } from '../icons/AppIcons';
 import { CategoryGaugeIcon } from './CategoryGaugeIcon';
+import { CategoryPickerField } from './CategoryIconPicker';
 import { BankLogo } from './BankLogo';
 import { notifyFinancialDataChanged } from '../../utils/appSyncEvents';
 import { accountCategoryReducer, initialAccountCategorySelection } from './accountCategorySelection';
@@ -60,6 +62,15 @@ const AccountOptionIcon: React.FC<{ account: PersonalWalletAccount }> = ({ accou
 
 export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operations,statementRows,expenses,invoicePayments,cardFundedLoanIds,onSaved}) => {
   const [action,setAction]=useState<Action|null>(null);
+  const [monthlyIncome, setMonthlyIncome] = useState(false);
+  const [receiptDay, setReceiptDay] = useState('5');
+  const isMonthlyIncome = action === 'INCOME' && monthlyIncome;
+  const [monthlyExpense, setMonthlyExpense] = useState(false);
+  const [dueDay, setDueDay] = useState('10');
+  const [obligationKind, setObligationKind] = useState<'EXPENSE' | 'DEBT'>('EXPENSE');
+  const [creditorType, setCreditorType] = useState<'PERSON' | 'COMPANY'>('COMPANY');
+  const [creditorName, setCreditorName] = useState('');
+  const isMonthlyExpense = action === 'EXPENSE' && monthlyExpense;
   const [amount,setAmount]=useState('');
   const [operationDraft,setOperationDraft]=useState<string|null>(null);
   const [description,setDescription]=useState('');
@@ -119,6 +130,46 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
     e.preventDefault();
     if(!action||saving)return;
     if(!Number.isFinite(parsedAmount)||parsedAmount<=0||Math.abs(parsedAmount*100-Math.round(parsedAmount*100))>0.00001){setError('Valor inválido.');return;}
+    if (isMonthlyIncome) {
+      const day = Number(receiptDay);
+      if (!Number.isInteger(day) || day < 1 || day > 31) {
+        setError('Informe um dia de recebimento entre 1 e 31.');
+        return;
+      }
+      setSaving(true); setError(''); setSuccess('');
+      try {
+        await personalWalletService.createRecurringIncome({
+          description, category, amount: parsedAmount, receipt_day: day, destination_account_id: account.id,
+        });
+        clear();
+        setSuccess('Receita fixa cadastrada.');
+        notifyFinancialDataChanged({ wallet: true });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Não foi possível cadastrar a receita fixa.');
+      } finally { setSaving(false); }
+      return;
+    }
+    if (isMonthlyExpense) {
+      const day = Number(dueDay);
+      if (!Number.isInteger(day) || day < 1 || day > 31 || !creditorName.trim()) {
+        setError('Informe o credor e um dia de vencimento entre 1 e 31.');
+        return;
+      }
+      setSaving(true); setError(''); setSuccess('');
+      try {
+        await personalWalletService.createRecurringObligation({
+          kind: obligationKind, description, creditor_name: creditorName.trim(), creditor_type: creditorType,
+          category, amount: parsedAmount, due_day: day, origin_type: 'ACCOUNT', origin_id: account.id,
+          start_month: businessDateInManaus().slice(0, 7) + '-01',
+        });
+        clear();
+        setSuccess('Recorrência cadastrada. Para criar os vencimentos, use Gerar vencimentos em Despesas recorrentes.');
+        notifyFinancialDataChanged({ wallet: true });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Não foi possível salvar a recorrência.');
+      } finally { setSaving(false); }
+      return;
+    }
     const toAccount=(action==='INCOME'||action==='RECEIPT')?account.id:action==='TRANSFER'?destination:null;
     const fromAccount=(action==='EXPENSE'||action==='PAYMENT'||action==='TRANSFER')?account.id:null;
     if(action==='TRANSFER'&&(!destination||!others.some(item=>item.id===destination))){
@@ -256,6 +307,25 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
     const anchor=document.createElement('a');anchor.href=url;anchor.download=`extrato-${account.nickname.replace(/[^a-z0-9-]/gi,'_')}.csv`;anchor.click();URL.revokeObjectURL(url);
   };
 
+  const openAction = (value: Action) => {
+    setAction(value);
+    setMonthlyIncome(false);
+    setReceiptDay('5');
+    setMonthlyExpense(false);
+    setDueDay('10');
+    setObligationKind('EXPENSE');
+    setCreditorType('COMPANY');
+    setCreditorName('');
+    setAmount('');
+    setOperationDraft(null);
+    setDescription(value === 'TRANSFER' ? 'Transferência entre contas' : '');
+    dispatchCategory({type:'reset'});
+    setCategoryManuallySelected(false);
+    setDestination('');
+    setError('');
+    setSuccess('');
+  };
+
   return (<section className="space-y-4">
     <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:p-6">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
@@ -268,7 +338,7 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
           Saldo inicial
         </button>}
       </div>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
         {([
           ['INCOME','income','Receita'],
           ['RECEIPT','receive','Receber'],
@@ -276,9 +346,9 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
           ['PAYMENT','banknote','Pagar'],
           ['TRANSFER','transfer','Transferir'],
         ] as const).map(([value,iconName,label])=>(
-          <button type="button" key={value} onClick={()=>{setAction(value);setAmount('');setOperationDraft(null);setDescription(value==='TRANSFER'?'Transferência entre contas':'');dispatchCategory({type:'reset'});setCategoryManuallySelected(false);setDestination('');setError('');setSuccess('');}}
-            className={`flex flex-col items-center justify-center gap-2 rounded-xl border px-2 py-4 text-xs font-semibold transition-colors ${action===value?'border-emerald-400 bg-emerald-900/30 text-white':'border-slate-700 bg-slate-950 text-slate-300 hover:border-emerald-500'}`}>
-            <AppIcon name={iconName} size={28}/>{label}
+          <button type="button" key={value} onClick={() => openAction(value)}
+            className={`group flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 text-xs font-semibold transition-colors sm:gap-2 sm:px-2 sm:py-4 ${action===value?'bg-blue-600/20 text-blue-100 ring-1 ring-inset ring-blue-500/50':'bg-slate-800/45 text-slate-200 ring-1 ring-inset ring-white/[0.06] hover:bg-slate-800 hover:text-white'}`}>
+            <span className="cf-icon-interactive inline-flex"><AppIcon name={iconName} size={28}/></span>{label}
           </button>
         ))}
       </div>
@@ -420,15 +490,23 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
           <button
             type="submit"
             form="account-activity-form"
-            disabled={saving || (isDebit && (balancePreview.balanceCents===null || balancePreview.insufficientFunds))}
+            disabled={saving || (!isMonthlyExpense && isDebit && (balancePreview.balanceCents===null || balancePreview.insufficientFunds))}
             className={modalPrimaryActionClass}
           >
-            {saving ? 'Registrando...' : 'Confirmar lançamento'}
+            {saving ? 'Salvando...' : isMonthlyIncome ? 'Salvar receita fixa' : isMonthlyExpense ? 'Salvar recorrência' : 'Confirmar lançamento'}
           </button>
         }
       >
         <form id="account-activity-form" onSubmit={submit} className="space-y-3">
-          <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-xl border border-slate-700 bg-slate-950/70 p-3">
+          {action === 'INCOME' && <label className="flex min-h-11 items-center gap-2 rounded-lg border border-slate-700 px-3 text-sm text-white">
+            <input type="checkbox" checked={monthlyIncome} disabled={saving} onChange={event => setMonthlyIncome(event.target.checked)} />
+            Recebo todo mês
+          </label>}
+          {action === 'EXPENSE' && <label className="flex min-h-11 items-center gap-2 rounded-lg border border-slate-700 px-3 text-sm text-white">
+            <input type="checkbox" checked={monthlyExpense} disabled={saving} onChange={event => setMonthlyExpense(event.target.checked)} />
+            Pago todo mês
+          </label>}
+          {isMonthlyExpense ? <p className="text-xs text-slate-300">O saldo muda quando você registra o pagamento.</p> : isMonthlyIncome ? <p className="text-xs text-slate-300">O saldo muda quando você confirma o recebimento em Receitas fixas.</p> : <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-xl border border-slate-700 bg-slate-950/70 p-3">
             <div className="min-w-0">
               <p className="text-xs font-semibold text-slate-200">Saldo disponível na conta</p>
               <p className="text-[11px] text-slate-400">Registrado no CapitalFlow</p>
@@ -436,7 +514,7 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
             <strong className="max-w-full break-all text-base font-extrabold tabular-nums text-emerald-300">
               {balancePreview.balanceCents===null ? 'Indisponível' : <PrivateMoney value={formatMoney(balancePreview.balanceCents/100)}/>}
             </strong>
-          </div>
+          </div>}
           {action==='TRANSFER' && <p className="text-xs text-amber-300">Transferência contábil entre contas cadastradas. Não envia PIX nem movimenta dinheiro no banco.</p>}
           {action==='PAYMENT' && <p className="text-xs text-amber-300">Para quitar fatura de cartão, utilize a opção Faturas. Registrar aqui também causaria débito em duplicidade.</p>}
           {action==='RECEIPT' && <p className="text-xs text-slate-400">Registra o recebimento informado. Não solicita dinheiro nem gera cobrança PIX.</p>}
@@ -448,7 +526,7 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
                   onDraftChange={setOperationDraft}
                   fieldLabel="valor do lançamento" placeholder="0,00"/>
               </label>
-              {(isDebit||isCredit) && (
+              {!isMonthlyIncome && !isMonthlyExpense && (isDebit||isCredit) && (
                 <div className="flex flex-wrap items-center justify-between gap-1 rounded-lg bg-slate-950/60 px-3 py-2 text-xs">
                   <span className="text-slate-400">Saldo após {labels[action].toLocaleLowerCase('pt-BR')}</span>
                   <strong aria-live="polite" className={`tabular-nums ${balancePreview.insufficientFunds?'text-rose-300':'text-slate-100'}`}>
@@ -460,9 +538,28 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
                 </div>
               )}
             </div>
-            <label className="text-xs text-slate-300">Data
+            {isMonthlyIncome ? <label className="text-xs text-slate-300">Dia de recebimento
+              <input required className={input} type="number" min="1" max="31" value={receiptDay} onChange={e=>setReceiptDay(e.target.value)}/>
+            </label> : isMonthlyExpense ? <label className="text-xs text-slate-300">Dia de vencimento
+              <input required className={input} type="number" min="1" max="31" value={dueDay} onChange={e=>setDueDay(e.target.value)}/>
+            </label> : <label className="text-xs text-slate-300">Data
               <input required className={input} type="date" max={localToday()} value={date} onChange={e=>setDate(e.target.value)}/>
-            </label>
+            </label>}
+            {isMonthlyExpense && <>
+              <label className="text-xs text-slate-300">Tipo
+                <select className={input} value={obligationKind} onChange={e => setObligationKind(e.target.value === 'DEBT' ? 'DEBT' : 'EXPENSE')}>
+                  <option value="EXPENSE">Despesa fixa</option><option value="DEBT">Dívida recorrente</option>
+                </select>
+              </label>
+              <label className="text-xs text-slate-300">Tipo de credor
+                <select className={input} value={creditorType} onChange={e => setCreditorType(e.target.value === 'PERSON' ? 'PERSON' : 'COMPANY')}>
+                  <option value="COMPANY">Empresa</option><option value="PERSON">Pessoa física</option>
+                </select>
+              </label>
+              <label className="text-xs text-slate-300 sm:col-span-2">Nome do credor
+                <input required className={input} maxLength={240} value={creditorName} onChange={e => setCreditorName(e.target.value)} />
+              </label>
+            </>}
             {action==='TRANSFER' && <div className="space-y-1 text-xs text-slate-300 sm:col-span-2">
               <span className="block">Conta de destino</span>
               <SelectOptionList
@@ -481,23 +578,11 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
             <label className="text-xs text-slate-300 sm:col-span-2">Descrição
               <input required maxLength={240} className={input} value={description} onChange={e=>setDescription(e.target.value)} placeholder={action==='TRANSFER'?'Transferência entre contas':'Descreva a movimentação'}/>
             </label>
-            {action!=='TRANSFER' && <div className="space-y-1 text-xs text-slate-300 sm:col-span-2">
-              <span className="block">Categoria</span>
-              <SelectOptionList
-                ariaLabel="Categoria"
-                value={categoryState.customMode ? '__custom__' : category}
-                placeholder="Selecione a categoria"
-                options={[
-                  ...categoryOptions.map((option) => ({ value: option, label: option, icon: <CategoryGaugeIcon category={option} size={28} /> })),
-                  { value: '__custom__', label: 'Outra categoria...' },
-                ]}
-                onChange={(selected) => {setCategoryManuallySelected(true);dispatchCategory({type:'select',value:selected});}}
-              />
+            {action!=='TRANSFER' && <div className="min-w-0 space-y-1 text-xs text-slate-300 sm:col-span-2">
+              <CategoryPickerField categories={categoryOptions} income={action==='INCOME' || action==='RECEIPT'} value={category}
+                onChange={(selected) => {setCategoryManuallySelected(true);dispatchCategory({type:'select',value:selected});}} />
               {suggestedCategory && <p className="text-[11px] text-emerald-300">Categoria sugerida pela descrição. Você pode alterá-la.</p>}
             </div>}
-            {action!=='TRANSFER' && categoryState.customMode && <label className="text-xs text-slate-300 sm:col-span-2">Nome da categoria
-              <input required maxLength={100} className={input} value={category} onChange={e=>dispatchCategory({type:'type',value:e.target.value})} placeholder="Digite a categoria"/>
-            </label>}
           </div>
           {error && <p role="alert" className="rounded-lg border border-rose-700/50 p-3 text-xs text-rose-300">{error}</p>}
         </form>
@@ -546,10 +631,7 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
             <input required maxLength={240} className={input} value={editDescription}
               onChange={e=>setEditDescription(e.target.value)}/>
           </label>
-          <label className="block space-y-1 text-xs text-slate-300">Categoria
-            <input maxLength={100} className={input} value={editCategory}
-              onChange={e=>setEditCategory(e.target.value)}/>
-          </label>
+          <CategoryPickerField categories={categoryOptions} value={editCategory} onChange={setEditCategory} />
           <label className="block space-y-1 text-xs text-slate-300">Data
             <input required type="date" max={localToday()} className={input}
               value={editDate} onChange={e=>setEditDate(e.target.value)}/>

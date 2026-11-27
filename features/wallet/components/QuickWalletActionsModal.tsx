@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { CategoryPickerField } from '../../../components/wallet/CategoryIconPicker';
 import { createPortal } from 'react-dom';
 import { CreditCard, Landmark, Plus, SlidersHorizontal, Wallet, X, Check } from 'lucide-react';
 import {
@@ -415,8 +416,8 @@ export const QuickWalletActionsModal: React.FC<QuickWalletActionsModalProps> = (
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <label className="text-xs font-semibold text-slate-300">
+              <div className="grid grid-cols-2 gap-3">
+                <label className="min-w-0 text-xs font-semibold text-slate-300">
                   Valor da Despesa (R$)
                   <FinancialCalculatorInput required centsEntry
                     placeholder="0,00" value={expenseForm.amount}
@@ -425,7 +426,7 @@ export const QuickWalletActionsModal: React.FC<QuickWalletActionsModalProps> = (
                   />
                 </label>
 
-                <label className="text-xs font-semibold text-slate-300">
+                <label className="min-w-0 text-xs font-semibold text-slate-300">
                   Data
                   <input
                     required
@@ -436,7 +437,7 @@ export const QuickWalletActionsModal: React.FC<QuickWalletActionsModalProps> = (
                   />
                 </label>
 
-                <label className="text-xs font-semibold text-slate-300 sm:col-span-2">
+                <label className="col-span-2 text-xs font-semibold text-slate-300">
                   Descrição (o que foi pago/comprado?)
                   <input
                     required
@@ -449,28 +450,8 @@ export const QuickWalletActionsModal: React.FC<QuickWalletActionsModalProps> = (
                 </label>
               </div>
 
-              {/* Categorias em 1 toque */}
-              <div>
-                <span className="mb-1.5 block text-[10px] font-black uppercase tracking-wider text-slate-400">
-                  Categoria Rápida
-                </span>
-                <div className="flex flex-wrap gap-1.5">
-                  {QUICK_CATEGORIES.map((cat) => (
-                    <button
-                      key={cat}
-                      type="button"
-                      onClick={() => setExpenseForm((f) => ({ ...f, category: cat }))}
-                      className={`rounded-lg px-2.5 py-1.5 text-xs font-bold transition-all ${
-                        expenseForm.category === cat
-                          ? 'bg-blue-600 text-white shadow'
-                          : 'border border-slate-800 bg-slate-950 text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      {cat}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <CategoryPickerField categories={QUICK_CATEGORIES} value={expenseForm.category}
+                onChange={category => setExpenseForm(form => ({ ...form, category }))} />
 
               {/* Se for Cartão: Parcelamento em 1 toque */}
               {targetKind === 'card' && (

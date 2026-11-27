@@ -41,7 +41,7 @@ export const AccountPendingOperations: React.FC<{
   return <>
     {createOpen && <Modal compact variant="wallet" title="Lançamento pendente" subtitle="Só muda o saldo quando você efetivar." onClose={onCloseCreate} footerMode="custom">
     {error && <p role="alert" className="mb-2 text-xs text-rose-300">{error}</p>}
-    <form className="grid gap-2 sm:grid-cols-2"
+    <form className="grid grid-cols-2 gap-2"
       onSubmit={event => {
         event.preventDefault();
         void run(async () => {
@@ -56,29 +56,29 @@ export const AccountPendingOperations: React.FC<{
           onCloseCreate();
         });
       }}>
-      <div role="radiogroup" aria-label="Tipo" className="grid grid-cols-2 gap-2 sm:col-span-2">
+      <div role="radiogroup" aria-label="Tipo" className="col-span-2 grid grid-cols-2 gap-2">
         {([['IN', 'Entrada'], ['OUT', 'Saída']] as const).map(([value, label]) =>
           <button key={value} type="button" role="radio" aria-checked={form.direction === value}
             onClick={() => { createRequest.current = generateUUID(); setForm(f => ({ ...f, direction: value })); }}
             className={`min-h-10 rounded-lg border text-xs font-semibold ${form.direction === value ? 'border-blue-400 bg-blue-500/15 text-blue-100' : 'border-slate-700 text-slate-300'}`}>{label}</button>)}
       </div>
-      <label className="text-xs text-slate-300 sm:col-span-2">Descrição
+      <label className="col-span-2 text-xs text-slate-300">Descrição
         <input required maxLength={240} value={form.description} className={input}
           onChange={e => { createRequest.current = generateUUID(); setForm(f => ({ ...f, description: e.target.value })); }} />
       </label>
-      <label className="text-xs text-slate-300">Valor (R$)
+      <label className="min-w-0 text-xs text-slate-300">Valor (R$)
         <input required inputMode="decimal" placeholder="0,00" value={form.amount} className={input}
           onChange={e => { createRequest.current = generateUUID(); setForm(f => ({ ...f, amount: e.target.value })); }} />
       </label>
-      <label className="text-xs text-slate-300">Data prevista
+      <label className="min-w-0 text-xs text-slate-300">Data prevista
         <input required type="date" value={form.date} className={input}
           onChange={e => { createRequest.current = generateUUID(); setForm(f => ({ ...f, date: e.target.value })); }} />
       </label>
-      <label className="text-xs text-slate-300 sm:col-span-2">Categoria (opcional)
+      <label className="col-span-2 text-xs text-slate-300">Categoria (opcional)
         <input maxLength={100} value={form.category} placeholder="Outros" className={input}
           onChange={e => { createRequest.current = generateUUID(); setForm(f => ({ ...f, category: e.target.value })); }} />
       </label>
-      <button type="submit" disabled={busy} className="min-h-10 rounded-lg bg-blue-600 text-xs font-semibold text-white disabled:opacity-50 sm:col-span-2">
+      <button type="submit" disabled={busy} className="col-span-2 min-h-10 rounded-lg bg-blue-600 text-xs font-semibold text-white disabled:opacity-50">
         {busy ? 'Salvando…' : 'Salvar como pendente'}
       </button>
     </form>
@@ -112,7 +112,7 @@ export const AccountPendingOperations: React.FC<{
                 onClick={() => { setError(''); setPosting({ id: item.id, amount: formatWalletMoneyInput(String(remaining)), date: businessDateInManaus() }); }}
                 className="min-h-8 rounded-md bg-emerald-600 px-2.5 text-[11px] font-semibold text-white disabled:opacity-40">Efetivar</button>
             </div>}
-            {open && posting && <form className="mt-2 grid gap-2 rounded-lg border border-slate-800 bg-slate-950/50 p-2.5 sm:grid-cols-[1fr_1fr_auto]"
+            {open && posting && <form className="mt-2 grid grid-cols-2 gap-2 rounded-lg border border-slate-800 bg-slate-950/50 p-2.5 sm:grid-cols-[1fr_1fr_auto]"
               onSubmit={event => {
                 event.preventDefault();
                 void run(async () => {
@@ -124,19 +124,19 @@ export const AccountPendingOperations: React.FC<{
                   setPosting(null);
                 });
               }}>
-              <label className="text-[11px] text-slate-300">Valor efetivado
+              <label className="min-w-0 text-[11px] text-slate-300">Valor efetivado
                 <input inputMode="decimal" value={posting.amount} className={input}
                   onChange={e => setPosting(p => p && ({ ...p, amount: e.target.value }))} />
               </label>
-              <label className="text-[11px] text-slate-300">Data
+              <label className="min-w-0 text-[11px] text-slate-300">Data
                 <input type="date" value={posting.date} className={input}
                   onChange={e => setPosting(p => p && ({ ...p, date: e.target.value }))} />
               </label>
-              <div className="flex items-end gap-2">
+              <div className="col-span-2 flex items-end justify-end gap-2 sm:col-span-1">
                 <button type="button" onClick={() => setPosting(null)} className="min-h-10 rounded-lg border border-slate-700 px-3 text-xs text-slate-300">Voltar</button>
                 <button type="submit" disabled={busy} className="min-h-10 rounded-lg bg-emerald-600 px-3 text-xs font-semibold text-white disabled:opacity-50">{busy ? '…' : 'Confirmar'}</button>
               </div>
-              <p className="text-[11px] text-slate-500 sm:col-span-3">Valor menor que o pendente efetiva só uma parte; o restante continua pendente.</p>
+              <p className="col-span-2 text-[11px] text-slate-500 sm:col-span-3">Valor menor que o pendente efetiva só uma parte; o restante continua pendente.</p>
             </form>}
           </li>;
         })}

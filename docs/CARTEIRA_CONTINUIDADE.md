@@ -1824,3 +1824,7 @@ O ícone do olho já acionava o `FinancialPrivacyProvider`, mas os elementos aba
 - Os ícones passaram a 420 ms por parte, com maior deslocamento lateral e vertical. Reversão localizada no CSS, no componente do anel e nos changelogs. Sem validação em aparelho físico.
 - Verificação local no Chrome: as 12 variantes recebem os keyframes. No componente React, o arco ficou vazio antes da rolagem, iniciou ao entrar na área visível e terminou em 49% no caso testado. A renderização de lista e faixa confirmou que percentuais e arcos ficam fora do HTML com privacidade ativa. O teste que verifica a aparência da navegação da Carteira passou após preservar o destaque na pílula (14/14 na suíte).
 - Gate completo `npm run test:quality` passou na nova execução, incluindo o build. Revisão independente aprovou o movimento e a privacidade. A medição de FPS em aparelho continua pendente.
+## 27/11/2026 — Seletores de categoria e receitas
+
+- Despesa fixa passa ao modal compartilhado. Movimentações de conta, receitas fixas, compromissos e despesas passam a usar o seletor por ícones. O texto dos atalhos distingue receita avulsa de cadastro mensal. Handlers e cálculos financeiros preservados.
+- `test:wallet-visual-next` 62/62, `test:wallet-visual-simplification` 14/14, `test:ui-copy` e `git diff --check` passaram. Rollback restrito aos componentes de interface e aos registros. Sem conferência em dispositivo físico.

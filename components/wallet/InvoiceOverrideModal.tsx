@@ -156,8 +156,8 @@ export const InvoiceOverrideModal: React.FC<Props> = ({
         <span className="mt-1 block">Vence {shortDate(dates.dueDate)}</span>
       </div>
       <form id="invoice-override-adjustment-form" onSubmit={submit}>
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <label className="text-xs font-semibold text-slate-200">Mês de pagamento
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <label className="min-w-0 text-xs font-semibold text-slate-200">Mês de pagamento
           <span className="relative block"><CalendarDays className="pointer-events-none absolute left-3 top-4 text-slate-400" size={15}/>
             <input name="wallet-invoice-payment-month" type="month" required value={month} disabled={saving||savingFacts}
               onChange={event=>{
@@ -171,11 +171,11 @@ export const InvoiceOverrideModal: React.FC<Props> = ({
               className={field+' pl-9'}/>
           </span>
         </label>
-        <label className="text-xs font-semibold text-slate-200">Data exata de vencimento
-          <input name="wallet-invoice-due-date" type="date" required value={dueDate} disabled={saving||savingFacts}
+        <label className="min-w-0 text-xs font-semibold text-slate-200">Data de vencimento
+          <input name="wallet-invoice-due-date" type="date" required aria-label="Data exata de vencimento" value={dueDate} disabled={saving||savingFacts}
             onChange={event=>setDueDate(event.target.value)} className={field}/>
         </label>
-        <label className="text-xs font-semibold text-slate-200 sm:col-span-2">
+        <label className="col-span-2 text-xs font-semibold text-slate-200">
           Valor da fatura no banco (R$)
           <input name="wallet-invoice-amount" type="text" inputMode="decimal" autoComplete="off"
             required value={amount} disabled={saving||savingFacts} onChange={event => {

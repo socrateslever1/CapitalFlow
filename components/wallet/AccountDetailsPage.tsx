@@ -554,42 +554,46 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
             <BankLogo name={form.bank_name} alternateName={form.nickname} size="sm"/>
             Logo local automático quando disponível; a imagem personalizada tem prioridade.
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className={labelClass}>Apelido
-              <input required maxLength={120} className={inputClass} value={form.nickname} onChange={e => update('nickname', e.target.value)} />
-            </label>
-            <label className={labelClass}>Banco
-              <input list="account-bank-catalog" maxLength={120} className={inputClass} value={form.bank_name} onChange={e => update('bank_name', e.target.value)} />
-            </label>
-            <label className={labelClass}>Tipo de conta
-              <select className={inputClass} value={form.account_type} onChange={e => update('account_type', e.target.value)}>
-                <option value="CHECKING">Conta corrente</option>
-                <option value="PAYMENT">Conta de pagamento</option>
-                <option value="SAVINGS">Poupança</option>
-                <option value="CASH">Carteira física</option>
-                <option value="INVESTMENT">Investimento</option>
-              </select>
-            </label>
-            <label className={labelClass}>Tipo da chave PIX
-              <select className={inputClass} value={form.pix_key_type} onChange={e => {
-                update('pix_key_type', e.target.value);
-              }}>
-                <option value="">Sem PIX</option>
-                <option value="CPF">CPF</option>
-                <option value="CNPJ">CNPJ</option>
-                <option value="EMAIL">E-mail</option>
-                <option value="PHONE">Telefone</option>
-                <option value="RANDOM">Aleatória</option>
-              </select>
-            </label>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-2 gap-3 sm:col-span-2">
+              <label className={`${labelClass} min-w-0`}>Apelido
+                <input required maxLength={120} className={inputClass} value={form.nickname} onChange={e => update('nickname', e.target.value)} />
+              </label>
+              <label className={`${labelClass} min-w-0`}>Banco
+                <input list="account-bank-catalog" maxLength={120} className={inputClass} value={form.bank_name} onChange={e => update('bank_name', e.target.value)} />
+              </label>
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:col-span-2">
+              <label className={`${labelClass} min-w-0`}>Tipo de conta
+                <select className={inputClass} value={form.account_type} onChange={e => update('account_type', e.target.value)}>
+                  <option value="CHECKING">Conta corrente</option>
+                  <option value="PAYMENT">Conta de pagamento</option>
+                  <option value="SAVINGS">Poupança</option>
+                  <option value="CASH">Carteira física</option>
+                  <option value="INVESTMENT">Investimento</option>
+                </select>
+              </label>
+              <label className={`${labelClass} min-w-0`}>Tipo da chave PIX
+                <select className={inputClass} value={form.pix_key_type} onChange={e => {
+                  update('pix_key_type', e.target.value);
+                }}>
+                  <option value="">Sem PIX</option>
+                  <option value="CPF">CPF</option>
+                  <option value="CNPJ">CNPJ</option>
+                  <option value="EMAIL">E-mail</option>
+                  <option value="PHONE">Telefone</option>
+                  <option value="RANDOM">Aleatória</option>
+                </select>
+              </label>
+            </div>
             <label className={labelClass}>Chave PIX
               <input className={inputClass} maxLength={255} value={form.pix_key} onChange={e => update('pix_key', e.target.value)} />
             </label>
             <label className={labelClass}>Logotipo ou imagem
-              <span className="flex items-center gap-2 rounded-lg border border-dashed border-slate-700 p-2">
-                <ImagePlus size={18} className="text-slate-400" />
-                <span className="truncate text-xs text-slate-400">{image?.name || 'Escolher imagem (JPEG/PNG/WebP)'}</span>
-                <input className="max-w-[5rem] text-xs" type="file" accept="image/jpeg,image/png,image/webp" onChange={e => {
+              <span className="mt-1 flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-dashed border-slate-700 bg-slate-950/60 px-3 py-2 transition-colors hover:border-slate-500">
+                <ImagePlus size={18} className="shrink-0 text-slate-400" />
+                <span className="min-w-0 flex-1 truncate text-xs text-slate-300">{image?.name || 'Escolher imagem (JPEG/PNG/WebP)'}</span>
+                <input className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" onChange={e => {
                   const file = e.target.files?.[0] || null;
                   setImage(file);
                   setImagePreview(file ? URL.createObjectURL(file) : '');
@@ -647,7 +651,9 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
 
       <section className="grid gap-4 lg:grid-cols-2" aria-label="Lançamentos fixos desta conta">
         <RecurringIncomePanel
+          key={account.id}
           accounts={[account]}
+          showCreateButton={false}
           incomes={recurringIncomes.filter(item => item.destination_account_id === account.id)}
           receivedIds={new Set(recurringReceipts
             .filter(receipt => String(receipt.reference_month).slice(0, 7) === businessDateInManaus().slice(0, 7))
@@ -658,7 +664,7 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
           accounts={[account]}
           cards={[]}
           items={recurringObligations.filter(item => item.origin_type === 'ACCOUNT' && item.origin_account_id === account.id)}
-          showCreateButton
+          showCreateButton={false}
           onSaved={onSaved}
         />
       </section>

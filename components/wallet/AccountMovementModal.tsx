@@ -168,38 +168,40 @@ export const AccountMovementModal: React.FC<Props> = ({
         <div className="grid gap-3 sm:grid-cols-2">
           {accountSelect('De qual conta sai?', sourceId, value => { setSourceId(value); if (value === destinationId) setDestinationId(''); }, destinationId)}
           {accountSelect('Para qual conta vai?', destinationId, setDestinationId, sourceId)}
-          <label className={labelClass}>Valor
-            <FinancialCalculatorInput required className={inputClass} value={amount} onCommit={setAmount} fieldLabel="valor da transferência" placeholder="0,00"/>
-          </label>
-          <div className="space-y-1">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs font-semibold text-slate-300">Data</span>
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => setDate(dateShortcuts.today)}
-                  className={`rounded-md border px-2 py-0.5 text-[10px] font-bold transition ${
-                    activeDateTag === 'TODAY'
-                      ? 'border-emerald-500/60 bg-emerald-500/15 text-emerald-200'
-                      : 'border-slate-700 bg-slate-950 text-slate-400 hover:border-slate-600'
-                  }`}
-                >
-                  Hoje
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDate(dateShortcuts.yesterday)}
-                  className={`rounded-md border px-2 py-0.5 text-[10px] font-bold transition ${
-                    activeDateTag === 'YESTERDAY'
-                      ? 'border-emerald-500/60 bg-emerald-500/15 text-emerald-200'
-                      : 'border-slate-700 bg-slate-950 text-slate-400 hover:border-slate-600'
-                  }`}
-                >
-                  Ontem
-                </button>
+          <div className="grid grid-cols-2 gap-3 sm:col-span-2">
+            <label className={`${labelClass} min-w-0`}>Valor
+              <FinancialCalculatorInput required className={inputClass} value={amount} onCommit={setAmount} fieldLabel="valor da transferência" placeholder="0,00"/>
+            </label>
+            <div className="min-w-0 space-y-1">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-semibold text-slate-300">Data</span>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setDate(dateShortcuts.today)}
+                    className={`rounded-md border px-2 py-0.5 text-[10px] font-bold transition ${
+                      activeDateTag === 'TODAY'
+                        ? 'border-emerald-500/60 bg-emerald-500/15 text-emerald-200'
+                        : 'border-slate-700 bg-slate-950 text-slate-400 hover:border-slate-600'
+                    }`}
+                  >
+                    Hoje
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDate(dateShortcuts.yesterday)}
+                    className={`rounded-md border px-2 py-0.5 text-[10px] font-bold transition ${
+                      activeDateTag === 'YESTERDAY'
+                        ? 'border-emerald-500/60 bg-emerald-500/15 text-emerald-200'
+                        : 'border-slate-700 bg-slate-950 text-slate-400 hover:border-slate-600'
+                    }`}
+                  >
+                    Ontem
+                  </button>
+                </div>
               </div>
+              <input required type="date" max={today()} className={inputClass} value={date} onChange={event => setDate(event.target.value)}/>
             </div>
-            <input required type="date" max={today()} className={inputClass} value={date} onChange={event => setDate(event.target.value)}/>
           </div>
           <label className={`${labelClass} sm:col-span-2`}>Descrição
             <input required maxLength={240} className={inputClass} value={description} onChange={event => setDescription(event.target.value)} placeholder="Ex.: Reserva para outra conta"/>

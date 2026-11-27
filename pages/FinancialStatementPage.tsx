@@ -1,3 +1,4 @@
+import { AppIcon } from '../components/icons/AppIcons';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ArrowDownLeft,
@@ -428,10 +429,10 @@ export const FinancialStatementPage: React.FC<FinancialStatementPageProps> = ({
 
   return (
     <main className="mx-auto w-full max-w-[1500px] space-y-2.5 pb-28 md:space-y-2.5 md:pb-8">
-      <PageHeader
+      <PageHeader iconClassName="border-slate-700/70 bg-slate-900 shadow-black/30"
         actionsInline
         className="pb-3"
-        icon={<Wallet size={22} />}
+        icon={<AppIcon name="statement" size={28} />}
         title={<>Extrato <span className="text-blue-500">Financeiro</span></>}
         subtitle="Visão geral do negócio"
         actions={<div className="flex justify-end"><button type="button" onClick={handleRefresh} disabled={isLoading} className="grid h-10 w-10 shrink-0 place-items-center rounded-md border border-blue-700 bg-blue-600/10 text-blue-400 disabled:opacity-50" aria-label="Atualizar extrato">

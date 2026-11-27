@@ -1,3 +1,4 @@
+import { AppIcon } from '../components/icons/AppIcons';
 import React, { useState } from 'react';
 import {
   AlertTriangle,
@@ -180,9 +181,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         className="sr-only"
         aria-label="Selecionar foto do perfil"
       />
-      <PageHeader
-        icon={<User size={22} />}
-        iconClassName="border-violet-500/30 bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-indigo-950/30"
+      <PageHeader iconClassName="border-slate-700/70 bg-slate-900 shadow-black/30"
+        icon={<AppIcon name="profile" size={28} />}
         title={<>Meu <span className="text-blue-500">Perfil</span></>}
         subtitle="Configurações da conta, financeiro, pagamentos e segurança"
       />
@@ -246,7 +246,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-100 border border-transparent'
               }`}
             >
-              <User size={16} />
+              <AppIcon name="profileData" size={18} />
               <span>Dados do Perfil</span>
             </button>
 
@@ -258,7 +258,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-100 border border-transparent'
               }`}
             >
-              <DollarSign size={16} />
+              <AppIcon name="goals" size={18} />
               <span>Financeiro & Metas</span>
             </button>
 
@@ -270,7 +270,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-100 border border-transparent'
               }`}
             >
-              <PaymentIcon size={16} />
+              <AppIcon name="payments" size={18} />
               <span>Pagamentos Real</span>
             </button>
 
@@ -282,7 +282,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-100 border border-transparent'
               }`}
             >
-              <FileSpreadsheet size={16} />
+              <AppIcon name="export" size={18} />
               <span>Dados & Exportação</span>
             </button>
 
@@ -294,7 +294,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-100 border border-transparent'
               }`}
             >
-              <LayoutGrid size={16} />
+              <AppIcon name="preferences" size={18} />
               <span>Preferências & Menus</span>
             </button>
 
@@ -306,7 +306,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-100 border border-transparent'
               }`}
             >
-              <Shield size={16} />
+              <AppIcon name="security" size={18} />
               <span>Segurança & Conta</span>
             </button>
 
@@ -318,7 +318,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-100 border border-transparent'
               }`}
             >
-              <History size={16} />
+              <AppIcon name="updates" size={18} />
               <span>Atualizações</span>
             </button>
           </nav>

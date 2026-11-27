@@ -1,3 +1,4 @@
+import { AppIcon } from '../components/icons/AppIcons';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -465,11 +466,10 @@ export const PersonalWalletPage: React.FC<PersonalWalletPageProps> = ({ activeUs
     <section className="space-y-3 pb-32 sm:pb-16 w-full max-w-7xl mx-auto px-4 sm:px-6 animate-in fade-in">
       <datalist id="wallet-bank-options">{BANK_CATALOG.map(bank => <option key={bank.id} value={bank.name}/>)}</datalist>
       {/* Cabeçalho Compacto e Integrado */}
-      {!moduleView && <PageHeader
-        icon={<WalletCards size={20} />}
+      {!moduleView && <PageHeader iconClassName="border-slate-700/70 bg-slate-900 shadow-black/30"
+        icon={<AppIcon name="wallet" size={28} />}
         title={<>Minha <span className="text-emerald-400">Carteira</span></>}
         subtitle="Seus cartões e finanças em um único lugar"
-        iconClassName="border-emerald-500/30 bg-gradient-to-br from-emerald-600 to-teal-700 text-white shadow-emerald-950/30"
         actions={(
           <div className="flex items-center gap-1.5 flex-wrap">
             <button

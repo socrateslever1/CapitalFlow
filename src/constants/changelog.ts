@@ -22,6 +22,16 @@ export interface ChangelogRelease {
  */
 export const SYSTEM_CHANGELOG: ChangelogRelease[] = [
   {
+    version: '3.7.4',
+    codeOnly: true,
+    date: '27/11/2026',
+    title: 'Ícones novos no app',
+    summary: 'Menu, cabeçalhos, filtros e perfil com ícones próprios e coloridos.',
+    items: [
+      { kind: 'MELHORIA', text: 'Ícones desenhados para cada área do app, no menu, nos cabeçalhos, nos filtros de contratos e no perfil.' },
+    ],
+  },
+  {
     version: '3.7.3',
     codeOnly: true,
     date: '27/11/2026',

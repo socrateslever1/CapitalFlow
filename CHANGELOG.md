@@ -1,5 +1,10 @@
 # Changelog
 
+## 27/11/2026 — Ícones próprios no app todo
+
+**Melhoria (só interface).** `components/icons/AppIcons.tsx`: conjunto de ícones desenhados, coloridos por área, no lugar dos ícones genéricos de traço. Aplicado na barra inferior (Painel, Carteira, Capital, Clientes, Extrato, Simulador, Jurídico, Assistente), nos cabeçalhos das páginas (ícone em quadro escuro), nas abas Contratos/Balanço, nos filtros de contratos (Todos, Atrasados, Críticos, Renegociados, Em dia, Pagos, Arquivados) e nas abas do Perfil.
+- **Testes:** `test:quality`, `test:wallet-visual-next`, Carteira e build passaram; conferido no app local em 411 px. A proteção de codificação aponta `accountStatementDomain.ts` (falha antiga, não alterada aqui).
+
 ## 27/11/2026 — Ajustes do Antigravity integrados (cartões e conta)
 
 **Melhorias (só interface), feitas localmente no Antigravity em 26/11 e integradas após testes.**

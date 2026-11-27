@@ -1,3 +1,4 @@
+import { AppIcon } from '../components/icons/AppIcons';
 import React from 'react';
 import { Plus, Search, Edit, Trash2, CheckSquare, Square, XCircle, MapPin, Phone, Users, ShieldAlert, ShieldCheck, Link2, Copy, Check, X, FileSearch, FileSignature, Send, ExternalLink, Loader2, Clock, AlertCircle, MessageCircle } from 'lucide-react';
 import { Client, Loan, UserProfile } from '../types';
@@ -395,11 +396,10 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
 
   return (
     <div className="space-y-4 animate-in fade-in">
-        <PageHeader
+        <PageHeader iconClassName="border-slate-700/70 bg-slate-900 shadow-black/30"
           className="pb-3"
           stackActionsUntilLg
-          icon={<Users size={22} />}
-          iconClassName="border-violet-500/30 bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-indigo-950/30"
+          icon={<AppIcon name="clients" size={28} />}
           title={<>Carteira de <span className="text-blue-500">Clientes</span></>}
           subtitle="Gestão de base ativa"
           actions={<div className="flex flex-wrap gap-2 w-full lg:w-auto">

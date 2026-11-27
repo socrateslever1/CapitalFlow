@@ -1,3 +1,4 @@
+import { AppIcon } from '../components/icons/AppIcons';
 import React, { useCallback, useEffect, useState, useRef } from "react";
 import PixDepositModal from "../components/modals/PixDepositModal";
 import { CapitalSource, Loan } from "../types";
@@ -271,9 +272,8 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
 
   return (
     <div className="space-y-6 animate-in fade-in">
-      <PageHeader
-        icon={<Wallet size={22} />}
-        iconClassName="border-emerald-500/30 bg-gradient-to-br from-emerald-600 to-teal-600 text-white shadow-emerald-950/30"
+      <PageHeader iconClassName="border-slate-700/70 bg-slate-900 shadow-black/30"
+        icon={<AppIcon name="capital" size={28} />}
         title={<>Fontes de <span className="text-blue-500">Capital</span></>}
         subtitle="Gestão de fundos e liquidez"
         actions={

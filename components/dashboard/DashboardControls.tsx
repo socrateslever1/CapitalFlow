@@ -1,4 +1,5 @@
 
+import { AppIcon } from '../../components/icons/AppIcons';
 import React, { useEffect, useState, useRef } from 'react';
 import { ShieldAlert, ArrowDownWideNarrow, Search, X, Users, ChevronDown, AlertTriangle, RefreshCw, CheckCircle2, DollarSign, Archive, Download, FileSpreadsheet, FileText, Loader2, SlidersHorizontal, Plus } from 'lucide-react';
 import { SortOption, UserProfile, Loan, CapitalSource } from '../../types';
@@ -223,13 +224,13 @@ export const DashboardControls: React.FC<DashboardControlsProps> = ({
                 >
                     <div className="flex items-center gap-1.5 sm:gap-2 p-1 sm:p-1.5 bg-slate-900/60 border border-slate-800/80 rounded-lg w-max">
                         {[
-                          { id: 'TODOS', icon: <Users size={14} className="text-blue-400" /> },
-                          { id: 'ATRASADOS', icon: <AlertTriangle size={14} className="text-amber-400" /> },
-                          { id: 'ATRASO_CRITICO', icon: <ShieldAlert size={14} className="text-rose-500" /> },
-                          { id: 'RENEGOCIADO', icon: <RefreshCw size={14} className="text-purple-400" /> },
-                          { id: 'EM_DIA', icon: <CheckCircle2 size={14} className="text-emerald-400" /> },
-                          { id: 'PAGOS', icon: <DollarSign size={14} className="text-indigo-400" /> },
-                          { id: 'ARQUIVADOS', icon: <Archive size={14} className="text-slate-400" /> }
+                          { id: 'TODOS', icon: <AppIcon name="all" size={16} /> },
+                          { id: 'ATRASADOS', icon: <AppIcon name="late" size={16} /> },
+                          { id: 'ATRASO_CRITICO', icon: <AppIcon name="critical" size={16} /> },
+                          { id: 'RENEGOCIADO', icon: <AppIcon name="renegotiated" size={16} /> },
+                          { id: 'EM_DIA', icon: <AppIcon name="onTime" size={16} /> },
+                          { id: 'PAGOS', icon: <AppIcon name="paid" size={16} /> },
+                          { id: 'ARQUIVADOS', icon: <AppIcon name="archived" size={16} /> }
                         ].map(filter => (
                             <button
                                 key={filter.id}

@@ -1,3 +1,4 @@
+import { AppIcon } from '../../components/icons/AppIcons';
 import React, { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, CalendarClock, CreditCard, Landmark, LayoutDashboard, LockKeyhole, TrendingUp, WifiOff } from 'lucide-react';
 import { AccountsIcon, CardsIcon, OverviewIcon, PayablesIcon } from '../../components/wallet/WalletNavIcons';
@@ -109,8 +110,7 @@ const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUse
 
   return <main className="w-full pb-4">
     <div className="mb-3 w-full">
-      <PageHeader className="border-b-0 pb-0" icon={<CreditCard size={22}/>}
-        iconClassName="border-blue-500/30 bg-blue-600 text-white shadow-blue-950/30"
+      <PageHeader iconClassName="border-slate-700/70 bg-slate-900 shadow-black/30" className="border-b-0 pb-0" icon={<AppIcon name="wallet" size={28} />}
         title={<>Minha <span className="text-blue-500">Carteira</span></>}
         subtitle="Contas, cartões e compromissos"/>
     </div>

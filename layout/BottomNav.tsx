@@ -1,3 +1,4 @@
+import { AppIcon } from '../components/icons/AppIcons';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   LayoutDashboard, Users, Wallet, LayoutGrid, Calculator, ArrowRightLeft,
@@ -24,15 +25,16 @@ interface BottomNavProps {
 const iconFor = (tab: AppTab, active: boolean): React.ReactNode => {
   const cls = active ? 'text-blue-400' : '';
   const size = 20;
+  const muted = !active;
   switch (tab) {
-    case 'DASHBOARD': return <LayoutDashboard size={size} className={cls} />;
-    case 'DOSSIER': return <ArrowRightLeft size={size} className={active ? 'text-cyan-400' : ''}/>;
-    case 'CLIENTS': return <Users size={size} className={active ? 'text-emerald-400' : ''}/>;
-    case 'SOURCES': return <Wallet size={size} className={active ? 'text-amber-400' : ''}/>;
-    case 'MY_WALLET': return <CreditCard size={size} className={active ? 'text-fuchsia-400' : ''}/>;
-    case 'SIMULATOR': return <Calculator size={size} className={active ? 'text-cyan-400' : ''}/>;
-    case 'LEGAL': return <Gavel size={size} className={active ? 'text-yellow-400' : ''}/>;
-    case 'SUPPORT': return <MessageSquare size={size} className={cls}/>;
+    case 'DASHBOARD': return <AppIcon name="dashboard" size={22} muted={muted} />;
+    case 'DOSSIER': return <AppIcon name="statement" size={22} muted={muted} />;
+    case 'CLIENTS': return <AppIcon name="clients" size={22} muted={muted} />;
+    case 'SOURCES': return <AppIcon name="capital" size={22} muted={muted} />;
+    case 'MY_WALLET': return <AppIcon name="wallet" size={22} muted={muted} />;
+    case 'SIMULATOR': return <AppIcon name="simulator" size={22} muted={muted} />;
+    case 'LEGAL': return <AppIcon name="legal" size={22} muted={muted} />;
+    case 'SUPPORT': return <AppIcon name="assistant" size={22} muted={muted} />;
     default: return <LayoutGrid size={size} className={cls}/>;
   }
 };

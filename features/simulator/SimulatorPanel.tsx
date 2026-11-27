@@ -1,3 +1,4 @@
+import { AppIcon } from '../../components/icons/AppIcons';
 import React, { useMemo, useState } from 'react';
 import {
   Building2,
@@ -238,8 +239,8 @@ export const SimulatorPanel: React.FC<SimulatorPanelProps> = ({
 
   return (
     <div className="animate-in fade-in pb-28 font-sans duration-300">
-      <PageHeader
-        icon={<Calculator size={22} />}
+      <PageHeader iconClassName="border-slate-700/70 bg-slate-900 shadow-black/30"
+        icon={<AppIcon name="simulator" size={28} />}
         title={<>Simulador <span className="text-blue-500">Financeiro</span></>}
         subtitle="Cálculos e projeções"
       />

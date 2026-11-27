@@ -1,3 +1,4 @@
+import { AppIcon } from '../components/icons/AppIcons';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Scale, FileText, Scroll, Printer, User, Edit3, Bell, Trash2, MessageCircle, ShieldCheck, Archive, ArchiveRestore, Loader2 } from 'lucide-react';
 import { Loan, CapitalSource, UserProfile, Agreement, AgreementInstallment, LedgerEntry } from '../types';
@@ -215,9 +216,8 @@ export const LegalPage: React.FC<LegalPageProps> = (props) => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-        <PageHeader
-          icon={<Scale size={22} />}
-          iconClassName="border-violet-500/30 bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-indigo-950/30"
+        <PageHeader iconClassName="border-slate-700/70 bg-slate-900 shadow-black/30"
+          icon={<AppIcon name="legal" size={28} />}
           title="Jurídico"
           subtitle="Gestão de acordos e recuperação"
           actions={<div className="flex items-center gap-2 w-full sm:w-auto">

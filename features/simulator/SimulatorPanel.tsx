@@ -1,20 +1,7 @@
 import { AppIcon } from '../../components/icons/AppIcons';
 import React, { useMemo, useState } from 'react';
-import {
-  Building2,
-  Calculator,
-  Calendar as CalendarIcon,
-  CalendarX,
-  CheckCircle2,
-  ChevronDown,
-  Clock3,
-  Coins,
-  CreditCard,
-  Loader2,
-  Percent,
-  TrendingUp,
-  UserRound,
-} from 'lucide-react';
+import { CalendarX, ChevronDown, Loader2 } from 'lucide-react';
+import { Building2, Calculator, Calendar as CalendarIcon, CheckCircle2, Clock3, Coins, CreditCard, Percent, TrendingUp, UserRound } from '../../components/icons/brandIcons';
 import { formatDate } from '../../utils/loanCalculator';
 import { formatMoney } from '../../utils/formatters';
 import { modalityRegistry } from '../../domain/finance/modalities/registry';

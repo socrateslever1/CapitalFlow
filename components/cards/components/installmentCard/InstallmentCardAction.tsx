@@ -1,3 +1,4 @@
+import { AppIcon } from '../../../icons/AppIcons';
 import React from 'react';
 import { CalendarClock, DollarSign, Lock, RefreshCcw, QrCode } from 'lucide-react';
 import { Loan, Installment } from '../../../../types';
@@ -59,7 +60,7 @@ export const InstallmentCardAction: React.FC<InstallmentCardActionProps> = ({
                             className="flex min-h-9 min-w-0 items-center justify-center gap-1 rounded-md border border-cyan-500/30 bg-cyan-500/10 px-2 py-1.5 text-[9px] font-black uppercase text-cyan-400 hover:bg-cyan-500 hover:text-slate-950 transition-colors"
                             title="Gerar QR Code Pix desta parcela"
                         >
-                            <QrCode size={12} /> Pix
+                            <AppIcon name="pix" size={16} /> Pix
                         </button>
                     )}
                     {onPaymentOffer && (
@@ -71,7 +72,7 @@ export const InstallmentCardAction: React.FC<InstallmentCardActionProps> = ({
                             className="flex min-h-9 min-w-0 items-center justify-center gap-1 rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[9px] font-black uppercase text-amber-400 hover:bg-amber-500 hover:text-slate-950"
                             title="Criar ou alterar condição especial de pagamento"
                         >
-                            <CalendarClock size={12} /> Condição
+                            <AppIcon name="offer" size={16} /> Condição
                         </button>
                     )}
                     <button
@@ -79,7 +80,7 @@ export const InstallmentCardAction: React.FC<InstallmentCardActionProps> = ({
                         className="text-[9px] font-black uppercase bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 px-2.5 py-1.5 rounded-lg hover:bg-emerald-600 hover:text-white transition-all flex items-center gap-1.5"
                         title="Registrar recebimento da parcela"
                     >
-                        <DollarSign size={12} /> Receber
+                        <AppIcon name="receive" size={16} /> Receber
                     </button>
                     <button
                         onClick={handleOpen}
@@ -103,7 +104,7 @@ export const InstallmentCardAction: React.FC<InstallmentCardActionProps> = ({
                         className="flex items-center gap-1 rounded-md border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-1.5 text-[9px] font-black uppercase text-cyan-400 hover:bg-cyan-500 hover:text-slate-950 transition-colors"
                         title="Gerar QR Code Pix desta parcela"
                     >
-                        <QrCode size={12} /> Pix
+                        <AppIcon name="pix" size={16} /> Pix
                     </button>
                 )}
                 <button
@@ -111,7 +112,7 @@ export const InstallmentCardAction: React.FC<InstallmentCardActionProps> = ({
                     className="text-[9px] font-black uppercase bg-blue-600/20 text-blue-400 border border-blue-500/30 px-3 py-1.5 rounded-lg hover:bg-blue-600 hover:text-white transition-all flex items-center gap-1.5"
                     title={['MONTHLY', 'BIWEEKLY', 'WEEKLY'].includes(loan.billingCycle) ? "Detalhes da parcela" : "Abrir contrato"}
                 >
-                    <DollarSign size={12} /> {['MONTHLY', 'BIWEEKLY', 'WEEKLY'].includes(loan.billingCycle) ? 'Detalhes' : 'Abrir'}
+                    <AppIcon name="details" size={16} /> {['MONTHLY', 'BIWEEKLY', 'WEEKLY'].includes(loan.billingCycle) ? 'Detalhes' : 'Abrir'}
                 </button>
             </div>
         );

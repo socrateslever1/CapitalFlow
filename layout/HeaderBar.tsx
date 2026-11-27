@@ -1,3 +1,4 @@
+import { AppIcon } from '../components/icons/AppIcons';
 import React, { useRef, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -293,27 +294,27 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   const getTabIcon = (tab: string) => {
     switch (tab) {
       case 'DASHBOARD':
-        return <LayoutDashboard size={14} className="text-blue-500" />;
+        return <AppIcon name="dashboard" size={18} />;
       case 'DOSSIER':
-        return <ArrowRightLeft size={14} className="text-cyan-400" />;
+        return <AppIcon name="statement" size={18} />;
       case 'CLIENTS':
-        return <Users size={14} className="text-indigo-500" />;
+        return <AppIcon name="clients" size={18} />;
       case 'SOURCES':
-        return <Wallet size={14} className="text-emerald-500" />;
+        return <AppIcon name="capital" size={18} />;
       case 'SIMULATOR':
-        return <Calculator size={14} className="text-blue-400" />;
+        return <AppIcon name="simulator" size={18} />;
       case 'FLOW':
-        return <ArrowRightLeft size={14} className="text-teal-500" />;
+        return <AppIcon name="statement" size={18} />;
       case 'LEGAL':
-        return <Gavel size={14} className="text-yellow-400" />;
+        return <AppIcon name="legal" size={18} />;
       case 'PROFILE':
-        return <User size={14} className="text-blue-400" />;
+        return <AppIcon name="profile" size={18} />;
       case 'MY_WALLET':
-        return <CreditCard size={14} className="text-fuchsia-400" />;
+        return <AppIcon name="wallet" size={18} />;
       case 'PLATFORM_ADMIN':
-        return <ShieldCheck size={14} className="text-amber-400" />;
+        return <AppIcon name="admin" size={18} />;
       case 'HUB':
-        return <Menu size={14} className="text-slate-400" />;
+        return <AppIcon name="menu" size={18} />;
       default:
         return null;
     }

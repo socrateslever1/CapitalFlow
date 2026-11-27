@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { ArrowUpRight, ArrowRightLeft, Wallet } from 'lucide-react';
+import { ArrowUpRight, ArrowRightLeft, Wallet } from '../../components/icons/brandIcons';
 import { formatMoney } from '../../utils/formatters';
 
 export const ProfitCard = ({ balance, onWithdraw, isStealthMode, variant = 'default' }: { balance: number, onWithdraw: () => void, isStealthMode?: boolean, variant?: 'default' | 'compact' }) => {

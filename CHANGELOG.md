@@ -1,5 +1,12 @@
 # Changelog
 
+## 27/11/2026 — Ícones próprios: menus, contrato, painel, jurídico, simulador e atendimento
+
+**Melhoria (só interface).** O conjunto `components/icons/AppIcons.tsx` ganhou os ícones que faltavam e `components/icons/brandIcons.tsx` expõe os mesmos nomes dos ícones genéricos desenhando a versão própria (trocar o import aplica o padrão).
+- Aplicado em: menu principal (`NavHub`), abas do topo no computador (`HeaderBar`), ações do contrato (Editar, WhatsApp, Portal, Promissória, Anexar, Notas), ícone de situação do contrato, ações da parcela (Pix, Condição, Receber, Detalhes), indicadores e gráficos do painel, veredito da IA, protocolos do Jurídico, simulador, atendimento e cartões de lucro.
+- Ícones de controle (setas, carregando, fechar, lixeira) continuam de traço.
+- **Testes:** `test:quality`, `test:wallet-visual-next`, Carteira e build passaram.
+
 ## 27/11/2026 — Ícones próprios no app todo
 
 **Melhoria (só interface).** `components/icons/AppIcons.tsx`: conjunto de ícones desenhados, coloridos por área, no lugar dos ícones genéricos de traço. Aplicado na barra inferior (Painel, Carteira, Capital, Clientes, Extrato, Simulador, Jurídico, Assistente), nos cabeçalhos das páginas (ícone em quadro escuro), nas abas Contratos/Balanço, nos filtros de contratos (Todos, Atrasados, Críticos, Renegociados, Em dia, Pagos, Arquivados) e nas abas do Perfil.

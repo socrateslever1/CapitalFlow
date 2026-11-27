@@ -1,4 +1,5 @@
 
+import { AppIcon } from '../components/icons/AppIcons';
 import React, { useRef, useState } from 'react';
 import { LayoutGrid, X, User, Calculator, ArrowRightLeft, Scale, Wallet, Users, LayoutDashboard, Settings, MenuSquare, PieChart, ShieldCheck, CreditCard } from 'lucide-react';
 import { AppTab, UserProfile } from "../types";
@@ -45,16 +46,16 @@ export const NavHub: React.FC<NavHubProps> = ({ onClose, onNavigate, userLevel, 
 
     const getTabMeta = (tab: AppTab) => {
         switch (tab) {
-            case 'PROFILE': return { icon: <User size={20}/>, label: 'Perfil', color: 'text-blue-500', hover: 'hover:border-blue-600' };
-            case 'DOSSIER': return { icon: <ArrowRightLeft size={20}/>, label: 'Extrato', color: 'text-cyan-400', hover: 'hover:border-cyan-500' };
-            case 'SOURCES': return { icon: <Wallet size={20}/>, label: 'Capital', color: 'text-emerald-500', hover: 'hover:border-emerald-600' };
-            case 'LEGAL': return { icon: <Scale size={20}/>, label: 'Jurídico', color: 'text-indigo-500', hover: 'hover:border-indigo-600' };
-            case 'CLIENTS': return { icon: <Users size={20}/>, label: 'Clientes', color: 'text-amber-500', hover: 'hover:border-amber-600' };
-            case 'DASHBOARD': return { icon: <LayoutDashboard size={20}/>, label: 'Painel Geral', color: 'text-cyan-500', hover: 'hover:border-cyan-600' };
-            case 'SETTINGS': return { icon: <Settings size={20}/>, label: 'Ajustes', color: 'text-slate-400', hover: 'hover:border-slate-500' };
-            case 'REPORTS': return { icon: <PieChart size={20}/>, label: 'Inteligência', color: 'text-indigo-400', hover: 'hover:border-indigo-500' };
-            case 'MY_WALLET': return { icon: <CreditCard size={20}/>, label: 'Minha Carteira', color: 'text-fuchsia-400', hover: 'hover:border-fuchsia-500' };
-            case 'PLATFORM_ADMIN': return { icon: <ShieldCheck size={20}/>, label: 'Administração', color: 'text-amber-400', hover: 'hover:border-amber-500' };
+            case 'PROFILE': return { icon: <AppIcon name="profile" size={24} />, label: 'Perfil', color: 'text-blue-500', hover: 'hover:border-blue-600' };
+            case 'DOSSIER': return { icon: <AppIcon name="statement" size={24} />, label: 'Extrato', color: 'text-cyan-400', hover: 'hover:border-cyan-500' };
+            case 'SOURCES': return { icon: <AppIcon name="capital" size={24} />, label: 'Capital', color: 'text-emerald-500', hover: 'hover:border-emerald-600' };
+            case 'LEGAL': return { icon: <AppIcon name="legal" size={24} />, label: 'Jurídico', color: 'text-indigo-500', hover: 'hover:border-indigo-600' };
+            case 'CLIENTS': return { icon: <AppIcon name="clients" size={24} />, label: 'Clientes', color: 'text-amber-500', hover: 'hover:border-amber-600' };
+            case 'DASHBOARD': return { icon: <AppIcon name="dashboard" size={24} />, label: 'Painel Geral', color: 'text-cyan-500', hover: 'hover:border-cyan-600' };
+            case 'SETTINGS': return { icon: <AppIcon name="settings" size={24} />, label: 'Ajustes', color: 'text-slate-400', hover: 'hover:border-slate-500' };
+            case 'REPORTS': return { icon: <AppIcon name="reports" size={24} />, label: 'Inteligência', color: 'text-indigo-400', hover: 'hover:border-indigo-500' };
+            case 'MY_WALLET': return { icon: <AppIcon name="wallet" size={24} />, label: 'Minha Carteira', color: 'text-fuchsia-400', hover: 'hover:border-fuchsia-500' };
+            case 'PLATFORM_ADMIN': return { icon: <AppIcon name="admin" size={24} />, label: 'Administração', color: 'text-amber-400', hover: 'hover:border-amber-500' };
             default: return { icon: <LayoutGrid size={20}/>, label: tab, color: 'text-slate-500', hover: 'hover:border-slate-600' };
         }
     };
@@ -81,7 +82,7 @@ export const NavHub: React.FC<NavHubProps> = ({ onClose, onNavigate, userLevel, 
                 <div className="flex justify-between items-center p-6 border-b border-slate-800/50 shrink-0">
                     <h2 className="text-xl font-black uppercase tracking-tighter flex items-center gap-3">
                         <div className="p-2 bg-blue-600/20 rounded-full">
-                            <MenuSquare className="text-blue-500" size={20}/>
+                            <AppIcon name="menu" size={24} />
                         </div>
                         <span className="text-white">Menu</span> <span className="text-blue-500">Principal</span>
                     </h2>
@@ -124,13 +125,13 @@ export const NavHub: React.FC<NavHubProps> = ({ onClose, onNavigate, userLevel, 
                     <div className="pt-4 mt-4 border-t border-slate-800/50 space-y-2">
                         <button onClick={() => { if (!hasDragged) onNavigate('SIMULATOR' as any); }} className="w-full p-4 bg-slate-950/50 hover:bg-slate-800 border border-slate-800/50 rounded-lg transition-all group flex items-center gap-4 active:scale-95">
                             <div className="p-3 bg-slate-900 rounded-full text-blue-400 group-hover:scale-110 transition-transform">
-                                <Calculator size={20}/>
+                                <AppIcon name="simulator" size={24} />
                             </div>
                             <span className="font-black text-white uppercase text-[11px] tracking-widest">Simulador</span>
                         </button>
                         <button onClick={() => { if (!hasDragged) onNavigate('FLOW' as any); }} className="w-full p-4 bg-slate-950/50 hover:bg-slate-800 border border-slate-800/50 rounded-lg transition-all group flex items-center gap-4 active:scale-95">
                             <div className="p-3 bg-slate-900 rounded-full text-emerald-400 group-hover:scale-110 transition-transform">
-                                <ArrowRightLeft size={20}/>
+                                <AppIcon name="statement" size={24} />
                             </div>
                             <span className="font-black text-white uppercase text-[11px] tracking-widest">Extrato</span>
                         </button>

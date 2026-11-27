@@ -1,3 +1,4 @@
+import { AppIcon } from '../../../components/icons/AppIcons';
 import React from 'react';
 import { MessageSquare, FileEdit, Link as LinkIcon, Upload, FileText } from 'lucide-react';
 
@@ -40,7 +41,7 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
                 }}
                 className={`${buttonClass} bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white`}
             >
-                <FileEdit size={14} />
+                <AppIcon name="edit" size={22} />
                 <span className={labelClass}>Editar</span>
             </button>
 
@@ -51,7 +52,7 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
                 }}
                 className={`${buttonClass} bg-emerald-600/10 text-emerald-500 hover:bg-emerald-600 hover:text-white`}
             >
-                <MessageSquare size={14} />
+                <AppIcon name="whatsapp" size={22} />
                 <span className={labelClass}>WhatsApp · Opções</span>
             </button>
 
@@ -62,7 +63,7 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
                 }}
                 className={`${buttonClass} bg-blue-600/10 text-blue-500 hover:bg-blue-600 hover:text-white`}
             >
-                <LinkIcon size={14} />
+                <AppIcon name="portal" size={22} />
                 <span className={labelClass}>Portal</span>
             </button>
 
@@ -74,7 +75,7 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
                     }}
                     className={`${buttonClass} bg-purple-600/10 text-purple-500 hover:bg-purple-600 hover:text-white`}
                 >
-                    <FileText size={14} />
+                    <AppIcon name="promissory" size={22} />
                     <span className={labelClass}>Promissoria</span>
                 </button>
             )}
@@ -86,7 +87,7 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
                 }}
                 className={`${buttonClass} bg-slate-800 text-slate-400 hover:bg-indigo-600 hover:text-white`}
             >
-                <Upload size={14} />
+                <AppIcon name="attach" size={22} />
                 <span className={labelClass}>Anexar</span>
             </button>
 
@@ -100,7 +101,7 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
                         : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white'
                     }`}
             >
-                <FileEdit size={14} />
+                <AppIcon name="notes" size={22} />
                 <span className={labelClass}>Notas {hasNotes && '(1)'}</span>
             </button>
         </div>

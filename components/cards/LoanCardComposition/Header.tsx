@@ -1,3 +1,4 @@
+import { AppIcon } from '../../../components/icons/AppIcons';
 import React from 'react';
 import {
   CheckCircle2,
@@ -288,7 +289,7 @@ export const Header: React.FC<HeaderProps> = ({
                 e.stopPropagation();
                 onNavigate?.(loan.id);
               }}
-              className={`w-11 h-11 rounded-lg flex items-center justify-center shrink-0 shadow-sm transition-all hover:scale-105 active:scale-95 border border-slate-700/50 ${iconStyle}`}
+              className={`w-11 h-11 rounded-lg flex items-center justify-center shrink-0 shadow-sm transition-all hover:scale-105 active:scale-95 border border-slate-700/50 ${clientAvatarUrl ? iconStyle : 'bg-slate-900'}`}
               title="Abrir Contrato"
             >
               {clientAvatarUrl ? (
@@ -298,7 +299,7 @@ export const Header: React.FC<HeaderProps> = ({
                   className="w-full h-full rounded-lg object-cover"
                 />
               ) : (
-                isFullyFinalized ? <CheckCircle2 size={18} /> : isCapitalOnlyRecovery ? <ShieldAlert size={18} /> : (isOverdueByDays || isLate) ? <AlertTriangle size={18} /> : <Calendar size={18} />
+                isFullyFinalized ? <AppIcon name="contractDone" size={26} /> : isCapitalOnlyRecovery ? <AppIcon name="contractCapital" size={26} /> : (isOverdueByDays || isLate) ? <AppIcon name="contractLate" size={26} /> : <AppIcon name="calendar" size={26} />
               )}
             </button>
             <button

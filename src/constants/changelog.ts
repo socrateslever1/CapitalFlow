@@ -22,6 +22,16 @@ export interface ChangelogRelease {
  */
 export const SYSTEM_CHANGELOG: ChangelogRelease[] = [
   {
+    version: '3.7.5',
+    codeOnly: true,
+    date: '27/11/2026',
+    title: 'Mais ícones novos',
+    summary: 'Menus, contratos, painel, jurídico, simulador e atendimento com os ícones próprios.',
+    items: [
+      { kind: 'MELHORIA', text: 'Ícones próprios no menu, nas ações do contrato e da parcela, no painel, no jurídico, no simulador e no atendimento.' },
+    ],
+  },
+  {
     version: '3.7.4',
     codeOnly: true,
     date: '27/11/2026',

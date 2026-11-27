@@ -1,7 +1,8 @@
 
 import { AppIcon } from '../components/icons/AppIcons';
 import React, { useEffect, useMemo, useState } from 'react';
-import { BarChart3, Banknote, CheckCircle2, Briefcase, PieChart as PieIcon, TrendingUp, Users, Calendar, Percent, RefreshCw, ShieldAlert, Skull } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
+import { BarChart3, Banknote, CheckCircle2, Briefcase, PieChart as PieIcon, TrendingUp, Users, Calendar, Percent, ShieldAlert, Skull } from '../components/icons/brandIcons';
 import { Loan, CapitalSource, LedgerEntry, Agreement, AgreementInstallment, SortOption, UserProfile, Installment } from '../types';
 import { LoanCard } from '../components/cards/LoanCard';
 import { ClientGroupCard } from '../components/cards/ClientGroupCard';

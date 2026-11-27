@@ -1,6 +1,7 @@
 import { AppIcon } from '../components/icons/AppIcons';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Scale, FileText, Scroll, Printer, User, Edit3, Bell, Trash2, MessageCircle, ShieldCheck, Archive, ArchiveRestore, Loader2 } from 'lucide-react';
+import { FileText, Edit3, Bell, Trash2, Archive, ArchiveRestore, Loader2 } from 'lucide-react';
+import { Scale, Scroll, Printer, User, MessageCircle, ShieldCheck } from '../components/icons/brandIcons';
 import { Loan, CapitalSource, UserProfile, Agreement, AgreementInstallment, LedgerEntry } from '../types';
 import { supabase } from '../lib/supabase';
 import { legalDocumentService } from '../services/legalDocument.service';

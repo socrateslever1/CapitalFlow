@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { BrainCircuit, Loader2, ShieldAlert, Sparkles, RefreshCw, Target, Gauge } from 'lucide-react';
+import { Loader2, Sparkles, RefreshCw } from 'lucide-react';
+import { BrainCircuit, ShieldAlert, Target, Gauge } from '../../components/icons/brandIcons';
 import { Loan, CapitalSource, UserProfile } from '../../types';
 import { processNaturalLanguageCommand, AIResponse } from '../../services/geminiService';
 import { loanEngine } from '../../domain/loanEngine';

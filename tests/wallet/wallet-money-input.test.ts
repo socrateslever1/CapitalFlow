@@ -76,7 +76,7 @@ test('create/edit card form uses validated centavos rather than native integer s
   const cards = readFileSync('features/wallet/pages/WalletCardsPage.tsx', 'utf8');
   const edit = readFileSync('components/wallet/CardEditModal.tsx', 'utf8');
   assert(cards.includes('parseWalletMoney(cardForm.credit_limit'));
-  assert(cards.includes('<input name="wallet-card-credit-limit" autoComplete="off" inputMode="decimal" placeholder="Pode informar ou importar pela fatura depois"'));
+  assert(cards.includes('<input name="wallet-card-credit-limit" autoComplete="off" inputMode="decimal" placeholder="Ex.: 2.500,00"'));
   assert(edit.includes("parseWalletMoney(form.credit_limit"));
   assert(edit.includes('FinancialCalculatorInput'));
   assert(edit.includes('fieldLabel="limite de crédito"'));

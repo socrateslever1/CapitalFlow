@@ -11,6 +11,8 @@ import { WalletStatementImport } from './WalletStatementImport';
 import { buildAccountStatementEntries } from './accountStatementDomain';
 import { Modal, modalPrimaryActionClass } from '../ui/Modal';
 import { SelectOptionList } from '../ui/SelectOptionList';
+import { AppIcon } from '../icons/AppIcons';
+import { CategoryGaugeIcon } from './CategoryGaugeIcon';
 import { BankLogo } from './BankLogo';
 import { notifyFinancialDataChanged } from '../../utils/appSyncEvents';
 import { accountCategoryReducer, initialAccountCategorySelection } from './accountCategorySelection';
@@ -268,15 +270,15 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
       </div>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
         {([
-          ['INCOME',ArrowDownLeft,'Receita'],
-          ['RECEIPT',Plus,'Receber'],
-          ['EXPENSE',ArrowUpRight,'Despesa'],
-          ['PAYMENT',CreditCard,'Pagar'],
-          ['TRANSFER',ArrowLeftRight,'Transferir'],
-        ] as const).map(([value,Icon,label])=>(
+          ['INCOME','income','Receita'],
+          ['RECEIPT','receive','Receber'],
+          ['EXPENSE','expense','Despesa'],
+          ['PAYMENT','banknote','Pagar'],
+          ['TRANSFER','transfer','Transferir'],
+        ] as const).map(([value,iconName,label])=>(
           <button type="button" key={value} onClick={()=>{setAction(value);setAmount('');setOperationDraft(null);setDescription(value==='TRANSFER'?'Transferência entre contas':'');dispatchCategory({type:'reset'});setCategoryManuallySelected(false);setDestination('');setError('');setSuccess('');}}
             className={`flex flex-col items-center justify-center gap-2 rounded-xl border px-2 py-4 text-xs font-semibold transition-colors ${action===value?'border-emerald-400 bg-emerald-900/30 text-white':'border-slate-700 bg-slate-950 text-slate-300 hover:border-emerald-500'}`}>
-            <Icon size={20} className={value==='EXPENSE'||value==='PAYMENT'?'text-rose-400':'text-emerald-400'}/>{label}
+            <AppIcon name={iconName} size={28}/>{label}
           </button>
         ))}
       </div>
@@ -350,13 +352,12 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
                 <div className="flex min-w-0 flex-1 items-start gap-2.5">
                   <span
                     aria-hidden="true"
-                    className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border ${
-                      positive
-                        ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-300'
-                        : 'border-rose-500/25 bg-rose-500/10 text-rose-300'
+                    className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 ${
+                      positive ? 'border-emerald-500/60' : 'border-rose-500/60'
                     }`}
                   >
-                    {positive ? <ArrowDownLeft size={15} /> : <ArrowUpRight size={15} />}
+                    {/* Ícone da categoria; a cor da borda indica entrada (verde) ou saída (vermelho). */}
+                    <CategoryGaugeIcon category={m.category || (positive ? 'Recebimento' : 'Outros')} size={30} />
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold leading-snug text-slate-100">{m.label}</p>
@@ -487,7 +488,7 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
                 value={categoryState.customMode ? '__custom__' : category}
                 placeholder="Selecione a categoria"
                 options={[
-                  ...categoryOptions.map((option) => ({ value: option, label: option })),
+                  ...categoryOptions.map((option) => ({ value: option, label: option, icon: <CategoryGaugeIcon category={option} size={28} /> })),
                   { value: '__custom__', label: 'Outra categoria...' },
                 ]}
                 onChange={(selected) => {setCategoryManuallySelected(true);dispatchCategory({type:'select',value:selected});}}

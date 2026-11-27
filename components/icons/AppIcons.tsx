@@ -12,7 +12,7 @@ export type AppIconName =
   | 'admin' | 'settings' | 'menu' | 'edit' | 'whatsapp' | 'portal' | 'promissory' | 'attach' | 'notes'
   | 'calendar' | 'contractLate' | 'contractDone' | 'contractCapital' | 'pix' | 'offer' | 'receive' | 'details'
   | 'banknote' | 'briefcase' | 'exposure' | 'growth' | 'gauge' | 'ai' | 'trend' | 'percent' | 'scroll' | 'printer'
-  | 'shieldCheck' | 'bank' | 'clock' | 'walletGreen' | 'chat';
+  | 'shieldCheck' | 'bank' | 'clock' | 'walletGreen' | 'chat' | 'income' | 'expense' | 'transfer';
 
 const paths: Record<AppIconName, React.ReactNode> = {
   // Painel: gráfico de barras sobre um quadro.
@@ -73,10 +73,10 @@ const paths: Record<AppIconName, React.ReactNode> = {
   </>,
   // Contratos: documento com selo.
   contracts: <>
-    <path d="M5 2.5h9.5L19 7v14.5H5z" fill="#1e40af" />
-    <path d="M14.5 2.5V7H19" fill="#60a5fa" />
-    <path d="M8 10.5h8M8 13.5h6" stroke="#bfdbfe" strokeWidth="1.4" strokeLinecap="round" />
-    <circle cx="15.5" cy="17.5" r="2.6" fill="#fbbf24" />
+    <path d="M5 2.5h9.5L19 7v14.5H5z" fill="#2563eb" />
+    <path d="M14.5 2.5V7H19" fill="#93c5fd" />
+    <path d="M8 10.5h8M8 13.5h6" stroke="#eff6ff" strokeWidth="1.5" strokeLinecap="round" />
+    <circle cx="15.5" cy="17.5" r="2.7" fill="#fbbf24" />
   </>,
   // Relatórios: pizza.
   reports: <>
@@ -93,9 +93,9 @@ const paths: Record<AppIconName, React.ReactNode> = {
   </>,
   // Filtros de contratos.
   all: <>
-    <rect x="4" y="11" width="16" height="9" rx="2.5" fill="#1d4ed8" />
-    <rect x="5.5" y="7.5" width="13" height="5" rx="2" fill="#3b82f6" />
-    <rect x="7" y="4" width="10" height="5" rx="2" fill="#93c5fd" />
+    <rect x="4" y="11" width="16" height="9" rx="2.5" fill="#2563eb" />
+    <rect x="5.5" y="7.5" width="13" height="5" rx="2" fill="#60a5fa" />
+    <rect x="7" y="4" width="10" height="5" rx="2" fill="#e0f2fe" />
   </>,
   late: <>
     <circle cx="12" cy="12.5" r="8.5" fill="#d97706" />
@@ -318,13 +318,42 @@ const paths: Record<AppIconName, React.ReactNode> = {
     <path d="M12 3c-5 0-9 3.3-9 7.5 0 2.4 1.3 4.5 3.4 5.9L5.5 21l4.4-2.6c.7.1 1.4.2 2.1.2 5 0 9-3.3 9-7.5S17 3 12 3z" fill="#2563eb" />
     <circle cx="8.5" cy="10.5" r="1.2" fill="#dbeafe" /><circle cx="12" cy="10.5" r="1.2" fill="#dbeafe" /><circle cx="15.5" cy="10.5" r="1.2" fill="#dbeafe" />
   </>,
+  // Movimentar conta.
+  income: <>
+    <rect x="3" y="12" width="18" height="9" rx="2.5" fill="#047857" />
+    <path d="M12 3v10M8 9.2 12 13.2l4-4" stroke="#6ee7b7" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+  </>,
+  expense: <>
+    <rect x="3" y="12" width="18" height="9" rx="2.5" fill="#be123c" />
+    <path d="M12 13.5v-10M8 7.5 12 3.5l4 4" stroke="#fda4af" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+  </>,
+  transfer: <>
+    <circle cx="12" cy="12" r="9" fill="#0e7490" />
+    <path d="M7 9.5h9.5M14 7l2.5 2.5L14 12" stroke="#a5f3fc" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+    <path d="M17 14.5H7.5M10 12l-2.5 2.5L10 17" stroke="#fde68a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+  </>,
 };
 
-export const AppIcon: React.FC<{ name: AppIconName; size?: number; muted?: boolean; className?: string }> = ({
-  name, size = 20, muted = false, className = '',
-}) => (
-  <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true" focusable="false"
-    className={`shrink-0 transition-opacity ${muted ? 'opacity-80' : 'opacity-100'} ${className}`}>
-    {paths[name]}
-  </svg>
-);
+export const AppIcon: React.FC<{
+  name: AppIconName;
+  size?: number;
+  muted?: boolean;
+  /** Envolve o ícone em uma base escura translúcida para garantir contraste sobre botões coloridos ativos. */
+  onColor?: boolean;
+  className?: string;
+}> = ({
+  name, size = 20, muted = false, onColor = false, className = '',
+}) => {
+  const svg = (
+    <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true" focusable="false"
+      className={`shrink-0 transition-opacity ${muted ? 'opacity-80' : 'opacity-100'} ${onColor ? '' : className}`}>
+      {paths[name]}
+    </svg>
+  );
+  if (!onColor) return svg;
+  return (
+    <span className={`inline-flex shrink-0 items-center justify-center rounded-md bg-slate-950/60 p-[2.5px] ring-1 ring-white/20 shadow-sm ${className}`}>
+      {svg}
+    </span>
+  );
+};

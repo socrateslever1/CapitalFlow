@@ -22,6 +22,26 @@ export interface ChangelogRelease {
  */
 export const SYSTEM_CHANGELOG: ChangelogRelease[] = [
   {
+    version: '3.7.6',
+    codeOnly: true,
+    date: '27/11/2026',
+    title: 'Ícones na conta',
+    summary: 'Movimentar conta, categorias e extrato com ícones próprios.',
+    items: [
+      { kind: 'MELHORIA', text: 'Receita, Receber, Despesa, Pagar e Transferir ganharam ícones próprios, e o extrato mostra o ícone da categoria.' },
+    ],
+  },
+  {
+    version: '3.7.5',
+    codeOnly: true,
+    date: '27/11/2026',
+    title: 'Contraste dos ícones em botões ativos',
+    summary: 'Ícones coloridos ganharam fundo de contraste quando o botão está selecionado.',
+    items: [
+      { kind: 'MELHORIA', text: 'Melhor contraste dos ícones nas abas Contratos/Balanço, nos filtros do painel (Todos, Pagos, etc.) e nas abas ativas do topo.' },
+    ],
+  },
+  {
     version: '3.7.5',
     codeOnly: true,
     date: '27/11/2026',

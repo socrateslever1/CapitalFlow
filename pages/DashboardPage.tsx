@@ -178,10 +178,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     <div className="flex flex-col gap-6">
       <div className="md:hidden bg-slate-900 p-1 rounded-lg border border-slate-800 flex relative overflow-hidden">
           <button onClick={() => setMobileDashboardTab('CONTRACTS')} className={`flex-1 py-2.5 rounded-lg text-[10px] font-black uppercase transition-all flex items-center justify-center gap-2 ${mobileDashboardTab === 'CONTRACTS' ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-lg shadow-blue-600/30' : 'text-slate-500 hover:text-white'}`}>
-            <AppIcon name="contracts" size={16} /> Contratos
+            <AppIcon name="contracts" size={16} onColor={mobileDashboardTab === 'CONTRACTS'} /> Contratos
           </button>
           <button onClick={() => setMobileDashboardTab('BALANCE')} className={`flex-1 py-2.5 rounded-lg text-[10px] font-black uppercase transition-all flex items-center justify-center gap-2 ${mobileDashboardTab === 'BALANCE' ? 'bg-gradient-to-br from-emerald-600 to-emerald-700 text-white shadow-lg shadow-emerald-600/30' : 'text-slate-500 hover:text-white'}`}>
-            <AppIcon name="reports" size={16} /> Balanço
+            <AppIcon name="reports" size={16} onColor={mobileDashboardTab === 'BALANCE'} /> Balanço
           </button>
       </div>
 

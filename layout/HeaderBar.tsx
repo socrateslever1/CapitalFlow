@@ -291,30 +291,30 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
     scrollRef.current.scrollLeft = scrollLeft - walk;
   };
 
-  const getTabIcon = (tab: string) => {
+  const getTabIcon = (tab: string, active = false) => {
     switch (tab) {
       case 'DASHBOARD':
-        return <AppIcon name="dashboard" size={18} />;
+        return <AppIcon name="dashboard" size={18} onColor={active} />;
       case 'DOSSIER':
-        return <AppIcon name="statement" size={18} />;
+        return <AppIcon name="statement" size={18} onColor={active} />;
       case 'CLIENTS':
-        return <AppIcon name="clients" size={18} />;
+        return <AppIcon name="clients" size={18} onColor={active} />;
       case 'SOURCES':
-        return <AppIcon name="capital" size={18} />;
+        return <AppIcon name="capital" size={18} onColor={active} />;
       case 'SIMULATOR':
-        return <AppIcon name="simulator" size={18} />;
+        return <AppIcon name="simulator" size={18} onColor={active} />;
       case 'FLOW':
-        return <AppIcon name="statement" size={18} />;
+        return <AppIcon name="statement" size={18} onColor={active} />;
       case 'LEGAL':
-        return <AppIcon name="legal" size={18} />;
+        return <AppIcon name="legal" size={18} onColor={active} />;
       case 'PROFILE':
-        return <AppIcon name="profile" size={18} />;
+        return <AppIcon name="profile" size={18} onColor={active} />;
       case 'MY_WALLET':
-        return <AppIcon name="wallet" size={18} />;
+        return <AppIcon name="wallet" size={18} onColor={active} />;
       case 'PLATFORM_ADMIN':
-        return <AppIcon name="admin" size={18} />;
+        return <AppIcon name="admin" size={18} onColor={active} />;
       case 'HUB':
-        return <AppIcon name="menu" size={18} />;
+        return <AppIcon name="menu" size={18} onColor={active} />;
       default:
         return null;
     }
@@ -620,7 +620,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                         : 'transparent',
                     }}
                   >
-                    {getTabIcon(tab)} <span>{getTabLabel(tab)}</span>
+                    {getTabIcon(tab, isActive)} <span>{getTabLabel(tab)}</span>
                   </button>
                 );
               })}

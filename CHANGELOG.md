@@ -1,5 +1,14 @@
 # Changelog
 
+## 27/11/2026 — Ícones na conta: movimentar, categorias e extrato
+
+**Melhoria (só interface).** `components/wallet/AccountActivityPanel.tsx`: botões Receita, Receber, Despesa, Pagar e Transferir com ícones próprios; lista de categorias com o ícone colorido de cada categoria; linhas do extrato com o ícone da categoria (borda verde para entrada, vermelha para saída) no lugar da seta genérica.
+- **Testes:** `test:quality`, `test:wallet-visual-next`, Carteira e build passaram; conferido no app local em 411 px.
+
+## 27/11/2026 — Contraste dos ícones próprios em botões ativos coloridos
+
+**Melhoria (só interface).** `AppIcon` (`components/icons/AppIcons.tsx`) recebeu a prop `onColor` (base escura translúcida com aro suave `bg-slate-950/60 ring-1 ring-white/20`) e tons mais legíveis nos ícones `contracts` e `all`, evitando que ícones azuis se percam sobre fundos azuis ou verdes ativos nas abas **Contratos/Balanço** (`pages/DashboardPage.tsx`), nos filtros do painel (**Todos**, etc. em `components/dashboard/DashboardControls.tsx`) e nas abas ativas do cabeçalho (`layout/HeaderBar.tsx`).
+
 ## 27/11/2026 — Ícones próprios: menus, contrato, painel, jurídico, simulador e atendimento
 
 **Melhoria (só interface).** O conjunto `components/icons/AppIcons.tsx` ganhou os ícones que faltavam e `components/icons/brandIcons.tsx` expõe os mesmos nomes dos ícones genéricos desenhando a versão própria (trocar o import aplica o padrão).

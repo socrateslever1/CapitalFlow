@@ -224,14 +224,16 @@ export const DashboardControls: React.FC<DashboardControlsProps> = ({
                 >
                     <div className="flex items-center gap-1.5 sm:gap-2 p-1 sm:p-1.5 bg-slate-900/60 border border-slate-800/80 rounded-lg w-max">
                         {[
-                          { id: 'TODOS', icon: <AppIcon name="all" size={16} /> },
-                          { id: 'ATRASADOS', icon: <AppIcon name="late" size={16} /> },
-                          { id: 'ATRASO_CRITICO', icon: <AppIcon name="critical" size={16} /> },
-                          { id: 'RENEGOCIADO', icon: <AppIcon name="renegotiated" size={16} /> },
-                          { id: 'EM_DIA', icon: <AppIcon name="onTime" size={16} /> },
-                          { id: 'PAGOS', icon: <AppIcon name="paid" size={16} /> },
-                          { id: 'ARQUIVADOS', icon: <AppIcon name="archived" size={16} /> }
-                        ].map(filter => (
+                          { id: 'TODOS', iconName: 'all' as const },
+                          { id: 'ATRASADOS', iconName: 'late' as const },
+                          { id: 'ATRASO_CRITICO', iconName: 'critical' as const },
+                          { id: 'RENEGOCIADO', iconName: 'renegotiated' as const },
+                          { id: 'EM_DIA', iconName: 'onTime' as const },
+                          { id: 'PAGOS', iconName: 'paid' as const },
+                          { id: 'ARQUIVADOS', iconName: 'archived' as const }
+                        ].map(filter => {
+                            const isActive = statusFilter === filter.id;
+                            return (
                             <button
                                 key={filter.id}
                                 onClick={(e) => {
@@ -240,13 +242,14 @@ export const DashboardControls: React.FC<DashboardControlsProps> = ({
                                         setStatusFilter(filter.id as any);
                                     }
                                 }}
-                                className={`px-3 py-2 sm:p-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all border flex items-center justify-center gap-1.5 sm:gap-2 pointer-events-auto min-w-[38px] sm:min-w-[42px] ${statusFilter === filter.id ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white border-blue-500 shadow-lg shadow-blue-600/20' : 'bg-slate-900 border-slate-800 text-slate-500 hover:text-slate-300 hover:border-slate-700'}`}
+                                className={`px-3 py-2 sm:p-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all border flex items-center justify-center gap-1.5 sm:gap-2 pointer-events-auto min-w-[38px] sm:min-w-[42px] ${isActive ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white border-blue-500 shadow-lg shadow-blue-600/20' : 'bg-slate-900 border-slate-800 text-slate-500 hover:text-slate-300 hover:border-slate-700'}`}
                                 title={translateFilter(filter.id)}
                             >
-                                {filter.icon}
+                                <AppIcon name={filter.iconName} size={16} onColor={isActive} />
                                 <span className="inline">{translateFilter(filter.id)}</span>
                             </button>
-                        ))}
+                            );
+                        })}
                     </div>
                 </div>
             </div>

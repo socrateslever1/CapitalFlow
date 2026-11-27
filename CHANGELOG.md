@@ -1,5 +1,9 @@
 # Changelog
 
+## 27/11/2026 — Fundo dos botões de movimentar conta
+
+**Melhoria (só interface, registro retroativo do commit e47e683).** `components/wallet/AccountActivityPanel.tsx`: Receita, Receber, Despesa, Pagar e Transferir deixam o fundo quase preto com borda forte por placas levemente elevadas (`bg-slate-800/45` com contorno sutil), realce azul do padrão da Carteira na opção aberta e animação do ícone ao tocar. Conferido no app local; não validado em celular físico.
+
 ## 27/11/2026 — Editar conta reconhece o cartão já cadastrado
 
 **Correção (só interface).** `components/wallet/AccountDetailsPage.tsx`: quando a conta já tem cartão (vinculado à conta ou do mesmo banco sem conta definida), a edição não pergunta mais "Possui cartão de crédito"; mostra o cartão vinculado com o limite real dele e explica que o limite usado nas contas é o do cartão. O "Limite de crédito informado" da conta era só anotação (não entrava em cálculo) e deixa de ser salvo nesse caso, evitando dois limites diferentes.

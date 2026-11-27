@@ -1,4 +1,5 @@
 import React from 'react';
+import { MarqueeText } from '../ui/MarqueeText';
 import { PrivateMoney } from '../../contexts/FinancialPrivacyContext';
 import { formatMoney } from '../../utils/formatters';
 import type { CategoryBreakdown } from '../../features/wallet/domain/walletCategoryBreakdown';
@@ -36,7 +37,7 @@ export const CategoryBreakdownPanel: React.FC<Props> = ({
             <li key={slice.name} className="flex w-[72px] shrink-0 flex-col items-center gap-1 text-center"
               aria-label={`${slice.name}: ${slice.percentage}% do total`}>
               <CategoryGaugeIcon category={slice.name} percentage={slice.percentage} />
-              <span className="w-full truncate text-[11px] font-semibold text-slate-200">{slice.name}</span>
+              <MarqueeText text={slice.name} className="w-full text-[11px] font-semibold text-slate-200" />
               <span className="text-[10px] tabular-nums text-slate-400">{slice.percentage}% · <PrivateMoney value={formatMoney(slice.amount)} /></span>
             </li>
           ))}

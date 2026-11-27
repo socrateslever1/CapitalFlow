@@ -42,6 +42,7 @@ export const SYSTEM_CHANGELOG: ChangelogRelease[] = [
       { kind: 'MELHORIA', text: 'Cores do gráfico de status iguais às dos filtros, e os botões flutuantes não cobrem mais o fim da página.' },
       { kind: 'MELHORIA', text: 'Alertas com todos os ícones no mesmo quadro (foto, iniciais, logo do banco) e botões do topo iguais.' },
       { kind: 'MELHORIA', text: 'Barra de baixo com botões e ícones maiores, no mesmo padrão da Carteira.' },
+      { kind: 'MELHORIA', text: 'Nomes compridos em botões pequenos (como categorias) passam devagar para ler inteiro.' },
       { kind: 'MELHORIA', text: 'Saúde financeira, Contas, Cartões, Compromissos, Relatório e ações rápidas da Carteira atualizados para os ícones próprios.' },
       { kind: 'MELHORIA', text: 'Botões do topo de Clientes (Link de Inscrição, Excluir Vários e Novo Cliente) em altura uniforme, sem quebrar linha e com ícones próprios.' },
       { kind: 'MELHORIA', text: 'Receita, Receber, Despesa, Pagar e Transferir ganharam ícones próprios, e o extrato mostra o ícone da categoria.' },

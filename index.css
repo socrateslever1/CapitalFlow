@@ -745,3 +745,14 @@ body[data-capacitor-android="true"] .cf-auth-viewport {
     justify-content: center;
   }
 }
+
+/* Nome longo em botão pequeno: vai e volta devagar, com pausa nas pontas (MarqueeText). */
+@keyframes cf-marquee {
+  0%, 18% { transform: translateX(0); }
+  50%, 68% { transform: translateX(var(--cf-marquee-shift, 0px)); }
+  100% { transform: translateX(0); }
+}
+.cf-marquee-run { animation: cf-marquee var(--cf-marquee-duration, 6s) ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .cf-marquee-run { animation: none; }
+}

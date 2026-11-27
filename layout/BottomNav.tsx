@@ -1,5 +1,6 @@
 import { AppIcon } from '../components/icons/AppIcons';
 import React, { useEffect, useRef, useState } from 'react';
+import { MarqueeText } from '../components/ui/MarqueeText';
 import {
   LayoutDashboard, Users, Wallet, LayoutGrid, Calculator, ArrowRightLeft,
   Gavel, MessageSquare, CreditCard, GripVertical, Check, X,
@@ -198,8 +199,8 @@ export const BottomNav: React.FC<BottomNavProps> = ({
             style={editing ? { touchAction: 'none' } : undefined}
           >
             {iconFor(tab, activeTab === tab)}
-            <span className={'w-full truncate text-center text-[11.5px] font-semibold leading-tight transition-colors duration-200 ' +
-              (activeTab === tab ? 'text-blue-100' : '')}>{labelFor(tab)}</span>
+            <MarqueeText text={labelFor(tab)} className={'w-full text-center text-[11.5px] font-semibold leading-tight transition-colors duration-200 ' +
+              (activeTab === tab ? 'text-blue-100' : '')} />
           </button>
         ))}
       </div>

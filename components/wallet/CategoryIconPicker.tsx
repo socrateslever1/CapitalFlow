@@ -1,5 +1,6 @@
 import React from 'react';
 import { CategoryGaugeIcon } from './CategoryGaugeIcon';
+import { MarqueeText } from '../ui/MarqueeText';
 import { normalizeCategoryKey } from '../../features/wallet/domain/walletCategoryVisual';
 
 const isFallbackCategory = (category: string): boolean =>
@@ -32,7 +33,7 @@ export const CategoryIconPicker: React.FC<Props> = ({ categories, value, onChang
             className={`flex flex-col items-center gap-1 rounded-lg border px-1 py-1.5 text-center transition ${
               selected ? 'border-blue-500/80 bg-blue-500/10' : 'border-transparent hover:bg-slate-800/60'}`}>
             <CategoryGaugeIcon category={category} size={38} />
-            <span className={`w-full truncate text-[10px] font-semibold ${selected ? 'text-white' : 'text-slate-300'}`}>{category}</span>
+            <MarqueeText text={category} className={`w-full text-[10px] font-semibold ${selected ? 'text-white' : 'text-slate-300'}`} />
           </button>
         );
       })}

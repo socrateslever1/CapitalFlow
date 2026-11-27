@@ -1,5 +1,10 @@
 # Changelog
 
+## 27/11/2026 — Nome longo em botão pequeno rola sozinho
+
+**Melhoria (só interface).** Novo `components/ui/MarqueeText.tsx`: quando o texto não cabe, desliza devagar até o fim e volta, com pausa nas pontas; quando cabe, fica parado; com "reduzir movimento" ligado, mostra reticências como antes (`@keyframes cf-marquee` em `index.css`). Aplicado na escolha de categoria (`CategoryIconPicker.tsx`), na faixa de categorias (`CategoryBreakdownPanel.tsx`) e nos rótulos da barra inferior (`layout/BottomNav.tsx`).
+- **Testes:** type-check, `test:quality`, `test:wallet-visual-next` e build passaram. Não validado em celular físico.
+
 ## 27/11/2026 — Padronização dos ícones na Central de Alertas, Carteira e Painel
 
 **Melhoria (só interface).** Adicionados os ícones próprios `bell` (com variante `onColor`) e `bulb` em `components/icons/AppIcons.tsx`:

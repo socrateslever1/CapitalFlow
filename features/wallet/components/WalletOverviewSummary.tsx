@@ -1,5 +1,6 @@
 import React from 'react';
-import { ArrowRight, CreditCard, Landmark } from 'lucide-react';
+import { ArrowRight, CreditCard } from 'lucide-react';
+import { AppIcon } from '../../../components/icons/AppIcons';
 import { PrivateMoney, useFinancialPrivacy } from '../../../contexts/FinancialPrivacyContext';
 import type { PersonalWalletAccount, PersonalWalletCard } from '../../../services/personalWallet.service';
 import { AccountCardStack } from '../../../components/wallet/AccountCardStack';
@@ -45,7 +46,7 @@ export const WalletOverviewSummary: React.FC<WalletOverviewSummaryProps> = ({
       <article className="min-w-0 rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-3 sm:px-4 sm:py-3.5 xl:col-span-6">
         <header className="flex items-center justify-between gap-2">
           <h3 className="flex items-center gap-2 text-sm font-semibold text-white">
-            <Landmark size={17} className="text-blue-400" aria-hidden="true"/>Contas
+            <AppIcon name="bank" size={20} />Contas
           </h3>
           <span className="text-xs text-slate-400">
             {privacyHidden ? 'Contas protegidas' : `${accounts.length} ${accounts.length === 1 ? 'conta' : 'contas'}`}
@@ -80,7 +81,7 @@ export const WalletOverviewSummary: React.FC<WalletOverviewSummaryProps> = ({
       <article className="min-w-0 rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-3 sm:px-4 sm:py-3.5 xl:col-span-6">
         <header className="flex items-center justify-between gap-2">
           <h3 className="flex items-center gap-2 text-sm font-semibold text-white">
-            <CreditCard size={17} className="text-blue-400" aria-hidden="true"/>Cartões
+            <AppIcon name="wallet" size={20} />Cartões
           </h3>
           <span className="text-xs text-slate-400">
             {privacyHidden ? 'Cartões protegidos' : `${cards.length} ${cards.length === 1 ? 'ativo' : 'ativos'}`}

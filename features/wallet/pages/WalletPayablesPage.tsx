@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { CalendarClock, ClipboardList, Plus, Repeat } from 'lucide-react';
+import { ClipboardList, Plus, Repeat } from 'lucide-react';
+import { AppIcon } from '../../../components/icons/AppIcons';
 import { useSearchParams } from 'react-router-dom';
 import type { UserProfile } from '../../../types';
 import { WalletPayablesPanel } from '../../../components/wallet/WalletPayablesPanel';
@@ -104,7 +105,7 @@ export const WalletPayablesPage: React.FC<{ activeUser?: UserProfile | null; onN
         <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 sm:p-5">
           <div className="mb-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <CalendarClock size={18} className="text-blue-400" />
+              <AppIcon name="calendar" size={20} />
               <h3 className="text-sm font-semibold text-white">Linha do Tempo de Compromissos e Eventos</h3>
             </div>
             <span className="text-xs text-slate-400">{timelineEvents.length} eventos cronológicos</span>

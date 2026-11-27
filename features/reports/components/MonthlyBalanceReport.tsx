@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { AppIcon } from '../../../components/icons/AppIcons';
 import { AlertTriangle, ArrowDownLeft, ArrowRight, CalendarDays, ChevronDown, RefreshCw } from 'lucide-react';
 import type { CapitalSource, Loan } from '../../../types';
 import { formatMoney } from '../../../utils/formatters';
@@ -96,7 +97,7 @@ export const MonthlyBalanceReport: React.FC<Props> = ({profileId,loans,sources,i
   return <section data-monthly-balance className="min-w-0 rounded-xl border border-slate-700/70 bg-slate-950/60 p-3 sm:p-5">
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div className="flex min-w-0 items-center gap-2">
-        <span className="rounded-lg bg-blue-500/10 p-2 text-blue-400"><CalendarDays size={19}/></span>
+        <span className="rounded-lg border border-slate-700/70 bg-slate-900 p-1.5"><AppIcon name="calendar" size={18} /></span>
         <h2 className="text-base font-bold text-slate-100">{heading}</h2>
       </div>
       <div className="flex items-center gap-2">

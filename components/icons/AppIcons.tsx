@@ -13,7 +13,7 @@ export type AppIconName =
   | 'calendar' | 'contractLate' | 'contractDone' | 'contractCapital' | 'pix' | 'offer' | 'receive' | 'details'
   | 'banknote' | 'briefcase' | 'exposure' | 'growth' | 'gauge' | 'ai' | 'trend' | 'percent' | 'scroll' | 'printer'
   | 'shieldCheck' | 'bank' | 'clock' | 'walletGreen' | 'chat' | 'income' | 'expense' | 'transfer'
-  | 'trash' | 'userPlus';
+  | 'trash' | 'userPlus' | 'bell' | 'bulb';
 
 const paths: Record<AppIconName, React.ReactNode> = {
   // Painel: gráfico de barras sobre um quadro.
@@ -345,6 +345,17 @@ const paths: Record<AppIconName, React.ReactNode> = {
     <circle cx="18" cy="15.5" r="3.6" fill="#10b981" />
     <path d="M18 13.7v3.6M16.2 15.5h3.6" stroke="#ecfdf5" strokeWidth="1.6" strokeLinecap="round" />
   </>,
+  bell: <>
+    <path d="M12 3a6 6 0 0 0-6 6v3.5l-1.7 2.2A1 1 0 0 0 5.1 16.3h13.8a1 1 0 0 0 .8-1.6L18 12.5V9a6 6 0 0 0-6-6z" fill="#f59e0b" />
+    <path d="M9.6 17.5a2.4 2.4 0 0 0 4.8 0z" fill="#fde68a" />
+    <path d="M9.5 6.8a3.2 3.2 0 0 1 2.8-1.8" stroke="#fef3c7" strokeWidth="1.5" strokeLinecap="round" fill="none" />
+  </>,
+  bulb: <>
+    <path d="M12 3a6.5 6.5 0 0 0-3.8 11.8c.7.5 1.1 1.2 1.2 2h5.2c.1-.8.5-1.5 1.2-2A6.5 6.5 0 0 0 12 3z" fill="#22d3ee" />
+    <path d="M12 5.5a4 4 0 0 1 3.2 2.2" stroke="#ecfeff" strokeWidth="1.5" strokeLinecap="round" fill="none" />
+    <rect x="9.3" y="17.2" width="5.4" height="1.8" rx="0.9" fill="#fbbf24" />
+    <rect x="10.2" y="19.6" width="3.6" height="1.6" rx="0.8" fill="#f59e0b" />
+  </>,
 };
 
 const onColorPaths: Partial<Record<AppIconName, React.ReactNode>> = {
@@ -409,6 +420,11 @@ const onColorPaths: Partial<Record<AppIconName, React.ReactNode>> = {
     <path d="M3.5 20a6 6 0 0 1 12 0z" fill="#dbeafe" />
     <circle cx="18" cy="15.5" r="3.6" fill="#34d399" />
     <path d="M18 13.7v3.6M16.2 15.5h3.6" stroke="#064e3b" strokeWidth="1.6" strokeLinecap="round" />
+  </>,
+  bell: <>
+    <path d="M12 3a6 6 0 0 0-6 6v3.5l-1.7 2.2A1 1 0 0 0 5.1 16.3h13.8a1 1 0 0 0 .8-1.6L18 12.5V9a6 6 0 0 0-6-6z" fill="#ffffff" />
+    <path d="M9.6 17.5a2.4 2.4 0 0 0 4.8 0z" fill="#fde68a" />
+    <path d="M9.5 6.8a3.2 3.2 0 0 1 2.8-1.8" stroke="#93c5fd" strokeWidth="1.5" strokeLinecap="round" fill="none" />
   </>,
 };
 

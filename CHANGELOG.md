@@ -1,5 +1,13 @@
 # Changelog
 
+## 27/11/2026 — Padronização dos ícones na Central de Alertas, Carteira e Painel
+
+**Melhoria (só interface).** Adicionados os ícones próprios `bell` (com variante `onColor`) e `bulb` em `components/icons/AppIcons.tsx`:
+- **Central de Alertas (`layout/HeaderBar.tsx` e `components/notifications/NotificationAvatar.tsx`):** cabeçalho com o ícone próprio `bell` sem moldura e título em texto normal; lixeira e fechar no mesmo botão neutro `h-9 w-9 rounded-xl`; sino na barra superior no tamanho padronizado (inclusive mobile); todos os avatares de notificação (foto, iniciais, logo do banco e ícone) no mesmo quadro `h-10 w-10 rounded-xl`, com o logo do banco preenchendo o quadro e reconhecimento do banco na mensagem (`C6 Bank`, etc.).
+- **Barra de navegação inferior (`layout/BottomNav.tsx`):** no padrão da barra da Carteira — ícones de 27 px, botões maiores (`min-w-[76px]`, `min-h-[3.75rem]`), rótulo em texto normal (sem caixa alta) e realce do ativo igual ao da Carteira.
+- **Carteira e Painel:** substituídos os ícones genéricos/pequenos de **Saúde financeira** (`WalletSpendingGuide.tsx`), **Contas** e **Cartões** (`WalletOverviewSummary.tsx`), **Compromissos** (`WalletOverviewPage.tsx`, `WalletPayablesPage.tsx`), **Visão do mês** (`WalletReportPage.tsx`), **Ações rápidas `+`** (`WalletExpenseFab.tsx`), **Balanço Mensal** (`MonthlyBalanceReport.tsx`) e indicadores do **Painel** (`DashboardPage.tsx`).
+- **Lançamento rápido (`QuickExpenseModal.tsx`):** campos **Iniciar na parcela** e **De (Total de parcelas)** posicionados lado a lado (`grid-cols-2`) também no celular para economizar espaço vertical.
+
 ## 27/11/2026 — Auditor IA, gráfico Evolução, compromissos da Carteira e risco de clientes
 
 **Correção.**

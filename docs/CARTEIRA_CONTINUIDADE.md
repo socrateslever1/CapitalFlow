@@ -1,3 +1,9 @@
+## 27/11/2026 — Barra inferior e Central de Alertas padronizadas
+
+- `layout/BottomNav.tsx` segue o padrão visual da navegação da Carteira (`features/wallet/WalletModule.tsx`).
+- `NotificationAvatar`: quadro único `h-10 w-10 rounded-xl` para todo tipo de aviso. Ícones da Carteira/Painel e alertas (Antigravity) entram no mesmo commit.
+- Só interface; sem migração. Não validado em celular físico.
+
 ## 27/11/2026 — Compromissos dos próximos 30 dias e consistência do painel
 
 - Carteira: `calculateWalletBalance` e `calculateAccountProjections` aceitam `horizonDate` opcional (sem ele, comportamento antigo do mês). A Visão geral usa hoje+30 para faturas, contas a pagar e pendentes; vencidos sempre entram.

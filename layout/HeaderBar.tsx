@@ -82,7 +82,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
         style={{ opacity: deleteOpacity, scale: deleteScale }}
         className="absolute inset-y-0 right-0 w-20 flex flex-col items-center justify-center rounded-lg bg-rose-500/12 border border-rose-500/20"
       >
-        <Trash2 size={16} className="text-rose-400" />
+        <AppIcon name="trash" size={18} />
         <span className="mt-1 text-[8px] font-black uppercase tracking-[0.18em] text-rose-400">
           Apagar
         </span>
@@ -150,10 +150,10 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
                   e.stopPropagation();
                   onRemove?.(notif.id);
                 }}
-                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-white/5 bg-slate-950/70 text-slate-500 transition-colors hover:border-rose-500/20 hover:text-rose-400"
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-white/5 bg-slate-950/70 transition-colors hover:border-rose-500/30 hover:bg-rose-500/15"
                 aria-label="Remover notificacao"
               >
-                <Trash2 size={13} strokeWidth={1.8} />
+                <AppIcon name="trash" size={15} />
               </button>
             </div>
           </div>
@@ -374,43 +374,20 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
         boxShadow: `0 20px 50px rgba(0,0,0,0.85), 0 0 30px ${primaryColor}35`,
       }}
     >
-      <div
-        className="relative shrink-0 overflow-hidden border-b border-white/5 px-4 py-3.5"
-        style={{
-          background: `linear-gradient(135deg, ${primaryColor}22 0%, rgba(15,23,42,0.96) 46%, rgba(2,6,23,0.98) 100%)`,
-        }}
-      >
-        <div
-          className="pointer-events-none absolute -right-12 -top-12 h-28 w-28 rounded-full blur-3xl"
-          style={{ backgroundColor: `${primaryColor}22` }}
-        />
+      <div className="relative shrink-0 border-b border-slate-800 bg-slate-900/95 px-4 py-3">
         <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <div
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-white/10 shadow-inner"
-                style={{ backgroundColor: `${primaryColor}18` }}
-              >
-                <Bell size={18} strokeWidth={1.8} style={{ color: primaryColor }} />
-              </div>
-              <div className="min-w-0">
-                <h3 className="text-sm font-black uppercase tracking-[0.12em] text-white">
-                  Alertas
-                </h3>
-              </div>
+          <div className="flex min-w-0 items-center gap-2.5">
+            <AppIcon name="bell" size={26} />
+            <div className="min-w-0">
+              <h3 className="text-sm font-bold text-white">
+                Alertas
+              </h3>
             </div>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex shrink-0 items-center gap-1.5">
             {notifications.length > 0 && (
               <>
-                <span
-                  className="min-w-8 rounded-full border px-2 py-1 text-center text-[10px] font-black tabular-nums"
-                  style={{
-                    color: primaryColor,
-                    backgroundColor: `${primaryColor}14`,
-                    borderColor: `${primaryColor}33`,
-                  }}
-                >
+                <span className="min-w-7 rounded-full border border-blue-500/30 bg-blue-500/15 px-2 py-0.5 text-center text-[10px] font-black tabular-nums text-blue-300">
                   {notifications.length}
                 </span>
                 <button
@@ -419,21 +396,21 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                     e.stopPropagation();
                     clearAllNotifications?.();
                   }}
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-white/5 bg-rose-500/10 text-rose-500 transition-all hover:bg-rose-500 hover:text-white"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-700/70 bg-slate-900 transition-colors hover:border-rose-500/50 hover:bg-rose-500/10"
                   aria-label="Limpar todas as notificações"
                   title="Limpar alertas"
                 >
-                  <Trash2 size={15} strokeWidth={1.8} />
+                  <AppIcon name="trash" size={19} />
                 </button>
               </>
             )}
             <button
               type="button"
               onClick={() => setShowNotifications(false)}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-white/5 bg-slate-900/60 text-slate-500 transition-all hover:text-white hover:rotate-90"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-700/70 bg-slate-900 text-slate-300 transition-colors hover:text-white"
               aria-label="Fechar notificações"
             >
-              <X size={16} strokeWidth={1.8} />
+              <X size={18} strokeWidth={2} />
             </button>
           </div>
         </div>
@@ -446,8 +423,8 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
         <AndroidApkNotice placement="notifications" />
         {notifications.length === 0 ? (
           <div className="px-4 py-8 text-center">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-lg border border-white/5 bg-slate-900/80 shadow-inner">
-              <Bell size={20} className="text-slate-600" />
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-lg border border-slate-800 bg-slate-900/80 shadow-inner">
+              <AppIcon name="bell" size={26} muted />
             </div>
             <p className="text-sm text-slate-200 font-black tracking-tight">Sem outras notificações</p>
             <p className="mt-1 text-[11px] text-slate-500 leading-relaxed">
@@ -576,7 +553,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                       : 'bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800'
                   }`}
                 >
-                  <Bell size={20} className={alertBadgeCount > 0 ? 'animate-bell' : ''} />
+                  <AppIcon name="bell" size={20} onColor={showNotifications} className={alertBadgeCount > 0 ? 'animate-bell' : ''} />
                   {alertBadgeCount > 0 && (
                     <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[10px] font-black w-5 h-5 flex items-center justify-center rounded-full ring-4 ring-slate-950">
                       {alertBadgeCount}
@@ -641,7 +618,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                       : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-white'
                   }`}
                 >
-                  <Bell size={16} className={alertBadgeCount > 0 ? 'animate-bell' : ''} />
+                  <AppIcon name="bell" size={19} onColor={showNotifications} className={alertBadgeCount > 0 ? 'animate-bell' : ''} />
                   {alertBadgeCount > 0 && (
                     <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[7px] sm:text-[8px] font-black w-3.5 h-3.5 sm:w-4 sm:h-4 flex items-center justify-center rounded-full ring-2 ring-slate-950">
                       {alertBadgeCount}

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, CalendarClock, BarChart3, CreditCard, Landmark, TrendingDown, TrendingUp, ChevronDown } from 'lucide-react';
+import { ArrowLeft, CalendarClock, CreditCard, Landmark, TrendingDown, TrendingUp, ChevronDown } from 'lucide-react';
+import { AppIcon } from '../../../components/icons/AppIcons';
 import { PrivateMoney, useFinancialPrivacy } from '../../../contexts/FinancialPrivacyContext';
 import { formatMoney } from '../../../utils/formatters';
 import { walletRepository, type WalletOverviewSnapshot } from '../services/walletRepository';
@@ -87,7 +88,7 @@ export const WalletReportPage: React.FC<{ onNavigate: (path: string) => void }> 
     </section>}
     {report && !privacyHidden && <>
       <section aria-label="Resumo financeiro do mês" className="rounded-xl border border-slate-800 bg-slate-900 p-4 sm:p-5">
-        <h3 className="flex items-center gap-2 text-sm font-bold text-white"><BarChart3 size={17} className="text-blue-400" /> Visão do mês</h3>
+        <h3 className="flex items-center gap-2 text-sm font-bold text-white"><AppIcon name="dashboard" size={20} /> Visão do mês</h3>
         <div className="mt-3 grid grid-cols-2 gap-2">
           {cards.map(({ label, value, color, Icon }) => <div key={label}
             className="min-w-0 rounded-lg border border-slate-800 bg-slate-950/60 p-3">

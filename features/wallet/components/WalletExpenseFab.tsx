@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowDownToLine, BellRing, ClipboardList, CreditCard, Landmark, Plus, ReceiptText, X } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
+import { AppIcon } from '../../../components/icons/AppIcons';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useWalletSnapshot } from '../hooks/useWalletSnapshot';
 import QuickExpenseModal from './QuickExpenseModal';
@@ -75,22 +76,22 @@ export const WalletExpenseFab: React.FC = () => {
         className="grid w-[min(19rem,calc(100vw-2rem))] max-h-[min(68dvh,26rem)] grid-cols-2 gap-2 overflow-y-auto rounded-xl border border-slate-700 bg-slate-950 p-2.5 shadow-xl shadow-black/40 animate-in fade-in duration-150">
         <button role="menuitem" type="button" onClick={() => { setMenuOpen(false); setIncomeOpen(true); }}
           className={menuItemClass + ' col-span-2 border-emerald-700/50 bg-emerald-950/30 text-emerald-100 hover:bg-emerald-950/60'}>
-          <ArrowDownToLine size={17} className="shrink-0 text-emerald-300"/>Receber valor
+          <AppIcon name="income" size={18} />Receber valor
         </button>
         <button role="menuitem" type="button" onClick={() => { setMenuOpen(false); setExpenseOpen(true); }} className={menuItemClass}>
-          <ReceiptText size={17} className="shrink-0 text-rose-300"/>Adicionar despesa
+          <AppIcon name="expense" size={18} />Adicionar despesa
         </button>
         <button role="menuitem" type="button" onClick={() => goToAction('/carteira/cartoes?acao=novo-cartao')} className={menuItemClass}>
-          <CreditCard size={17} className="shrink-0 text-violet-300"/>Adicionar cartão
+          <AppIcon name="wallet" size={18} />Adicionar cartão
         </button>
         <button role="menuitem" type="button" onClick={() => goToAction('/carteira/contas?acao=nova-conta')} className={menuItemClass}>
-          <Landmark size={17} className="shrink-0 text-blue-300"/>Adicionar conta
+          <AppIcon name="bank" size={18} />Adicionar conta
         </button>
         <button role="menuitem" type="button" onClick={() => goToAction('/carteira/dividas?acao=novo-compromisso')} className={menuItemClass}>
-          <ClipboardList size={17} className="shrink-0 text-amber-300"/>Compromisso
+          <AppIcon name="calendar" size={18} />Compromisso
         </button>
         <button role="menuitem" type="button" onClick={() => goToAction('/carteira/notificacoes')} className={menuItemClass + ' col-span-2'}>
-          <BellRing size={17} className="shrink-0 text-blue-300"/>Notificações bancárias
+          <AppIcon name="bell" size={18} />Notificações bancárias
         </button>
       </div>}
     </div>

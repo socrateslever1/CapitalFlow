@@ -246,8 +246,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           <aside className={`w-full lg:w-80 shrink-0 min-w-0 space-y-5 sm:space-y-6 lg:contents lg:space-y-0 ${mobileDashboardTab === 'CONTRACTS' ? 'hidden md:block' : ''}`}>
               <div data-dashboard-indicator-heading className="flex items-center justify-between px-3 py-2 bg-slate-900/60 border border-slate-800/80 rounded-lg lg:col-start-2 lg:row-start-1 lg:self-stretch">
                   <div className="flex items-center gap-2">
-                      <div className="p-1.5 rounded-md bg-blue-500/10 border border-blue-500/20 text-blue-400">
-                          <TrendingUp size={14} />
+                      <div className="p-1.5 rounded-md bg-slate-900 border border-slate-700/70">
+                          <AppIcon name="trend" size={18} />
                       </div>
                       <div className="flex flex-col">
                           <h2 className="text-xs font-black uppercase tracking-wider text-slate-200 leading-none">Balanço Financeiro</h2>
@@ -360,7 +360,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                     compact isStealthMode={isStealthMode} onOpenLoan={id=>onNavigate(`/contrato/${id}`)} />
                   {onOpenReports && <button type="button" onClick={onOpenReports}
                     className="flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-blue-500/30 bg-blue-600/10 px-3 py-2 text-xs font-bold text-blue-300">
-                    Histórico mensal completo <BarChart3 size={15}/>
+                    Histórico mensal completo <AppIcon name="dashboard" size={16} />
                   </button>}
                 </div>
               )}
@@ -368,8 +368,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
               <div className="bg-slate-900 border border-slate-800 rounded-lg p-5 flex flex-col items-center shadow-xl group hover:border-slate-700 transition-all">
                   <div className="flex items-center justify-between w-full mb-6">
                       <h3 className="card-title font-black uppercase text-slate-500 group-hover:text-slate-400 transition-colors flex items-center gap-3">
-                          <div className="p-2 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400">
-                              <PieIcon className="w-4 h-4" />
+                          <div className="p-1.5 rounded-lg bg-slate-950 border border-slate-700/70">
+                              <AppIcon name="reports" size={18} />
                           </div>
                           Saúde da Carteira
                       </h3>
@@ -380,8 +380,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
                   <div className="flex items-center justify-between w-full mb-4 mt-8 pt-6 border-t border-slate-800/50">
                       <h3 className="card-title font-black uppercase text-slate-500 group-hover:text-slate-400 transition-colors flex items-center gap-3">
-                          <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
-                              <TrendingUp className="w-4 h-4" />
+                          <div className="p-1.5 rounded-lg bg-slate-950 border border-slate-700/70">
+                              <AppIcon name="growth" size={18} />
                           </div>
                           Evolução (6 Meses)
                       </h3>

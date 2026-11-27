@@ -1,4 +1,5 @@
 import { PrivateMoney, useFinancialPrivacy } from '../../../contexts/FinancialPrivacyContext';
+import { AppIcon } from '../../../components/icons/AppIcons';
 import { businessDateInManaus } from '../../../utils/businessDate';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -362,7 +363,7 @@ export const WalletOverviewPage: React.FC<Props> = ({ activeUser, onNavigate }) 
     {/* 2. SEÇÃO COMPROMISSOS PRÓXIMOS */}
     <article className="rounded-xl border border-slate-800 bg-slate-900 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="flex items-center gap-2 text-sm sm:text-base font-bold text-white"><CalendarClock size={16} className="text-blue-400"/> Compromissos próximos</h2>
+        <h2 className="flex items-center gap-2 text-sm sm:text-base font-bold text-white"><AppIcon name="calendar" size={20} /> Compromissos próximos</h2>
         <button type="button" onClick={() => go('dividas')} className="flex min-h-9 items-center gap-1 text-xs font-semibold text-blue-300 transition-colors hover:text-blue-200">
           <span>Ver contas a pagar</span> <ArrowRight size={14}/>
         </button>

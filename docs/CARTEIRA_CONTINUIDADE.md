@@ -1799,3 +1799,15 @@ O ícone do olho já acionava o `FinancialPrivacyProvider`, mas os elementos aba
 
 - Com autorização expressa do proprietário, 2 compras de cartão ligadas a empréstimo, criadas antes de 25/11, passaram a usar a data do empréstimo. Transação única com checagens (nenhuma parcela paga; a fatura não muda). Cada compra guarda o registro da correção (`mutation_requests.correcao-data-0-5`: data anterior, nova e momento). Depois: 0 divergências; ambas continuam na mesma fatura. Sem código alterado.
 - **Plano concluído:** Fases 0, 1 e 2, incluindo o item 0.5.
+## 27/11/2026 — Movimento nos ícones e nas abas
+
+- Partes dos SVGs animam ao ativar abas e montar cabeçalhos. A Carteira tem pílula deslizante na aba ativa. Os keyframes usam transformação e opacidade, entre 330 e 420 ms incluindo os atrasos.
+- A revisão independente identificou que a preferência de movimento podia ficar desatualizada. A pílula agora acompanha mudanças dessa preferência durante a sessão. Mantida a faixa de duração solicitada.
+- A suíte visual passou (62/62), i18n passou (9/9) e textos da interface passaram. O gate geral detectou uma regressão no contrato entre a navegação e o saldo rápido. O provedor de animação foi movido para dentro da navegação e o teste direcionado passou (2/2). Gate completo pendente de nova execução.
+- Rollback localizado nos SVGs, componentes de navegação e cabeçalho, trecho de animações no CSS e changelogs. Validação de quadros em aparelho físico pendente.
+## 27/11/2026 — Anéis de gastos e movimento mais visível
+
+- Animação compartilhada dos anéis de categoria em fatura, conta, visão geral e relatório. O contorno SVG percorre de zero até o valor existente em 800 ms quando pelo menos 35% do ícone entra na área visível. Movimento reduzido mostra o valor final imediatamente. Suíte visual após o ajuste: 62/62.
+- Os ícones passaram a 420 ms por parte, com maior deslocamento lateral e vertical. Reversão localizada no CSS, no componente do anel e nos changelogs. Sem validação em aparelho físico.
+- Verificação local no Chrome: as 12 variantes recebem os keyframes. No componente React, o arco ficou vazio antes da rolagem, iniciou ao entrar na área visível e terminou em 49% no caso testado. A renderização de lista e faixa confirmou que percentuais e arcos ficam fora do HTML com privacidade ativa. O teste que verifica a aparência da navegação da Carteira passou após preservar o destaque na pílula (14/14 na suíte).
+- Gate completo `npm run test:quality` passou na nova execução, incluindo o build. Revisão independente aprovou o movimento e a privacidade. A medição de FPS em aparelho continua pendente.

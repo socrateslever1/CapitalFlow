@@ -1,5 +1,6 @@
 import { AppIcon } from '../../components/icons/AppIcons';
-import React, { useCallback, useEffect, useState } from 'react';
+import { LayoutGroup, motion } from 'framer-motion';
+import React, { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { AlertTriangle, CalendarClock, CreditCard, Landmark, LayoutDashboard, LockKeyhole, TrendingUp, WifiOff } from 'lucide-react';
 import { AccountsIcon, CardsIcon, OverviewIcon, PayablesIcon } from '../../components/wallet/WalletNavIcons';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -21,11 +22,21 @@ const StateCard: React.FC<{ kind: 'inactive' | 'error'; message: string; onRetry
 </section>;
 
 const navigationIcons = { 'visao-geral': LayoutDashboard, cartoes: CreditCard, contas: Landmark, dividas: CalendarClock, receitas: TrendingUp, cobranca: Landmark, relatorio: LayoutDashboard, notificacoes: LayoutDashboard };
+const activeTabPillClass = 'pointer-events-none absolute inset-0 -z-10 rounded-lg bg-blue-600/20 ring-1 ring-inset ring-blue-500/50';
+const reducedMotionQuery = '(prefers-reduced-motion: reduce)';
+const readReducedMotion = () => window.matchMedia?.(reducedMotionQuery).matches ?? true;
+const subscribeReducedMotion = (notify: () => void) => {
+  const query = window.matchMedia?.(reducedMotionQuery);
+  query?.addEventListener?.('change', notify);
+  return () => query?.removeEventListener?.('change', notify);
+};
+const preferStaticOnServer = () => true;
 
 const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUser }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const access = useWalletAccess();
+  const reduceMotion = useSyncExternalStore(subscribeReducedMotion, readReducedMotion, preferStaticOnServer);
   const [offline, setOffline] = useState(() => typeof navigator !== 'undefined' && navigator.onLine === false);
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState(false);
@@ -116,6 +127,7 @@ const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUse
     </div>
     <nav aria-label="Navegação da Carteira"
       className="mb-1.5 grid w-full min-w-0 grid-cols-4 items-center gap-0.5 rounded-xl border border-slate-800 bg-slate-900/70 p-0.5 sm:flex sm:flex-wrap sm:gap-1.5 sm:p-1">
+      <LayoutGroup>
       {WALLET_ROUTES.filter(item => item.key !== 'cobranca' && item.key !== 'receitas').map(item => {
         const Icon = navigationIcons[item.key];
         const active = route === item.key;
@@ -127,11 +139,16 @@ const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUse
           <button key={item.key} type="button"
             aria-current={active ? 'page' : undefined}
             onClick={() => go(item.key)} aria-label={item.label}
-            className={`group flex min-h-9 sm:min-h-11 min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg px-0.5 py-1 text-center transition-colors duration-150 active:scale-[0.98] sm:flex-row sm:gap-2 sm:px-4 sm:py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-400 ${
+            className={`group relative isolate flex min-h-9 sm:min-h-11 min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg px-0.5 py-1 text-center sm:flex-row sm:gap-2 sm:px-4 sm:py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-400 ${
               active
-                ? 'bg-blue-600/20 text-blue-100 ring-1 ring-inset ring-blue-500/50'
+                ? 'text-blue-100'
                 : 'text-slate-300 hover:bg-slate-800 hover:text-white'
             }`}>
+            {active && (reduceMotion
+              ? <span aria-hidden="true" className={activeTabPillClass} />
+              : <motion.span aria-hidden="true" layoutId="wallet-active-tab" layout="position"
+                  initial={false} className={activeTabPillClass}
+                  transition={{ type: 'spring', duration: 0.36, bounce: 0.15 }} />)}
             {item.key === 'visao-geral' ? <OverviewIcon active={active}/>
               : item.key === 'cartoes' ? <CardsIcon active={active}/>
               : item.key === 'contas' ? <AccountsIcon active={active}/>
@@ -143,6 +160,7 @@ const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUse
           </button>
         );
       })}
+      </LayoutGroup>
     </nav>
     <WalletBalanceDock />
     {offline && (

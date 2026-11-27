@@ -1,5 +1,16 @@
 # Changelog
 
+## 27/11/2026 — Fontes de Capital no padrão da lista de contas da Carteira
+
+**Melhoria (só interface).** `components/cards/SourceCard.tsx`: logo do banco preenchendo o quadro de 48 px (prioridade sobre imagem enviada quando o nome é de banco conhecido), faixa lateral na cor da marca, nome em texto normal com `MarqueeText`, tipo e contratos em texto normal, ícones próprios por tipo quando não há logo e ações reduzidas a editar/excluir (os contratos abrem os detalhes). Removidos o ícone apagado no canto e a busca de logos externos (clearbit). `utils/bankLogoRegistry.ts`: apelido exato "nu" → Nubank.
+- **Testes:** `test:quality`, `test:wallet-visual-next`, `test:wallet-statement-import` e build passaram; conferido no app local em 375 px. Não validado em celular físico.
+
+- **Melhoria (27/11/2026):** os anéis de gastos preenchem até a participação da categoria ao entrar na área visível, e os ícones de navegação têm movimentos mais nítidos.
+
+## 27/11/2026 — Animações dos ícones de navegação
+
+**Melhoria.** Os ícones da barra inferior e da Carteira animam suas partes internas ao ativar uma aba. Os cabeçalhos ganham entrada e a Carteira usa um indicador deslizante na aba ativa. Os movimentos são únicos por ativação e respeitam a preferência de movimento reduzido.
+
 ## 27/11/2026 — Nome longo em botão pequeno rola sozinho
 
 **Melhoria (só interface).** Novo `components/ui/MarqueeText.tsx`: quando o texto não cabe, desliza devagar até o fim e volta, com pausa nas pontas; quando cabe, fica parado; com "reduzir movimento" ligado, mostra reticências como antes (`@keyframes cf-marquee` em `index.css`). Aplicado na escolha de categoria (`CategoryIconPicker.tsx`), na faixa de categorias (`CategoryBreakdownPanel.tsx`) e nos rótulos da barra inferior (`layout/BottomNav.tsx`).
@@ -11,7 +22,7 @@
 - **Central de Alertas (`layout/HeaderBar.tsx` e `components/notifications/NotificationAvatar.tsx`):** cabeçalho com o ícone próprio `bell` sem moldura e título em texto normal; lixeira e fechar no mesmo botão neutro `h-9 w-9 rounded-xl`; sino na barra superior no tamanho padronizado (inclusive mobile); todos os avatares de notificação (foto, iniciais, logo do banco e ícone) no mesmo quadro `h-10 w-10 rounded-xl`, com o logo do banco preenchendo o quadro e reconhecimento do banco na mensagem (`C6 Bank`, etc.).
 - **Barra de navegação inferior (`layout/BottomNav.tsx`):** no padrão da barra da Carteira — ícones de 27 px, botões maiores (`min-w-[76px]`, `min-h-[3.75rem]`), rótulo em texto normal (sem caixa alta) e realce do ativo igual ao da Carteira.
 - **Carteira e Painel:** substituídos os ícones genéricos/pequenos de **Saúde financeira** (`WalletSpendingGuide.tsx`), **Contas** e **Cartões** (`WalletOverviewSummary.tsx`), **Compromissos** (`WalletOverviewPage.tsx`, `WalletPayablesPage.tsx`), **Visão do mês** (`WalletReportPage.tsx`), **Ações rápidas `+`** (`WalletExpenseFab.tsx`), **Balanço Mensal** (`MonthlyBalanceReport.tsx`) e indicadores do **Painel** (`DashboardPage.tsx`).
-- **Lançamento rápido (`QuickExpenseModal.tsx`):** campos **Iniciar na parcela** e **De (Total de parcelas)** posicionados lado a lado (`grid-cols-2`) também no celular para economizar espaço vertical.
+- **Lançamento rápido (`QuickExpenseModal.tsx`):** campos **Iniciar na parcela** e **De (Total de parcelas)** posicionados lado a lado (`grid-cols-2`) também no celular, e **Data da Compra** movida para dentro do bloco **Fatura do cartão** no modo cartão para ser configurada junto ao ciclo e às parcelas sem passar batida.
 
 ## 27/11/2026 — Auditor IA, gráfico Evolução, compromissos da Carteira e risco de clientes
 

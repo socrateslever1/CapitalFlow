@@ -1,6 +1,6 @@
 import React from 'react';
 import { MarqueeText } from '../ui/MarqueeText';
-import { PrivateMoney } from '../../contexts/FinancialPrivacyContext';
+import { PrivateMoney, useFinancialPrivacy } from '../../contexts/FinancialPrivacyContext';
 import { formatMoney } from '../../utils/formatters';
 import type { CategoryBreakdown } from '../../features/wallet/domain/walletCategoryBreakdown';
 import { CategoryGaugeIcon } from './CategoryGaugeIcon';
@@ -22,6 +22,7 @@ type Props = {
 export const CategoryBreakdownPanel: React.FC<Props> = ({
   title, breakdown, elapsedDays, layout = 'strip', emptyText = 'Nenhum gasto com categoria neste período.', note,
 }) => {
+  const hidden = useFinancialPrivacy();
   const perDay = (amount: number) => elapsedDays && elapsedDays > 0 ? Math.round(amount * 100 / elapsedDays) / 100 : null;
   return (
     <section aria-label={title} className="rounded-xl border border-slate-800 bg-slate-900/60 p-3">
@@ -35,10 +36,10 @@ export const CategoryBreakdownPanel: React.FC<Props> = ({
         <ul className="flex gap-3 overflow-x-auto pb-1 [scrollbar-width:thin]" aria-label="Categorias">
           {breakdown.slices.map(slice => (
             <li key={slice.name} className="flex w-[72px] shrink-0 flex-col items-center gap-1 text-center"
-              aria-label={`${slice.name}: ${slice.percentage}% do total`}>
-              <CategoryGaugeIcon category={slice.name} percentage={slice.percentage} />
+              aria-label={hidden ? slice.name : `${slice.name}: ${slice.percentage}% do total`}>
+              <CategoryGaugeIcon category={slice.name} percentage={hidden ? null : slice.percentage} />
               <MarqueeText text={slice.name} className="w-full text-[11px] font-semibold text-slate-200" />
-              <span className="text-[10px] tabular-nums text-slate-400">{slice.percentage}% · <PrivateMoney value={formatMoney(slice.amount)} /></span>
+              <span className="text-[10px] tabular-nums text-slate-400">{!hidden && <>{slice.percentage}% · </>}<PrivateMoney value={formatMoney(slice.amount)} /></span>
             </li>
           ))}
         </ul>
@@ -47,8 +48,8 @@ export const CategoryBreakdownPanel: React.FC<Props> = ({
           {breakdown.slices.map(slice => {
             const daily = perDay(slice.amount);
             return (
-              <li key={slice.name} className="flex items-center gap-3" aria-label={`${slice.name}: ${slice.percentage}% do total`}>
-                <CategoryGaugeIcon category={slice.name} percentage={slice.percentage} size={42} />
+              <li key={slice.name} className="flex items-center gap-3" aria-label={hidden ? slice.name : `${slice.name}: ${slice.percentage}% do total`}>
+                <CategoryGaugeIcon category={slice.name} percentage={hidden ? null : slice.percentage} size={42} />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-semibold text-slate-100">{slice.name}</span>
                   <span className="block text-[11px] tabular-nums text-slate-400">
@@ -58,7 +59,7 @@ export const CategoryBreakdownPanel: React.FC<Props> = ({
                 </span>
                 <span className="text-right">
                   <span className="block text-sm font-bold tabular-nums text-white"><PrivateMoney value={formatMoney(slice.amount)} /></span>
-                  <span className="block text-[11px] tabular-nums text-slate-400">{slice.percentage}%</span>
+                  {!hidden && <span className="block text-[11px] tabular-nums text-slate-400">{slice.percentage}%</span>}
                 </span>
               </li>
             );

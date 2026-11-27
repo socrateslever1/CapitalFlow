@@ -15,6 +15,7 @@ export const BANK_CATALOG: BankBrand[] = [
     "ispb": "18236120",
     "aliases": [
       "nu pagamentos",
+      "nu",
       "roxinho",
       "nubank"
     ]

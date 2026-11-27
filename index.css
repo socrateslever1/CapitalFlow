@@ -756,3 +756,148 @@ body[data-capacitor-android="true"] .cf-auth-viewport {
 @media (prefers-reduced-motion: reduce) {
   .cf-marquee-run { animation: none; }
 }
+
+
+/* Micro-animações táteis nos ícones (disparo único por ação, apenas GPU transform/opacity). */
+@keyframes cf-icon-bar {
+  0% { transform: scaleY(.28); }
+  55% { transform: scaleY(1.16); }
+  78% { transform: scaleY(.94); }
+  100% { transform: scaleY(1); }
+}
+
+@keyframes cf-icon-fan {
+  0%, 100% { transform: translate(0) rotate(0); }
+  45% { transform: translate(-1px, -2.5px) rotate(-14deg); }
+  78% { transform: translateY(.4px) rotate(3deg); }
+}
+
+@keyframes cf-icon-shine {
+  0%, 100% { opacity: 0; }
+  46% { opacity: .85; }
+}
+
+@keyframes cf-icon-layer {
+  0% { transform: translateY(-4px); }
+  62% { transform: translateY(1px); }
+  100% { transform: translateY(0); }
+}
+
+@keyframes cf-icon-slide {
+  0% { transform: translateX(var(--cf-part-start)); opacity: .45; }
+  55% { transform: translateX(var(--cf-part-overshoot)); opacity: 1; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes cf-icon-light {
+  0% { opacity: .3; transform: scale(.84); }
+  48% { opacity: 1; transform: scale(1.25); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes cf-icon-sway {
+  0%, 100% { transform: rotate(0); }
+  36% { transform: rotate(12deg); }
+  67% { transform: rotate(-5deg); }
+  86% { transform: rotate(2deg); }
+}
+
+@keyframes cf-icon-star {
+  0% { transform: rotate(-65deg) scale(.72); opacity: .55; }
+  62% { transform: rotate(12deg) scale(1.35); opacity: 1; }
+  100% { transform: rotate(0) scale(1); opacity: 1; }
+}
+
+@keyframes cf-icon-ring {
+  0% { transform: rotate(-45deg); }
+  62% { transform: rotate(6deg); }
+  83% { transform: rotate(-2deg); }
+  100% { transform: rotate(0); }
+}
+
+@keyframes cf-icon-coin {
+  0%, 100% { transform: translateY(0); }
+  35% { transform: translateY(-2.3px); }
+  73% { transform: translateY(4px); }
+}
+
+@keyframes cf-icon-seal {
+  0%, 100% { transform: scale(1); }
+  45% { transform: scale(1.25); }
+  75% { transform: scale(.96); }
+}
+
+@keyframes cf-icon-header-in {
+  0% {
+    opacity: 0;
+    transform: translateY(6px) scale(.9);
+  }
+  64% { transform: translateY(-1px) scale(1.045); }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+[data-cf-icon-active="true"] [data-cf-part] {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: var(--cf-part-animation) 420ms cubic-bezier(0.32, 0.72, 0, 1) var(--cf-part-delay, 0ms) both;
+}
+
+[data-cf-part="bar"] { --cf-part-animation: cf-icon-bar; }
+[data-cf-icon-active="true"] [data-cf-part="bar"] { transform-origin: center bottom; }
+[data-cf-part="bar"]:nth-child(3), [data-cf-part="light"]:nth-child(5),
+[data-cf-part="layer"]:nth-child(2) { --cf-part-delay: 45ms; }
+[data-cf-part="bar"]:nth-child(4), [data-cf-part="light"]:nth-child(8) { --cf-part-delay: 90ms; }
+[data-cf-part="fan"] { --cf-part-animation: cf-icon-fan; }
+[data-cf-part="shine"] { --cf-part-animation: cf-icon-shine; }
+[data-cf-part="layer"] { --cf-part-animation: cf-icon-layer; }
+[data-cf-part="left"] { --cf-part-animation: cf-icon-slide; --cf-part-start: 5px; --cf-part-overshoot: -1.25px; }
+[data-cf-part="right"] { --cf-part-animation: cf-icon-slide; --cf-part-start: -5px; --cf-part-overshoot: 1.25px; }
+[data-cf-part="light"] { --cf-part-animation: cf-icon-light; }
+[data-cf-part="balance"], [data-cf-part="paper"] { --cf-part-animation: cf-icon-sway; }
+[data-cf-icon-active="true"] [data-cf-part="balance"] { transform-origin: center top; }
+[data-cf-part="star"] { --cf-part-animation: cf-icon-star; }
+[data-cf-part="ring"] { --cf-part-animation: cf-icon-ring; }
+[data-cf-icon-active="true"] [data-cf-part="ring"] { transform-box: view-box; }
+[data-cf-part="coin"] { --cf-part-animation: cf-icon-coin; }
+[data-cf-part="seal"] { --cf-part-animation: cf-icon-seal; }
+
+.cf-icon-header-in {
+  animation: cf-icon-header-in 420ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+@keyframes cf-category-gauge-fill {
+  from { stroke-dashoffset: var(--cf-gauge-empty); opacity: 0; }
+  to { stroke-dashoffset: var(--cf-gauge-current); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  [data-cf-gauge-waiting="true"] { opacity: 0; }
+  .cf-category-gauge-progress {
+    animation: cf-category-gauge-fill 800ms cubic-bezier(0.32, 0.72, 0, 1) backwards;
+  }
+}
+
+.cf-icon-interactive {
+  transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1), opacity 160ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .group:hover .cf-icon-interactive,
+  button:hover > .cf-icon-interactive {
+    transform: translateY(-1px) scale(1.06);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-cf-icon-active="true"] [data-cf-part],
+  .cf-icon-header-in {
+    animation: none !important;
+  }
+  .cf-icon-interactive {
+    transition: opacity 150ms ease !important;
+    transform: none !important;
+  }
+}

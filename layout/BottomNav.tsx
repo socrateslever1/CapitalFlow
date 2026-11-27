@@ -193,12 +193,14 @@ export const BottomNav: React.FC<BottomNavProps> = ({
               if (editing || scrollingRef.current?.moved) { event.preventDefault(); scrollingRef.current = null; return; }
               setActiveTab(tab);
             }}
-            className={'flex min-h-[3.75rem] min-w-[76px] shrink-0 flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 transition-all duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-95 ' +
+            className={'flex min-h-[3.75rem] min-w-[76px] shrink-0 flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 motion-safe:transition-transform motion-safe:duration-150 motion-safe:ease-[cubic-bezier(0.23,1,0.32,1)] motion-safe:active:scale-95 ' +
               (editing ? 'cursor-grab touch-none border border-dashed border-slate-600 active:bg-slate-800' :
                 activeTab === tab ? 'bg-blue-600/20 ring-1 ring-inset ring-blue-500/50 text-blue-100' : 'text-slate-300 hover:bg-slate-800 hover:text-white')}
             style={editing ? { touchAction: 'none' } : undefined}
           >
-            {iconFor(tab, activeTab === tab)}
+            <span data-cf-icon-active={activeTab === tab} className={`inline-flex items-center justify-center ${activeTab === tab ? '' : 'cf-icon-interactive'}`}>
+              {iconFor(tab, activeTab === tab)}
+            </span>
             <MarqueeText text={labelFor(tab)} className={'w-full text-center text-[11.5px] font-semibold leading-tight transition-colors duration-200 ' +
               (activeTab === tab ? 'text-blue-100' : '')} />
           </button>

@@ -1,13 +1,17 @@
 # Changelog
 
+## 27/11/2026 — Perfil → Atualizações com uma entrada por dia
+
+- `src/constants/changelog.ts`: as 14 entradas de 27/11 e as 7 de 26/11 foram reunidas em uma entrada por dia (todos os itens mantidos, sem repetição, novidades primeiro). Lista: 36 → 17 entradas.
+
 ## 27/11/2026 — Ícones na conta: movimentar, categorias e extrato
 
 **Melhoria (só interface).** `components/wallet/AccountActivityPanel.tsx`: botões Receita, Receber, Despesa, Pagar e Transferir com ícones próprios; lista de categorias com o ícone colorido de cada categoria; linhas do extrato com o ícone da categoria (borda verde para entrada, vermelha para saída) no lugar da seta genérica.
 - **Testes:** `test:quality`, `test:wallet-visual-next`, Carteira e build passaram; conferido no app local em 411 px.
 
-## 27/11/2026 — Contraste dos ícones próprios em botões ativos coloridos
+## 27/11/2026 — Contraste dos ícones próprios e remoção de botão redundante de atualizar
 
-**Melhoria (só interface).** `AppIcon` (`components/icons/AppIcons.tsx`) recebeu a prop `onColor` (base escura translúcida com aro suave `bg-slate-950/60 ring-1 ring-white/20`) e tons mais legíveis nos ícones `contracts` e `all`, evitando que ícones azuis se percam sobre fundos azuis ou verdes ativos nas abas **Contratos/Balanço** (`pages/DashboardPage.tsx`), nos filtros do painel (**Todos**, etc. em `components/dashboard/DashboardControls.tsx`) e nas abas ativas do cabeçalho (`layout/HeaderBar.tsx`).
+**Melhoria (só interface).** `AppIcon` (`components/icons/AppIcons.tsx`) recebeu a variante clara `onColor` (cores claras/brancas no próprio SVG, sem moldura extra) para os ícones sobre botões coloridos ativos nas abas **Contratos/Balanço** (`pages/DashboardPage.tsx`), nos filtros do painel (**Todos**, **Pagos**, **Arquivados**, etc. em `components/dashboard/DashboardControls.tsx`) e nas abas ativas do cabeçalho (`layout/HeaderBar.tsx`). Removido também o botão redundante de atualizar do cabeçalho do **Extrato Financeiro** (`pages/FinancialStatementPage.tsx`), já coberto pelo gesto de puxar para atualizar.
 
 ## 27/11/2026 — Ícones próprios: menus, contrato, painel, jurídico, simulador e atendimento
 

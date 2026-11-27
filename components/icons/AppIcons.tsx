@@ -334,26 +334,71 @@ const paths: Record<AppIconName, React.ReactNode> = {
   </>,
 };
 
+const onColorPaths: Partial<Record<AppIconName, React.ReactNode>> = {
+  dashboard: <>
+    <rect x="2.5" y="3" width="19" height="18" rx="4" fill="#ffffff" />
+    <rect x="6" y="12" width="3" height="6" rx="1" fill="#2563eb" />
+    <rect x="10.5" y="8" width="3" height="10" rx="1" fill="#059669" />
+    <rect x="15" y="10.5" width="3" height="7.5" rx="1" fill="#f59e0b" />
+  </>,
+  statement: <>
+    <rect x="4" y="2.5" width="16" height="19" rx="3" fill="#ffffff" />
+    <path d="M8 8h5.5l-1.6-1.6M8 8l1.6 1.6" stroke="#0284c7" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+    <path d="M16 13.5h-5.5l1.6 1.6M16 13.5l-1.6-1.6" stroke="#e11d48" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+    <path d="M8 18h8" stroke="#94a3b8" strokeWidth="1.4" strokeLinecap="round" />
+  </>,
+  simulator: <>
+    <rect x="4.5" y="2.5" width="15" height="19" rx="3" fill="#ffffff" />
+    <rect x="7" y="5" width="10" height="4" rx="1" fill="#2563eb" />
+    <circle cx="8.5" cy="12.5" r="1.3" fill="#64748b" /><circle cx="12" cy="12.5" r="1.3" fill="#64748b" /><circle cx="15.5" cy="12.5" r="1.3" fill="#f59e0b" />
+    <circle cx="8.5" cy="16.5" r="1.3" fill="#64748b" /><circle cx="12" cy="16.5" r="1.3" fill="#64748b" /><circle cx="15.5" cy="16.5" r="1.3" fill="#10b981" />
+  </>,
+  contracts: <>
+    <path d="M5 2.5h9.5L19 7v14.5H5z" fill="#ffffff" />
+    <path d="M14.5 2.5V7H19" fill="#bfdbfe" />
+    <path d="M8 10.5h8M8 13.5h6" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" />
+    <circle cx="15.5" cy="17.5" r="2.7" fill="#f59e0b" />
+  </>,
+  reports: <>
+    <circle cx="11" cy="13" r="8" fill="#ffffff" />
+    <path d="M11 13V5a8 8 0 0 1 8 8z" fill="#a7f3d0" />
+    <path d="M13.5 3a8 8 0 0 1 7.5 7.5h-7.5z" fill="#fbbf24" />
+  </>,
+  profile: <>
+    <rect x="3" y="4" width="18" height="16" rx="3" fill="#ffffff" />
+    <circle cx="9" cy="11" r="2.6" fill="#6d28d9" />
+    <path d="M5.2 17a3.8 3.8 0 0 1 7.6 0z" fill="#6d28d9" />
+    <path d="M14 10h4M14 13h3" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round" />
+  </>,
+  all: <>
+    <rect x="7" y="4" width="10" height="5" rx="2" fill="#93c5fd" />
+    <rect x="5.5" y="7.5" width="13" height="5" rx="2" fill="#dbeafe" />
+    <rect x="4" y="11" width="16" height="9" rx="2.5" fill="#ffffff" />
+  </>,
+  paid: <>
+    <circle cx="12" cy="12" r="9" fill="#ffffff" />
+    <circle cx="12" cy="12" r="6.5" fill="none" stroke="#93c5fd" strokeWidth="1.2" />
+    <path d="M14 9.5c-.5-.7-1.2-1-2.1-1-1.2 0-2.1.7-2.1 1.6 0 2.2 4.4 1.2 4.4 3.5 0 .9-.9 1.6-2.2 1.6-1 0-1.8-.4-2.3-1.1M12 7.3v1.2M12 15.2v1.3" stroke="#1d4ed8" strokeWidth="1.5" strokeLinecap="round" fill="none" />
+  </>,
+  archived: <>
+    <rect x="3" y="4" width="18" height="5" rx="1.5" fill="#dbeafe" />
+    <path d="M4.5 9h15v9.5a2 2 0 0 1-2 2h-11a2 2 0 0 1-2-2z" fill="#ffffff" />
+    <rect x="9.5" y="11.5" width="5" height="2" rx="1" fill="#2563eb" />
+  </>,
+};
+
 export const AppIcon: React.FC<{
   name: AppIconName;
   size?: number;
   muted?: boolean;
-  /** Envolve o ícone em uma base escura translúcida para garantir contraste sobre botões coloridos ativos. */
+  /** Usa versão clara do próprio ícone para manter alto contraste sobre botões coloridos ativos. */
   onColor?: boolean;
   className?: string;
 }> = ({
   name, size = 20, muted = false, onColor = false, className = '',
-}) => {
-  const svg = (
-    <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true" focusable="false"
-      className={`shrink-0 transition-opacity ${muted ? 'opacity-80' : 'opacity-100'} ${onColor ? '' : className}`}>
-      {paths[name]}
-    </svg>
-  );
-  if (!onColor) return svg;
-  return (
-    <span className={`inline-flex shrink-0 items-center justify-center rounded-md bg-slate-950/60 p-[2.5px] ring-1 ring-white/20 shadow-sm ${className}`}>
-      {svg}
-    </span>
-  );
-};
+}) => (
+  <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true" focusable="false"
+    className={`shrink-0 transition-opacity ${muted ? 'opacity-80' : 'opacity-100'} ${onColor ? 'drop-shadow-[0_1px_1.5px_rgba(15,23,42,0.35)]' : ''} ${className}`}>
+    {onColor && onColorPaths[name] ? onColorPaths[name] : paths[name]}
+  </svg>
+);

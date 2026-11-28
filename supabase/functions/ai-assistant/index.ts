@@ -282,7 +282,7 @@ function summarizeCapitalFlowMetrics(context: AssistantContext) {
     }
     for (const p of parcelas) {
       const st = String(p.status || '').toUpperCase();
-      if (st === 'PAID') continue;
+      if (st === 'PAID' || st === 'PAGO' || st === 'RENEGOCIADO' || st === 'QUITADO') continue;
       pendingInstallments += 1;
       const remPrincipal = Number(p.principal_remaining ?? 0);
       const remInterest = Number(p.interest_remaining ?? 0);

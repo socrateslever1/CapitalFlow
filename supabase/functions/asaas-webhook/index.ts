@@ -201,7 +201,7 @@ serve(async (req) => {
     }
 
     if (String(installment.status).toUpperCase() === "PAID") {
-      await updateCharge({ status: "PAID", paid_at: new Date().toISOString() });
+      await updateCharge({ status: "PAID", paid_at: `${businessDateInManaus()}T23:59:59Z` });
       return json({ ok: true, status: "PAID", warning: "Already settled" });
     }
 
@@ -314,7 +314,7 @@ serve(async (req) => {
     // 7. Atualizar Charge
     await updateCharge({
       status: "PAID",
-      paid_at: new Date().toISOString()
+      paid_at: `${businessDateInManaus()}T23:59:59Z`
     });
 
     const readAt = new Date().toISOString();

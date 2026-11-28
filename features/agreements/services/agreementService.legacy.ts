@@ -654,7 +654,7 @@ export const agreementService = {
 
       await supabase.from("parcelas").update({
         status: "RENEGOCIADO"
-      }).eq("loan_id", agreement.loan_id).in("status", ["PENDENTE", "ATRASADO", "PENDING", "LATE", "PAID", "PAGO"]);
+      }).eq("loan_id", agreement.loan_id).in("status", ["PENDENTE", "ATRASADO", "PENDING", "LATE"]);
 
       await supabase.from("transacoes").insert({
         id: generateUUID(),

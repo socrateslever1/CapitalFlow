@@ -249,7 +249,7 @@ serve(async (req) => {
     };
 
     if (String(charge.status || "").toUpperCase() === "PAID") {
-      await updateCharge({ status: "PAID", paid_at: charge.paid_at || new Date().toISOString(), provider_status: "PAID" });
+      await updateCharge({ status: "PAID", paid_at: charge.paid_at || `${businessDateInManaus()}T23:59:59Z`, provider_status: "PAID" });
       await queuePaymentNotifications(
         supabase,
         charge,
@@ -423,7 +423,7 @@ serve(async (req) => {
 
     await updateCharge({
       status: "PAID",
-      paid_at: new Date().toISOString(),
+      paid_at: `${businessDateInManaus()}T23:59:59Z`,
       provider_status: "PAID",
     });
 

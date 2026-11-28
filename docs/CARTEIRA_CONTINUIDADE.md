@@ -1,3 +1,12 @@
+## 28/11/2026 — Fonte de capital vinculada a conta, mas cadastrada como cartão
+
+- **Pedido:** corrigir o vínculo entre uma fonte de capital e a Carteira que exibia "Sem cartão" no seletor do novo contrato.
+- **Causa (leitura no banco, só SELECT):** a fonte era do tipo `CARD`, mas seu único vínculo em `capital_source_wallet_references` era uma conta corrente da Carteira, não espelhada, e não havia cartão correspondente. O seletor só reconhece crédito em vínculo de cartão; `finalize_card_funded_loan_v1` exigiria exatamente um cartão. Os contratos da fonte não tinham cobrança de cartão nem `funding_payment_method`, ou seja, foram financiados como conta.
+- **Correção (dado, não código):** `fontes.type` de `CARD` para `BANK` nessa fonte, com guarda `type = 'CARD'`. Saldo, ledger, vínculo e conta não foram alterados. Reversão: `update fontes set type = 'CARD'` no mesmo registro.
+- **Confirmado no banco:** a liberação geral da Carteira de 19/11 está aplicada (`can_manage_capital_source_wallet_origins()` usa `can_access_personal_wallet()`; todos os usuários têm acesso); a migration entrou com outra versão em `schema_migrations`.
+- **Limitações:** o saldo da fonte e o da conta continuam diferentes. Para o empréstimo debitar a conta é preciso espelhar (saldos iguais, RPC com sessão do titular). Restam fontes de cartão sem cartão vinculado. Nenhuma validação visual em celular físico.
+- **Também nesta data:** reversão na `main` do merge que havia sobrescrito o formulário de empréstimo e dos webhooks, e remoção de duas migrations não aplicadas. Quality Gates local sem falhas.
+
 ## 27/11/2026 — Integração de movimento funcional e taxas fracionárias
 
 - Pedido: integrar diretamente na main os candidatos `3193699` e `f696a8f`. Escopo restrito aos componentes visuais, parser de taxas, testes e documentação. Nenhuma migração, dado financeiro, rota ou dependência alterada.

@@ -1,6 +1,6 @@
 import { addCollectionDaysUTC, addDaysUTC, adjustToCollectionDayUTC, normalizeCollectionDaysMode, parseDateOnlyUTC, toISODateOnlyUTC } from '../../utils/dateHelpers';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Wallet, CalendarX, Clock, CreditCard, Landmark, CalendarDays, ChevronDown, Plus, Trash2 } from 'lucide-react';
+import { Wallet, CalendarX, Clock, CreditCard, Landmark, CalendarDays, ChevronDown, Plus, Trash2, DollarSign, Percent, Calendar, AlertTriangle, TrendingDown } from 'lucide-react';
 import { CapitalSource, LoanBillingModality } from '../../types';
 import { formatMoney, cleanNumberStr } from '../../utils/formatters';
 import { LoanTotalPreview } from './LoanFormFinancialSection.preview';
@@ -133,8 +133,10 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
   }, [cardSourceIdsKey]);
 
   const inputClass = "block w-full min-w-0 h-14 bg-slate-950/50 border border-slate-800/80 rounded-lg px-4 sm:px-5 text-white text-sm leading-none outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 transition-all";
+  const inputWithIconClass = "block w-full min-w-0 h-14 bg-slate-950/50 border border-slate-800/80 rounded-lg px-4 sm:px-5 pl-11 text-white text-sm leading-none outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 transition-all";
   const strongInputClass = `${inputClass} font-bold`;
   const dateInputClass = `${inputClass} px-4 font-black text-base tabular-nums [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:ml-auto [&::-webkit-calendar-picker-indicator]:cursor-pointer`;
+  const iconPosition = "absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none group-hover:text-blue-500 transition-colors";
 
   const selectedSource = sources.find(s => s.id === formData.sourceId);
   const isCardSource = selectedSource?.type === 'CARD' || selectedSource?.type === 'MISTO';
@@ -356,34 +358,40 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
 
         <div className={`grid ${isInstallmentFixed ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'} gap-4`}>
           <div className="space-y-1">
-            <label className="text-[9px] text-slate-500 font-black uppercase ml-2">{isEditing ? 'Capital atual' : 'Principal'}</label>
-            <FinancialCalculatorInput required type="text" min="0.01" step="0.01" value={formData.principal || ''} onChange={e => {
-              const principal = cleanNumberStr(e.target.value);
-              setFormData((current: any) => {
-                if (isEditing) return { ...current, principal };
-                if (current.billingCycle === 'INSTALLMENT_FIXED' && (current.fundingPaymentMethod || 'CREDIT_CARD') === 'CREDIT_CARD') {
-                  const mode = (current.fundingCalculationMode || 'TOTAL') as FundingCalculationMode;
-                  return synchronizeFundingValues(current, mode, getFundingSourceValue(current, mode), { principal });
-                }
-                // Quando o capital muda, conserva o custo absoluto que o usuário informou.
-                if (isCardSource && current.fundingTotalPayable !== '' && current.fundingTotalPayable != null) {
-                  const oldPrincipal = parseFundingInput(current.principal);
-                  const oldCost = Math.max(0, parseFundingInput(current.fundingTotalPayable) - oldPrincipal);
-                  const newPrincipal = parseFundingInput(principal);
-                  return {
-                    ...current, principal,
-                    fundingTotalPayable: formatMoneyInput(newPrincipal + oldCost),
-                    fundingFeePercent: newPrincipal > 0 ? formatRateInput(oldCost / newPrincipal * 100) : '',
-                  };
-                }
-                return { ...current, principal };
-              });
-            }} centsEntry className="w-full border rounded-lg px-5 py-4 font-bold outline-none transition-all bg-slate-950/50 border-slate-800/80 text-white focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10" />
+            <label className="text-[9px] text-slate-500 font-black uppercase ml-2 flex items-center gap-1.5"><DollarSign size={12} /> {isEditing ? 'Capital atual' : 'Principal'}</label>
+            <div className="relative group">
+              <DollarSign className={iconPosition} size={16} />
+              <FinancialCalculatorInput required type="text" min="0.01" step="0.01" value={formData.principal || ''} onChange={e => {
+                const principal = cleanNumberStr(e.target.value);
+                setFormData((current: any) => {
+                  if (isEditing) return { ...current, principal };
+                  if (current.billingCycle === 'INSTALLMENT_FIXED' && (current.fundingPaymentMethod || 'CREDIT_CARD') === 'CREDIT_CARD') {
+                    const mode = (current.fundingCalculationMode || 'TOTAL') as FundingCalculationMode;
+                    return synchronizeFundingValues(current, mode, getFundingSourceValue(current, mode), { principal });
+                  }
+                  // Quando o capital muda, conserva o custo absoluto que o usuário informou.
+                  if (isCardSource && current.fundingTotalPayable !== '' && current.fundingTotalPayable != null) {
+                    const oldPrincipal = parseFundingInput(current.principal);
+                    const oldCost = Math.max(0, parseFundingInput(current.fundingTotalPayable) - oldPrincipal);
+                    const newPrincipal = parseFundingInput(principal);
+                    return {
+                      ...current, principal,
+                      fundingTotalPayable: formatMoneyInput(newPrincipal + oldCost),
+                      fundingFeePercent: newPrincipal > 0 ? formatRateInput(oldCost / newPrincipal * 100) : '',
+                    };
+                  }
+                  return { ...current, principal };
+                });
+              }} centsEntry className={`w-full border rounded-lg px-5 py-4 font-bold outline-none transition-all bg-slate-950/50 border-slate-800/80 text-white focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 pl-11`} />
+            </div>
             {isEditing && <p className="text-[8px] text-slate-500 font-bold ml-2">Ao aumentar o capital, somente a diferença será registrada como aporte na parcela em aberto. Para corrigir um valor menor, é necessário preservar os recebimentos já registrados.</p>}
           </div>
           {!isInstallmentFixed && <div className="space-y-1">
-            <label className="text-[9px] text-slate-500 font-black uppercase ml-2">{periodicRateLabel}</label>
-            <FinancialCalculatorInput rate required type="text" step="0.01" value={formData.interestRate || ''} onChange={e => setFormData({...formData, interestRate: cleanNumberStr(e.target.value)})} centsEntry className="w-full bg-slate-950/50 border border-slate-800/80 rounded-lg px-5 py-4 text-white font-bold outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 transition-all" />
+            <label className="text-[9px] text-slate-500 font-black uppercase ml-2 flex items-center gap-1.5"><Percent size={12} /> {periodicRateLabel}</label>
+            <div className="relative group">
+              <Percent className={iconPosition} size={16} />
+              <FinancialCalculatorInput rate required type="text" step="0.01" value={formData.interestRate || ''} onChange={e => setFormData({...formData, interestRate: cleanNumberStr(e.target.value)})} centsEntry className={`w-full bg-slate-950/50 border border-slate-800/80 rounded-lg px-5 py-4 text-white font-bold outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 transition-all pl-11`} />
+            </div>
           </div>}
         </div>
 
@@ -391,12 +399,14 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
 
         <div className="grid grid-cols-1 gap-4">
           <div className="space-y-1">
-              <label className="text-[9px] text-slate-500 font-black uppercase ml-2">Data Empréstimo</label>
-              <input
-                  required
-                  type="date"
-                  value={formData.startDate || ''}
-                  onChange={e => {
+              <label className="text-[9px] text-slate-500 font-black uppercase ml-2 flex items-center gap-1.5"><Calendar size={12} /> Data Empréstimo</label>
+              <div className="relative group">
+                <Calendar className={iconPosition} size={16} />
+                <input
+                    required
+                    type="date"
+                    value={formData.startDate || ''}
+                    onChange={e => {
                       const startDate = e.target.value;
                       setFormData((current: any) => ({ ...current, startDate }));
                       if (startDate) {
@@ -411,30 +421,40 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
                         setManualFirstDueDate(toISODateOnlyUTC(suggested));
                       }
                   }}
-                  className={dateInputClass}
-              />
+                  className={`${dateInputClass} pl-11`}
+                />
+              </div>
           </div>
           <div className="space-y-1">
-              <label className="text-[9px] text-blue-400 font-black uppercase ml-2 flex items-center gap-1"><CalendarDays size={10}/> Vencimento (1º)</label>
-              <input
-                  required
-                  type="date"
-                  value={manualFirstDueDate || ''}
-                  onChange={e => setManualFirstDueDate(e.target.value)}
-                  className={`${dateInputClass} border-blue-500/30 focus:border-blue-500/50`}
-              />
+              <label className="text-[9px] text-blue-400 font-black uppercase ml-2 flex items-center gap-1.5"><CalendarDays size={12}/> Vencimento (1º)</label>
+              <div className="relative group">
+                <CalendarDays className={`${iconPosition} text-blue-500`} size={16} />
+                <input
+                    required
+                    type="date"
+                    value={manualFirstDueDate || ''}
+                    onChange={e => setManualFirstDueDate(e.target.value)}
+                    className={`${dateInputClass} border-blue-500/30 focus:border-blue-500/50 pl-11`}
+                />
+              </div>
               <p className="ml-2 text-[10px] text-slate-500">Sugerido conforme a modalidade. Você pode alterar livremente o vencimento.</p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1">
-                <label className="text-[9px] text-slate-500 font-black uppercase ml-2">Multa (%)</label>
-                <FinancialCalculatorInput rate type="text" step="0.1" value={formData.finePercent || ''} onChange={e => setFormData({...formData, finePercent: cleanNumberStr(e.target.value)})} centsEntry className="w-full bg-slate-950/50 border border-slate-800/80 rounded-lg px-5 py-4 text-white text-sm outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 transition-all" />
+                <label className="text-[9px] text-slate-500 font-black uppercase ml-2 flex items-center gap-1.5"><AlertTriangle size={12} /> Multa (%)</label>
+                <div className="relative group">
+                  <AlertTriangle className={iconPosition} size={16} />
+                  <FinancialCalculatorInput rate type="text" step="0.1" value={formData.finePercent || ''} onChange={e => setFormData({...formData, finePercent: cleanNumberStr(e.target.value)})} centsEntry className={`w-full bg-slate-950/50 border border-slate-800/80 rounded-lg px-5 py-4 text-white text-sm outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 transition-all pl-11`} />
+                </div>
             </div>
             <div className="space-y-1">
-                <label className="text-[9px] text-slate-500 font-black uppercase ml-2">Mora Diária (%)</label>
-                <FinancialCalculatorInput rate type="text" step="0.1" value={formData.dailyInterestPercent || ''} onChange={e => setFormData({...formData, dailyInterestPercent: cleanNumberStr(e.target.value)})} centsEntry className="w-full bg-slate-950/50 border border-slate-800/80 rounded-lg px-5 py-4 text-white text-sm outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 transition-all" />
+                <label className="text-[9px] text-slate-500 font-black uppercase ml-2 flex items-center gap-1.5"><TrendingDown size={12} /> Mora Diária (%)</label>
+                <div className="relative group">
+                  <TrendingDown className={iconPosition} size={16} />
+                  <FinancialCalculatorInput rate type="text" step="0.1" value={formData.dailyInterestPercent || ''} onChange={e => setFormData({...formData, dailyInterestPercent: cleanNumberStr(e.target.value)})} centsEntry className={`w-full bg-slate-950/50 border border-slate-800/80 rounded-lg px-5 py-4 text-white text-sm outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 transition-all pl-11`} />
+                </div>
             </div>
         </div>
 

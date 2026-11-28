@@ -78,12 +78,16 @@ export const FinancialCalculatorInput: React.FC<Props> = ({
       // Não fecha nem registra um valor inválido.
     }
   };
+  // Percentuais usam digitação decimal explícita; centavos só se aplicam a dinheiro.
   const insert = (operator: string) => {
     const input = ref.current;
-    const start = input?.selectionStart ?? draft.length;
-    const end = input?.selectionEnd ?? start;
-    const inserted = /[+\-×÷*/]/.test(operator) ? insertMoneyExpressionOperator(draft, operator, start, end) : null;
-    if (/[+\-×÷*/]/.test(operator) && !inserted) return;
+    const selectionStart = input?.selectionStart ?? draft.length;
+    const selectionEnd = input?.selectionEnd ?? selectionStart;
+    const appendRateOperator = rate && selectionStart === 0 && selectionEnd === draft.length && /[+\-×÷*/%]/.test(operator);
+    const start = appendRateOperator ? draft.length : selectionStart;
+    const end = appendRateOperator ? draft.length : selectionEnd;
+    const inserted = !rate && /[+\-×÷*/]/.test(operator) ? insertMoneyExpressionOperator(draft, operator, start, end) : null;
+    if (!rate && /[+\-×÷*/]/.test(operator) && !inserted) return;
     const next = inserted?.value ?? draft.slice(0, start) + operator + draft.slice(end);
     const caret = inserted?.caret ?? start + operator.length;
     setDraft(next);
@@ -110,6 +114,12 @@ export const FinancialCalculatorInput: React.FC<Props> = ({
             // distinguir número simples de expressão para preservar centavos.
             const inputType = (e.nativeEvent as InputEvent).inputType;
             if (!isAllowedFinancialInputDraft(raw)) {
+              return;
+            }
+            if (rate) {
+              setDraft(raw);
+              setError('');
+              input.setCustomValidity('');
               return;
             }
             const caret = input.selectionStart ?? raw.length;
@@ -170,7 +180,7 @@ export const FinancialCalculatorInput: React.FC<Props> = ({
               e.currentTarget.setCustomValidity('Valor colado inválido.');
               return;
             }
-            if (!centsEntry) { onPaste?.(e); return; }
+            if (!centsEntry && !rate) { onPaste?.(e); return; }
             e.preventDefault();
             try {
               const normalized = !rate && !signed && /[+×÷*/()%]/.test(pasted)
@@ -204,7 +214,7 @@ export const FinancialCalculatorInput: React.FC<Props> = ({
           onBlur={commit}
           onKeyDown={e => {
             if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); }
-            if (centsEntry && e.key === 'Backspace') {
+            if (!rate && centsEntry && e.key === 'Backspace') {
               const input = e.currentTarget;
               const start = input.selectionStart ?? 0;
               const end = input.selectionEnd ?? 0;

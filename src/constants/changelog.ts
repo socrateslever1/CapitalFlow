@@ -28,6 +28,8 @@ export const SYSTEM_CHANGELOG: ChangelogRelease[] = [
     title: 'Carteira completa e visual novo',
     summary: 'Pendentes, previsto por conta, aviso de fatura no celular, exclusão definitiva, unificação com juros e ícones novos no app.',
     items: [
+      { kind: 'CORRECAO', text: 'Juros, multa e demais taxas aceitam decimais como 25,5% sem deslocar a vírgula como nos valores em reais.' },
+      { kind: 'MELHORIA', text: 'Botões e janelas com resposta mais suave ao toque e ícones próprios no formulário de contrato, respeitando a opção de reduzir movimento.' },
       { kind: 'MELHORIA', text: 'Em Suas contas, a conta com mais dinheiro aparece primeiro.' },
       { kind: 'MELHORIA', text: 'Botões Receita, Receber, Despesa, Pagar e Transferir da conta com fundo mais leve, no padrão da Carteira.' },
       { kind: 'MELHORIA', text: 'Campos curtos nos formulários (agência e dígito, conta e operação, datas, valores, taxas, vencimentos e horários) agora ficam lado a lado em vez de ocupar a tela inteira.' },

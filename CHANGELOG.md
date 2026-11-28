@@ -1,5 +1,10 @@
 # Changelog
 
+## 27/11/2026 — Fluidez da interface e taxas fracionárias
+
+**Melhoria:** tokens de movimento compartilhados para botões, seletores e modais, com desaceleração e suporte a movimento reduzido. Cabeçalho e auditoria do contrato passam a usar os SVGs próprios. **Correção:** digitação decimal explícita de taxas (25,5%, 2,75%, 0,5%) sem máscara de centavos; quantias monetárias preservam o comportamento anterior. Colagem e expressões continuam disponíveis. Sem mudanças no Supabase, rotas, dependências ou contratos existentes.
+- Integração dos candidatos `3193699` e `f696a8f` solicitada expressamente pelo proprietário. Testes isolados registrados nas etapas anteriores; suíte integrada e revisão independente não executadas antes da integração por limitação do ambiente. CI e publicação devem ser conferidos separadamente.
+
 ## 27/11/2026 — Contas com maior saldo primeiro
 
 **Melhoria (só interface).** `components/wallet/AccountCardStack.tsx`: "Suas contas" passa a listar a conta com mais saldo primeiro (comparação em centavos; empate em ordem alfabética). Novo teste `tests/wallet/account-card-stack-order.test.tsx` incluído em `test:wallet-visual-next`.

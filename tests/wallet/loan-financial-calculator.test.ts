@@ -61,7 +61,7 @@ test('correção de saldo real é verificada no banco, sem fabricar histórico f
   assert.doesNotMatch(controller, /delete from.*ledger/i);
 });
 
-test('contrato permite digitação centesimal em todos os campos monetários e percentuais', () => {
+test('contrato preserva centavos em dinheiro e digitação decimal explícita em taxas', () => {
   const sources = [
     'components/forms/LoanFormFinancialSection.tsx',
     'components/forms/LoanFundingCostFields.tsx',
@@ -112,4 +112,17 @@ test('fontes com cartão exibem crédito real sem reclassificar saldo contábil'
     [{ source_id: 'fonte-nu', target_kind: 'CARD', target_id: 'card-nu', allocated_amount: null }],
     [], [],
   )?.total, null, 'cartão ausente não pode ser tratado como crédito zero');
+});
+
+
+test('taxas aceitam casas fracionárias e símbolo percentual sem escala indevida', () => {
+  for (const [raw, expected] of [['25,5',25.5],['25.5',25.5],['25,5%',25.5],['2,75',2.75],['0,5',0.5],['30',30],['25.555',25.555],['25,555',25.555],['1.234,56',1234.56],['4,999999',4.999999],['25,5+2,75',28.25],['700+4,99%',734.93]] as const) {
+    assert.equal(parseWalletRate(raw), expected, raw);
+  }
+  assert.equal(parseWalletMoney('495.611'), 495611);
+  for (const raw of ['25,,5','1/0','25,1234567','-1','abc']) assert.throws(() => parseWalletRate(raw), undefined, raw);
+  const component = readFileSync('components/forms/FinancialCalculatorInput.tsx', 'utf8');
+  assert.match(component, /if \(rate\) \{\s*setDraft\(raw\);\s*setError\(''\);\s*input\.setCustomValidity\(''\);\s*return;/);
+  assert.match(component, /if \(!rate && centsEntry && e\.key === 'Backspace'\)/);
+  assert.ok(component.includes('const inserted = !rate &&'));
 });

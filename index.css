@@ -950,7 +950,7 @@ button:active > .cf-icon-interactive {
   transition: background-color 160ms ease, color 160ms ease, transform 150ms cubic-bezier(0.23, 1, 0.32, 1);
 }
 .cf-seg-tab:hover { background: rgb(30 41 59); color: #fff; }
-.cf-seg-tab:active { transform: scale(0.97); }
+.cf-seg-tab:enabled:not([aria-disabled="true"]):active { transform: scale(0.97); }
 .cf-seg-tab:focus-visible { outline: none; box-shadow: inset 0 0 0 2px rgb(96 165 250); }
 .cf-seg-tab[data-active="true"] {
   background: rgb(37 99 235 / 0.2);
@@ -958,5 +958,60 @@ button:active > .cf-icon-interactive {
   color: rgb(219 234 254);
 }
 @media (prefers-reduced-motion: reduce) {
+  .cf-seg-tab:active { transform: none; }
+}
+
+/* Movimento funcional: preservar layout, foco e identidade dos icones. */
+:root {
+  --cf-motion-press: 100ms;
+  --cf-motion-state: 180ms;
+  --cf-motion-enter: 260ms;
+  --cf-motion-exit: 200ms;
+  --cf-motion-ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .cf-motion-press {
+    transition: background-color var(--cf-motion-state) ease, color var(--cf-motion-state) ease,
+      border-color var(--cf-motion-state) ease, opacity var(--cf-motion-state) ease,
+      scale var(--cf-motion-state) var(--cf-motion-ease);
+  }
+  .cf-motion-press:enabled:not([aria-disabled="true"]):active {
+    scale: 0.985;
+    transition-duration: var(--cf-motion-press);
+  }
+  .cf-motion-dialog {
+    transition: opacity var(--cf-motion-exit) var(--cf-motion-ease);
+  }
+  .cf-motion-dialog-panel {
+    transition: translate var(--cf-motion-exit) var(--cf-motion-ease),
+      scale var(--cf-motion-exit) var(--cf-motion-ease),
+      transform var(--cf-motion-exit) var(--cf-motion-ease),
+      opacity var(--cf-motion-exit) var(--cf-motion-ease);
+  }
+  .cf-motion-dialog[data-modal-state="open"] > .cf-motion-dialog-panel {
+    animation: cf-motion-dialog-enter var(--cf-motion-enter) var(--cf-motion-ease);
+  }
+  .cf-motion-dialog[data-modal-state="closing"] > .cf-motion-dialog-panel {
+    animation: none;
+  }
+  .cf-seg-tab {
+    transition: background-color var(--cf-motion-state) ease, color var(--cf-motion-state) ease,
+      transform var(--cf-motion-state) var(--cf-motion-ease);
+  }
+  .cf-seg-tab:enabled:not([aria-disabled="true"]):active {
+    transition-duration: var(--cf-motion-press);
+  }
+}
+@keyframes cf-motion-dialog-enter {
+  from { transform: translateY(8px) scale(0.99); opacity: 0.92; }
+  to { transform: none; opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cf-motion-press, .cf-motion-dialog, .cf-motion-dialog-panel, .cf-seg-tab {
+    animation: none;
+    transition: none;
+  }
+  .cf-motion-press:active { scale: none; }
   .cf-seg-tab:active { transform: none; }
 }

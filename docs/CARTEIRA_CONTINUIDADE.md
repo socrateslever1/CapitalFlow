@@ -1,3 +1,9 @@
+## 27/11/2026 — Integração de movimento funcional e taxas fracionárias
+
+- Pedido: integrar diretamente na main os candidatos `3193699` e `f696a8f`. Escopo restrito aos componentes visuais, parser de taxas, testes e documentação. Nenhuma migração, dado financeiro, rota ou dependência alterada.
+- Movimento: feedback 100 ms, estado 180 ms, entrada 260 ms, saída existente 200 ms. Preservar ícones próprios, foco e rolagem; sem animar valores financeiros. Taxas: decimal explícito com vírgula ou ponto; até seis casas; centavos monetários preservados.
+- Validação: testes isolados registrados nos candidatos. Suíte integrada, render do aplicativo e revisão independente não executados localmente por limitação do ambiente. Integração autorizada expressamente pelo proprietário; não declarar CI, deploy ou APK concluídos sem evidência. Rollback: revert do commit consolidado, sem alteração de banco.
+
 ## 27/11/2026 — Editar conta reconhece o cartão já cadastrado
 
 - `AccountDetailsPage`: `linkedCards` (mesmo `account_id`, ou mesmo `institution_key` sem conta) esconde o campo informativo de cartão e mostra o limite real; ao salvar, limpa `has_credit_card`/`credit_card_limit` de `bank_details`. Sem migração.

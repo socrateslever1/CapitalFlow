@@ -272,3 +272,7 @@ O símbolo oficial está em `public/brand/capitalflow-mark-dark.svg`. `LoadingSc
 - **Don't** generalizar tamanhos minúsculos, animações ou overrides de uma tela como requisitos globais.
 - **Don't** substituir o símbolo oficial por um ícone genérico ou expandir a animação da splash para tarefas financeiras.
 - **Don't** apresentar esta extração do código como validação visual, auditoria de acessibilidade ou prova de comportamento em produção.
+
+## Movimento funcional — atualização proposta de 27/11/2026
+
+Preservar os SVGs multicoloridos de `AppIcons.tsx`, os efeitos próprios e a paleta do módulo. A organização permanece compacta e legível. Para controles compartilhados, `--cf-motion-press` (100 ms), `--cf-motion-state` (180 ms), `--cf-motion-enter` (260 ms) e `--cf-motion-exit` (200 ms) delimitam resposta, mudança de estado e overlays. As classes `cf-motion-press`, `cf-motion-dialog` e `cf-motion-dialog-panel` são opt-in; não aplicar a toda a página ou animar valores financeiros. Respeitar `prefers-reduced-motion`, preservar foco/rolagem e não adicionar dependências para efeitos CSS. A proposta não certifica renderização integrada ou desempenho em dispositivo físico.

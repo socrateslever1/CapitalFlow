@@ -25,7 +25,10 @@ function decimalToFixed(raw: string, field: string, isPercent: boolean, precisio
   const br = new RegExp('^\\d+(?:,\\d{1,' + maxFraction + '})?$').test(raw);
   const dot = new RegExp('^\\d+(?:\\.\\d{1,' + maxFraction + '})?$').test(raw);
   if (!grouped && !br && !dot) invalid(field);
-  const normalized = grouped || raw.includes(',')
+  // Em taxas, ponto decimal isolado é decimal (inclusive três casas: 25.555).
+  // Milhar brasileiro com vírgula continua válido; dinheiro mantém a regra anterior.
+  const rateDecimal = precision === 6 && /^\d+\.\d{1,8}$/.test(raw);
+  const normalized = (grouped && !rateDecimal) || raw.includes(',')
     ? raw.replace(/\./g, '').replace(',', '.') : raw;
   const parts = normalized.split('.');
   return bounded(BigInt(parts[0]) * SCALE + BigInt((parts[1] || '').padEnd(8, '0') || '0'), field);
@@ -137,7 +140,10 @@ export function formatWalletMoneyInput(raw: string): string {
 
 /** Calcula taxas até seis casas decimais sem arredondar operandos para centavos. */
 export function parseWalletRate(raw: string, field = 'taxa'): number {
-  const value = String(raw ?? '').trim();
+  const trimmed = String(raw ?? '').trim();
+  // Um percentual literal já está em pontos percentuais; operadores em expressões
+  // continuam com a semântica da calculadora (ex.: 700+4,99%).
+  const value = /^\d+(?:[.,]\d+)?\s*%$/.test(trimmed) ? trimmed.replace(/\s*%$/, '') : trimmed;
   if (!value || value.length > 256) invalid(field);
   const fixed = calculate(value, field, 6);
   if (fixed < 0n) throw new Error('Informe ' + field + ' válido, maior ou igual a zero.');

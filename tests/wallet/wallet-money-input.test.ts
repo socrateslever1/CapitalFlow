@@ -195,7 +195,7 @@ test('modal de despesa usa centavos e componente compartilhado mantém o modo po
   assert.match(calculator, /onCommit\?\.\(normalized\)/);
 });
 
-test('máscara compartilhada mantém centavos em valores e taxas e limpa com retrocesso', () => {
+test('máscara compartilhada mantém centavos em valores monetários e limpa com retrocesso', () => {
   const calculator = readFileSync('components/forms/FinancialCalculatorInput.tsx', 'utf8');
   assert.match(calculator, /centsEntry = true/);
   assert.match(calculator, /if \(rate\) \{/);
@@ -265,6 +265,8 @@ test('colagem de numerais preserva reais e centavos sem deslocamento oculto', ()
   assert.equal(formatPastedBrazilianMoney('8,80'), '8,80');
   assert.equal(formatPastedBrazilianMoney('R$ 1.234,56'), '1.234,56');
   assert.equal(formatPastedBrazilianMoney('4,99', true), '4,99');
+  assert.equal(formatPastedBrazilianMoney('25,5%', true), '25,50');
+  assert.equal(formatPastedBrazilianMoney('25.555', true), '25,555');
   assert.throws(() => formatPastedBrazilianMoney('R$ 8,80 lixo'));
   assert.equal(formatLiveBrazilianCents('880')?.value, '8,80');
 });

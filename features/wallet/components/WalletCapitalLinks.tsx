@@ -17,9 +17,10 @@ export const WalletCapitalLinks: React.FC<Props> = ({
 }) => {
   const [savingId, setSavingId] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ message: string; error: boolean } | null>(null);
+  const [pendingLink, setPendingLink] = useState<{ account: PersonalWalletAccount; nextSourceId: string | null } | null>(null);
   const lock = useRef(false);
 
-  const link = async (account: PersonalWalletAccount, rawSourceId: string) => {
+  const requestLink = (account: PersonalWalletAccount, rawSourceId: string) => {
     if (!canManage || lock.current) return;
     const nextSourceId = rawSourceId || null;
     const currentSourceId = account.capital_source_id || null;
@@ -32,9 +33,14 @@ export const WalletCapitalLinks: React.FC<Props> = ({
       setNotice({ error: true, message: 'Esta fonte não pode ser vinculada: ' + (choice?.reason || 'fonte indisponível') + '.' });
       return;
     }
-    if (!window.confirm(nextSourceId
-      ? 'Vincular esta conta à fonte selecionada? As movimentações futuras seguirão a integração financeira existente. Os saldos atuais precisam ser iguais.'
-      : 'Desvincular a fonte desta conta? As movimentações anteriores não serão modificadas.')) return;
+    setNotice(null);
+    setPendingLink({ account, nextSourceId });
+  };
+
+  const confirmLink = async () => {
+    if (!pendingLink || !canManage || lock.current) return;
+    const { account, nextSourceId } = pendingLink;
+    setPendingLink(null);
     lock.current = true;
     setSavingId(account.id);
     setNotice(null);
@@ -87,7 +93,7 @@ export const WalletCapitalLinks: React.FC<Props> = ({
                       id={`capital-link-${account.id}`}
                       value={account.capital_source_id || ''}
                       disabled={savingId !== null}
-                      onChange={event => { void link(account, event.target.value); }}
+                      onChange={event => { requestLink(account, event.target.value); }}
                       className="min-h-11 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white outline-none focus:border-blue-400 disabled:opacity-60"
                     >
                       <option value="">Manter independente (sem vínculo)</option>
@@ -98,6 +104,23 @@ export const WalletCapitalLinks: React.FC<Props> = ({
                       ))}
                     </select>
                     {savingId === account.id && <Loader2 size={15} className="absolute right-9 top-3 animate-spin text-blue-300" />}
+                    {pendingLink?.account.id === account.id && (
+                      <div role="alertdialog" aria-label="Confirmar alteração de vínculo com fonte" className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-blue-500/40 bg-slate-950 p-3 text-xs text-slate-200">
+                        <span className="min-w-0 flex-1">
+                          {pendingLink.nextSourceId
+                            ? 'Vincular esta conta à fonte selecionada? As movimentações futuras seguirão a integração financeira existente. Os saldos atuais precisam ser iguais.'
+                            : 'Desvincular a fonte desta conta? As movimentações anteriores não serão modificadas.'}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <button type="button" onClick={() => setPendingLink(null)} className="min-h-9 rounded-lg border border-slate-700 px-3 py-1.5 font-semibold text-slate-300 hover:bg-slate-800">
+                            Cancelar
+                          </button>
+                          <button type="button" onClick={() => { void confirmLink(); }} className="min-h-9 rounded-lg bg-blue-600 px-3 py-1.5 font-bold text-white hover:bg-blue-500">
+                            {pendingLink.nextSourceId ? 'Confirmar vínculo' : 'Confirmar desvínculo'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </li>

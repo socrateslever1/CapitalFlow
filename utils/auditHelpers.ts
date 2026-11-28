@@ -48,9 +48,18 @@ export const getLoanDiff = (oldLoan: Loan, newLoan: Loan): AuditDiff => {
   return diff;
 };
 
+/** Remove nomes internos de motor (em inglês) das notas gravadas pelo banco. */
+export const humanizeAuditText = (text: string): string => String(text || '')
+  .replace(/\s+(?:pelo|ao|no|do)\s+Payment Engine V\d+/gi, '')
+  .replace(/Payment Engine V\d+/gi, 'motor de recebimentos')
+  .replace(/\bUnificacao\b/g, 'Unificação').replace(/\bunificacao\b/g, 'unificação')
+  .replace(/R\$\s?(-?\d+)\.(\d{2})\b/g, (_match, whole: string, cents: string) => formatMoney(Number(`${whole}.${cents}`)))
+  .replace(/\s{2,}/g, ' ')
+  .trim();
+
 export const humanizeAuditLog = (notesJson: string): string[] => {
   try {
-    if (!notesJson.startsWith('{')) return [notesJson];
+    if (!notesJson.startsWith('{')) return [humanizeAuditText(notesJson)];
     
     const diff: AuditDiff = JSON.parse(notesJson);
     const sentences: string[] = [];
@@ -79,6 +88,6 @@ export const humanizeAuditLog = (notesJson: string): string[] => {
 
     return sentences.length > 0 ? sentences : ["Ajuste manual de dados (sem alterações de valores críticos)."];
   } catch (e) {
-    return [notesJson];
+    return [humanizeAuditText(notesJson)];
   }
 };

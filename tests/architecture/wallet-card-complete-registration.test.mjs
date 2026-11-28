@@ -40,7 +40,7 @@ test('network-uncertain registration retries the same request and does not misre
   assert.match(page,/cardRegistrationAttempt\.current\.confirmed\(\)/);
   assert.match(page,/cardRegistrationAttempt\.current\.failed\(cause\)/);
   assert.match(page,/Cartão salvo no banco, mas a lista não foi atualizada/);
-  assert.match(page,/last_four:e\.target\.value\.replace\(\/\\D\/g/);
+  assert.match(page,/last_four:\s*e\.target\.value\.replace\(\/\\D\/g/);
 });
 
 test('card creation can create its linked account atomically, while account creation can select or create a card',()=>{

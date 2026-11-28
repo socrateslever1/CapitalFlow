@@ -1,6 +1,10 @@
 import React, { useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { CalendarDays, Loader2, PencilLine, Scale, X } from 'lucide-react';
+import { CardInvoiceSummaryPreview } from './CardInvoiceSummaryPreview';
 import type { PersonalWalletCard } from '../../services/personalWallet.service';
+import type { WalletIssuerInvoiceCommit } from '../../services/personalWallet.service';
+import type { CardInvoiceSummary } from '../../utils/cardInvoiceSummary';
 import { formatMoney } from '../../utils/formatters';
 import { generateUUID } from '../../utils/generators';
 import { getInvoiceCycleDates } from './invoiceStatementDomain';
@@ -14,32 +18,38 @@ type Props = {
   initialDueDate?: string | null;
   initialAmount: number;
   hasExistingConsolidation: boolean;
+  invoiceFactsSummaryForMonth: (month: string) => CardInvoiceSummary;
+  onSaveInvoiceFacts: (month: string, summary: CardInvoiceSummary) => Promise<WalletIssuerInvoiceCommit>;
   isNew?: boolean;
   existingDueMonths?: readonly string[];
   onClose: () => void;
   onSave: (dueMonth: string, amount: number, dueDate: string, requestId: string) => Promise<void>;
   onRecordAdjustmentExpense?: (dueMonth: string, deltaAmount: number, notes: string) => Promise<void>;
+  onRecordAdjustmentCredit?: (dueMonth: string, deltaAmount: number, notes: string) => Promise<void>;
 };
 
 export const InvoiceOverrideModal: React.FC<Props> = ({
   card, initialDueMonth, initialDueDate, initialAmount,
-  hasExistingConsolidation, isNew = false, existingDueMonths = [], onClose, onSave, onRecordAdjustmentExpense,
+  hasExistingConsolidation, invoiceFactsSummaryForMonth, onSaveInvoiceFacts,
+  isNew = false, existingDueMonths = [], onClose, onSave, onRecordAdjustmentExpense, onRecordAdjustmentCredit,
 }) => {
   const originalMonth=initialDueMonth.slice(0,7);
   const [mode, setMode] = useState<'CONSOLIDATE' | 'DIFFERENCE'>(isNew ? 'CONSOLIDATE' : 'DIFFERENCE');
   const [month,setMonth]=useState(originalMonth);
   const [dueDate,setDueDate]=useState(initialDueDate || getInvoiceCycleDates(
-    initialDueMonth,card.closing_day,card.due_day,
-  ).dueDate);
-  const [amount,setAmount]=useState(initialAmount>0?initialAmount.toFixed(2).replace('.',','):'');
+    initialDueMonth, card.closing_day, card.due_day, null, card).dueDate);
+  const initialBankTotal=invoiceFactsSummaryForMonth(originalMonth).invoiceTotal;
+  const [amount,setAmount]=useState((initialBankTotal ?? initialAmount)>0?(initialBankTotal ?? initialAmount).toFixed(2).replace('.',','):'');
   const [adjustmentNotes, setAdjustmentNotes] = useState('');
   const [saving,setSaving]=useState(false);
+  const [savingFacts,setSavingFacts]=useState(false);
   const [error,setError]=useState('');
   const request=useRef<{key:string;id:string}>({key:'',id:generateUUID()});
   const visualMonth=/^\d{4}-(0[1-9]|1[0-2])$/.test(month)?month:originalMonth;
-  const dates=getInvoiceCycleDates(visualMonth+'-01',card.closing_day,card.due_day,dueDate);
-  const monthLabel=(date:string)=>new Intl.DateTimeFormat('pt-BR',{month:'long',year:'numeric',timeZone:'UTC'})
-    .format(new Date(date.slice(0,7)+'-01T12:00:00Z'));
+  const validMonth=/^\d{4}-(0[1-9]|1[0-2])$/.test(month);
+  const dates=getInvoiceCycleDates(visualMonth+'-01', card.closing_day, card.due_day, dueDate, card);
+  const shortDate=(date:string)=>new Intl.DateTimeFormat('pt-BR',{day:'2-digit',month:'2-digit',timeZone:'UTC'})
+    .format(new Date(date+'T12:00:00Z'));
 
   const parsedPreviewAmount = useMemo(() => {
     try { return parseWalletMoney(amount || '0'); } catch { return 0; }
@@ -52,7 +62,7 @@ export const InvoiceOverrideModal: React.FC<Props> = ({
 
   const submit=async(event:React.FormEvent)=>{
     event.preventDefault();
-    if(saving)return;
+    if(saving||savingFacts)return;
     setError('');
     try {
       const parsed=parseWalletMoney(amount,'valor consolidado');
@@ -75,6 +85,17 @@ export const InvoiceOverrideModal: React.FC<Props> = ({
         return;
       }
 
+      if (mode === 'DIFFERENCE' && adjustmentPreview.kind === 'DECREASE' && onRecordAdjustmentCredit && month === originalMonth) {
+        setSaving(true);
+        await onRecordAdjustmentCredit(
+          month + '-01',
+          adjustmentPreview.absDelta,
+          adjustmentNotes.trim() || `Crédito de ajuste de fatura para ${formatMoney(parsed)}`,
+        );
+        onClose();
+        return;
+      }
+
       if(!hasExistingConsolidation && !isNew && month!==originalMonth)
         throw new Error('Este ciclo contém lançamentos individuais. Corrija primeiro o vencimento de cada lançamento para não duplicar a cobrança.');
       if (isNew && existingDueMonths.some(existing => existing.slice(0, 7) === month))
@@ -88,22 +109,23 @@ export const InvoiceOverrideModal: React.FC<Props> = ({
     finally{setSaving(false);}
   };
   const field='mt-1.5 w-full min-w-0 rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20';
-  return <div role="dialog" aria-modal="true" aria-labelledby="invoice-override-title"
-    className="fixed inset-0 z-[2300] flex items-end justify-center overflow-hidden bg-slate-950/80 backdrop-blur-sm sm:items-center sm:p-4">
-    <button type="button" aria-label="Fechar ajuste da fatura" className="absolute inset-0 cursor-default" onClick={()=>!saving&&onClose()}/>
-    <form onSubmit={submit} className="relative max-h-[min(95dvh,850px)] w-full overflow-y-auto rounded-t-3xl border border-slate-700 bg-slate-900 p-5 shadow-2xl sm:max-w-lg sm:rounded-2xl">
+  const dialog = <div role="dialog" aria-modal="true" aria-labelledby="invoice-override-title"
+    className="fixed inset-0 z-[2300] flex items-center justify-center overflow-y-auto bg-slate-950/80 p-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-sm sm:p-4">
+    <button type="button" aria-label="Fechar ajuste da fatura" className="absolute inset-0 cursor-default" onClick={()=>!saving&&!savingFacts&&onClose()}/>
+    <div className="relative max-h-[min(90dvh,850px)] w-full overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-2xl sm:max-w-2xl">
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
           <h3 id="invoice-override-title" className="flex items-center gap-2 text-lg font-black text-white"><PencilLine size={18}/>{isNew ? 'Adicionar fatura' : 'Corrigir fatura'}</h3>
           <p className="mt-1 text-xs leading-relaxed text-slate-300">{isNew ? 'Informe o mês de pagamento, o vencimento e o valor da fatura.' : card.nickname + ' · ajuste valor, mês e vencimento.'}</p>
         </div>
-        <button type="button" aria-label="Fechar" disabled={saving} onClick={onClose}
+        <button type="button" aria-label="Fechar" disabled={saving||savingFacts} onClick={onClose}
           className="rounded-full bg-slate-800 p-2 text-slate-300 hover:text-white"><X size={17}/></button>
       </div>
 
       <div className={isNew ? 'hidden' : 'mb-3 grid grid-cols-2 gap-1.5 rounded-xl border border-slate-800 bg-slate-950 p-1'}>
         <button
           type="button"
+          disabled={saving||savingFacts}
           onClick={() => setMode('DIFFERENCE')}
           className={`flex items-center justify-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-bold transition ${
             mode === 'DIFFERENCE'
@@ -116,6 +138,7 @@ export const InvoiceOverrideModal: React.FC<Props> = ({
         </button>
         <button
           type="button"
+          disabled={saving||savingFacts}
           onClick={() => setMode('CONSOLIDATE')}
           className={`flex items-center justify-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-bold transition ${
             mode === 'CONSOLIDATE'
@@ -129,28 +152,33 @@ export const InvoiceOverrideModal: React.FC<Props> = ({
       </div>
 
       <div className="rounded-xl border border-blue-500/25 bg-blue-500/5 p-3 text-xs leading-relaxed text-slate-200">
-        <span className="font-semibold">Competência (fechamento): {monthLabel(dates.closingDate)}</span>
-        <span className="mt-1 block">Pagamento: {new Intl.DateTimeFormat('pt-BR',{timeZone:'UTC'}).format(new Date(dates.dueDate+'T12:00:00Z'))}</span>
+        <span className="font-semibold">Fecha {shortDate(dates.closingDate)}</span>
+        <span className="mt-1 block">Vence {shortDate(dates.dueDate)}</span>
       </div>
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <label className="text-xs font-semibold text-slate-200">Mês de pagamento
+      <form id="invoice-override-adjustment-form" onSubmit={submit}>
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <label className="min-w-0 text-xs font-semibold text-slate-200">Mês de pagamento
           <span className="relative block"><CalendarDays className="pointer-events-none absolute left-3 top-4 text-slate-400" size={15}/>
-            <input name="wallet-invoice-payment-month" type="month" required value={month}
+            <input name="wallet-invoice-payment-month" type="month" required value={month} disabled={saving||savingFacts}
               onChange={event=>{
                 const next=event.target.value;setMonth(next);
-                if(/^\d{4}-\d{2}$/.test(next))setDueDate(getInvoiceCycleDates(next+'-01',card.closing_day,card.due_day).dueDate);
+                if(/^\d{4}-\d{2}$/.test(next)){
+                  const summary=invoiceFactsSummaryForMonth(next);
+                  setDueDate(summary.dueDate || getInvoiceCycleDates(next+'-01', card.closing_day, card.due_day, null, card).dueDate);
+                  setAmount(summary.invoiceTotal===null?'':summary.invoiceTotal.toFixed(2).replace('.',','));
+                }
               }}
               className={field+' pl-9'}/>
           </span>
         </label>
-        <label className="text-xs font-semibold text-slate-200">Data exata de vencimento
-          <input name="wallet-invoice-due-date" type="date" required value={dueDate}
+        <label className="min-w-0 text-xs font-semibold text-slate-200">Data de vencimento
+          <input name="wallet-invoice-due-date" type="date" required aria-label="Data exata de vencimento" value={dueDate} disabled={saving||savingFacts}
             onChange={event=>setDueDate(event.target.value)} className={field}/>
         </label>
-        <label className="text-xs font-semibold text-slate-200 sm:col-span-2">
-          {mode === 'DIFFERENCE' ? 'Valor real atual da fatura no banco (R$)' : 'Valor consolidado (R$)'}
+        <label className="col-span-2 text-xs font-semibold text-slate-200">
+          Valor da fatura no banco (R$)
           <input name="wallet-invoice-amount" type="text" inputMode="decimal" autoComplete="off"
-            required value={amount} onChange={event => {
+            required value={amount} disabled={saving||savingFacts} onChange={event => {
               const input = event.currentTarget;
               const next = resolveLiveBrazilianCentsChange(input.value, amount, (event.nativeEvent as InputEvent).inputType);
               if (!next) return;
@@ -183,15 +211,16 @@ export const InvoiceOverrideModal: React.FC<Props> = ({
                     : formatMoney(0)}
               </strong>
             </div>
-            {adjustmentPreview.kind === 'INCREASE' && onRecordAdjustmentExpense && (
+            {((adjustmentPreview.kind === 'INCREASE' && onRecordAdjustmentExpense) || (adjustmentPreview.kind === 'DECREASE' && onRecordAdjustmentCredit)) && (
               <label className="block pt-1 text-[11px] text-slate-300">
                 Observação do ajuste (opcional)
                 <input
                   type="text"
                   maxLength={160}
                   value={adjustmentNotes}
+                  disabled={saving||savingFacts}
                   onChange={e => setAdjustmentNotes(e.target.value)}
-                  placeholder="Ex.: IOF, tarifa ou diferença de centavos"
+                  placeholder={adjustmentPreview.kind === 'DECREASE' ? 'Ex.: Estorno, cashback, pagamento antecipado' : 'Ex.: IOF, tarifa ou diferença de centavos'}
                   className={field}
                 />
               </label>
@@ -202,19 +231,42 @@ export const InvoiceOverrideModal: React.FC<Props> = ({
       <p className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-amber-100">
         {mode === 'DIFFERENCE' && adjustmentPreview.kind === 'INCREASE' && onRecordAdjustmentExpense
           ? `Será criado um lançamento "Despesa de ajuste" de ${formatMoney(adjustmentPreview.absDelta)} nesta fatura, preservando todas as compras individuais.`
-          : hasExistingConsolidation
-            ? 'Corrigir o mês desloca a consolidação existente com histórico auditável. Se houver outra cobrança igual no destino, o banco só a reúne após verificar valores e pagamentos.'
-            : 'Uma fatura formada por compras individuais deve ser corrigida pelos lançamentos, sem gerar uma nova consolidação de outro mês.'}
+          : mode === 'DIFFERENCE' && adjustmentPreview.kind === 'DECREASE' && onRecordAdjustmentCredit
+            ? `Será criado um crédito de ajuste de − ${formatMoney(adjustmentPreview.absDelta)} nesta fatura, abatendo o saldo sem travar compras futuras.`
+            : hasExistingConsolidation
+              ? 'A consolidação passa para o mês corrigido.'
+              : 'Uma fatura formada por compras individuais deve ser corrigida pelos lançamentos, sem gerar uma nova consolidação de outro mês.'}
       </p>
       {error&&<p role="alert" className="mt-3 rounded-lg bg-rose-950/50 px-3 py-2 text-xs text-rose-200">{error}</p>}
-      <button type="submit" disabled={saving} className="mt-5 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white hover:bg-blue-500 disabled:opacity-60">
+    </form>
+      <div className="mt-4">
+        <CardInvoiceSummaryPreview
+          key={card.id+':'+visualMonth+':invoice-override-facts'}
+          summary={invoiceFactsSummaryForMonth(visualMonth)}
+          onSave={summary=>onSaveInvoiceFacts(month+'-01',summary)}
+          formId="wallet-invoice-override-facts-form"
+          dueMonth={month+'-01'}
+          onSavingChange={setSavingFacts}
+          disabled={saving||!validMonth}
+          saveLabel="Salvar valores do banco"
+          footerNote="O total informado acima também será salvo como valor da fatura no banco. Salva a referência do emissor; sem histórico, valores compatíveis podem registrar a posição inicial do cartão. Não cria compra nem pagamento. O botão abaixo corrige a fatura na lista."
+          hideInvoiceTotal
+          hideDueDate
+          invoiceTotalOverride={amount}
+          dueDateOverride={dueDate}
+        />
+      </div>
+      <button type="submit" form="invoice-override-adjustment-form" disabled={saving||savingFacts} className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white hover:bg-blue-500 disabled:opacity-60">
         {saving?<Loader2 className="animate-spin" size={17}/>:<PencilLine size={17}/>}
         {saving
           ? 'Salvando…'
           : mode === 'DIFFERENCE' && adjustmentPreview.kind === 'INCREASE' && onRecordAdjustmentExpense
             ? `Lançar Despesa de Ajuste (+ ${formatMoney(adjustmentPreview.absDelta)})`
-            : isNew ? 'Adicionar fatura' : 'Salvar correção sem duplicar'}
+            : mode === 'DIFFERENCE' && adjustmentPreview.kind === 'DECREASE' && onRecordAdjustmentCredit
+              ? `Lançar Crédito de Ajuste (− ${formatMoney(adjustmentPreview.absDelta)})`
+              : isNew ? 'Adicionar fatura' : 'Salvar correção sem duplicar'}
       </button>
-    </form>
+    </div>
   </div>;
+  return typeof document === 'undefined' ? dialog : createPortal(dialog, document.body);
 };

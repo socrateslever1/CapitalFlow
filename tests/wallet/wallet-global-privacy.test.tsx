@@ -79,14 +79,14 @@ test('a proteção é efetiva nas páginas de balanço e relatório, inclusive n
  const report=readFileSync('features/wallet/pages/WalletReportPage.tsx','utf8');
  const assistant=readFileSync('components/ai/MasterMascot.tsx','utf8');
  assert.match(overview,/privacyHidden \? 'Indicador oculto'/);
- assert.match(overview,/!privacyHidden && <section aria-label="Composição explicada do balanço"/);
- assert.ok(overview.includes('PrivateMoney value={money(balance.accountBalance)}'));
- assert.match(overview,/privacyHidden \? <p className="mt-4/);
+ assert.ok(overview.includes('PrivateMoney value={money(balance.totalResources)}'));
+ assert.ok(overview.includes('PrivateMoney value={money(balance.projectedBalance)}'));
+ assert.match(overview,/privacyHidden \? <p className="mt-/);
  assert.match(report,/report && privacyHidden && <section/);
  assert.match(report,/report && !privacyHidden && <>/);
  assert.match(assistant,/if \(privacyHidden\) \{ setCue\(null\); setOpen\(false\); \}/);
  const cards=readFileSync('features/wallet/pages/WalletCardsPage.tsx','utf8');
- assert.match(cards,/hideFinancialValues \? 'Situação protegida' : label/);
+ assert.match(cards,/hideFinancialValues \? 'Situação protegida' : /);
  assert.match(cards,/hideFinancialValues \? 'Vencimento protegido'/);
  const account=readFileSync('components/wallet/AccountCardStack.tsx','utf8');
  assert.match(account,/privacyHidden \? 'text-slate-300'/);

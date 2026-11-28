@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Landmark, Banknote, Wallet, CreditCard, Edit2, PlusCircle, Trash2, FileText, Info, Image as ImageIcon } from 'lucide-react';
+import { PlusCircle, Image as ImageIcon } from 'lucide-react';
+import { AppIcon, type AppIconName } from '../icons/AppIcons';
+import { BankLogo } from '../wallet/BankLogo';
+import { MarqueeText } from '../ui/MarqueeText';
 import { CapitalSource, Loan } from '../../types';
 import { formatMoney } from '../../utils/formatters';
 import { Modal } from '../ui/Modal';
 import { translateBillingCycle } from '../../utils/translationHelpers';
 import { resolveAuthenticatedStorageUrl } from '../../utils/storageUrl';
-import { resolveBankLogo } from '../../utils/bankLogoRegistry';
+import { resolveBankLogoDisplay } from '../../utils/bankLogoRegistry';
 import { getActiveSourceLoans } from '../../domain/sources/sourceLoans';
 import type { SourceReferenceDisplay } from '../../domain/sources/sourceReferenceDisplay';
 
@@ -19,36 +22,6 @@ interface SourceCardProps {
     isStealthMode?: boolean;
     referenceDisplay?: SourceReferenceDisplay | null;
 }
-
-const getBankLogoUrl = (name: string): string | null => {
-    const lower = name.toLowerCase().trim();
-    if (lower.includes('nubank')) return 'https://logo.clearbit.com/nubank.com.br';
-    if (lower.includes('inter')) return 'https://logo.clearbit.com/bancointer.com.br';
-    if (lower.includes('itaú') || lower.includes('itau')) return 'https://logo.clearbit.com/itau.com.br';
-    if (lower.includes('bradesco')) return 'https://logo.clearbit.com/bradesco.com.br';
-    if (lower.includes('santander')) return 'https://logo.clearbit.com/santander.com.br';
-    if (lower.includes('brasil') || lower.includes('bb')) return 'https://logo.clearbit.com/bb.com.br';
-    if (lower.includes('caixa')) return 'https://logo.clearbit.com/caixa.gov.br';
-    if (lower.includes('c6')) return 'https://logo.clearbit.com/c6bank.com.br';
-    if (lower.includes('picpay')) return 'https://logo.clearbit.com/picpay.com';
-    if (lower.includes('mercado') && lower.includes('pago')) return 'https://logo.clearbit.com/mercadopago.com.br';
-    if (lower.includes('sicredi')) return 'https://logo.clearbit.com/sicredi.com.br';
-    if (lower.includes('sicoob')) return 'https://logo.clearbit.com/sicoob.com.br';
-    if (lower.includes('neon')) return 'https://logo.clearbit.com/neon.com.br';
-    if (lower.includes('original')) return 'https://logo.clearbit.com/original.com.br';
-    if (lower.includes('pagbank') || lower.includes('pagseguro')) return 'https://logo.clearbit.com/pagseguro.uol.com.br';
-    if (lower.includes('btg')) return 'https://logo.clearbit.com/btgpactual.com';
-    if (lower.includes('pan')) return 'https://logo.clearbit.com/bancopan.com.br';
-    if (lower.includes('safra')) return 'https://logo.clearbit.com/safra.com.br';
-    if (lower.includes('stone')) return 'https://logo.clearbit.com/stone.com.br';
-    if (lower.includes('infinite')) return 'https://logo.clearbit.com/infinitepay.io';
-    if (lower.includes('ton')) return 'https://logo.clearbit.com/ton.com.br';
-    if (lower.includes('cora')) return 'https://logo.clearbit.com/cora.com.br';
-    if (lower.includes('nomad')) return 'https://logo.clearbit.com/nomadglobal.com';
-    if (lower.includes('wise')) return 'https://logo.clearbit.com/wise.com';
-    if (lower.includes('revolut')) return 'https://logo.clearbit.com/revolut.com';
-    return null;
-};
 
 export const SourceCard: React.FC<SourceCardProps> = ({ source, loans, onEdit, onAddFunds, onTransferToAccount, onDelete, isStealthMode, referenceDisplay }) => {
     const [logoUrl, setLogoUrl] = useState<string | null>(null);
@@ -69,8 +42,7 @@ export const SourceCard: React.FC<SourceCardProps> = ({ source, loans, onEdit, o
                     console.warn('[source-logo] Falha ao autorizar logo:', error);
                 }
             }
-            const bankLogo = resolveBankLogo(source.name);
-            if (!cancelled) setLogoUrl(bankLogo || getBankLogoUrl(source.name));
+            if (!cancelled) setLogoUrl(null);
         };
 
         resolveLogo();
@@ -80,8 +52,16 @@ export const SourceCard: React.FC<SourceCardProps> = ({ source, loans, onEdit, o
     const activeLoans = useMemo(() => getActiveSourceLoans(loans, source.id), [loans, source.id]);
     const activeContractsCount = activeLoans.length;
     const extraReferenceCount = Math.max(0, (referenceDisplay?.entries.length || 0) - 1);
-    const DefaultIcon = source.type === 'PROPRIO' ? Landmark : source.type === 'TERCEIROS' ? Banknote : ['MISTO', 'CARD'].includes(source.type) ? CreditCard : Wallet;
-    const colorClass = source.type === 'PROPRIO' ? 'text-blue-500' : source.type === 'TERCEIROS' ? 'text-emerald-500' : ['MISTO', 'CARD'].includes(source.type) ? 'text-rose-500' : 'text-purple-500';
+    // Ícone próprio pelo tipo quando não há logo do banco nem imagem enviada.
+    const typeIcon: AppIconName = ['MISTO', 'CARD'].includes(source.type) ? 'wallet'
+        : ['PROPRIO', 'BANK'].includes(source.type) ? 'bank'
+            : ['TERCEIROS', 'CASH'].includes(source.type) ? 'banknote'
+                : source.type === 'WALLET' ? 'walletGreen' : 'capital';
+    // Mesmo padrão da lista de contas da Carteira: logo do banco primeiro, faixa na cor da marca.
+    const bankDisplay = resolveBankLogoDisplay(source.name);
+    const hasBankLogo = Boolean(bankDisplay);
+    const accentColor = bankDisplay?.bg || (['MISTO', 'CARD'].includes(source.type) ? '#7c3aed'
+        : ['TERCEIROS', 'CASH'].includes(source.type) ? '#059669' : source.type === 'WALLET' ? '#16a34a' : '#2563eb');
     const isCardSource = ['CARD', 'MISTO'].includes(source.type);
 
     const handleUpdateLogo = () => {
@@ -91,17 +71,17 @@ export const SourceCard: React.FC<SourceCardProps> = ({ source, loans, onEdit, o
     return (
         <>
             <div id={source.id} className="h-full rounded-2xl border border-slate-800/90 bg-slate-900/95 p-3.5 sm:p-4 relative overflow-hidden group hover:border-slate-700 transition-all shadow-sm flex flex-col">
-                <div className={`absolute -top-1 -right-1 p-2 opacity-5 transition-opacity group-hover:opacity-10 ${colorClass}`}>
-                    <DefaultIcon size={32} />
-                </div>
                 <div className="relative z-10 flex flex-col h-full">
-                    <div className="flex items-start gap-3 mb-3.5">
+                    <div className="flex items-center gap-3 mb-3.5">
+                        <span aria-hidden="true" className="h-9 w-1 shrink-0 rounded-full" style={{ backgroundColor: accentColor }} />
                         <button
                             onClick={handleUpdateLogo}
-                            className="w-10 h-10 rounded-xl flex items-center justify-center overflow-hidden bg-slate-950 border border-slate-800 shrink-0 hover:border-slate-600 transition-all"
+                            className="w-12 h-12 rounded-xl flex items-center justify-center overflow-hidden bg-slate-950 ring-1 ring-inset ring-white/10 shrink-0 hover:ring-slate-500 transition-all"
                             title="Alterar imagem da carteira"
                         >
-                            {logoUrl && !imgError ? (
+                            {hasBankLogo ? (
+                                <BankLogo name={source.name} size="lg" className="!h-full !w-full !rounded-none" />
+                            ) : logoUrl && !imgError ? (
                                 <img
                                     src={logoUrl}
                                     alt={source.name}
@@ -110,42 +90,41 @@ export const SourceCard: React.FC<SourceCardProps> = ({ source, loans, onEdit, o
                                     referrerPolicy="no-referrer"
                                 />
                             ) : (
-                                <DefaultIcon size={20} className={colorClass} />
+                                <AppIcon name={typeIcon} size={30} />
                             )}
                         </button>
 
                         <div className="min-w-0 flex-1 pt-0.5">
-                            <h3 className="text-xs font-black text-white uppercase tracking-tight truncate pr-1" title={source.name}>{source.name}</h3>
+                            <h3 className="pr-1" title={source.name}><MarqueeText text={source.name} className="text-[15px] font-bold text-white leading-tight" /></h3>
                             <div className="flex items-center gap-1.5 mt-1 min-w-0">
-                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider truncate">
+                                <p className="text-xs font-medium text-slate-400 truncate">
                                     {source.type === 'PROPRIO' ? 'Próprio' : source.type === 'TERCEIROS' ? 'Terceiros' : source.type === 'MISTO' ? 'Misto' : source.type === 'CARD' ? 'Cartão' : source.type === 'BANK' ? 'Banco' : source.type === 'CASH' ? 'Espécie' : source.type === 'WALLET' ? 'Carteira' : 'Outro'}
                                 </p>
-                                <span className="w-0.5 h-0.5 bg-slate-700 rounded-full shrink-0"></span>
-                                <button onClick={() => setShowDetails(true)} className="flex items-center gap-0.5 text-[9px] font-black text-blue-400 uppercase hover:underline whitespace-nowrap">
-                                    <FileText size={9}/>{activeContractsCount} {activeContractsCount === 1 ? 'Contrato' : 'Contratos'}
+                                <span aria-hidden="true" className="text-slate-600">·</span>
+                                <button onClick={() => setShowDetails(true)} className="text-xs font-medium text-blue-300 hover:underline whitespace-nowrap">
+                                    {activeContractsCount} {activeContractsCount === 1 ? 'contrato' : 'contratos'}
                                 </button>
                             </div>
                         </div>
 
-                        <div className="flex gap-1 shrink-0">
-                            <button onClick={(e) => { e.stopPropagation(); setShowDetails(true); }} className="p-1.5 bg-slate-800/80 rounded-lg text-slate-400 hover:text-blue-400 transition-colors" title="Ver Detalhes"><Info size={12}/></button>
-                            <button onClick={(e) => { e.stopPropagation(); onEdit(source); }} className="p-1.5 bg-slate-800/80 rounded-lg text-slate-400 hover:text-white transition-colors" title="Editar Saldo Manualmente"><Edit2 size={12}/></button>
-                            <button onClick={(e) => { e.stopPropagation(); onDelete(source.id); }} className="p-1.5 bg-slate-800/80 hover:bg-rose-600/20 hover:text-rose-500 text-slate-500 rounded-lg transition-all" title="Excluir Fonte"><Trash2 size={12}/></button>
+                        <div className="flex gap-1.5 shrink-0 self-start">
+                            <button onClick={(e) => { e.stopPropagation(); onEdit(source); }} className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-800" title="Editar fonte" aria-label="Editar fonte"><AppIcon name="edit" size={18} /></button>
+                            <button onClick={(e) => { e.stopPropagation(); onDelete(source.id); }} className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-rose-600/15" title="Excluir fonte" aria-label="Excluir fonte"><AppIcon name="trash" size={18} /></button>
                         </div>
                     </div>
 
                     <div className="mb-3 space-y-1.5 flex-1" aria-label="Resumo financeiro da fonte">
                         <div className="flex items-center justify-between gap-2">
-                            <p className="min-w-0 truncate text-[11px] font-medium text-slate-400">{isCardSource ? 'Crédito informado da fonte' : 'Saldo da fonte'}</p>
-                            <p className={`shrink-0 text-base font-black tabular-nums ${source.balance < 0 ? 'text-rose-400' : source.balance === 0 && isCardSource ? 'text-slate-100' : 'text-emerald-400'}`}>
+                            <p className="min-w-0 text-[11px] font-medium leading-tight text-slate-400">{isCardSource ? 'Crédito informado da fonte' : 'Saldo da fonte'}</p>
+                            <p className={`shrink-0 text-base font-bold tabular-nums ${source.balance < 0 ? 'text-rose-400' : source.balance === 0 && isCardSource ? 'text-slate-100' : 'text-emerald-400'}`}>
                                 {formatMoney(source.balance, isStealthMode)}
                             </p>
                         </div>
                         {referenceDisplay && (
                             <div className="flex items-center justify-between gap-2" aria-label="Resumo dos recursos associados">
-                                <p className="min-w-0 truncate text-[11px] font-medium text-slate-400">{isCardSource ? 'Limite associado à Carteira' : 'Saldo associado à Carteira'}</p>
+                                <p className="min-w-0 text-[11px] font-medium leading-tight text-slate-400">{isCardSource ? 'Limite associado à Carteira' : 'Saldo associado à Carteira'}</p>
                                 <div className="flex shrink-0 items-center gap-1.5">
-                                    <p className="text-xs font-black tabular-nums text-blue-300">
+                                    <p className="text-sm font-bold tabular-nums text-blue-300">
                                         {referenceDisplay.total === null ? 'Indisponível' : formatMoney(referenceDisplay.total, isStealthMode)}
                                     </p>
                                     {extraReferenceCount > 0 && (
@@ -193,11 +172,11 @@ export const SourceCard: React.FC<SourceCardProps> = ({ source, loans, onEdit, o
                     onClose={() => setShowDetails(false)}
                     title={source.name}
                     subtitle="Saldo e contratos vinculados à carteira"
-                    icon={<DefaultIcon size={18} />}
+                    icon={<AppIcon name={typeIcon} size={20} />}
                     compact
                     footer={(
                         <button onClick={() => { setShowDetails(false); handleUpdateLogo(); }} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-xs font-black uppercase text-white shadow-lg shadow-blue-950/30 transition-all hover:bg-blue-500 sm:flex-1">
-                            <ImageIcon size={15}/> Editar carteira
+                            <ImageIcon size={15}/> Editar fonte de capital
                         </button>
                     )}
                 >
@@ -220,7 +199,7 @@ export const SourceCard: React.FC<SourceCardProps> = ({ source, loans, onEdit, o
                         </div>
 
                         <div className="space-y-2">
-                            <h4 className="text-[10px] font-black uppercase text-slate-500 tracking-widest flex items-center gap-2"><FileText size={14}/> Clientes Vinculados</h4>
+                            <h4 className="text-[10px] font-black uppercase text-slate-500 tracking-widest flex items-center gap-2"><AppIcon name="contracts" size={15} /> Clientes Vinculados</h4>
                             <div className="max-h-[300px] overflow-y-auto pr-2 custom-scrollbar space-y-2">
                                 {activeLoans.length > 0 ? activeLoans.map(loan => (
                                     <div key={loan.id} className="bg-slate-950 p-3 rounded-lg border border-slate-800 flex justify-between items-center group">

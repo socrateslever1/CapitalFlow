@@ -53,6 +53,7 @@ test('deriveOverviewFromSnapshot extrai visão geral preservando vencimentos de 
 
 test('Carteira possui hidratação offline por IndexedDB, pré-carregamento completo e aviso offline', () => {
   const app = readFileSync('App.tsx', 'utf8');
+  const preload = readFileSync('hooks/useWalletPreload.ts', 'utf8');
   const service = readFileSync('services/personalWallet.service.ts', 'utf8');
   const repo = readFileSync('features/wallet/services/walletRepository.ts', 'utf8');
   const mod = readFileSync('features/wallet/WalletModule.tsx', 'utf8');
@@ -73,8 +74,9 @@ test('Carteira possui hidratação offline por IndexedDB, pré-carregamento comp
   assert.match(repo, /loadCardInvoiceFacts/);
   assert.match(repo, /prefetchAccess/);
   assert.match(repo, /prefetchFull/);
-  assert.match(app, /walletRepository\.prefetchAccess\(\)/);
-  assert.match(app, /walletRepository\.loadOverview\(\)/);
+  assert.match(app, /useWalletPreload\(\{/);
+  assert.match(preload, /walletRepository\.prefetchAccess\(\)/);
+  assert.match(preload, /await walletRepository\.loadOverview\(\)/);
   assert.match(cardsPage, /walletRepository\.loadCardInvoiceFacts/);
   assert.match(mod, /prefetchWallet\(false\)/);
   assert.match(mod, /Modo offline/);

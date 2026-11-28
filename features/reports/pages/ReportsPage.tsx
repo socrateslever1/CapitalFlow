@@ -1,4 +1,5 @@
 
+import { AppIcon } from '../../../components/icons/AppIcons';
 import { readLoanFundingCost } from '../../../domain/finance/fundingCost';
 import React, { useMemo } from 'react';
 import {
@@ -91,9 +92,8 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <PageHeader
-        icon={<PieChart size={22} />}
-        iconClassName="border-indigo-500/30 bg-indigo-600/20 text-indigo-400 shadow-indigo-950/30"
+      <PageHeader iconClassName="border-slate-700/70 bg-slate-900 shadow-black/30"
+        icon={<AppIcon name="reports" size={28} />}
         title={<>Inteligência de <span className="text-indigo-500">Negócios</span></>}
         subtitle="Análise de performance, risco e rentabilidade da carteira"
         actions={<div className="flex items-center gap-2 bg-slate-900 border border-slate-800 p-2 rounded-lg">

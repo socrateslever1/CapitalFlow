@@ -6,12 +6,17 @@ const read = path => readFileSync(path, 'utf8');
 
 test('quick receipt offers optional destination and confirms actual account before submission', () => {
   const grid = read('components/cards/components/InstallmentGrid.tsx');
-  assert.match(grid, /platformAdminService\.isSuperAdmin\(\)/);
+  const selector = read('components/wallet/ReceiptDestinationSelector.tsx');
+  assert.match(grid, /setWalletReceiptAllowed\(true\)/);
   assert.match(grid, /walletRepository\.loadOverview\(\)/);
   assert.match(grid, /Conta que recebeu o pagamento \(opcional\)/);
   assert.match(grid, /Fonte de destino para recebimento \(opcional\)/);
-  assert.match(grid, /Padrão · retorno às fontes originais/);
-  assert.match(grid, /Padrão · devolver às fontes originais/);
+  assert.match(selector, /Sem seleção: mantém as fontes originais/);
+  assert.match(selector, /Sem seleção: nenhuma conta adicional/);
+  assert.equal((selector.match(/onClick=\{\(\) => onChange\(''\)\}/g) || []).length, 2);
+  assert.doesNotMatch(selector, /Padrão \(fontes originais\)/);
+  assert.match(selector, /role="radiogroup"/);
+  assert.match(selector, /BankLogo/);
   assert.match(grid, /receiptDestinationAccountId: walletReceiptAllowed/);
   assert.match(grid, /walletReceiptAccounts\.some\(account => account\.id === receiptDestinationAccountId\)/);
   assert.match(grid, /Destino do recebimento/);
@@ -36,12 +41,12 @@ test('payment destination propagates unchanged through typed quick-payment contr
   assert.match(dashboard, /capitalflow:wallet-updated/);
 });
 
-test('withdrawal and account access remain optional and master-gated', () => {
+test('withdrawal and account access remain optional for authenticated wallet users', () => {
   const withdraw = read('components/modals/ModalGroups.tsx');
   const ctrl = read('hooks/controllers/useSourceController.ts');
   assert.match(withdraw, /Enviar para conta da Minha Carteira \(opcional\)/);
   assert.match(withdraw, /Padrão · não enviar para conta/);
-  assert.match(withdraw, /platformAdminService\.isSuperAdmin\(\)/);
+  assert.match(withdraw, /walletRepository\.loadOverview\(\)/);
   assert.match(ctrl, /withdraw_profit_to_wallet_atomic/);
   assert.match(ctrl, /withdraw_profit_atomic_v2/);
 });

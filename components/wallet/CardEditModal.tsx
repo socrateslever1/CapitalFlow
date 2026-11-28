@@ -1,5 +1,5 @@
 import React,{useState} from 'react';
-import {AlertTriangle,Archive,CreditCard,LockKeyhole,Save,Trash2} from 'lucide-react';
+import {Archive,CreditCard,LockKeyhole,Save,Trash2} from 'lucide-react';
 import {PersonalWalletCard,PersonalWalletAccount,personalWalletService} from '../../services/personalWallet.service';
 import {BANK_CATALOG} from '../../utils/bankLogoRegistry';
 import {formatMoney} from '../../utils/formatters';
@@ -8,10 +8,12 @@ import { parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
 import {Modal,modalPrimaryActionClass} from '../ui/Modal';
 import {CardVaultModal} from './CardVaultModal';
 import {FinancialCalculatorInput} from '../forms/FinancialCalculatorInput';
+import {SelectOptionList} from '../ui/SelectOptionList';
+import {notifyFinancialDataChanged} from '../../utils/appSyncEvents';
 type Props={card:PersonalWalletCard;accounts:PersonalWalletAccount[];onClose:()=>void;onSaved:()=>Promise<void>};
-const field='mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm text-white';
+const field='mt-1 min-h-12 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white';
 export const CardEditModal:React.FC<Props>=({card,accounts,onClose,onSaved})=>{
- const [form,setForm]=useState({nickname:card.nickname,issuer:card.issuer||'',brand:card.brand||'',account_id:card.account_id||'',last_four:card.last_four||'',cardholder_name:card.cardholder_name||'',expiry_month:card.expiry_month?String(card.expiry_month):'',expiry_year:card.expiry_year?String(card.expiry_year):'',credit_limit:String(card.credit_limit),closing_day:String(card.closing_day||''),due_day:String(card.due_day||''),status:card.status,primary_color:card.primary_color||getBankVisual(card.issuer||card.nickname).accent});
+ const [form,setForm]=useState({nickname:card.nickname,issuer:card.issuer||'',brand:card.brand||'',account_id:card.account_id||'',last_four:card.last_four||'',cardholder_name:card.cardholder_name||'',expiry_month:card.expiry_month?String(card.expiry_month):'',expiry_year:card.expiry_year?String(card.expiry_year):'',credit_limit:String(card.credit_limit),closing_day:String(card.closing_day||''),due_day:String(card.due_day||''),closing_mode:card.closing_mode==='DAYS_BEFORE_DUE'?'DAYS_BEFORE_DUE':'FIXED_DAY',closing_days_before_due:String(card.closing_days_before_due||''),due_business_days:card.due_business_days?'yes':'no',push_reminders:card.push_reminders===false?'no':'yes',status:card.status,primary_color:card.primary_color||getBankVisual(card.issuer||card.nickname).accent});
  const [saving,setSaving]=useState(false);
  const [deleteConfirm,setDeleteConfirm]=useState(false);
  const [archiveConfirm,setArchiveConfirm]=useState(false);
@@ -27,6 +29,13 @@ export const CardEditModal:React.FC<Props>=({card,accounts,onClose,onSaved})=>{
   try { limit = parseWalletMoney(form.credit_limit, 'limite de crédito'); }
   catch (reason) { setError(reason instanceof Error ? reason.message : 'Limite inválido.'); return; }
   if (Math.round(limit * 100) < Math.round(Number(card.used_limit) * 100) && limit < Number(card.credit_limit)) { setError('Não reduza o limite enquanto o cartão está excedido.'); return; }
+  const dynamicClosing=form.closing_mode==='DAYS_BEFORE_DUE';
+  const daysBefore=Number(form.closing_days_before_due);
+  if(dynamicClosing&&(!Number.isInteger(daysBefore)||daysBefore<1||daysBefore>20)){setError('Informe de 1 a 20 dias antes do vencimento.');return;}
+  if(dynamicClosing&&!form.due_day){setError('Informe o dia de vencimento.');return;}
+  const rulesChanged=form.closing_mode!==(card.closing_mode||'FIXED_DAY')
+   ||(dynamicClosing&&daysBefore!==Number(card.closing_days_before_due||0))
+   ||(form.due_business_days==='yes')!==Boolean(card.due_business_days);
   setSaving(true);setError('');
   try{
    await personalWalletService.updateCardMetadata(card.id,{
@@ -36,7 +45,20 @@ export const CardEditModal:React.FC<Props>=({card,accounts,onClose,onSaved})=>{
     credit_limit:limit,closing_day:form.closing_day?Number(form.closing_day):null,
     due_day:form.due_day?Number(form.due_day):null,status:form.status as 'ACTIVE'|'BLOCKED'|'CANCELED',primary_color:form.primary_color
    });
-   await onSaved();onClose();
+   // Regra do ciclo: vale do mês atual em diante; faturas anteriores mantêm a regra antiga.
+   if(rulesChanged&&form.due_day){
+    await personalWalletService.setCardCycleRules(card.id,{
+     closingMode:dynamicClosing?'DAYS_BEFORE_DUE':'FIXED_DAY',
+     closingDay:form.closing_day?Number(form.closing_day):null,
+     closingDaysBeforeDue:dynamicClosing?daysBefore:null,
+     dueDay:Number(form.due_day),dueBusinessDays:form.due_business_days==='yes',
+    });
+   }
+   // Aviso de fatura no celular: liga ou desliga só este cartão.
+   if((form.push_reminders==='yes')!==(card.push_reminders!==false)){
+    await personalWalletService.setCardPushReminders(card.id,form.push_reminders==='yes');
+   }
+   notifyFinancialDataChanged({wallet:true,sourceOrigins:true});await onSaved();onClose();
  }catch(reason){setError(reason instanceof Error?reason.message:'Erro ao salvar');}
  finally{setSaving(false);}
  };
@@ -60,12 +82,32 @@ export const CardEditModal:React.FC<Props>=({card,accounts,onClose,onSaved})=>{
    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
     <label className="text-xs text-slate-300">Instituição<input required maxLength={120} list="wallet-edit-banks" className={field} value={form.issuer} onChange={e=>change('issuer',e.target.value)}/><datalist id="wallet-edit-banks">{BANK_CATALOG.map(b=><option key={b.id} value={b.name}/>)}</datalist></label>
     <label className="text-xs text-slate-300">Apelido (opcional)<input maxLength={120} className={field} value={form.nickname} onChange={e=>change('nickname',e.target.value)} placeholder="Usa o nome da instituição se vazio"/></label>
-    <label className="text-xs text-slate-300">Bandeira<select className={field} value={form.brand} onChange={e=>change('brand',e.target.value)}><option value="">Não informada</option>{['Mastercard','Visa','Elo','American Express','Hipercard'].map(name=><option key={name} value={name}>{name}</option>)}</select></label>
-    <label className="text-xs text-slate-300">Conta vinculada<select className={field} value={form.account_id} onChange={e=>change('account_id',e.target.value)}><option value="">Avulso — apenas crédito</option>{accounts.map(a=><option key={a.id} value={a.id}>Híbrido · {a.nickname}</option>)}</select></label>
+    <div className="space-y-1 text-xs text-slate-300">
+     <span className="block">Bandeira</span>
+     <SelectOptionList
+      ariaLabel="Bandeira"
+      value={form.brand}
+      placeholder="Não informada"
+      clearable
+      options={['Mastercard','Visa','Elo','American Express','Hipercard'].map(name=>({value:name,label:name}))}
+      onChange={value=>change('brand',value)}
+     />
+    </div>
+    <div className="space-y-1 text-xs text-slate-300">
+     <span className="block">Conta vinculada</span>
+     <SelectOptionList
+      ariaLabel="Conta vinculada"
+      value={form.account_id}
+      placeholder="Avulso — apenas crédito"
+      clearable
+      options={accounts.map(a=>({value:a.id,label:`Híbrido · ${a.nickname}`}))}
+      onChange={value=>change('account_id',value)}
+     />
+    </div>
     <label className="text-xs text-slate-300">Nome impresso no cartão<input maxLength={120} autoComplete="cc-name" className={field} value={form.cardholder_name} onChange={e=>change('cardholder_name',e.target.value)} placeholder="NOME DO TITULAR"/></label>
-    <div className="grid grid-cols-2 gap-2">
-     <label className="text-xs text-slate-300">Mês da validade<input type="number" min="1" max="12" autoComplete="cc-exp-month" className={field} value={form.expiry_month} onChange={e=>change('expiry_month',e.target.value)} placeholder="MM"/></label>
-     <label className="text-xs text-slate-300">Ano da validade<input type="number" min="2000" max="2200" autoComplete="cc-exp-year" className={field} value={form.expiry_year} onChange={e=>change('expiry_year',e.target.value)} placeholder="AAAA"/></label>
+    <div className="grid grid-cols-2 items-end gap-2 self-start">
+     <label className="flex flex-col justify-between text-xs text-slate-300">Mês da validade<input type="number" min="1" max="12" autoComplete="cc-exp-month" className={field} value={form.expiry_month} onChange={e=>change('expiry_month',e.target.value)} placeholder="MM"/></label>
+     <label className="flex flex-col justify-between text-xs text-slate-300">Ano da validade<input type="number" min="2000" max="2200" autoComplete="cc-exp-year" className={field} value={form.expiry_year} onChange={e=>change('expiry_year',e.target.value)} placeholder="AAAA"/></label>
     </div>
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/70 p-3 sm:col-span-2">
      <div className="space-y-1">
@@ -78,13 +120,53 @@ export const CardEditModal:React.FC<Props>=({card,accounts,onClose,onSaved})=>{
      <button type="button" onClick={()=>setVaultOpen(true)} className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl border border-blue-500/40 bg-blue-500/10 px-4 py-2 text-sm font-semibold text-blue-200 hover:bg-blue-500/20"><LockKeyhole size={17}/>Número completo e código de segurança</button>
     </div>
     <label className="text-xs text-slate-300">Limite total<FinancialCalculatorInput required className={field} value={form.credit_limit} onCommit={value=>change('credit_limit',value)} fieldLabel="limite de crédito"/><span className="mt-1 block text-[11px] text-slate-400">Disponível atual: <strong className="text-emerald-300">{formatMoney(Math.max(0,(() => { try { return parseWalletMoney(form.credit_limit); } catch { return 0; } })()-Number(card.used_limit)))}</strong></span></label>
-    <div className="grid grid-cols-2 gap-2">
-     <label className="text-xs text-slate-300">Fechamento (dia)<input type="number" min="1" max="31" className={field} value={form.closing_day} onChange={e=>change('closing_day',e.target.value)}/></label>
-     <label className="text-xs text-slate-300">Dia habitual de vencimento<input type="number" min="1" max="31" className={field} value={form.due_day} onChange={e=>change('due_day',e.target.value)}/></label>
+    <div className="grid grid-cols-2 items-start gap-2">
+     <label className="col-span-2 min-w-0 text-xs text-slate-300"><span className="block truncate">Como a fatura fecha</span>
+      <select className={field} value={form.closing_mode} onChange={e=>change('closing_mode',e.target.value)}>
+       <option value="FIXED_DAY">Em um dia fixo do mês</option>
+       <option value="DAYS_BEFORE_DUE">Alguns dias antes do vencimento</option>
+      </select></label>
+     {form.closing_mode==='DAYS_BEFORE_DUE'
+      ?<label className="min-w-0 text-xs text-slate-300"><span className="block truncate">Dias antes do vencimento</span><input type="number" min="1" max="20" className={field} value={form.closing_days_before_due} onChange={e=>change('closing_days_before_due',e.target.value)}/></label>
+      :<label className="min-w-0 text-xs text-slate-300"><span className="block truncate">Fechamento (dia)</span><input type="number" min="1" max="31" className={field} value={form.closing_day} onChange={e=>change('closing_day',e.target.value)}/></label>}
+     <label className="min-w-0 text-xs text-slate-300"><span className="block truncate">Vencimento (dia)</span><input type="number" min="1" max="31" className={field} value={form.due_day} onChange={e=>change('due_day',e.target.value)}/></label>
+     <label className="col-span-2 flex min-h-11 items-center gap-2 text-xs text-slate-300"><input type="checkbox" className="h-4 w-4 accent-blue-500" checked={form.due_business_days==='yes'} onChange={e=>change('due_business_days',e.target.checked?'yes':'no')}/>Vencimento em fim de semana ou feriado nacional passa para o próximo dia útil</label>
+     <label className="col-span-2 flex min-h-11 items-center gap-2 text-xs text-slate-300"><input type="checkbox" className="h-4 w-4 accent-blue-500" checked={form.push_reminders==='yes'} onChange={e=>change('push_reminders',e.target.checked?'yes':'no')}/>Avisar no celular antes de a fatura fechar ou vencer</label>
+     {form.closing_mode==='DAYS_BEFORE_DUE'&&Number(form.closing_days_before_due)>0&&(Number(form.closing_days_before_due)<5||Number(form.closing_days_before_due)>15)&&<p className="col-span-2 text-[11px] text-amber-300">A maioria dos cartões fecha entre 7 e 10 dias antes do vencimento. Confira com a fatura do banco.</p>}
+     <p className="col-span-2 text-[11px] text-slate-400">Mudanças em fechamento e vencimento valem a partir deste mês; faturas anteriores continuam como estavam. Feriados estaduais e municipais não são considerados.</p>
     </div>
-    <label className="text-xs text-slate-300">Cor no app<input type="color" value={form.primary_color} onChange={e=>change('primary_color',e.target.value)} className="mt-1 h-11 w-full cursor-pointer rounded-lg border border-slate-700 bg-slate-950 p-1"/></label>
-    <label className="text-xs text-slate-300">Status<select className={field} value={form.status} onChange={e=>change('status',e.target.value)}><option value="ACTIVE">Ativo</option><option value="BLOCKED">Bloqueado neste sistema</option></select></label>
-    <p className="flex gap-2 rounded-xl border border-amber-700/40 bg-amber-950/20 p-3 text-xs text-amber-200 sm:col-span-2"><AlertTriangle size={17} className="shrink-0"/>Arquivar preserva o histórico e retira o cartão da carteira ativa. Excluir é permanente e só é permitido sem faturas, lançamentos ou limite utilizado. Bloquear no CapitalFlow não bloqueia o cartão no banco.</p>
+    <fieldset className="space-y-2">
+      <legend className="text-xs text-slate-300">Cor do cartão no app</legend>
+      <div className="flex flex-wrap gap-1">
+        {[
+          ['Preto', '#171717'], ['Grafite', '#334155'], ['Prata', '#87939f'],
+          ['Champanhe', '#a89473'], ['Dourado', '#b88628'], ['Laranja', '#c05c26'],
+          ['Vermelho', '#b83238'], ['Rosa', '#be3276'], ['Rosé', '#ac717d'],
+          ['Roxo', '#773ab0'], ['Azul', '#315d91'], ['Turquesa', '#137e89'],
+        ].map(([label, color]) => {
+          const selected = form.primary_color.toLowerCase() === color;
+          return <button key={color} type="button" title={label} aria-label={label} aria-pressed={selected}
+            onClick={() => change('primary_color', color)}
+            className="grid size-11 place-items-center rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-400">
+            <span aria-hidden="true" style={{ backgroundColor: color }}
+              className={`size-7 rounded-md border border-white/20 ${selected ? 'ring-2 ring-white ring-offset-2 ring-offset-slate-950' : ''}`} />
+          </button>;
+        })}
+      </div>
+      <label className="flex items-center gap-2 text-xs text-slate-300">
+        <input type="color" value={form.primary_color} onChange={e=>change('primary_color',e.target.value)} className="size-11 cursor-pointer rounded-lg border border-slate-700 bg-slate-950 p-1"/>
+        Cor personalizada
+      </label>
+    </fieldset>
+    <div className="space-y-1 text-xs text-slate-300">
+     <span className="block">Status</span>
+     <SelectOptionList
+      ariaLabel="Status"
+      value={form.status}
+      options={[{value:'ACTIVE',label:'Ativo'},{value:'BLOCKED',label:'Bloqueado neste sistema'}]}
+      onChange={value=>change('status',value)}
+     />
+    </div>
     {error&&<p role="alert" className="text-xs text-rose-300 sm:col-span-2">{error}</p>}
    </div>
    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-800 px-4 pt-4 text-xs">

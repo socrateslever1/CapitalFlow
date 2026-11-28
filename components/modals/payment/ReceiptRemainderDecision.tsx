@@ -72,7 +72,7 @@ export const ReceiptRemainderDecision: React.FC<ReceiptRemainderDecisionProps> =
 
     {value === 'RENEW_WITH_DISCOUNT' && (
       <p className="text-[8px] font-semibold leading-3.5 text-amber-200/80">
-        A diferença dispensada fica registrada como desconto auditável.
+        A diferença dispensada fica registrada como desconto.
       </p>
     )}
   </section>

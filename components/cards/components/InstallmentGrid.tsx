@@ -6,6 +6,7 @@ import { Modal } from '../../ui/Modal';
 import { LateFeeWaiverOptions } from '../../modals/payment/LateFeeWaiverOptions';
 import { DebtCompositionSummary } from '../../modals/payment/DebtCompositionSummary';
 import { ReceiptRemainderDecision } from '../../modals/payment/ReceiptRemainderDecision';
+import { ReceiptAccountDestinationList, ReceiptSourceDestinationList } from '../../wallet/ReceiptDestinationSelector';
 import { parseDateOnlyUTC, toISODateOnlyUTC, formatBRDate } from '../../../utils/dateHelpers';
 import { formatMoney } from '../../../utils/formatters';
 import { Loan, Installment, Agreement, AgreementInstallment, UserProfile, CapitalSource } from '../../../types';
@@ -19,7 +20,6 @@ import { buildInstallmentReceiptModel, calculatePrincipalReductionForTarget, cal
 import { previewFinancialOperation, type FinancialOperationResult, type FinancialPaymentMethod } from '../../../services/payments/paymentEngineV4';
 import { resolveReceiptDecision, type ReceiptBusinessAction } from '../../../services/payments/receiptDecision';
 import { suggestRenewalDueDate } from '../../../services/payments/paymentRenewalPlan';
-import { platformAdminService } from '../../../services/platformAdmin.service';
 import { walletRepository } from '../../../features/wallet/services/walletRepository';
 import type { PersonalWalletAccount } from '../../../services/personalWallet.service';
 import { filterOperationalSources } from '../../../utils/testSource';
@@ -100,28 +100,19 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
         setWalletReceiptLoadError('');
         if (!selectedInst?.id || !onInstallmentPayment) return () => { mounted = false; };
 
-        void platformAdminService.isSuperAdmin().then(async allowed => {
-            if (!mounted) return;
-            if (!allowed) {
-                setWalletReceiptLoaded(true);
-                return;
-            }
-            setWalletReceiptAllowed(true);
-            try {
-                const snapshot = await walletRepository.loadOverview();
+        setWalletReceiptAllowed(true);
+        void walletRepository.loadOverview()
+            .then(snapshot => {
                 if (mounted) setWalletReceiptAccounts(snapshot.accounts.filter(account => !account.archived_at));
-            } catch {
+            })
+            .catch(() => {
                 if (mounted) {
                     setWalletReceiptLoadError('Não foi possível carregar as contas. O recebimento padrão continua disponível.');
                 }
-            } finally {
+            })
+            .finally(() => {
                 if (mounted) setWalletReceiptLoaded(true);
-            }
-        }).catch(() => {
-            if (!mounted) return;
-            setWalletReceiptLoadError('Não foi possível verificar o acesso às contas pessoais.');
-            setWalletReceiptLoaded(true);
-        });
+            });
         return () => { mounted = false; };
     // Do not depend on the callback identity: dashboard card handlers are
     // recreated on parent renders, which must never erase an account choice.
@@ -603,56 +594,26 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                 <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-[10px] font-bold text-emerald-300">O saldo da condição continuará reservado até a data combinada, sem renovação de juros nem nova negociação.</p>
                             )}
 
-                            {destinationSources.length > 0 && (
-                                <section className="rounded-xl border border-slate-700/80 bg-slate-900/70 p-3.5">
-                                    <label htmlFor="installment-receipt-source-destination" className="mb-2 block text-sm font-semibold text-slate-100">
-                                        Fonte de destino para recebimento (opcional)
-                                    </label>
-                                    <select
-                                        id="installment-receipt-source-destination"
-                                        value={receiptDestinationSourceId}
-                                        onChange={event => setReceiptDestinationSourceId(event.target.value)}
-                                        aria-describedby="installment-receipt-source-help"
-                                        disabled={isSubmittingReceipt || isPreparingReview}
-                                        className="min-h-12 w-full rounded-lg border border-slate-600 bg-slate-950 px-3 py-2.5 text-sm font-semibold text-white outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-60"
-                                    >
-                                        <option value="">Padrão · retorno às fontes originais</option>
-                                        {destinationSources.map(source => (
-                                            <option key={source.id} value={source.id}>
-                                                Reinvestir em: {source.name} · {formatMoney(source.balance, isStealthMode)}
-                                                {source.id === loan.sourceId ? ' (fonte do contrato)' : ''}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    <p id="installment-receipt-source-help" className="mt-2 text-xs leading-relaxed text-slate-300">
-                                        Sem escolha, mantém o padrão. Ao escolher uma fonte, Capital + Lucro/Encargos entram nela para reinvestimento, com auditoria separada.
-                                    </p>
-                                </section>
-                            )}
+                            <ReceiptSourceDestinationList
+                                label="Fonte de destino para recebimento (opcional)"
+                                value={receiptDestinationSourceId}
+                                onChange={setReceiptDestinationSourceId}
+                                sources={destinationSources}
+                                contractSourceId={loan.sourceId}
+                                disabled={isSubmittingReceipt || isPreparingReview}
+                                isStealthMode={isStealthMode}
+                            />
 
                             {walletReceiptAllowed && (
-                                <section className="rounded-xl border border-slate-700/80 bg-slate-900/70 p-3.5">
-                                    <label htmlFor="installment-receipt-wallet-destination" className="mb-2 block text-sm font-semibold text-slate-100">
-                                        Conta que recebeu o pagamento (opcional)
-                                    </label>
-                                    <select
-                                        id="installment-receipt-wallet-destination"
-                                        value={receiptDestinationAccountId}
-                                        onChange={event => setReceiptDestinationAccountId(event.target.value)}
-                                        aria-describedby="installment-receipt-wallet-help"
-                                        disabled={!walletReceiptLoaded || isSubmittingReceipt || isPreparingReview}
-                                        className="min-h-12 w-full rounded-lg border border-slate-600 bg-slate-950 px-3 py-2.5 text-sm font-semibold text-white outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-60"
-                                    >
-                                        <option value="">Padrão · devolver às fontes originais</option>
-                                        {walletReceiptAccounts.map(account => (
-                                            <option key={account.id} value={account.id}>{account.nickname}</option>
-                                        ))}
-                                    </select>
-                                    <p id="installment-receipt-wallet-help" className="mt-2 text-xs leading-relaxed text-slate-300">
-                                        Se escolher uma conta, ela recebe o valor integral. Capital, juros e encargos permanecem separados na auditoria. Sem seleção, as fontes originais recebem normalmente.
-                                    </p>
-                                    {walletReceiptLoadError && <p role="status" className="mt-2 text-xs text-amber-300">{walletReceiptLoadError}</p>}
-                                </section>
+                                <ReceiptAccountDestinationList
+                                    label="Conta que recebeu o pagamento (opcional)"
+                                    value={receiptDestinationAccountId}
+                                    onChange={setReceiptDestinationAccountId}
+                                    accounts={walletReceiptAccounts}
+                                    disabled={!walletReceiptLoaded || isSubmittingReceipt || isPreparingReview}
+                                    isStealthMode={isStealthMode}
+                                    errorMessage={walletReceiptLoadError}
+                                />
                             )}
                             {needsBusinessChoice && (
                                 <ReceiptRemainderDecision
@@ -701,6 +662,9 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                             <p className="text-[8px] font-bold uppercase text-slate-500">Saldo depois</p>
                                             <p className="mt-1 text-sm font-black text-white">{reviewPreview ? formatMoney(Number((reviewPreview.after as any)?.total || 0), isStealthMode) : 'Conforme a condição'}</p>
                                         </div>
+                                        {reviewPreview?.after?.automatic_cycle_renewal === true && (
+                                            <p className="mt-2 text-xs font-bold text-emerald-300">Novo vencimento: {String(reviewPreview.after.due_date).split('-').reverse().join('/')} · Encargos pendentes: {formatMoney(Number(reviewPreview.after.late_fee || 0), isStealthMode)}</p>
+                                        )}
                                         {reviewPreview && (
                                             <>
                                                 <div className="rounded-lg bg-slate-950/70 p-2.5">
@@ -799,7 +763,8 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                     const effectiveOperation = hasActiveOffer ? 'KEEP_PENDING' : finalDecision.operationType;
                                     const paymentDate = parseDateOnlyUTC(paymentDateStr);
                                     const advancesDueDate = ['RENEW_KEEP_PENDING', 'CAPITALIZE_RENEWAL', 'DISCOUNT_RENEWAL'].includes(effectiveOperation);
-                                    const suggestedRenewalDate = advancesDueDate
+                                    const automaticMonthlyRenewal = effectiveOperation === 'RENEW_KEEP_PENDING' && ['MONTHLY', 'GIRO', 'REVOLVING'].includes(String(loan.billingCycle || '').toUpperCase());
+                                    const suggestedRenewalDate = advancesDueDate && !automaticMonthlyRenewal
                                         ? suggestRenewalDueDate({
                                             loan,
                                             inst: selectedInst,

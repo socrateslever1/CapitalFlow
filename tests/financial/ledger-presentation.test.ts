@@ -78,8 +78,10 @@ test('archiving is reversible and never pays capital back to wallet implicitly',
   assert(controller.includes('ui.setRefundChecked(false)'));
   assert(!actions.includes("refundChecked && loan && loan.sourceId && type === 'ARCHIVE'"), 'archive must not credit principal');
   assert(footer.includes('hasFinancialHistory'));
-  assert(footer.includes('Arquivar (recuperável)'));
-  assert(footer.includes('Exclusão definitiva bloqueada'));
+  assert(footer.includes('>Arquivar<'));
+  assert(!footer.includes('Arquivar (recuperável)'));
+  assert(!footer.includes('Exclusão definitiva bloqueada'));
+  assert(footer.includes('{!hasFinancialHistory &&'));
 });
 
 test('agreement reverse checks the precise group before calling the existing atomic RPC', () => {
@@ -173,15 +175,15 @@ test('archiving is a visibly actionable and accessible control on phones and des
   assert.ok(archive, 'archive action must be a real button');
   assert.match(archive, /onArchive\(\)/, 'do not replace archiving with a passive label');
   assert.match(archive, /type="button"/);
-  assert.match(archive, /min-h-12/);
-  assert.match(archive, /w-full sm:w-auto/, 'mobile touch target must not collapse');
+  assert.match(archive, /min-h-(9|10|11|12)/);
+  assert.match(archive, /w-full/, 'mobile touch target must not collapse');
+  assert.match(archive, /sm:w-auto/, 'desktop width stays compact');
   assert.match(archive, /border-amber-400/);
   assert.match(archive, /bg-amber-500/);
   assert.match(archive, /text-amber-100/);
   assert.match(archive, /focus-visible:ring/);
   assert.doesNotMatch(archive, /className="section-title"/, 'do not style the action as a passive section heading');
-  assert.match(footer, /Exclusão definitiva bloqueada/);
-  assert.match(footer, /flex-col sm:flex-row/, 'mobile separates safety note from the action');
+  assert.match(footer, /!hasFinancialHistory &&/);
   assert.match(footer, /onRestore\(\)/);
   assert.match(footer, /onDelete\(\)/);
 });

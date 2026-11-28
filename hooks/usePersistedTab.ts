@@ -16,6 +16,9 @@ export const usePersistedTab = (
 
   // 🔹 Carrega aba persistida ao iniciar
   useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.pathname !== '/') {
+      return;
+    }
     const lastTab = localStorage.getItem('cm_last_tab');
     if (lastTab && typeof lastTab === 'string') {
       if (!VALID_TABS.has(lastTab as AppTab)) {

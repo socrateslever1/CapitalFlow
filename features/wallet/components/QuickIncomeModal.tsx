@@ -1,4 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
+import { localDiagnostics } from '../../../services/localDiagnostics';
 import { ArrowDownToLine, Building2, HandCoins, Landmark, ShieldCheck } from 'lucide-react';
 import { Modal, modalPrimaryActionClass } from '../../../components/ui/Modal';
 import { useWalletSnapshot } from '../hooks/useWalletSnapshot';
@@ -7,8 +8,11 @@ import { openContractInstallments, prepareManualIncome, resolveClientReceipt } f
 import { generateUUID } from '../../../utils/generators';
 import { calculateTotalDue } from '../../../domain/finance/calculations';
 import { formatMoney } from '../../../utils/formatters';
+import { useFinancialPrivacy } from '../../../contexts/FinancialPrivacyContext';
 import { useModal } from '../../../contexts/ModalContext';
 import { FinancialCalculatorInput } from '../../../components/forms/FinancialCalculatorInput';
+import { SelectOptionList } from '../../../components/ui/SelectOptionList';
+import { notifyFinancialDataChanged } from '../../../utils/appSyncEvents';
 import { businessDateInManaus } from '../../../utils/businessDate';
 
 type ReceiveMode = 'COMMON' | 'CLIENT';
@@ -18,6 +22,7 @@ const labelClass = 'block min-w-0 text-xs font-semibold text-slate-300';
 const today = () => businessDateInManaus();
 
 const OrdinaryReceipt: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+  const privacyHidden = useFinancialPrivacy();
   const { data, loading, error: loadError, refresh } = useWalletSnapshot();
   const [accountId, setAccountId] = useState('');
   const [amount, setAmount] = useState('');
@@ -42,10 +47,11 @@ const OrdinaryReceipt: React.FC<{ onClose: () => void }> = ({ onClose }) => {
       setError('');
       setSaving(true);
       await personalWalletService.recordAccountOperation(operation);
-      window.dispatchEvent(new Event('capitalflow:wallet-updated'));
+      notifyFinancialDataChanged({ wallet: true, capital: Boolean(selectedAccount?.capital_source_id) });
       try { await refresh(); } catch { /* The operation already committed; avoid retrying it. */ }
       onClose();
     } catch (cause) {
+      localDiagnostics.record('interface', cause);
       setError(cause instanceof Error ? cause.message : 'Não foi possível registrar o recebimento.');
       // Preserve request ID on failure; retries must be idempotent.
     } finally { setSaving(false); }
@@ -59,27 +65,44 @@ const OrdinaryReceipt: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   </p>;
   return <form id="wallet-quick-income-form" onSubmit={submit} className="space-y-4">
     <p className="text-xs leading-relaxed text-slate-300">Registre dinheiro que já entrou em uma conta. Esta operação não cobra clientes nem movimenta o banco de verdade.</p>
-    <label className={labelClass}>Conta que recebeu o valor
-      <select required className={inputClass} value={selectedAccount?.id || ''} onChange={e => setAccountId(e.target.value)}>
-        {accounts.map(account => <option key={account.id} value={account.id}>{account.nickname}</option>)}
-      </select>
-    </label>
-    <div className="grid gap-3 sm:grid-cols-2">
-      <label className={labelClass}>Valor recebido (R$)
+    <div className={labelClass}>
+      <span className="block">Conta que recebeu o valor</span>
+      <SelectOptionList
+        ariaLabel="Conta que recebeu o valor"
+        value={selectedAccount?.id || ''}
+        placeholder="Selecione a conta"
+        disabled={saving}
+        options={accounts.map((account) => ({
+          value: account.id,
+          label: account.nickname,
+          rightValue: formatMoney(Number(account.balance || 0), privacyHidden),
+        }))}
+        onChange={setAccountId}
+      />
+    </div>
+    <div className="grid grid-cols-2 gap-3">
+      <label className={`${labelClass} min-w-0`}>Valor recebido (R$)
         <FinancialCalculatorInput required autoComplete="off" placeholder="Ex.: 250,50"
           className={inputClass} value={amount} fieldLabel="valor recebido" onCommit={setAmount} disabled={saving}/>
       </label>
-      <label className={labelClass}>Data do recebimento
-        <input required type="date" max={today()} className={inputClass} value={date}
+      <label className={`${labelClass} min-w-0`}>Data
+        <input required type="date" max={today()} aria-label="Data do recebimento" className={inputClass} value={date}
           onChange={e => setDate(e.target.value)} disabled={saving}/>
       </label>
     </div>
-    <label className={labelClass}>Origem da receita
-      <select className={inputClass} value={category} onChange={e => setCategory(e.target.value)} disabled={saving}>
-        <option>Outras receitas</option><option>Salário</option><option>Venda</option>
-        <option>Serviços</option><option>Presente</option><option>Reembolso</option><option>Rendimentos</option>
-      </select>
-    </label>
+    <div className={labelClass}>
+      <span className="block">Origem da receita</span>
+      <SelectOptionList
+        ariaLabel="Origem da receita"
+        value={category}
+        disabled={saving}
+        options={['Outras receitas', 'Salário', 'Venda', 'Serviços', 'Presente', 'Reembolso', 'Rendimentos'].map((item) => ({
+          value: item,
+          label: item,
+        }))}
+        onChange={setCategory}
+      />
+    </div>
     <label className={labelClass}>Descrição
       <input required maxLength={240} className={inputClass} value={description}
         onChange={e => setDescription(e.target.value)} placeholder="Ex.: Pagamento de serviço" disabled={saving}/>
@@ -95,6 +118,7 @@ const OrdinaryReceipt: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 };
 
 const ClientReceipt: React.FC<{ onOpenPayment: () => void }> = ({ onOpenPayment }) => {
+  const privacyHidden = useFinancialPrivacy();
   const { clients, loans, ui, openModal, isLoadingData } = useModal();
   const [clientId, setClientId] = useState('');
   const [loanId, setLoanId] = useState('');
@@ -128,32 +152,50 @@ const ClientReceipt: React.FC<{ onOpenPayment: () => void }> = ({ onOpenPayment 
   };
   return <div className="space-y-4">
     <p className="text-xs leading-relaxed text-slate-300">O pagamento do contrato será processado pelo motor financeiro do CapitalFlow, com as opções originais de pagamento integral, parcial e encargos.</p>
-    <label className={labelClass}>Cliente
-      <select className={inputClass} value={clientId} onChange={e => {setClientId(e.target.value);setLoanId('');setInstallmentId('');setError('');}}>
-        <option value="">Selecione um cliente</option>
-        {availableClients.map(client => <option key={client.id} value={client.id}>{client.name}</option>)}
-      </select>
-    </label>
-    <label className={labelClass}>Contrato
-      <select className={inputClass} value={loanId} disabled={!clientId} onChange={e => {setLoanId(e.target.value);setInstallmentId('');setError('');}}>
-        <option value="">Selecione o contrato</option>
-        {selectedLoans.map(loan => <option key={loan.id} value={loan.id}>
-          {loan.debtorName} · {formatMoney(loan.principal)} de principal · {loan.billingCycle}
-        </option>)}
-      </select>
-    </label>
+    <div className={labelClass}>
+      <span className="block">Cliente</span>
+      <SelectOptionList
+        ariaLabel="Cliente"
+        value={clientId}
+        placeholder="Selecione um cliente"
+        options={availableClients.map((client) => ({ value: client.id, label: client.name }))}
+        onChange={(next) => { setClientId(next); setLoanId(''); setInstallmentId(''); setError(''); }}
+      />
+    </div>
+    <div className={labelClass}>
+      <span className="block">Contrato</span>
+      <SelectOptionList
+        ariaLabel="Contrato"
+        value={loanId}
+        disabled={!clientId}
+        placeholder="Selecione o contrato"
+        options={selectedLoans.map((loan) => ({
+          value: loan.id,
+          label: loan.debtorName,
+          subtitle: `Principal · ${loan.billingCycle}`,
+          rightValue: formatMoney(loan.principal, privacyHidden),
+        }))}
+        onChange={(next) => { setLoanId(next); setInstallmentId(''); setError(''); }}
+      />
+    </div>
     {hasAgreement ? <p role="status" className="rounded-lg border border-amber-800/60 bg-amber-950/20 p-3 text-xs leading-relaxed text-amber-200">
       Contrato com acordo ativo. Registre o pagamento na tela do contrato, pelo procedimento próprio do acordo; este atalho não faz uma baixa genérica.
-    </p> : <label className={labelClass}>Parcela em aberto
-      <select className={inputClass} value={installmentId} disabled={!loanId || !installments.length}
-        onChange={e => {setInstallmentId(e.target.value);setError('');}}>
-        <option value="">Selecione uma parcela</option>
-        {installments.map(inst => <option key={inst.id} value={inst.id}>
-          {inst.number ? 'Parcela ' + inst.number + ' · ' : ''}
-          {inst.dueDate} · base {formatMoney(Number(inst.amount || 0))}
-        </option>)}
-      </select>
-    </label>}
+    </p> : <div className={labelClass}>
+      <span className="block">Parcela em aberto</span>
+      <SelectOptionList
+        ariaLabel="Parcela em aberto"
+        value={installmentId}
+        disabled={!loanId || !installments.length}
+        placeholder="Selecione uma parcela"
+        options={installments.map((inst) => ({
+          value: inst.id,
+          label: inst.number ? `Parcela ${inst.number}` : 'Parcela em aberto',
+          subtitle: `Vencimento ${inst.dueDate}`,
+          rightValue: formatMoney(Number(inst.amount || 0), privacyHidden),
+        }))}
+        onChange={(next) => { setInstallmentId(next); setError(''); }}
+      />
+    </div>}
     {!availableClients.length && !isLoadingData && <p role="status" className="text-sm text-slate-300">Nenhum cliente com contrato disponível.</p>}
     {error && <p role="alert" className="rounded-lg border border-rose-800/60 bg-rose-950/30 p-3 text-xs text-rose-200">{error}</p>}
     <button type="button" onClick={open} disabled={!selected || isLoadingData}

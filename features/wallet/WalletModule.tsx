@@ -1,5 +1,8 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import { AppIcon } from '../../components/icons/AppIcons';
+import { LayoutGroup, motion } from 'framer-motion';
+import React, { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { AlertTriangle, CalendarClock, CreditCard, Landmark, LayoutDashboard, LockKeyhole, TrendingUp, WifiOff } from 'lucide-react';
+import { AccountsIcon, CardsIcon, OverviewIcon, PayablesIcon } from '../../components/wallet/WalletNavIcons';
 import { useLocation, useNavigate } from 'react-router-dom';
 import type { UserProfile } from '../../types';
 import { useWalletAccess } from './hooks/useWalletAccess';
@@ -19,11 +22,21 @@ const StateCard: React.FC<{ kind: 'inactive' | 'error'; message: string; onRetry
 </section>;
 
 const navigationIcons = { 'visao-geral': LayoutDashboard, cartoes: CreditCard, contas: Landmark, dividas: CalendarClock, receitas: TrendingUp, cobranca: Landmark, relatorio: LayoutDashboard, notificacoes: LayoutDashboard };
+const activeTabPillClass = 'pointer-events-none absolute inset-0 -z-10 rounded-lg bg-blue-600/20 ring-1 ring-inset ring-blue-500/50';
+const reducedMotionQuery = '(prefers-reduced-motion: reduce)';
+const readReducedMotion = () => window.matchMedia?.(reducedMotionQuery).matches ?? true;
+const subscribeReducedMotion = (notify: () => void) => {
+  const query = window.matchMedia?.(reducedMotionQuery);
+  query?.addEventListener?.('change', notify);
+  return () => query?.removeEventListener?.('change', notify);
+};
+const preferStaticOnServer = () => true;
 
 const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUser }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const access = useWalletAccess();
+  const reduceMotion = useSyncExternalStore(subscribeReducedMotion, readReducedMotion, preferStaticOnServer);
   const [offline, setOffline] = useState(() => typeof navigator !== 'undefined' && navigator.onLine === false);
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState(false);
@@ -31,7 +44,41 @@ const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUse
   // Sincronização permanece automática; o status não ocupa espaço no cabeçalho.
   useWalletRealtime(access.status === 'active' ? access.userId : null, invalidate);
   const route = getWalletRoute(location.pathname);
-  const go = useCallback((path: string) => navigate(`/carteira/${path}`), [navigate]);
+  // Abertura direta por cartão/conta deve preservar TODOS os níveis no histórico:
+  // Painel → Visão geral → seção → detalhe.
+  const go = useCallback((path: string) => {
+    const target = `/carteira/${path}`;
+    const directCard = path.startsWith('cartoes?card=');
+    const directAccount = path.startsWith('contas?conta=');
+    if (route === 'visao-geral' && (directCard || directAccount)) {
+      navigate(`/carteira/${directCard ? 'cartoes' : 'contas'}`, {
+        state: { walletSectionFromOverview: true },
+      });
+      navigate(target, { state: { walletDetailFromOverview: true } });
+      return;
+    }
+    navigate(target);
+  }, [navigate, route]);
+
+  // Na lista, o botão Voltar do Android sempre retorna à Visão geral:
+  // não reaproveitar uma rota de Painel que não é a tela anterior na Carteira.
+  const backFromWalletSection = useCallback(() => {
+    if (location.state?.walletSectionFromOverview && Number(window.history.state?.idx ?? 0) > 0) {
+      navigate(-1);
+    } else {
+      navigate('/carteira/visao-geral', { replace: true });
+    }
+  }, [location.state, navigate]);
+  useEffect(() => {
+    if ((route !== 'cartoes' && route !== 'contas') || location.search.includes('card=') ||
+      location.search.includes('conta=')) return;
+    const handleBack = (event: Event) => {
+      event.preventDefault();
+      backFromWalletSection();
+    };
+    window.addEventListener('capitalflow:back', handleBack);
+    return () => window.removeEventListener('capitalflow:back', handleBack);
+  }, [route, location.search, backFromWalletSection]);
   const prefetchWallet = useCallback(async (force: boolean) => {
     if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
     setSyncing(true);
@@ -72,16 +119,16 @@ const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUse
   if (access.status === 'inactive') return <StateCard kind="inactive" message="Ative a Carteira no seu plano para acessar contas, cartões, dívidas e cobranças PIX."/>;
   if (access.status === 'error') return <StateCard kind="error" message={access.message} onRetry={access.retry}/>;
 
-  return <main className="w-full pb-28">
+  return <main className="w-full pb-4">
     <div className="mb-3 w-full">
-      <PageHeader className="border-b-0 pb-0" icon={<CreditCard size={22}/>}
-        iconClassName="border-blue-500/30 bg-blue-600 text-white shadow-blue-950/30"
+      <PageHeader iconClassName="border-slate-700/70 bg-slate-900 shadow-black/30" className="border-b-0 pb-0" icon={<AppIcon name="wallet" size={28} />}
         title={<>Minha <span className="text-blue-500">Carteira</span></>}
         subtitle="Contas, cartões e compromissos"/>
     </div>
     <nav aria-label="Navegação da Carteira"
-      className="mb-4 grid w-full min-w-0 grid-cols-5 gap-1 rounded-xl border border-slate-800 bg-slate-900/70 p-1 sm:flex sm:flex-wrap sm:gap-1.5">
-      {WALLET_ROUTES.filter(item => item.key !== 'cobranca').map(item => {
+      className="mb-1.5 grid w-full min-w-0 grid-cols-4 items-center gap-0.5 rounded-xl border border-slate-800 bg-slate-900/70 p-0.5 sm:flex sm:flex-wrap sm:gap-1.5 sm:p-1">
+      <LayoutGroup>
+      {WALLET_ROUTES.filter(item => item.key !== 'cobranca' && item.key !== 'receitas').map(item => {
         const Icon = navigationIcons[item.key];
         const active = route === item.key;
         const mobileLabel = item.key === 'visao-geral' ? 'Geral'
@@ -92,18 +139,28 @@ const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUse
           <button key={item.key} type="button"
             aria-current={active ? 'page' : undefined}
             onClick={() => go(item.key)} aria-label={item.label}
-            className={`group flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-0.5 py-2 text-center transition-colors duration-150 active:scale-[0.98] sm:min-h-11 sm:flex-row sm:gap-2 sm:px-4 sm:py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-400 ${
+            className={`group relative isolate flex min-h-9 sm:min-h-11 min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg px-0.5 py-1 text-center sm:flex-row sm:gap-2 sm:px-4 sm:py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-400 ${
               active
-                ? 'bg-blue-600/20 text-blue-100 ring-1 ring-inset ring-blue-500/50'
+                ? 'text-blue-100'
                 : 'text-slate-300 hover:bg-slate-800 hover:text-white'
             }`}>
-            <Icon size={18} strokeWidth={active ? 2.2 : 1.9} aria-hidden="true"
-              className={active ? 'text-blue-300' : 'text-slate-400 group-hover:text-slate-200'}/>
+            {active && (reduceMotion
+              ? <span aria-hidden="true" className={activeTabPillClass} />
+              : <motion.span aria-hidden="true" layoutId="wallet-active-tab" layout="position"
+                  initial={false} className={activeTabPillClass}
+                  transition={{ type: 'spring', duration: 0.36, bounce: 0.15 }} />)}
+            {item.key === 'visao-geral' ? <OverviewIcon active={active}/>
+              : item.key === 'cartoes' ? <CardsIcon active={active}/>
+              : item.key === 'contas' ? <AccountsIcon active={active}/>
+              : item.key === 'dividas' ? <PayablesIcon active={active}/>
+              : <Icon size={15} strokeWidth={active ? 2.2 : 1.9} aria-hidden="true"
+                  className={active ? 'text-blue-300' : 'text-slate-400 group-hover:text-slate-200'}/>}
             <span className="whitespace-nowrap text-[10px] font-semibold leading-tight sm:hidden">{mobileLabel}</span>
             <span className="hidden whitespace-nowrap text-sm font-semibold sm:inline">{item.label}</span>
           </button>
         );
       })}
+      </LayoutGroup>
     </nav>
     <WalletBalanceDock />
     {offline && (

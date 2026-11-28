@@ -161,17 +161,26 @@ self.addEventListener('fetch', (event) => {
   // Hashes fingerprint each release: cache-first is safe only for immutable
   // chunks. Unversioned HTML, version.json and financial requests stay fresh.
   if (isImmutableBundleAsset(url.pathname)) {
-    event.respondWith(
-      caches.match(request).then(async cached => {
-        if (cached) return cached;
-        const response = await fetch(request);
-        if (response.ok) {
+    event.respondWith((async () => {
+      let cached = null;
+      try {
+        cached = await caches.match(request);
+      } catch {
+        // CacheStorage is an optimization; its failure must not block online pages.
+      }
+      if (cached) return cached;
+
+      const response = await fetch(request);
+      if (response.ok) {
+        try {
           const cache = await caches.open(CACHE_NAME);
           await cache.put(request, response.clone());
+        } catch {
+          // Quota or storage errors must not discard a successful network chunk.
         }
-        return response;
-      })
-    );
+      }
+      return response;
+    })());
     return;
   }
 

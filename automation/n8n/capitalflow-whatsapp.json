@@ -210,7 +210,7 @@
           "options": {}
         },
         "id": "mensagem-e-minha-if-node",
-        "name": "Mensagem Ã© minha?",
+        "name": "Mensagem é minha?",
         "type": "n8n-nodes-base.if",
         "typeVersion": 2,
         "position": [
@@ -454,7 +454,7 @@
           "options": {}
         },
         "id": "esta-aguardando-opcao-if-node",
-        "name": "EstÃ¡ aguardando opÃ§Ã£o?",
+        "name": "Está aguardando opção?",
         "type": "n8n-nodes-base.if",
         "typeVersion": 2,
         "position": [
@@ -489,7 +489,7 @@
                   "combinator": "and"
                 },
                 "renameOutput": true,
-                "outputKey": "OpÃ§Ã£o 1"
+                "outputKey": "Opção 1"
               },
               {
                 "conditions": {
@@ -513,7 +513,7 @@
                   "combinator": "and"
                 },
                 "renameOutput": true,
-                "outputKey": "OpÃ§Ã£o 2"
+                "outputKey": "Opção 2"
               },
               {
                 "conditions": {
@@ -537,7 +537,7 @@
                   "combinator": "and"
                 },
                 "renameOutput": true,
-                "outputKey": "OpÃ§Ã£o 3"
+                "outputKey": "Opção 3"
               },
               {
                 "conditions": {
@@ -561,7 +561,7 @@
                   "combinator": "and"
                 },
                 "renameOutput": true,
-                "outputKey": "OpÃ§Ã£o 4"
+                "outputKey": "Opção 4"
               }
             ]
           },
@@ -664,7 +664,7 @@
           "options": {}
         },
         "id": "possui-pendencia-if-node",
-        "name": "Possui pendÃªncia?",
+        "name": "Possui pendência?",
         "type": "n8n-nodes-base.if",
         "typeVersion": 2,
         "position": [
@@ -772,7 +772,7 @@
           "ttl": 1800
         },
         "id": "definir-estado-aguardando-opcao-node",
-        "name": "Definir Estado - Aguardando OpÃ§Ã£o",
+        "name": "Definir Estado - Aguardando Opção",
         "type": "n8n-nodes-base.redis",
         "typeVersion": 1,
         "position": [
@@ -837,7 +837,7 @@
         "main": [
           [
             {
-              "node": "Mensagem Ã© minha?",
+              "node": "Mensagem é minha?",
               "type": "main",
               "index": 0
             }
@@ -845,7 +845,7 @@
           []
         ]
       },
-      "Mensagem Ã© minha?": {
+      "Mensagem é minha?": {
         "main": [
           [
             { "node": "Saída para cliente?", "type": "main", "index": 0 }
@@ -938,14 +938,14 @@
         "main": [
           [
             {
-              "node": "EstÃ¡ aguardando opÃ§Ã£o?",
+              "node": "Está aguardando opção?",
               "type": "main",
               "index": 0
             }
           ]
         ]
       },
-      "EstÃ¡ aguardando opÃ§Ã£o?": {
+      "Está aguardando opção?": {
         "main": [
           [
             {
@@ -1017,7 +1017,7 @@
         "main": [
           [
             {
-              "node": "Possui pendÃªncia?",
+              "node": "Possui pendência?",
               "type": "main",
               "index": 0
             }
@@ -1025,7 +1025,7 @@
           []
         ]
       },
-      "Possui pendÃªncia?": {
+      "Possui pendência?": {
         "main": [
           [
             {
@@ -1059,7 +1059,7 @@
           []
         ]
       },
-      "Definir Estado - Aguardando OpÃ§Ã£o": {
+      "Definir Estado - Aguardando Opção": {
         "main": [
           [
             {

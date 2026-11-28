@@ -65,6 +65,7 @@ export const LoanCard: React.FC<LoanCardProps> = (props) => {
   else if (isCapitalOnlyRecovery) borderLeftColor = "border-l-rose-600";
   else if (hasActiveAgreement) borderLeftColor = "border-l-indigo-500";
   else if (isLate) borderLeftColor = "border-l-rose-500 cf-overdue-card-pulse";
+  else if (daysUntilDue <= 1) borderLeftColor = "border-l-amber-400 cf-due-soon-card-pulse";
   else if (daysUntilDue <= 3) borderLeftColor = "border-l-amber-500";
   else borderLeftColor = "border-l-blue-500";
 

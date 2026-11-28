@@ -1,212 +1,196 @@
-import { PrivateMoney } from '../../../contexts/FinancialPrivacyContext';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeftRight, Plus, QrCode, ReceiptText } from 'lucide-react';
-import { useSearchParams } from 'react-router-dom';
+import { History, Plus, Search } from 'lucide-react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import type { UserProfile } from '../../../types';
 import { AccountCardStack } from '../../../components/wallet/AccountCardStack';
 import { AccountDetailsPage } from '../../../components/wallet/AccountDetailsPage';
-import { formatMoney } from '../../../utils/formatters';
 import { useWalletSnapshot } from '../hooks/useWalletSnapshot';
 import { WalletPageFrame } from '../components/WalletPageFrame';
-import { AccountMovementModal } from '../../../components/wallet/AccountMovementModal';
-import { WalletPixCharge } from '../../../components/wallet/WalletPixCharge';
 import { CreateAccountModal } from '../../../components/wallet/CreateAccountModal';
-import QuickExpenseModal from '../components/QuickExpenseModal';
-import { WalletCapitalLinks } from '../components/WalletCapitalLinks';
-import { buildWalletBalanceFacts, describeWalletBalanceFact } from '../../../components/wallet/walletBalanceDomain';
-import { platformAdminService } from '../../../services/platformAdmin.service';
-import { CapitalSourceTransferModal } from '../components/CapitalSourceTransferModal';
-import { getMovableCapitalTotal } from '../domain/capitalSourceTransfer';
+import { buildAccountStatementEntries } from '../../../components/wallet/accountStatementDomain';
+import { formatMoney } from '../../../utils/formatters';
+import { PrivateMoney } from '../../../contexts/FinancialPrivacyContext';
+import { createFinancialSearchMatcher } from '../utils/financialSearch';
 
 export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onNavigate: (path: string) => void }> = ({ activeUser }) => {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const { data, loading, error, refresh } = useWalletSnapshot();
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [createModalType, setCreateModalType] = useState<'CHECKING' | 'CASH' | null>(null);
-  const [movementOpen, setMovementOpen] = useState(false);
-  const [expenseOpen, setExpenseOpen] = useState(false);
-  const [chargeOpen, setChargeOpen] = useState(false);
-  const [capitalTransferOpen, setCapitalTransferOpen] = useState(false);
-  const [canTransferCapital, setCanTransferCapital] = useState(false);
-  useEffect(() => {
-    let mounted = true;
-    setCanTransferCapital(false);
-    if (activeUser?.id) {
-      void platformAdminService.isSuperAdmin()
-        .then(allowed => { if (mounted) setCanTransferCapital(allowed); })
-        .catch(() => { if (mounted) setCanTransferCapital(false); });
-    }
-    return () => { mounted = false; };
-  }, [activeUser?.id]);
+    const [searchParams, setSearchParams] = useSearchParams();
+    const navigate = useNavigate();
+    const location = useLocation();
+    const { data, loading, error, refresh } = useWalletSnapshot();
+    const selectedId = searchParams.get('conta');
+    const openAccount = (id: string) => {
+        const next = new URLSearchParams(searchParams);
+        next.set('conta', id);
+        setSearchParams(next, { state: { walletAccountFromList: true } });
+    };
+    const closeAccount = () => {
+        // A seleção aberta a partir da lista possui entrada própria no histórico.
+        if (Number(window.history.state?.idx ?? 0) > 0 &&
+            (location.state?.walletDetailFromOverview || location.state?.walletAccountFromList)) {
+            navigate(-1);
+            return;
+        }
+        // Link direto ou navegação sem origem rastreada: retornar à aba Contas.
+        navigate('/carteira/contas', { replace: true });
+    };
+    useEffect(() => {
+        if (!selectedId) return;
+        const onBack = (event: Event) => { event.preventDefault(); closeAccount(); };
+        window.addEventListener('capitalflow:back', onBack);
+        return () => window.removeEventListener('capitalflow:back', onBack);
+    }, [selectedId, location.state, navigate, searchParams, setSearchParams]);
+    const [createModalType, setCreateModalType] = useState<'CHECKING' | 'CASH' | null>(null);
+    const [canTransferCapital, setCanTransferCapital] = useState(false);
+    const [statementSearch, setStatementSearch] = useState('');
+    const [showAllStatement, setShowAllStatement] = useState(false);
+    useEffect(() => {
+        setCanTransferCapital(Boolean(activeUser?.id && activeUser.id !== 'DEMO' && !activeUser?.supervisor_id));
+    }, [activeUser?.id, activeUser?.supervisor_id]);
 
-  const startCreate = (accountType: 'CHECKING' | 'CASH') => {
-    setCreateModalType(accountType);
-  };
+    const startCreate = (accountType: 'CHECKING' | 'CASH') => {
+        setCreateModalType(accountType);
+    };
 
-  useEffect(() => {
-    if (searchParams.get('acao') !== 'nova-conta') return;
-    startCreate('CHECKING');
-    const next = new URLSearchParams(searchParams);
-    next.delete('acao');
-    setSearchParams(next, { replace: true });
-  }, [searchParams, setSearchParams]);
+    useEffect(() => {
+        if (searchParams.get('acao') !== 'nova-conta') return;
+        startCreate('CHECKING');
+        const next = new URLSearchParams(searchParams);
+        next.delete('acao');
+        setSearchParams(next, { replace: true });
+    }, [searchParams, setSearchParams]);
 
-  const selected = data?.accounts.find(account => account.id === selectedId);
-  const totalBalance = data?.accounts.reduce((total, account) => total + Number(account.balance || 0), 0) || 0;
-  const hasPixAccount = Boolean(data?.accounts.some(account => account.pix_key?.trim()));
-  const capitalMovable = useMemo(() =>
-    getMovableCapitalTotal(data?.capitalSources || [], data?.accounts || []),
-    [data?.capitalSources, data?.accounts]);
-
-  const balanceFacts = useMemo(() => {
-    if (!data?.accounts) return null;
-    const effective = data.accounts.reduce((total, account) => total + Number(account.balance || 0), 0);
-    const activeAccountIds = new Set(data.accounts.map(account => account.id));
-    const accountStatementRows = (data.statementRows || []).filter(
-      row => row.target_kind === 'ACCOUNT' && activeAccountIds.has(row.target_id),
+    const selected = data?.accounts.find(account => account.id === selectedId);
+  const generalStatement = useMemo(() => {
+    if (!data?.accounts?.length) return [];
+    const merged = data.accounts.flatMap(account =>
+      buildAccountStatementEntries({
+        accountId: account.id,
+        accounts: data.accounts,
+        operations: data.accountOperations,
+        expenses: data.expenses,
+        invoicePayments: data.invoicePayments,
+        statementRows: data.statementRows,
+        cardFundedLoanIds: data.cardFundedLoanIds,
+      }).map(entry => ({
+        ...entry,
+        key: `${account.id}:${entry.id}`,
+        accountId: account.id,
+        accountNickname: account.nickname,
+      })),
     );
-    const imported = accountStatementRows.reduce((total, row) => total + Number(row.amount || 0), 0);
-    return buildWalletBalanceFacts({
-      effectiveBalance: effective,
-      reconciledBalance: effective,
-      importedBalance: accountStatementRows.length ? imported : null,
-    });
+    return merged.sort((a, b) => b.date.localeCompare(a.date));
   }, [data]);
 
-  return <WalletPageFrame title="Contas e PIX" description="Consulte os saldos e organize os movimentos de cada instituição."
-    error={error} loading={loading} onRefresh={() => { void refresh().catch(() => {}); }}>
-    {data && (selected ? <AccountDetailsPage account={selected} accounts={data.accounts} cards={data.cards} capitalSources={data.capitalSources}
-      expenses={data.expenses} installments={data.installments} invoicePayments={data.invoicePayments} accountOperations={data.accountOperations}
-      statementRows={data.statementRows} onBack={() => setSelectedId(null)} onSaved={async () => { await refresh(); }}
-      ownerName={activeUser?.fullName || activeUser?.name} ownerCity={activeUser?.city}/> : <>
-      {/* Composição mobile-first (1: Resumo no topo, 2: Contas em lista, 3: Ações abaixo) e desktop 8/4 equilibrado */}
-      <div className="grid min-w-0 items-start gap-4 lg:grid-cols-12">
-        {/* 1. Resumo no topo no celular / Lateral superior no desktop */}
-        <aside aria-label="Resumo e movimentações" className="order-1 min-w-0 rounded-xl border border-slate-800 bg-slate-900 p-4 sm:p-5 lg:order-2 lg:col-span-4">
-          <p className="text-sm font-semibold text-slate-300">Liquidez em contas</p>
-          <strong className={`mt-2 block break-words text-2xl font-bold tabular-nums tracking-tight ${totalBalance < 0 ? 'text-rose-300' : 'text-emerald-300'}`}>
-            <PrivateMoney value={formatMoney(totalBalance)} />
-          </strong>
-          {balanceFacts && (
-            <div className="mt-2 rounded-lg border border-slate-800 bg-slate-950/60 p-2 text-xs">
-              <div className="flex items-center justify-between text-[11px]">
-                <span className="text-slate-400">Origem:</span>
-                <span className="font-semibold text-emerald-300">{describeWalletBalanceFact(balanceFacts.effective)}</span>
-              </div>
-              <p className="mt-0.5 text-[10px] text-slate-400">
-                Saldo contábil efetivo reconciliado por instituição.
-              </p>
+  const statementSearchMatches=useMemo(()=>createFinancialSearchMatcher(statementSearch),[statementSearch]);
+  const filteredStatement=useMemo(()=>
+    generalStatement.filter(entry=>statementSearchMatches({
+      texts:[entry.label,entry.accountNickname,entry.category,entry.tag],
+      amounts:[entry.amount],
+      dates:[entry.date],
+    })),[generalStatement,statementSearchMatches]);
+
+  const visibleStatement = showAllStatement ? filteredStatement : filteredStatement.slice(0, 20);
+
+    return <WalletPageFrame error={error} loading={loading}>
+        {data && (selected ? <AccountDetailsPage account={selected} accounts={data.accounts} cards={data.cards} capitalSources={data.capitalSources}
+            expenses={data.expenses} installments={data.installments} invoicePayments={data.invoicePayments} accountOperations={data.accountOperations}
+            statementRows={data.statementRows} cardFundedLoanIds={data.cardFundedLoanIds} recurringIncomes={data.recurringIncomes} recurringReceipts={data.recurringReceipts}
+            recurringObligations={data.recurringObligations} pendingOperations={data.pendingOperations} onBack={closeAccount} onSaved={async () => { await refresh(); }}
+            ownerName={activeUser?.fullName || activeUser?.name} ownerCity={activeUser?.city}
+            canTransferCapital={canTransferCapital} profileId={activeUser?.profile_id || activeUser?.id}
+            onCreateAccount={() => startCreate('CHECKING')} /> : <>
+            <div className="min-w-0 space-y-2.5">
+                <div className="min-w-0 rounded-xl border border-slate-800 bg-slate-900 p-3 sm:p-4">
+                    <AccountCardStack
+                        accounts={data.accounts}
+                        showTotal={false}
+                        onOpen={account => openAccount(account.id)}
+                    />
+                    {!data.accounts.length && (
+                        <div className="mt-3 flex justify-center">
+                            <button
+                                type="button"
+                                onClick={() => startCreate('CHECKING')}
+                                className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-500"
+                            >
+                                <Plus size={15} /> Nova conta
+                            </button>
+                        </div>
+                    )}
+                </div>
+
+                {data.accounts.length > 0 && (
+                    <section aria-label="Extrato geral das contas" className="min-w-0 space-y-2.5 rounded-xl border border-slate-800 bg-slate-900 p-3 sm:p-4">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                            <h2 className="flex items-center gap-2 text-sm sm:text-base font-bold text-white">
+                                <History size={16} className="text-cyan-400" /> Extrato geral das contas
+                            </h2>
+                            <span className="rounded-lg border border-slate-700 bg-slate-950 px-2 py-0.5 text-[11px] font-semibold text-slate-300">
+                                {filteredStatement.length}
+                            </span>
+                        </div>
+                        <div className="flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-950 px-2.5">
+                            <Search size={14} className="shrink-0 text-slate-500" />
+                            <input
+                                type="search"
+                                aria-label="Buscar no extrato geral"
+                                placeholder="Buscar conta, valor, descrição, data ou categoria"
+                                value={statementSearch}
+                                onChange={event => setStatementSearch(event.target.value)}
+                                className="w-full bg-transparent py-2 text-xs text-white outline-none placeholder:text-slate-500"
+                            />
+                        </div>
+                        {filteredStatement.length === 0 ? (
+                            <p className="rounded-lg border border-dashed border-slate-800 px-3 py-4 text-center text-xs text-slate-400">
+                                {generalStatement.length ? 'Nenhuma movimentação corresponde à busca.' : 'Nenhuma movimentação encontrada nas contas.'}
+                            </p>
+                        ) : (
+                            <>
+                                <div className="divide-y divide-slate-800/80">
+                                    {visibleStatement.map(entry => (
+                                        <button
+                                            key={entry.key}
+                                            type="button"
+                                            onClick={() => openAccount(entry.accountId)}
+                                            className="flex w-full min-w-0 items-center justify-between gap-2.5 rounded-lg px-1 py-2 text-left transition-colors hover:bg-slate-800/40"
+                                        >
+                                            <div className="min-w-0 flex-1">
+                                                <p className="truncate text-xs sm:text-sm font-semibold text-white">{entry.label}</p>
+                                                <p className="mt-0.5 truncate text-[11px] text-slate-400">
+                                                    {entry.accountNickname} · {entry.date.slice(0, 10).split('-').reverse().join('/')} · {entry.category}
+                                                </p>
+                                            </div>
+                                            <strong className={`shrink-0 text-xs sm:text-sm font-bold tabular-nums ${entry.amount >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>
+                                                {entry.amount >= 0 ? '+' : '−'}<PrivateMoney value={formatMoney(Math.abs(entry.amount))} />
+                                            </strong>
+                                        </button>
+                                    ))}
+                                </div>
+                                {filteredStatement.length > 20 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowAllStatement(current => !current)}
+                                        className="w-full rounded-lg border border-slate-800 bg-slate-950/70 py-2 text-xs font-semibold text-blue-300 hover:bg-slate-800"
+                                    >
+                                        {showAllStatement ? 'Mostrar menos' : `Ver todos (${filteredStatement.length})`}
+                                    </button>
+                                )}
+                            </>
+                        )}
+                    </section>
+                )}
             </div>
-          )}
-          <p className="mt-1.5 text-xs sm:text-sm text-slate-300">
-            {data.accounts.length} {data.accounts.length === 1 ? 'conta registrada' : 'contas registradas'}
-          </p>
-
-          {canTransferCapital && (
-            <div className="mt-4 rounded-lg border border-blue-500/20 bg-blue-950/20 p-3">
-              <p className="text-xs font-medium text-slate-300">Capital transferível das fontes</p>
-              <strong className="mt-1 block text-xl font-bold tabular-nums text-emerald-300">
-                <PrivateMoney value={formatMoney(capitalMovable)} />
-              </strong>
-              <p className="mt-1 text-xs text-slate-400">Saldo contábil, sem limite de cartões nem contas espelho. Não é saldo bancário.</p>
-            </div>
-          )}
-          {/* No desktop, as ações ficam integradas ao card lateral de resumo para evitar botões soltos e espaço vazio */}
-          <div className="mt-5 hidden space-y-2.5 border-t border-slate-800 pt-4 lg:block">
-            <button type="button" onClick={() => setMovementOpen(true)} disabled={!data.accounts.length}
-              className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-500 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-40">
-              <ArrowLeftRight size={17}/> Transferir / Movimentar
-            </button>
-            {canTransferCapital && <button type="button" onClick={() => setCapitalTransferOpen(true)} disabled={capitalMovable <= 0}
-              className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-blue-500/40 bg-blue-950/40 px-4 py-2.5 text-sm font-semibold text-blue-200 transition-colors hover:bg-blue-900/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-40">
-              <ArrowLeftRight size={17}/> Transferir do Capital
-            </button>}
-            <button type="button" onClick={() => setChargeOpen(true)} disabled={!hasPixAccount}
-              className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-950/70 px-4 py-2.5 text-sm font-semibold text-slate-200 transition-colors hover:bg-slate-800 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-40">
-              <QrCode size={16} className="text-blue-300"/> Gerar cobrança PIX
-            </button>
-          </div>
-        </aside>
-
-        {/* 2. Lista de contas (maior largura no desktop lg:col-span-8, meio no celular) com "Nova conta" junto ao título */}
-        <div className="order-2 min-w-0 rounded-xl border border-slate-800 bg-slate-900 p-4 sm:p-5 lg:order-1 lg:col-span-8 lg:row-span-2">
-          <AccountCardStack
-            accounts={data.accounts}
-            onOpen={account => setSelectedId(account.id)}
-            headerActions={
-              <>
-                <button type="button" onClick={() => setExpenseOpen(true)} disabled={!data.accounts.length}
-                  className="inline-flex min-h-9 max-w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-rose-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 disabled:cursor-not-allowed disabled:opacity-40">
-                  <ReceiptText size={16}/> Registrar despesa
-                </button>
-                <button
-                  type="button"
-                  onClick={() => startCreate('CHECKING')}
-                  className="inline-flex min-h-9 max-w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                >
-                  <Plus size={16} />
-                  <span>Nova conta</span>
-                </button>
-              </>
-            }
-          />
-        </div>
-
-        {/* 3. Ações abaixo da lista no celular + Integração com Capital na coluna lateral */}
-        <div className="order-3 min-w-0 space-y-4 lg:order-3 lg:col-span-4">
-          <div className="grid gap-2.5 rounded-xl border border-slate-800 bg-slate-900 p-4 sm:grid-cols-2 lg:hidden">
-            <button type="button" onClick={() => setMovementOpen(true)} disabled={!data.accounts.length}
-              className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-500 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-40">
-              <ArrowLeftRight size={18}/> Transferir / Movimentar
-            </button>
-            {canTransferCapital && <button type="button" onClick={() => setCapitalTransferOpen(true)} disabled={capitalMovable <= 0}
-              className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-blue-500/40 bg-blue-950/30 px-4 py-3 text-sm font-semibold text-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-40">
-              <ArrowLeftRight size={18}/> Transferir do Capital
-            </button>}
-            <button type="button" onClick={() => setChargeOpen(true)} disabled={!hasPixAccount}
-              className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm font-semibold text-slate-200 transition-colors hover:bg-slate-800 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-40">
-              <QrCode size={17} className="text-blue-300"/> Gerar cobrança PIX
-            </button>
-          </div>
-          <WalletCapitalLinks
-            accounts={data.accounts}
-            sources={data.capitalSources}
-            canManage={!!activeUser && !activeUser.supervisor_id && activeUser.id !== 'DEMO'}
-            onSaved={refresh}
-          />
-        </div>
-      </div>
-      {createModalType && (
-        <CreateAccountModal
-          activeUser={activeUser}
-          capitalSources={data.capitalSources || []}
-          existingAccounts={data.accounts}
-          existingCards={data.cards}
-          initialAccountType={createModalType}
-          onClose={() => setCreateModalType(null)}
-          onSaved={async () => { await refresh(); }}
-        />
-      )}
-      {expenseOpen && <QuickExpenseModal
-        accounts={data.accounts}
-        cards={data.cards}
-        initialMode="ACCOUNT"
-        initialAccountId={data.accounts.length === 1 ? data.accounts[0].id : null}
-        requireExplicitDestination={data.accounts.length !== 1}
-        onClose={() => setExpenseOpen(false)}
-        onSaved={async () => { await refresh(); }}
-      />}
-      {capitalTransferOpen && activeUser && <CapitalSourceTransferModal
-        profileId={activeUser.profile_id || activeUser.id}
-        sources={data.capitalSources || []} accounts={data.accounts}
-        onClose={() => setCapitalTransferOpen(false)}
-        onSaved={refresh}
-      />}
-      {movementOpen && <AccountMovementModal accounts={data.accounts} cards={data.cards}
-        expenses={data.expenses} installments={data.installments}
-        onClose={() => setMovementOpen(false)} onSaved={async () => { await refresh(); }}/>}
-      {chargeOpen && <WalletPixCharge embedded accounts={data.accounts} recipient={activeUser?.fullName || activeUser?.name || ''}
-        city={activeUser?.city} onClose={() => setChargeOpen(false)} onSaved={async () => { await refresh(); }}/>}
-    </>)}
-  </WalletPageFrame>;
+        </>)}
+        {data && createModalType && (
+            <CreateAccountModal
+                activeUser={activeUser}
+                capitalSources={data.capitalSources || []}
+                existingAccounts={data.accounts}
+                existingCards={data.cards}
+                initialAccountType={createModalType}
+                onClose={() => setCreateModalType(null)}
+                onSaved={async () => { await refresh(); }}
+            />
+        )}
+    </WalletPageFrame>;
 };

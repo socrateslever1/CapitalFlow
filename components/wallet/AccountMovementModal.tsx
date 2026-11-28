@@ -10,6 +10,8 @@ import {
 import { formatMoney } from '../../utils/formatters';
 import { generateUUID } from '../../utils/generators';
 import { Modal } from '../ui/Modal';
+import { SelectOptionList } from '../ui/SelectOptionList';
+import { notifyFinancialDataChanged } from '../../utils/appSyncEvents';
 import { buildOpenInvoiceOptions } from './accountStatementDomain';
 import { parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
 import { getQuickDateTag, resolveQuickDateShortcuts } from '../../features/wallet/utils/minhasFinancasWalletTools';
@@ -117,6 +119,7 @@ export const AccountMovementModal: React.FC<Props> = ({
         );
         setSuccess('Pagamento da fatura registrado e limite atualizado.');
       }
+      notifyFinancialDataChanged({ wallet: true, capital: true });
       await onSaved();
       resetRequest();
       setAmount(''); setDescription('');
@@ -128,14 +131,23 @@ export const AccountMovementModal: React.FC<Props> = ({
   };
 
   const accountSelect = (label: string, value: string, onChange: (value: string) => void, exclude?: string) => (
-    <label className={labelClass}>{label}
-      <select required className={inputClass} value={value} onChange={event => onChange(event.target.value)}>
-        <option value="">Selecione uma conta</option>
-        {accounts.filter(account => account.id !== exclude).map(account => (
-          <option key={account.id} value={account.id}>{account.nickname} — saldo {formatMoney(Number(account.balance))}</option>
-        ))}
-      </select>
-    </label>
+    <div className={labelClass}>
+      <span className="block">{label}</span>
+      <SelectOptionList
+        ariaLabel={label}
+        value={value}
+        placeholder="Selecione uma conta"
+        options={accounts
+          .filter(account => account.id !== exclude)
+          .map(account => ({
+            value: account.id,
+            label: account.nickname,
+            subtitle: 'Saldo disponível',
+            rightValue: formatMoney(Number(account.balance)),
+          }))}
+        onChange={onChange}
+      />
+    </div>
   );
 
   return <Modal onClose={onClose} title="Transferir / Movimentar" subtitle="Operações atômicas e rastreáveis" icon={<ArrowLeftRight size={18}/>} size="lg" busy={saving}>
@@ -156,38 +168,40 @@ export const AccountMovementModal: React.FC<Props> = ({
         <div className="grid gap-3 sm:grid-cols-2">
           {accountSelect('De qual conta sai?', sourceId, value => { setSourceId(value); if (value === destinationId) setDestinationId(''); }, destinationId)}
           {accountSelect('Para qual conta vai?', destinationId, setDestinationId, sourceId)}
-          <label className={labelClass}>Valor
-            <FinancialCalculatorInput required className={inputClass} value={amount} onCommit={setAmount} fieldLabel="valor da transferência" placeholder="0,00"/>
-          </label>
-          <div className="space-y-1">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs font-semibold text-slate-300">Data</span>
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => setDate(dateShortcuts.today)}
-                  className={`rounded-md border px-2 py-0.5 text-[10px] font-bold transition ${
-                    activeDateTag === 'TODAY'
-                      ? 'border-emerald-500/60 bg-emerald-500/15 text-emerald-200'
-                      : 'border-slate-700 bg-slate-950 text-slate-400 hover:border-slate-600'
-                  }`}
-                >
-                  Hoje
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDate(dateShortcuts.yesterday)}
-                  className={`rounded-md border px-2 py-0.5 text-[10px] font-bold transition ${
-                    activeDateTag === 'YESTERDAY'
-                      ? 'border-emerald-500/60 bg-emerald-500/15 text-emerald-200'
-                      : 'border-slate-700 bg-slate-950 text-slate-400 hover:border-slate-600'
-                  }`}
-                >
-                  Ontem
-                </button>
+          <div className="grid grid-cols-2 gap-3 sm:col-span-2">
+            <label className={`${labelClass} min-w-0`}>Valor
+              <FinancialCalculatorInput required className={inputClass} value={amount} onCommit={setAmount} fieldLabel="valor da transferência" placeholder="0,00"/>
+            </label>
+            <div className="min-w-0 space-y-1">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-semibold text-slate-300">Data</span>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setDate(dateShortcuts.today)}
+                    className={`rounded-md border px-2 py-0.5 text-[10px] font-bold transition ${
+                      activeDateTag === 'TODAY'
+                        ? 'border-emerald-500/60 bg-emerald-500/15 text-emerald-200'
+                        : 'border-slate-700 bg-slate-950 text-slate-400 hover:border-slate-600'
+                    }`}
+                  >
+                    Hoje
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDate(dateShortcuts.yesterday)}
+                    className={`rounded-md border px-2 py-0.5 text-[10px] font-bold transition ${
+                      activeDateTag === 'YESTERDAY'
+                        ? 'border-emerald-500/60 bg-emerald-500/15 text-emerald-200'
+                        : 'border-slate-700 bg-slate-950 text-slate-400 hover:border-slate-600'
+                    }`}
+                  >
+                    Ontem
+                  </button>
+                </div>
               </div>
+              <input required type="date" max={today()} className={inputClass} value={date} onChange={event => setDate(event.target.value)}/>
             </div>
-            <input required type="date" max={today()} className={inputClass} value={date} onChange={event => setDate(event.target.value)}/>
           </div>
           <label className={`${labelClass} sm:col-span-2`}>Descrição
             <input required maxLength={240} className={inputClass} value={description} onChange={event => setDescription(event.target.value)} placeholder="Ex.: Reserva para outra conta"/>
@@ -224,14 +238,22 @@ export const AccountMovementModal: React.FC<Props> = ({
         <p className="rounded-lg border border-emerald-800/50 bg-emerald-950/20 p-3 text-xs text-emerald-200">O saldo da conta, a fatura, o limite utilizado e o extrato são atualizados na mesma transação.</p>
         <div className="grid gap-3 sm:grid-cols-2">
           {accountSelect('Debitar da conta', sourceId, setSourceId)}
-          <label className={labelClass}>Cartão e fatura em aberto
-            <select required className={inputClass} value={invoiceKey} onChange={event => setInvoiceKey(event.target.value)}>
-              <option value="">Selecione uma fatura</option>
-              {invoiceOptions.map(option => <option key={`${option.cardId}:${option.dueMonth}`} value={`${option.cardId}|${option.dueMonth}`}>
-                {option.cardName} — {new Date(`${option.dueMonth}T12:00:00`).toLocaleDateString('pt-BR', { month: '2-digit', year: 'numeric' })} — {formatMoney(option.openAmount)}
-              </option>)}
-            </select>
-          </label>
+          <div className={labelClass}>
+            <span className="block">Cartão e fatura em aberto</span>
+            <SelectOptionList
+              ariaLabel="Cartão e fatura em aberto"
+              value={invoiceKey}
+              placeholder="Selecione uma fatura"
+              options={invoiceOptions.map(option => ({
+                value: `${option.cardId}|${option.dueMonth}`,
+                label: option.cardName,
+                subtitle: `Fatura ${new Date(`${option.dueMonth}T12:00:00`).toLocaleDateString('pt-BR', { month: '2-digit', year: 'numeric' })}`,
+                rightValue: formatMoney(option.openAmount),
+                icon: <CreditCard size={15} className="text-blue-300" />,
+              }))}
+              onChange={setInvoiceKey}
+            />
+          </div>
           <label className={`${labelClass} sm:col-span-2`}>Valor a abater
             <FinancialCalculatorInput required className={inputClass} value={amount} onCommit={setAmount} fieldLabel="valor da fatura" placeholder="0,00"/>
           </label>

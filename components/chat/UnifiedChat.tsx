@@ -5,7 +5,8 @@ import { ChatAdapter, ChatRole } from './chatAdapter';
 import { useUnifiedChat } from './useUnifiedChat';
 import { ChatMessages } from '../../features/support/components/ChatMessages';
 import { ChatInput } from '../../features/support/components/ChatInput';
-import { Loader2, MessageCircle, ShieldCheck, Lock, Unlock, Trash2, ChevronLeft } from 'lucide-react';
+import { Loader2, Lock, Unlock, Trash2, ChevronLeft } from 'lucide-react';
+import { MessageCircle, ShieldCheck } from '../../components/icons/brandIcons';
 import { useModal } from '../../contexts/ModalContext';
 
 export interface UnifiedChatProps<TContext> {

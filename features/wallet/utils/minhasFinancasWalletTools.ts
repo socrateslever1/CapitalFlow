@@ -1,4 +1,4 @@
-import { getInvoiceCycleDates, resolveInvoiceCycleState, type InvoiceCycleState } from '../../../components/wallet/invoiceStatementDomain';
+import { getInvoiceCycleDates, getPurchaseInvoiceMonth, resolveInvoiceCycleState, type CardCycleSource, type InvoiceCycleState } from '../../../components/wallet/invoiceStatementDomain';
 import type { PersonalWalletExpense, PersonalWalletExpenseInstallment } from '../../../services/personalWallet.service';
 import { formatInstallmentBadgeLabel } from './cardInstallmentPlan';
 import { businessDateInManaus } from '../../../utils/businessDate';
@@ -93,14 +93,19 @@ export function resolveInvoiceMonthSelection(
   }
 
   const currentMonth = normalize(referenceDate);
+  const preferredNormalized = normalize(preferredMonth);
+  const anchorMonth =
+    preferredNormalized && currentMonth
+      ? (preferredNormalized >= currentMonth ? preferredNormalized : currentMonth)
+      : preferredNormalized || currentMonth;
   const sorted = [...cycles].sort((a, b) => a.dueMonth.localeCompare(b.dueMonth));
   const openCycles = sorted.filter(cycle => cycle.amount > 0);
-  const currentDue = openCycles.find(cycle => cycle.dueMonth === currentMonth);
-  const recentDue = openCycles.filter(cycle => currentMonth && cycle.dueMonth <= currentMonth).at(-1);
-  const upcomingDue = openCycles.find(cycle => currentMonth && cycle.dueMonth > currentMonth);
-  const calendarCycle = sorted.find(cycle => cycle.dueMonth === currentMonth);
-  return (currentDue || recentDue || upcomingDue || calendarCycle ||
-    sorted.filter(cycle => currentMonth && cycle.dueMonth <= currentMonth).at(-1) ||
+  const currentDue = openCycles.find(cycle => cycle.dueMonth === anchorMonth || cycle.dueMonth === currentMonth);
+  const upcomingDue = openCycles.find(cycle => anchorMonth && cycle.dueMonth > anchorMonth);
+  const recentDue = openCycles.filter(cycle => anchorMonth && cycle.dueMonth <= anchorMonth).at(-1);
+  const calendarCycle = sorted.find(cycle => cycle.dueMonth === anchorMonth || cycle.dueMonth === currentMonth);
+  return (currentDue || upcomingDue || recentDue || calendarCycle ||
+    sorted.filter(cycle => anchorMonth && cycle.dueMonth <= anchorMonth).at(-1) ||
     sorted[0]).dueMonth;
 }
 
@@ -129,6 +134,8 @@ export function describeCardCycleDates(input: {
   dueDay: number | null;
   exactDueDate?: string | null;
   todayIso?: string;
+  /** Regras de ciclo do cartão (fechamento dinâmico, dia útil, fechamento do mês). */
+  card?: CardCycleSource | null;
 }): CardCycleDateInsights {
   const today = resolveQuickDateShortcuts(input.todayIso).today;
   const dates = getInvoiceCycleDates(
@@ -136,6 +143,7 @@ export function describeCardCycleDates(input: {
     input.closingDay,
     input.dueDay,
     input.exactDueDate,
+    input.card,
   );
   const closingDateFormatted = dates.closingDate.split('-').reverse().join('/');
   const dueDateFormatted = dates.dueDate.split('-').reverse().join('/');
@@ -178,6 +186,11 @@ export interface ClosedOrPaidInvoiceWarning {
   shouldWarn: boolean;
   state: InvoiceCycleState;
   stateLabel: string;
+  closingDate: string;
+  /** Último dia de compra que ainda entra nesta fatura (véspera do fechamento). */
+  lastPurchaseDate: string;
+  isDateAfterClosing: boolean;
+  shortMessage: string;
   message: string;
   nextOpenDueMonth: string;
   nextOpenMonthInput: string;
@@ -188,20 +201,27 @@ export function checkClosedOrPaidInvoiceWarning(input: {
   dueMonth: string;
   closingDay: number | null;
   dueDay: number | null;
+  expenseDate?: string;
   outstanding?: number;
   paid?: boolean;
   todayIso?: string;
+  card?: CardCycleSource | null;
 }): ClosedOrPaidInvoiceWarning {
   const normalizedMonth = `${input.dueMonth.slice(0, 7)}-01`;
   const today = resolveQuickDateShortcuts(input.todayIso).today;
-  const dates = getInvoiceCycleDates(normalizedMonth, input.closingDay, input.dueDay);
+  const dates = getInvoiceCycleDates(normalizedMonth, input.closingDay, input.dueDay, null, input.card);
+  const closingShort = `${dates.closingDate.slice(8, 10)}/${dates.closingDate.slice(5, 7)}`;
+  // Fechamento exclusivo: compra no dia do fechamento já vai para a fatura seguinte.
+  const lastPurchaseDate = new Date(Date.parse(dates.closingDate + 'T00:00:00Z') - 86_400_000).toISOString().slice(0, 10);
+  const lastShort = `${lastPurchaseDate.slice(8, 10)}/${lastPurchaseDate.slice(5, 7)}`;
 
   let state: InvoiceCycleState = 'OPEN';
   if (input.paid) {
     state = 'PAID';
   } else if (today > dates.dueDate) {
     state = (input.outstanding ?? 1) <= 0 ? 'PAID' : 'OVERDUE';
-  } else if (today > dates.closingDate) {
+  } else if (today >= dates.closingDate) {
+    // Fechamento exclusivo: no dia do fechamento a fatura já fechou.
     state = 'CLOSED';
   } else {
     state = resolveInvoiceCycleState({
@@ -212,15 +232,29 @@ export function checkClosedOrPaidInvoiceWarning(input: {
       hasCycle: true,
       paid: input.paid,
       today,
+      card: input.card,
     });
   }
 
-  const next = stepInvoiceMonth(normalizedMonth, 1);
-  if (state === 'OPEN') {
+  const steppedNext = stepInvoiceMonth(normalizedMonth, 1);
+  const currentOpenDueMonth = getPurchaseInvoiceMonth(today, input.closingDay, input.dueDay, input.card);
+  const next = currentOpenDueMonth > steppedNext.dueMonthIso
+    ? stepInvoiceMonth(currentOpenDueMonth, 0)
+    : steppedNext;
+  const isDateAfterClosing = Boolean(
+    input.expenseDate &&
+      /^\d{4}-\d{2}-\d{2}$/.test(input.expenseDate) &&
+      input.expenseDate >= dates.closingDate,
+  );
+  if (state === 'OPEN' && !isDateAfterClosing) {
     return {
       shouldWarn: false,
       state,
       stateLabel: 'Aberta',
+      closingDate: dates.closingDate,
+      lastPurchaseDate,
+      isDateAfterClosing: false,
+      shortMessage: '',
       message: '',
       nextOpenDueMonth: next.dueMonthIso,
       nextOpenMonthInput: next.monthInputValue,
@@ -230,16 +264,24 @@ export function checkClosedOrPaidInvoiceWarning(input: {
 
   const stateLabel =
     state === 'PAID' ? 'Paga' : state === 'OVERDUE' ? 'Vencida' : 'Fechada';
-  const closingFormatted = dates.closingDate.split('-').reverse().join('/');
+  const shortMessage = isDateAfterClosing
+    ? `Data no fechamento ou depois (${closingShort}). Use até ${lastShort} ou mude de fatura.`
+    : `Fatura ${stateLabel.toLowerCase()} · aceita compras até ${lastShort}.`;
   const message =
     state === 'PAID'
-      ? `Esta fatura já consta como paga. Deseja manter o lançamento nela ou mover para ${next.label}?`
-      : `Esta fatura fechou em ${closingFormatted} (${stateLabel.toLowerCase()}). Compras novas costumam entrar na fatura de ${next.label}.`;
+      ? 'A fatura selecionada já está paga. Se esta compra é antiga, mantenha este ciclo; para uma compra nova, selecione a próxima fatura.'
+      : state === 'OVERDUE'
+        ? 'A fatura selecionada já venceu. Se esta compra é antiga, mantenha este ciclo; para uma compra nova, selecione a próxima fatura.'
+        : 'A fatura selecionada já fechou. Se esta compra é antiga, mantenha este ciclo; para uma compra nova, selecione a próxima fatura.';
 
   return {
     shouldWarn: true,
     state,
     stateLabel,
+    closingDate: dates.closingDate,
+    lastPurchaseDate,
+    isDateAfterClosing,
+    shortMessage,
     message,
     nextOpenDueMonth: next.dueMonthIso,
     nextOpenMonthInput: next.monthInputValue,
@@ -337,8 +379,9 @@ export function calculateInstallmentAdvancement(input: {
   const keptActiveInstallments = expenseInstallments.filter(
     (inst) => inst.due_month.slice(0, 10) <= normalizedCurrent,
   );
+  // Mesma regra do servidor: só parcelas futuras sem nenhum pagamento podem ser antecipadas.
   const futureInstallments = expenseInstallments.filter(
-    (inst) => inst.due_month.slice(0, 10) > normalizedCurrent,
+    (inst) => inst.due_month.slice(0, 10) > normalizedCurrent && Number(inst.paid_amount || 0) === 0,
   );
 
   const safeCount = Math.min(

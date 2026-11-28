@@ -11,6 +11,7 @@ import {
   saveWalletOfflineOverview,
 } from './walletOfflineStore';
 import { WalletSnapshotCache } from './walletSnapshotCache';
+import { nowMs, recordWalletLoadSample } from './walletLoadingMetrics';
 
 export type WalletSnapshot = Awaited<ReturnType<typeof personalWalletService.load>>;
 export type WalletOverviewSnapshot = Awaited<ReturnType<typeof personalWalletService.loadOverview>>;
@@ -22,6 +23,8 @@ let initializedUser: string | null = null;
 let initialization: Promise<void> | null = null;
 let prefetchedUser: string | null = null;
 let prefetchInFlight: Promise<boolean> | null = null;
+let lastResolvedUserId: string | null = null;
+let lastVerifiedAccess: { userId: string; active: boolean; settings: Record<string, unknown> } | null = null;
 
 function isBrowserOffline(): boolean {
   return typeof navigator !== 'undefined' && navigator.onLine === false;
@@ -76,12 +79,30 @@ async function resolveSessionUserId(): Promise<string> {
     initializedUser = null;
     initialization = null;
     prefetchedUser = null;
+    lastResolvedUserId = null;
+    lastVerifiedAccess = null;
     throw new Error('Sessão não encontrada. Entre novamente para abrir a Carteira.');
   }
+  lastResolvedUserId = userId;
   return userId;
 }
 
 export const walletRepository = {
+  peekSyncAccess(): { userId: string; active: boolean; settings: Record<string, unknown> } | null {
+    if (!lastResolvedUserId || !lastVerifiedAccess || lastVerifiedAccess.userId !== lastResolvedUserId) return null;
+    return lastVerifiedAccess.active ? lastVerifiedAccess : null;
+  },
+  peekSyncFull(): WalletSnapshot | null {
+    if (!lastResolvedUserId) return null;
+    return snapshotCache.peekLast(lastResolvedUserId);
+  },
+  peekSyncOverview(): WalletOverviewSnapshot | null {
+    if (!lastResolvedUserId) return null;
+    const overview = overviewCache.peekLast(lastResolvedUserId);
+    if (overview) return overview;
+    const full = snapshotCache.peekLast(lastResolvedUserId);
+    return full ? deriveOverviewFromSnapshot(full) : null;
+  },
   async peekCachedFull(): Promise<WalletSnapshot | null> {
     try {
       const userId = await resolveSessionUserId();
@@ -116,15 +137,24 @@ export const walletRepository = {
     return prefetchInFlight;
   },
   async load(options: { force?: boolean; requireFresh?: boolean } = {}): Promise<WalletSnapshot> {
+    const startedAt = nowMs();
     // Session identity is read before handing out cached financial data.
     const userId = await resolveSessionUserId();
     if (isBrowserOffline()) {
       const offlineSnapshot = snapshotCache.peek(userId) || await loadWalletOfflineFull(userId);
       if (offlineSnapshot) {
         snapshotCache.prime(userId, offlineSnapshot);
+        recordWalletLoadSample({ target: 'snapshot', source: 'offline', durationMs: nowMs() - startedAt });
         return offlineSnapshot;
       }
       throw new Error('Sem internet e sem dados da Carteira salvos neste aparelho.');
+    }
+    if (!options.force) {
+      const cached = snapshotCache.peek(userId);
+      if (cached) {
+        recordWalletLoadSample({ target: 'snapshot', source: 'memory', durationMs: nowMs() - startedAt });
+        return cached;
+      }
     }
     return snapshotCache.load(userId, async () => {
       try {
@@ -133,22 +163,28 @@ export const walletRepository = {
         prefetchedUser = userId;
         const derivedOverview = await saveWalletOfflineFull(userId, fullSnapshot);
         overviewCache.prime(userId, derivedOverview);
+        recordWalletLoadSample({ target: 'snapshot', source: 'network', durationMs: nowMs() - startedAt });
         return fullSnapshot;
       } catch (error) {
         if (!options.requireFresh && isNetworkFailure(error)) {
           const offlineSnapshot = await loadWalletOfflineFull(userId);
-          if (offlineSnapshot) return offlineSnapshot;
+          if (offlineSnapshot) {
+            recordWalletLoadSample({ target: 'snapshot', source: 'offline', durationMs: nowMs() - startedAt });
+            return offlineSnapshot;
+          }
         }
         throw error;
       }
     }, options.force === true);
   },
   async loadOverview(options: { force?: boolean } = {}): Promise<WalletOverviewSnapshot> {
+    const startedAt = nowMs();
     const userId = await resolveSessionUserId();
     if (isBrowserOffline()) {
       const offlineOverview = overviewCache.peek(userId) || await loadWalletOfflineOverview(userId);
       if (offlineOverview) {
         overviewCache.prime(userId, offlineOverview);
+        recordWalletLoadSample({ target: 'overview', source: 'offline', durationMs: nowMs() - startedAt });
         return offlineOverview;
       }
       throw new Error('Sem internet e sem dados da Carteira salvos neste aparelho.');
@@ -157,6 +193,7 @@ export const walletRepository = {
       const cachedOverview = overviewCache.peek(userId);
       if (cachedOverview) {
         scheduleFullPrefetch(userId);
+        recordWalletLoadSample({ target: 'overview', source: 'memory', durationMs: nowMs() - startedAt });
         return cachedOverview;
       }
       const fullInMemory = snapshotCache.peek(userId);
@@ -164,6 +201,7 @@ export const walletRepository = {
         const storedOverview = await loadWalletOfflineOverview(userId);
         const derived = deriveOverviewFromSnapshot(fullInMemory, storedOverview?.cardInvoiceDates || []);
         overviewCache.prime(userId, derived);
+        recordWalletLoadSample({ target: 'overview', source: 'memory', durationMs: nowMs() - startedAt });
         return derived;
       }
     }
@@ -173,11 +211,15 @@ export const walletRepository = {
         const overview = await personalWalletService.loadOverview();
         await saveWalletOfflineOverview(userId, overview);
         scheduleFullPrefetch(userId);
+        recordWalletLoadSample({ target: 'overview', source: 'network', durationMs: nowMs() - startedAt });
         return overview;
       } catch (error) {
         if (isNetworkFailure(error)) {
           const offlineOverview = await loadWalletOfflineOverview(userId);
-          if (offlineOverview) return offlineOverview;
+          if (offlineOverview) {
+            recordWalletLoadSample({ target: 'overview', source: 'offline', durationMs: nowMs() - startedAt });
+            return offlineOverview;
+          }
         }
         throw error;
       }
@@ -249,13 +291,6 @@ export const walletRepository = {
       if (offlineAccess) return offlineAccess;
     }
     try {
-      const { data: isSuperAdmin, error: adminError } = await supabase.rpc('is_platform_super_admin');
-      if (adminError) throw new Error(adminError.message);
-      if (!isSuperAdmin) {
-        const denied = { active: false, settings: {} };
-        accessCache.set(userId, { ...denied, expiresAt: Date.now() + 60_000 });
-        return denied;
-      }
       const { data, error } = await supabase
         .from('user_modulos')
         .select('ativo,configuracoes')
@@ -263,14 +298,20 @@ export const walletRepository = {
         .eq('modulo_chave', 'carteira')
         .maybeSingle();
       if (error) throw new Error(error.message);
-      const result = data ? { active: Boolean(data.ativo), settings: data.configuracoes ?? {} } : { active: false, settings: {} };
-      accessCache.set(userId, { ...result, expiresAt: Date.now() + 60_000 });
-      if (result.active) await saveWalletOfflineAccess(userId, result);
+      const result = data ? { active: Boolean(data.ativo), settings: data.configuracoes ?? {} } : { active: true, settings: {} };
+      accessCache.set(userId, { ...result, expiresAt: Date.now() + 300_000 });
+      if (result.active) {
+        lastVerifiedAccess = { userId, ...result };
+        await saveWalletOfflineAccess(userId, result);
+      }
       return result;
     } catch (error) {
       if (isNetworkFailure(error)) {
         const offlineAccess = await loadWalletOfflineAccess(userId);
-        if (offlineAccess) return offlineAccess;
+        if (offlineAccess) {
+          if (offlineAccess.active) lastVerifiedAccess = { userId, ...offlineAccess };
+          return offlineAccess;
+        }
       }
       throw error;
     }

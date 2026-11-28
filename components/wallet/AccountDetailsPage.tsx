@@ -1,6 +1,6 @@
 import { PrivateMoney } from '../../contexts/FinancialPrivacyContext';
 import React, { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, Archive, ArrowLeft, ArrowLeftRight, CheckCircle2, Copy, QrCode, ReceiptText, ImagePlus, Landmark, Link2, Pencil, Save, Trash2, X } from 'lucide-react';
+import { AlertCircle, Archive, ArrowLeftRight, CheckCircle2, Clock3, Copy, QrCode, ReceiptText, ImagePlus, Landmark, Link2, Pencil, Plus, Save, Trash2, MoreHorizontal } from 'lucide-react';
 import {
   PersonalWalletAccount,
   PersonalWalletExpense,
@@ -10,17 +10,23 @@ import {
   WalletAccountOperation,
   WalletStatementRow,
   personalWalletService,
+  WalletRecurringIncome,
+  WalletRecurringObligation,
+  WalletPendingOperation,
 } from '../../services/personalWallet.service';
 import type { CapitalSource } from '../../types';
 import { formatMoney } from '../../utils/formatters';
 import { AccountActivityPanel } from './AccountActivityPanel';
+import { AccountPendingOperations } from './AccountPendingOperations';
+import { CategoryBreakdownPanel } from './CategoryBreakdownPanel';
+import { elapsedDaysInPeriod, getAccountCategoryBreakdown } from '../../features/wallet/domain/walletCategoryBreakdown';
 import { WalletPixCharge } from './WalletPixCharge';
 import { BankLogo } from './BankLogo';
 import { BANK_CATALOG } from '../../utils/bankLogoRegistry';
 import { pixKeyTypeLabel } from './walletPresentation';
 import { AccountMovementModal } from './AccountMovementModal';
 import QuickExpenseModal from '../../features/wallet/components/QuickExpenseModal';
-import { BankAccountDetailsFields, BankAccountDetailsSummary } from './BankAccountDetailsFields';
+import { BankAccountDetailsFields } from './BankAccountDetailsFields';
 import { bankDetailsDraft, normalizeBankDetails } from '../../features/wallet/domain/bankAccountDetails';
 import { getCapitalLinkState, getEligibleAccountCapitalSources } from '../../features/wallet/domain/capitalLink';
 import { calculateBalanceAdjustment, resolveQuickDateShortcuts } from '../../features/wallet/utils/minhasFinancasWalletTools';
@@ -29,6 +35,11 @@ import { resolveLiveBrazilianCentsChange } from '../../features/wallet/utils/liv
 import { generateUUID } from '../../utils/generators';
 import { Modal, modalPrimaryActionClass } from '../ui/Modal';
 import { describeWalletBalanceFact, buildWalletBalanceFacts } from './walletBalanceDomain';
+import { RecurringIncomePanel } from './RecurringIncomePanel';
+import { RecurringObligationsPanel } from './RecurringObligationsPanel';
+import { businessDateInManaus } from '../../utils/businessDate';
+import { CapitalSourceTransferModal } from '../../features/wallet/components/CapitalSourceTransferModal';
+import { getMovableCapitalTotal } from '../../features/wallet/domain/capitalSourceTransfer';
 
 type Props = {
   account: PersonalWalletAccount;
@@ -39,11 +50,19 @@ type Props = {
   accounts: PersonalWalletAccount[];
   accountOperations: WalletAccountOperation[];
   statementRows: WalletStatementRow[];
+  cardFundedLoanIds?: readonly string[];
+  recurringIncomes: WalletRecurringIncome[];
+  recurringReceipts: { income_id: string; reference_month: string }[];
+  recurringObligations: WalletRecurringObligation[];
+  pendingOperations?: WalletPendingOperation[];
   onBack: () => void;
   onSaved: () => Promise<void>;
   ownerName?: string;
   ownerCity?: string;
   capitalSources: CapitalSource[];
+  canTransferCapital?: boolean;
+  profileId?: string;
+  onCreateAccount?: () => void;
 };
 
 const typeLabels: Record<string, string> = {
@@ -56,12 +75,19 @@ const typeLabels: Record<string, string> = {
 const inputClass = 'w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none focus:border-emerald-500';
 const labelClass = 'block space-y-1 text-xs font-semibold text-slate-300';
 
-export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, expenses, installments, invoicePayments, accountOperations, statementRows, onBack, onSaved, ownerName, ownerCity, capitalSources }) => {
+export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, expenses, installments, invoicePayments, accountOperations, statementRows, cardFundedLoanIds, recurringIncomes, recurringReceipts, recurringObligations, pendingOperations = [], onBack, onSaved, ownerName, ownerCity, capitalSources, canTransferCapital = false, profileId, onCreateAccount }) => {
   const [editing, setEditing] = useState(false);
+  const [showMoreActions, setShowMoreActions] = useState(false);
+  const [capitalTransferOpen, setCapitalTransferOpen] = useState(false);
   const [bankDetails,setBankDetails]=useState(()=>bankDetailsDraft(account.bank_details));
+  // Cartões já cadastrados desta conta (vínculo direto ou mesmo banco sem conta definida):
+  // o limite real é o do cartão, então a edição não pergunta de novo se a conta tem cartão.
+  const linkedCards = cards.filter(card => card.account_id === account.id
+    || (!card.account_id && !!account.institution_key && card.institution_key === account.institution_key));
   const [pixChargeOpen, setPixChargeOpen] = useState(false);
   const [pixCopied, setPixCopied] = useState(false);
   const [movementOpen, setMovementOpen] = useState(false);
+  const [pendingOpen, setPendingOpen] = useState(false);
   const [expenseOpen, setExpenseOpen] = useState(false);
   const [adjustBalanceOpen, setAdjustBalanceOpen] = useState(false);
   const [realBalanceInput, setRealBalanceInput] = useState(() => formatWalletMoneyInput(String(Number(account.balance || 0))));
@@ -92,6 +118,10 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
   const eligibleSources = useMemo(
     () => getEligibleAccountCapitalSources(account, accounts, capitalSources),
     [account, accounts, capitalSources],
+  );
+  const capitalMovable = useMemo(
+    () => getMovableCapitalTotal(capitalSources, accounts),
+    [capitalSources, accounts],
   );
   const loanLimitAvailable = account.bank_details?.has_loans && account.bank_details?.loan_balance !== undefined
     ? Number(account.bank_details.loan_balance)
@@ -143,7 +173,7 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
         pix_key: form.pix_key || null,
         notes: form.notes || null,
         capital_source_id: form.capital_source_id || null,
-        bank_details:normalizeBankDetails(bankDetails),
+        bank_details:normalizeBankDetails(linkedCards.length ? {...bankDetails,has_credit_card:false,credit_card_limit:''} : bankDetails),
       }, image);
       setImage(null);
       setImagePreview('');
@@ -163,13 +193,13 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
     setError('');
     try {
       await personalWalletService.deleteAccount(account.id);
+      setDeleteConfirm(false);
       await onSaved();
       onBack();
     } catch (err: any) {
       setError(err?.message || 'Não foi possível excluir a conta.');
     } finally {
       setDeleting(false);
-      setDeleteConfirm(false);
     }
   };
 
@@ -179,13 +209,13 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
     setError('');
     try {
       await personalWalletService.archiveAccount(account.id);
+      setArchiveConfirm(false);
       await onSaved();
       onBack();
     } catch (err: any) {
       setError(err?.message || 'Não foi possível arquivar a conta.');
     } finally {
       setArchiving(false);
-      setArchiveConfirm(false);
     }
   };
 
@@ -239,41 +269,60 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
 
   return (
     <section className="mx-auto max-w-4xl space-y-4 pb-32 sm:pb-16 animate-in fade-in">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <button type="button" onClick={onBack} disabled={saving}
-          className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-xs font-bold text-slate-200 hover:bg-slate-800">
-          <ArrowLeft size={16} /> Voltar às contas
-        </button>
-        {!editing && <div className="flex max-w-full flex-wrap justify-end gap-2">
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center gap-1.5">
           <button type="button" onClick={() => setExpenseOpen(true)}
-            className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-rose-600 px-4 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-rose-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300">
-            <ReceiptText size={16}/> Registrar despesa
+            className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg bg-rose-600 px-2.5 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-rose-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300">
+            <ReceiptText size={14}/> <span><span className="sr-only sm:not-sr-only">Registrar </span><span className="capitalize sm:normal-case">despesa</span></span>
           </button>
+          <button type="button" onClick={() => setMovementOpen(true)}
+            className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-emerald-500">
+            <ArrowLeftRight size={14}/> Movimentar
+          </button>
+          <button type="button" onClick={() => setPendingOpen(true)}
+            className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-950/20 px-2.5 py-1.5 text-xs font-semibold text-amber-200 hover:bg-amber-900/30">
+            <Clock3 size={14}/> Pendente
+          </button>
+          <button type="button" aria-label={showMoreActions ? 'Ocultar opções' : 'Mais opções'} aria-expanded={showMoreActions} onClick={() => setShowMoreActions(value => !value)}
+            className="inline-flex min-h-9 min-w-9 items-center justify-center rounded-lg border border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800 focus-visible:ring-2 focus-visible:ring-slate-300 sm:hidden">
+            <MoreHorizontal size={16} aria-hidden="true"/>
+          </button>
+          <div className={`${showMoreActions ? 'flex w-full flex-wrap' : 'hidden'} gap-1.5 sm:flex sm:w-auto sm:flex-wrap`}>
           <button type="button" onClick={() => {
             setRealBalanceInput(formatWalletMoneyInput(String(Number(account.balance || 0))));
             setAdjustDescription('Reajuste de saldo bancário');
             setAdjustBalanceOpen(true);
           }}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-500/30 bg-cyan-950/25 px-3 py-2 text-xs font-bold text-cyan-200 hover:bg-cyan-900/35">
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-cyan-500/30 bg-cyan-950/25 px-2.5 py-1.5 text-xs font-bold text-cyan-200 hover:bg-cyan-900/35">
             Reajustar saldo
           </button>
-          <button type="button" onClick={() => setMovementOpen(true)}
-            className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2.5 text-xs font-bold text-white hover:bg-emerald-500">
-            <ArrowLeftRight size={15}/> Movimentar
-          </button>
           <button type="button" onClick={() => { setEditing(true); setError(''); setSuccess(''); }}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-xs font-bold text-slate-200 hover:bg-slate-800">
-            <Pencil size={15} /> Editar conta
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs font-bold text-slate-200 hover:bg-slate-800">
+            <Pencil size={14} /> Editar conta
           </button>
-          <button type="button" onClick={() => { setArchiveConfirm(true); setDeleteConfirm(false); }}
-            className="inline-flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-950/20 px-3 py-2.5 text-xs font-bold text-amber-200 hover:bg-amber-900/30">
-            <Archive size={15} /> Arquivar conta
+          <button type="button" onClick={() => { setArchiveConfirm(true); setDeleteConfirm(false); setError(''); }}
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-950/20 px-2.5 py-1.5 text-xs font-bold text-amber-200 hover:bg-amber-900/30">
+            <Archive size={14} /> Arquivar conta
           </button>
-          <button type="button" onClick={() => { setDeleteConfirm(true); setArchiveConfirm(false); }}
-            className="inline-flex items-center gap-2 rounded-lg border border-rose-500/30 bg-rose-950/20 px-3 py-2.5 text-xs font-bold text-rose-300 hover:bg-rose-900/30">
-            <Trash2 size={15} /> Excluir conta
+          <button type="button" onClick={() => { setDeleteConfirm(true); setArchiveConfirm(false); setError(''); }}
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-rose-500/30 bg-rose-950/20 px-2.5 py-1.5 text-xs font-bold text-rose-300 hover:bg-rose-900/30">
+            <Trash2 size={14} /> Excluir conta
           </button>
-        </div>}
+          {canTransferCapital && profileId && (
+            <button type="button" onClick={() => setCapitalTransferOpen(true)}
+              title={capitalMovable <= 0 ? 'Nenhuma fonte do Capital com saldo disponível no momento' : 'Transferir saldo do Capital para esta conta'}
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-blue-500/30 bg-blue-950/25 px-2.5 py-1.5 text-xs font-bold text-blue-200 hover:bg-blue-900/35">
+              <ArrowLeftRight size={14} /> Transferir do Capital
+            </button>
+          )}
+          {onCreateAccount && (
+            <button type="button" onClick={onCreateAccount}
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-blue-500/30 bg-blue-950/25 px-2.5 py-1.5 text-xs font-bold text-blue-200 hover:bg-blue-900/35">
+              <Plus size={14} /> Nova conta
+            </button>
+          )}
+          </div>
+        </div>
       </div>
 
       <div className="rounded-2xl border border-slate-800 bg-slate-900 p-3 sm:p-4">
@@ -284,12 +333,12 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
             <h1 className="truncate text-lg font-bold text-white">{account.nickname}</h1>
             <p className="truncate text-xs text-slate-400">{account.bank_name || (account.account_type === 'CASH' ? 'Dinheiro em espécie' : 'Banco não informado')} · {typeLabels[account.account_type] || account.account_type}</p>
           </div>
-          <div className="text-right">
+          <div className="shrink-0 text-right">
             <p className="text-[10px] uppercase tracking-wide text-slate-400">Saldo</p>
             <p className="whitespace-nowrap text-lg font-extrabold tabular-nums text-emerald-400"><PrivateMoney value={formatMoney(Number(account.balance))} /></p>
           </div>
         </div>
-        {!editing && (capitalLinkState.status !== 'unlinked' || loanLimitAvailable !== null) && (
+        {(capitalLinkState.status !== 'unlinked' || loanLimitAvailable !== null) && (
           <div className="mt-2.5 flex flex-wrap items-center gap-2">
             {capitalLinkState.status === 'linked' && capitalLinkState.source && (
               <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-500/30 bg-blue-950/30 px-2.5 py-0.5 text-[11px] font-semibold text-blue-200">
@@ -311,7 +360,7 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
             </span>
           </div>
         )}
-        {!editing && <div className="mt-3 flex flex-col gap-2 border-t border-slate-800 pt-3">
+        <div className="mt-3 flex flex-col gap-2 border-t border-slate-800 pt-3">
           <div className="flex min-w-0 items-center gap-2">
             <span className="shrink-0 text-[10px] font-bold text-slate-400">PIX {pixKeyTypeLabel(account.pix_key_type)}</span>
             <span className="min-w-0 flex-1 truncate text-xs text-slate-200">{account.pix_key || 'Chave não cadastrada'}</span>
@@ -329,15 +378,23 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
             </button>
           </div>
           {account.notes && <p className="truncate text-[11px] text-slate-400" title={account.notes}>{account.notes}</p>}
-        </div>}
+        </div>
       </div>
       {pixChargeOpen && account.pix_key && <WalletPixCharge accounts={accounts} initialAccountId={account.id} recipient={ownerName || account.nickname} city={ownerCity} onClose={()=>setPixChargeOpen(false)} onSaved={onSaved} />}
       {movementOpen && <AccountMovementModal accounts={accounts} cards={cards} expenses={expenses} installments={installments}
         initialAccountId={account.id} onClose={()=>setMovementOpen(false)} onSaved={onSaved}/>}
       {expenseOpen && <QuickExpenseModal accounts={accounts} cards={cards} initialMode="ACCOUNT" initialAccountId={account.id}
         onClose={() => setExpenseOpen(false)} onSaved={onSaved}/>}
+      {capitalTransferOpen && profileId && <CapitalSourceTransferModal
+        profileId={profileId}
+        sources={capitalSources}
+        accounts={accounts}
+        onClose={() => setCapitalTransferOpen(false)}
+        onSaved={onSaved}
+      />}
       {adjustBalanceOpen && (
         <Modal
+          variant="wallet"
           compact
           title="Reajustar saldo da conta"
           subtitle={account.nickname}
@@ -414,70 +471,129 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
       )}
 
       {success && <div role="status" className="flex items-center gap-2 rounded-lg border border-emerald-800 bg-emerald-950/30 p-3 text-xs text-emerald-200"><CheckCircle2 size={16} />{success}</div>}
-      {error && <div role="alert" className="rounded-lg border border-rose-700 bg-rose-950/30 p-3 text-xs text-rose-200">{error}</div>}
-      {archiveConfirm && <div role="alertdialog" aria-label="Confirmar arquivamento da conta" className="rounded-xl border border-amber-500/30 bg-amber-950/20 p-4 text-sm text-amber-100">
-        <strong>Arquivar {account.nickname}?</strong>
-        <p className="mt-1 text-xs text-amber-200/80">A conta sairá da carteira ativa, mas seu histórico será preservado. O saldo precisa estar zerado.</p>
-        <div className="mt-3 flex gap-2">
-          <button type="button" onClick={() => setArchiveConfirm(false)} disabled={archiving} className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-200">Cancelar</button>
-          <button type="button" onClick={() => { void archive(); }} disabled={archiving} className="rounded-lg bg-amber-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-50">{archiving ? 'Arquivando...' : 'Arquivar conta'}</button>
-        </div>
-      </div>}
+      {error && !editing && !archiveConfirm && !deleteConfirm && !adjustBalanceOpen && <div role="alert" className="rounded-lg border border-rose-700 bg-rose-950/30 p-3 text-xs text-rose-200">{error}</div>}
+      {archiveConfirm && (
+        <Modal
+          variant="wallet"
+          compact
+          title={`Arquivar ${account.nickname}?`}
+          subtitle="Histórico preservado"
+          icon={<Archive size={17} />}
+          busy={archiving}
+          onClose={() => { if (!archiving) { setArchiveConfirm(false); setError(''); } }}
+          footer={
+            <button
+              type="button"
+              onClick={() => { void archive(); }}
+              disabled={archiving}
+              className="flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-xs font-black uppercase text-white hover:bg-amber-500 focus-visible:outline-2 focus-visible:outline-amber-400 disabled:opacity-50"
+            >
+              {archiving ? 'Arquivando...' : 'Arquivar conta'}
+            </button>
+          }
+        >
+          <div role="alertdialog" aria-label="Confirmar arquivamento da conta" className="space-y-3 text-xs text-amber-100">
+            <p className="leading-relaxed text-amber-200/90">A conta sairá da carteira ativa, mas seu histórico será preservado. O saldo precisa estar zerado.</p>
+            {error && <div role="alert" className="rounded-lg border border-rose-700 bg-rose-950/30 p-3 text-xs text-rose-200">{error}</div>}
+          </div>
+        </Modal>
+      )}
 
-      {deleteConfirm && <div role="alertdialog" aria-label="Confirmar exclusão da conta" className="rounded-xl border border-rose-500/30 bg-rose-950/20 p-4 text-sm text-rose-100">
-        <p className="font-semibold">Excluir esta conta?</p>
-        <p className="mt-1 text-xs text-rose-200/80">A exclusão é permanente e só será permitida se a conta estiver zerada e sem movimentações ou vínculos.</p>
-        <div className="mt-3 flex gap-2">
-          <button type="button" onClick={() => setDeleteConfirm(false)} disabled={deleting} className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-200">Cancelar</button>
-          <button type="button" onClick={() => { void remove(); }} disabled={deleting} className="rounded-lg bg-rose-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-50">{deleting ? 'Excluindo...' : 'Excluir definitivamente'}</button>
-        </div>
-      </div>}
+      {deleteConfirm && (
+        <Modal
+          variant="wallet"
+          compact
+          title="Excluir esta conta?"
+          subtitle={account.nickname}
+          icon={<Trash2 size={17} />}
+          busy={deleting}
+          onClose={() => { if (!deleting) { setDeleteConfirm(false); setError(''); } }}
+          footer={
+            <button
+              type="button"
+              onClick={() => { void remove(); }}
+              disabled={deleting}
+              className="flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-rose-600 px-4 py-2 text-xs font-black uppercase text-white hover:bg-rose-500 focus-visible:outline-2 focus-visible:outline-rose-400 disabled:opacity-50"
+            >
+              {deleting ? 'Excluindo...' : 'Excluir definitivamente'}
+            </button>
+          }
+        >
+          <div role="alertdialog" aria-label="Confirmar exclusão da conta" className="space-y-3 text-xs text-rose-100">
+            <p className="leading-relaxed text-rose-200/90">A exclusão é permanente e só será permitida se a conta estiver zerada e sem movimentações ou vínculos.</p>
+            {error && <div role="alert" className="rounded-lg border border-rose-700 bg-rose-950/30 p-3 text-xs text-rose-200">{error}</div>}
+          </div>
+        </Modal>
+      )}
 
-      {!editing&&account.account_type!=='CASH'&&<BankAccountDetailsSummary details={account.bank_details||{}} linkedCards={cards.filter(card=>card.account_id===account.id&&card.status!=='CANCELED').length}/>}
+      {/* Titular, documento e dados bancários ficam em Editar conta: a área de trabalho mostra só o que é usado no dia a dia. */}
       {editing && (
-        <form onSubmit={submit} className="space-y-4 rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:p-6">
-          <h2 className="text-sm font-bold text-white">Editar dados da conta</h2>
+        <Modal
+          variant="wallet"
+          size="lg"
+          title="Editar dados da conta"
+          subtitle={account.nickname}
+          icon={<Pencil size={17} />}
+          busy={saving}
+          onClose={reset}
+          footer={
+            <button
+              type="submit"
+              form="account-edit-form"
+              disabled={saving}
+              className={modalPrimaryActionClass}
+            >
+              <Save size={14} /> {saving ? 'Salvando...' : 'Salvar alterações'}
+            </button>
+          }
+        >
+        <form id="account-edit-form" onSubmit={submit} className="space-y-4">
+          {error && <div role="alert" className="rounded-lg border border-rose-700 bg-rose-950/30 p-3 text-xs text-rose-200">{error}</div>}
           <datalist id="account-bank-catalog">{BANK_CATALOG.map(bank => <option key={bank.id} value={bank.name}/>)}</datalist>
           <div className="flex items-center gap-2 rounded-lg border border-slate-800 p-2 text-xs text-slate-400">
             <BankLogo name={form.bank_name} alternateName={form.nickname} size="sm"/>
             Logo local automático quando disponível; a imagem personalizada tem prioridade.
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className={labelClass}>Apelido
-              <input required maxLength={120} className={inputClass} value={form.nickname} onChange={e => update('nickname', e.target.value)} />
-            </label>
-            <label className={labelClass}>Banco
-              <input list="account-bank-catalog" maxLength={120} className={inputClass} value={form.bank_name} onChange={e => update('bank_name', e.target.value)} />
-            </label>
-            <label className={labelClass}>Tipo de conta
-              <select className={inputClass} value={form.account_type} onChange={e => update('account_type', e.target.value)}>
-                <option value="CHECKING">Conta corrente</option>
-                <option value="PAYMENT">Conta de pagamento</option>
-                <option value="SAVINGS">Poupança</option>
-                <option value="CASH">Carteira física</option>
-                <option value="INVESTMENT">Investimento</option>
-              </select>
-            </label>
-            <label className={labelClass}>Tipo da chave PIX
-              <select className={inputClass} value={form.pix_key_type} onChange={e => {
-                update('pix_key_type', e.target.value);
-              }}>
-                <option value="">Sem PIX</option>
-                <option value="CPF">CPF</option>
-                <option value="CNPJ">CNPJ</option>
-                <option value="EMAIL">E-mail</option>
-                <option value="PHONE">Telefone</option>
-                <option value="RANDOM">Aleatória</option>
-              </select>
-            </label>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-2 gap-3 sm:col-span-2">
+              <label className={`${labelClass} min-w-0`}>Apelido
+                <input required maxLength={120} className={inputClass} value={form.nickname} onChange={e => update('nickname', e.target.value)} />
+              </label>
+              <label className={`${labelClass} min-w-0`}>Banco
+                <input list="account-bank-catalog" maxLength={120} className={inputClass} value={form.bank_name} onChange={e => update('bank_name', e.target.value)} />
+              </label>
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:col-span-2">
+              <label className={`${labelClass} min-w-0`}>Tipo de conta
+                <select className={inputClass} value={form.account_type} onChange={e => update('account_type', e.target.value)}>
+                  <option value="CHECKING">Conta corrente</option>
+                  <option value="PAYMENT">Conta de pagamento</option>
+                  <option value="SAVINGS">Poupança</option>
+                  <option value="CASH">Carteira física</option>
+                  <option value="INVESTMENT">Investimento</option>
+                </select>
+              </label>
+              <label className={`${labelClass} min-w-0`}>Tipo da chave PIX
+                <select className={inputClass} value={form.pix_key_type} onChange={e => {
+                  update('pix_key_type', e.target.value);
+                }}>
+                  <option value="">Sem PIX</option>
+                  <option value="CPF">CPF</option>
+                  <option value="CNPJ">CNPJ</option>
+                  <option value="EMAIL">E-mail</option>
+                  <option value="PHONE">Telefone</option>
+                  <option value="RANDOM">Aleatória</option>
+                </select>
+              </label>
+            </div>
             <label className={labelClass}>Chave PIX
               <input className={inputClass} maxLength={255} value={form.pix_key} onChange={e => update('pix_key', e.target.value)} />
             </label>
             <label className={labelClass}>Logotipo ou imagem
-              <span className="flex items-center gap-2 rounded-lg border border-dashed border-slate-700 p-2">
-                <ImagePlus size={18} className="text-slate-400" />
-                <span className="truncate text-xs text-slate-400">{image?.name || 'Escolher imagem (JPEG/PNG/WebP)'}</span>
-                <input className="max-w-[5rem] text-xs" type="file" accept="image/jpeg,image/png,image/webp" onChange={e => {
+              <span className="mt-1 flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-dashed border-slate-700 bg-slate-950/60 px-3 py-2 transition-colors hover:border-slate-500">
+                <ImagePlus size={18} className="shrink-0 text-slate-400" />
+                <span className="min-w-0 flex-1 truncate text-xs text-slate-300">{image?.name || 'Escolher imagem (JPEG/PNG/WebP)'}</span>
+                <input className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" onChange={e => {
                   const file = e.target.files?.[0] || null;
                   setImage(file);
                   setImagePreview(file ? URL.createObjectURL(file) : '');
@@ -503,17 +619,55 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
               </span>
             </label>
           </div>
-          {form.account_type!=='CASH'&&<BankAccountDetailsFields value={bankDetails} onChange={setBankDetails}/>}
-          <div className="flex justify-end gap-2">
-            <button type="button" disabled={saving} onClick={reset} className="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-4 py-2.5 text-xs text-slate-200"><X size={14} /> Cancelar</button>
-            <button type="submit" disabled={saving} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white disabled:opacity-50"><Save size={14} />{saving ? 'Salvando...' : 'Salvar alterações'}</button>
-          </div>
+          {form.account_type!=='CASH'&&linkedCards.length>0&&<div className="rounded-xl border border-slate-800 bg-slate-800/30 p-3">
+            <p className="text-sm font-semibold text-slate-200">{linkedCards.length>1?'Cartões vinculados a esta conta':'Cartão vinculado a esta conta'}</p>
+            <ul className="mt-2 space-y-1.5">{linkedCards.map(card=><li key={card.id} className="flex items-center justify-between gap-3 text-sm">
+              <span className="min-w-0 truncate text-slate-300">{card.nickname}{card.last_four?` · final ${card.last_four}`:''}</span>
+              <span className="shrink-0 tabular-nums text-slate-200">Limite <PrivateMoney value={formatMoney(Number(card.credit_limit||0))}/></span>
+            </li>)}</ul>
+            <p className="mt-2 text-xs text-slate-400">O limite usado nas contas é o do cartão. Para mudar, edite o cartão em Cartões.</p>
+          </div>}
+          {form.account_type!=='CASH'&&<BankAccountDetailsFields value={bankDetails} onChange={setBankDetails} showCreditCard={!linkedCards.length}/>}
         </form>
+        </Modal>
       )}
+
+      {(() => {
+        // Despesas do mês que saíram desta conta, por categoria (anel = participação no total).
+        const today = businessDateInManaus();
+        const month = today.slice(0, 7);
+        const breakdown = getAccountCategoryBreakdown(account.id, month, accountOperations);
+        return breakdown.slices.length ? <CategoryBreakdownPanel title="Despesas do mês por categoria" breakdown={breakdown} layout="list"
+          elapsedDays={elapsedDaysInPeriod(month + '-01', month + '-31', today)}
+          note="O anel mostra a fatia de cada categoria nas despesas do mês desta conta. Transferências e pagamentos de fatura não entram." /> : null;
+      })()}
+
+      <AccountPendingOperations accountId={account.id} pending={pendingOperations} onSaved={onSaved}
+        createOpen={pendingOpen} onCloseCreate={() => setPendingOpen(false)} />
 
       <AccountActivityPanel account={account} accounts={accounts}
         operations={accountOperations} statementRows={statementRows}
-        expenses={expenses} invoicePayments={invoicePayments} onSaved={onSaved} />
+        expenses={expenses} invoicePayments={invoicePayments} cardFundedLoanIds={cardFundedLoanIds} onSaved={onSaved} />
+
+      <section className="grid gap-4 lg:grid-cols-2" aria-label="Lançamentos fixos desta conta">
+        <RecurringIncomePanel
+          key={account.id}
+          accounts={[account]}
+          showCreateButton={false}
+          incomes={recurringIncomes.filter(item => item.destination_account_id === account.id)}
+          receivedIds={new Set(recurringReceipts
+            .filter(receipt => String(receipt.reference_month).slice(0, 7) === businessDateInManaus().slice(0, 7))
+            .map(receipt => receipt.income_id))}
+          onSaved={onSaved}
+        />
+        <RecurringObligationsPanel
+          accounts={[account]}
+          cards={[]}
+          items={recurringObligations.filter(item => item.origin_type === 'ACCOUNT' && item.origin_account_id === account.id)}
+          showCreateButton={false}
+          onSaved={onSaved}
+        />
+      </section>
     </section>
   );
 };

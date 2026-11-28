@@ -1,5 +1,6 @@
 
-import React, { useState, useRef } from 'react';
+import { AppIcon } from '../../components/icons/AppIcons';
+import React, { useEffect, useState, useRef } from 'react';
 import { ShieldAlert, ArrowDownWideNarrow, Search, X, Users, ChevronDown, AlertTriangle, RefreshCw, CheckCircle2, DollarSign, Archive, Download, FileSpreadsheet, FileText, Loader2, SlidersHorizontal, Plus } from 'lucide-react';
 import { SortOption, UserProfile, Loan, CapitalSource } from '../../types';
 import { translateFilter } from '../../utils/translationHelpers';
@@ -30,6 +31,43 @@ export const DashboardControls: React.FC<DashboardControlsProps> = ({
     const [isExportOpen, setIsExportOpen] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
     const [isToolsExpanded, setIsToolsExpanded] = useState(false);
+    const searchInputRef = useRef<HTMLInputElement>(null);
+
+    // O IME reduz o visualViewport depois do foco. Mantém a pesquisa visível
+    // dentro do <main> rolável e libera a navegação se o teclado for fechado
+    // pelo botão Voltar do Android sem disparar blur automaticamente.
+    useEffect(() => {
+        if (!isSearchOpen) return;
+        const viewport = window.visualViewport;
+        const initialHeight = viewport?.height ?? window.innerHeight;
+        let keyboardWasVisible = false;
+        let frame: number | null = null;
+
+        const onViewportResize = () => {
+            if (frame !== null) window.cancelAnimationFrame(frame);
+            frame = window.requestAnimationFrame(() => {
+                frame = null;
+                const input = searchInputRef.current;
+                if (!input || document.activeElement !== input) return;
+                const visibleHeight = viewport?.height ?? window.innerHeight;
+                if (visibleHeight < initialHeight - 128) keyboardWasVisible = true;
+                if (keyboardWasVisible && visibleHeight >= initialHeight - 72) {
+                    input.blur();
+                    return;
+                }
+                input.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'auto' });
+            });
+        };
+
+        viewport?.addEventListener('resize', onViewportResize);
+        window.addEventListener('resize', onViewportResize);
+        onViewportResize();
+        return () => {
+            viewport?.removeEventListener('resize', onViewportResize);
+            window.removeEventListener('resize', onViewportResize);
+            if (frame !== null) window.cancelAnimationFrame(frame);
+        };
+    }, [isSearchOpen]);
 
     const handleExport = async (format: 'EXCEL' | 'CSV') => {
         if (!filteredLoans || filteredLoans.length === 0) {
@@ -186,14 +224,16 @@ export const DashboardControls: React.FC<DashboardControlsProps> = ({
                 >
                     <div className="flex items-center gap-1.5 sm:gap-2 p-1 sm:p-1.5 bg-slate-900/60 border border-slate-800/80 rounded-lg w-max">
                         {[
-                          { id: 'TODOS', icon: <Users size={14} className="text-blue-400" /> },
-                          { id: 'ATRASADOS', icon: <AlertTriangle size={14} className="text-amber-400" /> },
-                          { id: 'ATRASO_CRITICO', icon: <ShieldAlert size={14} className="text-rose-500" /> },
-                          { id: 'RENEGOCIADO', icon: <RefreshCw size={14} className="text-purple-400" /> },
-                          { id: 'EM_DIA', icon: <CheckCircle2 size={14} className="text-emerald-400" /> },
-                          { id: 'PAGOS', icon: <DollarSign size={14} className="text-indigo-400" /> },
-                          { id: 'ARQUIVADOS', icon: <Archive size={14} className="text-slate-400" /> }
-                        ].map(filter => (
+                          { id: 'TODOS', iconName: 'all' as const },
+                          { id: 'ATRASADOS', iconName: 'late' as const },
+                          { id: 'ATRASO_CRITICO', iconName: 'critical' as const },
+                          { id: 'RENEGOCIADO', iconName: 'renegotiated' as const },
+                          { id: 'EM_DIA', iconName: 'onTime' as const },
+                          { id: 'PAGOS', iconName: 'paid' as const },
+                          { id: 'ARQUIVADOS', iconName: 'archived' as const }
+                        ].map(filter => {
+                            const isActive = statusFilter === filter.id;
+                            return (
                             <button
                                 key={filter.id}
                                 onClick={(e) => {
@@ -202,13 +242,14 @@ export const DashboardControls: React.FC<DashboardControlsProps> = ({
                                         setStatusFilter(filter.id as any);
                                     }
                                 }}
-                                className={`px-3 py-2 sm:p-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all border flex items-center justify-center gap-1.5 sm:gap-2 pointer-events-auto min-w-[38px] sm:min-w-[42px] ${statusFilter === filter.id ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white border-blue-500 shadow-lg shadow-blue-600/20' : 'bg-slate-900 border-slate-800 text-slate-500 hover:text-slate-300 hover:border-slate-700'}`}
+                                className={`px-3 py-2 sm:p-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all border flex items-center justify-center gap-1.5 sm:gap-2 pointer-events-auto min-w-[38px] sm:min-w-[42px] ${isActive ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white border-blue-500 shadow-lg shadow-blue-600/20' : 'bg-slate-900 border-slate-800 text-slate-500 hover:text-slate-300 hover:border-slate-700'}`}
                                 title={translateFilter(filter.id)}
                             >
-                                {filter.icon}
+                                <AppIcon name={filter.iconName} size={16} onColor={isActive} />
                                 <span className="inline">{translateFilter(filter.id)}</span>
                             </button>
-                        ))}
+                            );
+                        })}
                     </div>
                 </div>
             </div>
@@ -217,11 +258,33 @@ export const DashboardControls: React.FC<DashboardControlsProps> = ({
                 <div className="mt-2 bg-slate-900 border border-slate-800 p-1.5 rounded-lg flex items-center gap-1 animate-in slide-in-from-top-2 duration-200 shadow-2xl shadow-black/50">
                     <div className="pl-3 pr-1 text-emerald-500"><Search size={14}/></div>
                     <input
+                        ref={searchInputRef}
                         type="text"
-                        placeholder="BUSCAR POR NOME, CPF/CNPJ..."
-                        className="bg-transparent w-full py-2 px-2 text-white outline-none text-[10px] font-black uppercase tracking-widest placeholder:text-slate-600"
+                        data-dashboard-contract-search
+                        aria-label="Pesquisar contratos por nome ou CPF/CNPJ"
+                        placeholder="Buscar nome, CPF/CNPJ ou contrato"
+                        inputMode="search"
+                        enterKeyHint="search"
+                        autoComplete="off"
+                        autoCapitalize="none"
+                        spellCheck={false}
+                        className="min-w-0 flex-1 bg-transparent py-2 px-2 text-sm font-medium text-white outline-none placeholder:text-slate-500"
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
+                        onFocus={event => {
+                            const input = event.currentTarget;
+                            window.requestAnimationFrame(() => {
+                                if (document.activeElement === input) {
+                                    input.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'auto' });
+                                }
+                            });
+                        }}
+                        onKeyDown={event => {
+                            if (event.key === 'Enter' || event.key === 'Escape') {
+                                event.preventDefault();
+                                event.currentTarget.blur();
+                            }
+                        }}
                         autoFocus
                     />
                     <button

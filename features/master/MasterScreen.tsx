@@ -105,7 +105,7 @@ export const MasterScreen: React.FC<MasterScreenProps> = ({
                                 <div className="flex items-center gap-3 w-full md:w-auto border-t md:border-t-0 border-slate-800 pt-4 md:pt-0">
                                     <button
                                         onClick={() => openEditUser(user)}
-                                        className="flex-1 md:flex-none px-5 py-3 bg-blue-600/10 text-blue-400 hover:bg-blue-600 hover:text-white rounded-lg text-[10px] font-black uppercase transition-all flex items-center justify-center gap-2"
+                                        className="flex-1 md:flex-none px-5 py-3 bg-blue-600/10 text-blue-400 hover:bg-blue-600 hover:text-white rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2"
                                     >
                                         <Edit size={14}/> Dados / Senha
                                     </button>

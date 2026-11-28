@@ -3,7 +3,19 @@
  * A PDF does not prove that a payment has settled or a credit limit is current.
  */
 export type CardInvoiceSummary = {
-  institution: 'Nubank' | 'Mercado Pago' | 'Itaú' | 'C6 Bank' | 'RecargaPay' | null;
+  institution:
+    | 'Nubank'
+    | 'Mercado Pago'
+    | 'Itaú'
+    | 'C6 Bank'
+    | 'RecargaPay'
+    | 'Bradesco'
+    | 'PicPay'
+    | 'Santander'
+    | 'Banco do Brasil'
+    | 'Inter'
+    | 'Caixa'
+    | null;
   cardLastFour: string | null;
   multipleCards: boolean;
   invoiceTotal: number | null;
@@ -15,6 +27,15 @@ export type CardInvoiceSummary = {
   dueDate: string | null;
   warnings: string[];
 };
+
+export function withCardCreditLimitSuggestion(
+  summary: CardInvoiceSummary,
+  registeredLimit: number | null | undefined,
+): CardInvoiceSummary {
+  if (summary.creditLimit !== null || !Number.isFinite(registeredLimit) || Number(registeredLimit) <= 0)
+    return summary;
+  return { ...summary, creditLimit: Math.round(Number(registeredLimit) * 100) / 100 };
+}
 
 const moneyPattern = String.raw`(?:R\$\s*)?-?(?:\d{1,3}(?:\.\d{3})+|\d+),\d{2}`;
 const moneyRx = new RegExp(moneyPattern, 'gi');
@@ -67,13 +88,48 @@ function matchDate(lines: string[], pattern: RegExp): string | null {
   return null;
 }
 
+const INSTITUTION_MATCHERS: ReadonlyArray<{
+  name: NonNullable<CardInvoiceSummary['institution']>;
+  rx: RegExp;
+}> = [
+  { name: 'Bradesco', rx: /\bbradesco\b|\bbradescard\b/ },
+  { name: 'PicPay', rx: /\bpicpay\b/ },
+  { name: 'C6 Bank', rx: /\bc6\s*bank\b|\bcartao\s+c6\b/ },
+  { name: 'Mercado Pago', rx: /\bmercado\s+pago\b/ },
+  { name: 'Nubank', rx: /\bnubank\b|\bnu\s+pagamentos\b|\bnucel\b/ },
+  { name: 'Itaú', rx: /\bitau\b|\bitaucard\b/ },
+  { name: 'RecargaPay', rx: /\brecargapay\b/ },
+  { name: 'Santander', rx: /\bsantander\b/ },
+  { name: 'Banco do Brasil', rx: /\bbanco\s+do\s+brasil\b|\bourocard\b/ },
+  { name: 'Inter', rx: /\bbanco\s+inter\b/ },
+  { name: 'Caixa', rx: /\bcaixa\s+economica\b/ },
+];
+
+const looksLikeTransactionLine = (normalizedLine: string): boolean =>
+  /^(?:\d{1,2}[\/.-]\d{1,2}(?:[\/.-]\d{2,4})?|\d{1,2}\s+(?:jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez))\b/.test(normalizedLine);
+
+function detectInvoiceInstitution(lines: readonly string[]): CardInvoiceSummary['institution'] {
+  const headerSlice = lines.slice(0, 100);
+  // 1. Prioriza linhas de cabeçalho (não-transação) na ordem em que aparecem no topo do documento.
+  for (const rawLine of headerSlice) {
+    const plain = normalize(rawLine);
+    if (!plain || looksLikeTransactionLine(plain)) continue;
+    for (const candidate of INSTITUTION_MATCHERS) {
+      if (candidate.rx.test(plain)) return candidate.name;
+    }
+  }
+  // 2. Fallback caso o cabeçalho venha mesclado com data na mesma linha.
+  for (const rawLine of headerSlice.slice(0, 25)) {
+    const plain = normalize(rawLine);
+    for (const candidate of INSTITUTION_MATCHERS) {
+      if (candidate.rx.test(plain)) return candidate.name;
+    }
+  }
+  return null;
+}
+
 export function parseCardInvoiceSummary(lines: readonly string[]): CardInvoiceSummary {
-  const body = lines.slice(0, 100).map(normalize).join(' ');
-  const institution = /\bc6\s*bank\b|\bcartao\s+c6\b/.test(body) ? 'C6 Bank'
-    : /\bmercado\s+pago\b/.test(body) ? 'Mercado Pago'
-      : /\bnubank\b|\bnucel\b/.test(body) ? 'Nubank'
-        : /\bitau\b/.test(body) ? 'Itaú'
-          : /\brecargapay\b/.test(body) ? 'RecargaPay' : null;
+  const institution = detectInvoiceInstitution(lines);
   const documentLines = [...lines];
   const cardNumbers = new Set<string>();
   for (const line of documentLines) {
@@ -98,6 +154,17 @@ export function parseCardInvoiceSummary(lines: readonly string[]): CardInvoiceSu
   let futureInstallments = matchValue(documentLines, /\b(?:compras\s+parceladas|total\s+para\s+proximas\s+faturas)\b/);
   let dueDate = matchDate(documentLines, /\b(?:vencimento|vence\s+em)\b/);
   const warnings: string[] = [];
+  if (institution === 'Bradesco') {
+    invoiceTotal = matchValue(documentLines, /\btotal\s+da\s+fatura\b/) ?? invoiceTotal;
+    if (invoiceTotal === null) {
+      const totalLabelIndex = documentLines.findIndex(line => /^total\s+da\s+fatura\s+em\s+real\b/.test(normalize(line)));
+      if (totalLabelIndex >= 0) {
+        const amountLine = documentLines.slice(totalLabelIndex + 1, totalLabelIndex + 14)
+          .find(line => values(line).length > 0);
+        if (amountLine) invoiceTotal = values(amountLine)[0] ?? null;
+      }
+    }
+  }
   if (institution === 'RecargaPay') {
     invoiceTotal = matchValue(documentLines, /\btotal\s+da\s+fatura\b/) ?? invoiceTotal;
     creditLimit = matchValue(documentLines, /\blimite\s+de\s+credito\b/) ?? creditLimit;
@@ -201,11 +268,17 @@ export function issuerMatchesBank(issuer: string | null | undefined, bank: CardI
   const compact = issuer.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
     .replace(/[^a-z0-9]/g, '');
   const patterns: Record<NonNullable<CardInvoiceSummary['institution']>, RegExp> = {
-    'Nubank': /nubank|^nu(?:ultra|credito)?$/,
-    'Mercado Pago': /mercadopago/,
+    'Nubank': /nubank|^nu(?:ultra|credito|pagamentos)?$/,
+    'Mercado Pago': /mercadopago|^mp$/,
     'Itaú': /itau/,
     'C6 Bank': /c6(?:bank)?/,
     'RecargaPay': /recargapay/,
+    'Bradesco': /bradesc/,
+    'PicPay': /picpay/,
+    'Santander': /santander/,
+    'Banco do Brasil': /bancodobrasil|^bb$|ourocard/,
+    'Inter': /inter/,
+    'Caixa': /caixa/,
   };
   return patterns[bank].test(compact);
 }
@@ -230,4 +303,57 @@ export function reconcileCardInvoice(input: {
       ? Math.max(0, cents(input.creditLimit) - cents(input.usedLimit)) / 100 : null;
   return { remaining, available, availableIsDeclared: input.availableLimit !== null,
     overpaid: total !== null && payments !== null ? Math.max(0, payments - total) / 100 : null };
+}
+
+export interface StatementInstallmentLike {
+  amount: number;
+  installmentNumber?: number | null;
+  installmentTotal?: number | null;
+}
+
+/**
+ * Sugere limite total (do cadastro do cartão) e data de vencimento (do ciclo do cartão)
+ * quando ausentes no PDF, sem nunca sobrescrever valores declarados pelo banco nem
+ * inventar limite utilizado / parcelas futuras incompletas a partir das linhas do PDF.
+ */
+export function withStatementEstimatedPosition(
+  summary: CardInvoiceSummary,
+  options: {
+    registeredCreditLimit?: number | null;
+    statementRows?: ReadonlyArray<StatementInstallmentLike>;
+    suggestedDueDate?: string | null;
+  },
+): {
+  summary: CardInvoiceSummary;
+  estimatedFields: {
+    creditLimit: boolean;
+    futureInstallments: boolean;
+    usedLimit: boolean;
+    availableLimit: boolean;
+    dueDate: boolean;
+  };
+} {
+  const withLimit = withCardCreditLimitSuggestion(summary, options.registeredCreditLimit);
+  const creditLimitEstimated = summary.creditLimit === null && withLimit.creditLimit !== null;
+
+  let dueDate = withLimit.dueDate;
+  let dueDateEstimated = false;
+  if (!dueDate && options.suggestedDueDate && /^\d{4}-\d{2}-\d{2}$/.test(options.suggestedDueDate)) {
+    dueDate = options.suggestedDueDate;
+    dueDateEstimated = true;
+  }
+
+  return {
+    summary: {
+      ...withLimit,
+      dueDate,
+    },
+    estimatedFields: {
+      creditLimit: creditLimitEstimated,
+      futureInstallments: false,
+      usedLimit: false,
+      availableLimit: false,
+      dueDate: dueDateEstimated,
+    },
+  };
 }

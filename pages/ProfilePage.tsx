@@ -1,13 +1,14 @@
+import { AppIcon } from '../components/icons/AppIcons';
 import React, { useState } from 'react';
 import {
   AlertTriangle,
-  ArrowDown,
-  ArrowUp,
   Camera,
   CreditCard,
   DollarSign,
   FileSpreadsheet,
   FileText,
+  GripVertical,
+  History,
   LayoutGrid,
   LogOut,
   Mail,
@@ -33,6 +34,7 @@ import { exportLoansToExcel, exportLoansToCSV } from '../utils/loanExport';
 
 import { useProfilePageLogic } from '../features/profile/hooks/useProfilePageLogic';
 import { ProfileAuditLog } from '../features/profile/components/ProfileAuditLog';
+import { ProfileChangelog } from '../features/profile/components/ProfileChangelog';
 import { ProfileDangerZone } from '../features/profile/components/ProfileDangerZone';
 import { MercadoPagoConfig } from '../features/profile/components/MercadoPagoConfig';
 import { AsaasConfig } from '../features/profile/components/AsaasConfig';
@@ -40,6 +42,7 @@ import { InfinitePayConfig } from '../features/profile/components/InfinitePayCon
 import { WhatsAppConfig } from '../features/profile/components/WhatsAppConfig';
 import { ProfileExportReports } from '../features/profile/components/ProfileExportReports';
 import { LanguageSelector } from '../components/settings/LanguageSelector';
+import { AndroidQuickAccessSettings } from '../components/settings/AndroidQuickAccessSettings';
 import { useI18n } from '../i18n/useI18n';
 
 interface ProfilePageProps {
@@ -93,12 +96,11 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const i18n = useI18n();
 
   const [activeSection, setActiveSection] = useState<
-    'GENERAL' | 'FINANCE' | 'PAYMENTS' | 'EXPORT' | 'DATA' | 'INTERFACE' | 'SECURITY' | 'SYSTEM' | 'DANGER'
+    'GENERAL' | 'FINANCE' | 'PAYMENTS' | 'EXPORT' | 'DATA' | 'INTERFACE' | 'SECURITY' | 'CHANGELOG' | 'SYSTEM' | 'DANGER'
   >('GENERAL');
 
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
-  const [menuSaving, setMenuSaving] = useState(false);
 
   const handleExport = async (format: 'EXCEL' | 'CSV') => {
     if (loans.length === 0) {
@@ -122,49 +124,6 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     }
   };
 
-  // Mesmos nomes do menu superior, vindos do sistema de idiomas.
-  const getTabLabel = (tab: AppTab) => i18n.tab(tab);
-
-  const moveTab = async (
-    tab: AppTab,
-    from: 'NAV' | 'HUB',
-    direction: 'UP' | 'DOWN' | 'SWAP'
-  ): Promise<void> => {
-    if (menuSaving) return;
-    setMenuSaving(true);
-    let newNav = [...navOrder];
-    let newHub = [...hubOrder];
-
-    if (direction === 'SWAP') {
-      if (from === 'NAV' && newNav.length > 1) {
-        newNav = newNav.filter((t) => t !== tab);
-        newHub = [tab, ...newHub];
-      } else if (from === 'HUB') {
-        newHub = newHub.filter((t) => t !== tab);
-        newNav = [...newNav, tab];
-      }
-    } else {
-      const target = from === 'NAV' ? newNav : newHub;
-      const idx = target.indexOf(tab);
-
-      if (direction === 'UP' && idx > 0) {
-        [target[idx], target[idx - 1]] = [target[idx - 1], target[idx]];
-      }
-      if (direction === 'DOWN' && idx < target.length - 1) {
-        [target[idx], target[idx + 1]] = [target[idx + 1], target[idx]];
-      }
-    }
-
-    try {
-      await saveNavConfig(newNav, newHub);
-      showToast('Ordem dos menus salva.', 'success');
-    } catch {
-      showToast('Ordem guardada neste navegador. Sincronização pendente.', 'warning');
-    } finally {
-      setMenuSaving(false);
-    }
-  };
-
   if (!profileEditForm) return null;
 
   return (
@@ -177,9 +136,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         className="sr-only"
         aria-label="Selecionar foto do perfil"
       />
-      <PageHeader
-        icon={<User size={22} />}
-        iconClassName="border-violet-500/30 bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-indigo-950/30"
+      <PageHeader iconClassName="border-slate-700/70 bg-slate-900 shadow-black/30"
+        icon={<AppIcon name="profile" size={28} />}
         title={<>Meu <span className="text-blue-500">Perfil</span></>}
         subtitle="Configurações da conta, financeiro, pagamentos e segurança"
       />
@@ -243,7 +201,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-100 border border-transparent'
               }`}
             >
-              <User size={16} />
+              <AppIcon name="profileData" size={18} />
               <span>Dados do Perfil</span>
             </button>
 
@@ -255,7 +213,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-100 border border-transparent'
               }`}
             >
-              <DollarSign size={16} />
+              <AppIcon name="goals" size={18} />
               <span>Financeiro & Metas</span>
             </button>
 
@@ -267,7 +225,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-100 border border-transparent'
               }`}
             >
-              <PaymentIcon size={16} />
+              <AppIcon name="payments" size={18} />
               <span>Pagamentos Real</span>
             </button>
 
@@ -279,7 +237,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-100 border border-transparent'
               }`}
             >
-              <FileSpreadsheet size={16} />
+              <AppIcon name="export" size={18} />
               <span>Dados & Exportação</span>
             </button>
 
@@ -291,7 +249,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-100 border border-transparent'
               }`}
             >
-              <LayoutGrid size={16} />
+              <AppIcon name="preferences" size={18} />
               <span>Preferências & Menus</span>
             </button>
 
@@ -303,8 +261,20 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-100 border border-transparent'
               }`}
             >
-              <Shield size={16} />
+              <AppIcon name="security" size={18} />
               <span>Segurança & Conta</span>
+            </button>
+
+            <button
+              onClick={() => setActiveSection('CHANGELOG')}
+              className={`w-full px-3 py-2.5 rounded-lg flex items-center gap-2.5 text-xs font-semibold transition-colors ${
+                activeSection === 'CHANGELOG'
+                  ? 'bg-blue-600/15 text-blue-300 border border-blue-500/30'
+                  : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-100 border border-transparent'
+              }`}
+            >
+              <AppIcon name="updates" size={18} />
+              <span>Atualizações</span>
             </button>
           </nav>
 
@@ -536,39 +506,41 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   />
                 </div>
 
-                <div className="sm:col-span-4">
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                    Cidade
-                  </label>
-                  <input
-                    type="text"
-                    value={profileEditForm.city || ''}
-                    onChange={(e) =>
-                      setProfileEditForm({
-                        ...profileEditForm,
-                        city: e.target.value,
-                      })
-                    }
-                    className="w-full h-10 bg-slate-950 border border-slate-800 rounded-lg px-3 text-sm text-white font-medium outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-colors"
-                  />
-                </div>
+                <div className="grid grid-cols-[minmax(0,1fr)_5.5rem] gap-3 sm:col-span-6 sm:grid-cols-6 sm:gap-4">
+                  <div className="min-w-0 sm:col-span-4">
+                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                      Cidade
+                    </label>
+                    <input
+                      type="text"
+                      value={profileEditForm.city || ''}
+                      onChange={(e) =>
+                        setProfileEditForm({
+                          ...profileEditForm,
+                          city: e.target.value,
+                        })
+                      }
+                      className="w-full h-10 bg-slate-950 border border-slate-800 rounded-lg px-3 text-sm text-white font-medium outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-colors"
+                    />
+                  </div>
 
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                    Estado (UF)
-                  </label>
-                  <input
-                    type="text"
-                    value={profileEditForm.state || ''}
-                    onChange={(e) =>
-                      setProfileEditForm({
-                        ...profileEditForm,
-                        state: e.target.value.toUpperCase(),
-                      })
-                    }
-                    maxLength={2}
-                    className="w-full h-10 bg-slate-950 border border-slate-800 rounded-lg px-3 text-sm text-white font-medium text-center uppercase outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-colors"
-                  />
+                  <div className="min-w-0 sm:col-span-2">
+                    <label className="block truncate text-xs font-semibold text-slate-300 mb-1.5">
+                      Estado (UF)
+                    </label>
+                    <input
+                      type="text"
+                      value={profileEditForm.state || ''}
+                      onChange={(e) =>
+                        setProfileEditForm({
+                          ...profileEditForm,
+                          state: e.target.value.toUpperCase(),
+                        })
+                      }
+                      maxLength={2}
+                      className="w-full h-10 bg-slate-950 border border-slate-800 rounded-lg px-3 text-sm text-white font-medium text-center uppercase outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-colors"
+                    />
+                  </div>
                 </div>
                 </div>
               </div>
@@ -588,10 +560,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 focus-within:border-emerald-500/60 transition-colors">
-                  <label className="text-xs font-semibold text-slate-300 block mb-2">
-                    Juros Padrão (%)
+              <div className="grid grid-cols-3 gap-2.5 sm:gap-4">
+                <div className="bg-slate-950 p-3 sm:p-4 rounded-xl border border-slate-800 focus-within:border-emerald-500/60 transition-colors">
+                  <label className="text-[11px] sm:text-xs font-semibold text-slate-300 block mb-2">
+                    Juros (%)
                   </label>
                   <div className="flex items-baseline gap-1.5">
                     <input
@@ -610,9 +582,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   <p className="text-[11px] text-slate-400 mt-1.5">Aplicado por padrão em novos contratos.</p>
                 </div>
 
-                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 focus-within:border-emerald-500/60 transition-colors">
-                  <label className="text-xs font-semibold text-slate-300 block mb-2">
-                    Multa Padrão (%)
+                <div className="bg-slate-950 p-3 sm:p-4 rounded-xl border border-slate-800 focus-within:border-emerald-500/60 transition-colors">
+                  <label className="text-[11px] sm:text-xs font-semibold text-slate-300 block mb-2">
+                    Multa (%)
                   </label>
                   <div className="flex items-baseline gap-1.5">
                     <input
@@ -631,9 +603,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   <p className="text-[11px] text-slate-400 mt-1.5">Cobrada após o vencimento.</p>
                 </div>
 
-                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 focus-within:border-emerald-500/60 transition-colors">
-                  <label className="text-xs font-semibold text-slate-300 block mb-2">
-                    Mora Diária (%)
+                <div className="bg-slate-950 p-3 sm:p-4 rounded-xl border border-slate-800 focus-within:border-emerald-500/60 transition-colors">
+                  <label className="text-[11px] sm:text-xs font-semibold text-slate-300 block mb-2">
+                    Mora (%)
                   </label>
                   <div className="flex items-baseline gap-1.5">
                     <input
@@ -653,7 +625,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-5 border-t border-slate-800/80">
+              <div className="grid grid-cols-2 gap-3 sm:gap-4 pt-5 border-t border-slate-800/80">
                 <div>
                   <label className="text-xs font-semibold text-slate-300 block mb-1.5">
                     Meta de Capital (R$)
@@ -842,116 +814,17 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           {/* INTERFACE */}
           {activeSection === 'INTERFACE' && (
             <div className="space-y-6">
-              <LanguageSelector onChanged={message => showToast(message, 'success')} />
-              <div className="flex items-center gap-2.5 pt-2 pb-4 border-b border-slate-800/80">
-                <LayoutGrid size={18} className="text-blue-400 shrink-0" />
-                <div>
-                  <h3 className="text-base font-bold text-white">
-                    Personalizar Menus
-                  </h3>
-                  <p className="text-xs text-slate-400">Organize quais abas aparecem na barra principal ou no menu lateral.</p>
+              <LanguageSelector />
+              <AndroidQuickAccessSettings />
+              <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-4 flex items-start gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-800 bg-slate-900 text-blue-400">
+                  <GripVertical size={16} />
                 </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-3">
-                  <h4 className="text-[11px] font-bold uppercase text-emerald-400 tracking-wider flex items-center gap-2">
-                    <ArrowDown size={13} /> Barra Superior (Fixo)
-                  </h4>
-
-                  <div className="space-y-2">
-                    {navOrder.map((tab, idx) => (
-                      <div
-                        key={tab}
-                        className="bg-slate-950 border border-slate-800 hover:border-slate-700 px-3 py-2 rounded-lg flex items-center justify-between gap-2 transition-colors"
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <span className="text-[11px] font-semibold text-slate-500 tabular-nums w-4 shrink-0">
-                            {idx + 1}.
-                          </span>
-                          <span className="text-xs font-semibold text-white truncate">
-                            {getTabLabel(tab)}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                          <button
-                            onClick={() => void moveTab(tab, 'NAV', 'UP')}
-                            disabled={menuSaving || idx === 0}
-                            aria-label={`Mover ${getTabLabel(tab)} para cima`}
-                            className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded transition-colors disabled:opacity-30 disabled:pointer-events-none"
-                          >
-                            <ArrowUp size={13} />
-                          </button>
-                          <button
-                            onClick={() => void moveTab(tab, 'NAV', 'DOWN')}
-                            disabled={menuSaving || idx === navOrder.length - 1}
-                            aria-label={`Mover ${getTabLabel(tab)} para baixo`}
-                            className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded transition-colors disabled:opacity-30 disabled:pointer-events-none"
-                          >
-                            <ArrowDown size={13} />
-                          </button>
-                          <button
-                            onClick={() => void moveTab(tab, 'NAV', 'SWAP')}
-                            disabled={menuSaving || navOrder.length <= 1}
-                            className="px-2.5 py-1 bg-blue-600/15 text-blue-300 hover:bg-blue-600 hover:text-white border border-blue-500/20 rounded text-[11px] font-semibold transition-colors disabled:opacity-30 disabled:pointer-events-none"
-                            title="Mover para o Menu Lateral"
-                          >
-                            Menu
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <h4 className="text-[11px] font-bold uppercase text-blue-400 tracking-wider flex items-center gap-2">
-                    <LayoutGrid size={13} /> Menu Lateral
-                  </h4>
-
-                  <div className="space-y-2">
-                    {hubOrder.map((tab, idx) => (
-                      <div
-                        key={tab}
-                        className="bg-slate-950 border border-slate-800 hover:border-slate-700 px-3 py-2 rounded-lg flex items-center justify-between gap-2 transition-colors"
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <span className="text-[11px] font-semibold text-slate-500 tabular-nums w-4 shrink-0">
-                            {idx + 1}.
-                          </span>
-                          <span className="text-xs font-semibold text-white truncate">
-                            {getTabLabel(tab)}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                          <button
-                            onClick={() => void moveTab(tab, 'HUB', 'UP')}
-                            disabled={menuSaving || idx === 0}
-                            aria-label={`Mover ${getTabLabel(tab)} para cima`}
-                            className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded transition-colors disabled:opacity-30 disabled:pointer-events-none"
-                          >
-                            <ArrowUp size={13} />
-                          </button>
-                          <button
-                            onClick={() => void moveTab(tab, 'HUB', 'DOWN')}
-                            disabled={menuSaving || idx === hubOrder.length - 1}
-                            aria-label={`Mover ${getTabLabel(tab)} para baixo`}
-                            className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded transition-colors disabled:opacity-30 disabled:pointer-events-none"
-                          >
-                            <ArrowDown size={13} />
-                          </button>
-                          <button
-                            onClick={() => void moveTab(tab, 'HUB', 'SWAP')}
-                            disabled={menuSaving}
-                            className="px-2.5 py-1 bg-emerald-600/15 text-emerald-300 hover:bg-emerald-600 hover:text-white border border-emerald-500/20 rounded text-[11px] font-semibold transition-colors disabled:opacity-30 disabled:pointer-events-none"
-                            title="Mover para a Barra Superior"
-                          >
-                            Barra
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                <div className="min-w-0">
+                  <h3 className="text-sm font-bold text-white">Ordem das abas</h3>
+                  <p className="mt-1 text-xs leading-relaxed text-slate-400">
+                    Organize a posição dos botões diretamente na barra de navegação: toque no ícone de grade no canto da barra superior (Web) ou da barra inferior (Mobile), arraste os botões e clique em <span className="font-semibold text-slate-200">Concluir</span>.
+                  </p>
                 </div>
               </div>
             </div>
@@ -978,6 +851,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
               </div>
             </div>
           )}
+
+          {/* CHANGELOG / HISTÓRICO DE ATUALIZAÇÕES */}
+          {activeSection === 'CHANGELOG' && <ProfileChangelog />}
 
           {/* SALVAR */}
           {(activeSection === 'GENERAL' || activeSection === 'FINANCE') && (

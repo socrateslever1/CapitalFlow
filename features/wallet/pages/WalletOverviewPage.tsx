@@ -1,4 +1,5 @@
 import { PrivateMoney, useFinancialPrivacy } from '../../../contexts/FinancialPrivacyContext';
+import { AppIcon } from '../../../components/icons/AppIcons';
 import { businessDateInManaus } from '../../../utils/businessDate';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -11,8 +12,9 @@ import type {
 } from '../../../services/personalWallet.service';
 import { formatMoney } from '../../../utils/formatters';
 import { BankLogo } from '../../../components/wallet/BankLogo';
-import { calculateWalletBalance, describeWalletBalanceFact } from '../../../components/wallet/walletBalanceDomain';
-import { getEffectiveInvoiceCycles, getInvoiceCycleDates } from '../../../components/wallet/invoiceStatementDomain';
+import { buildInvoiceReminders } from '../utils/invoiceReminders';
+import { calculateAccountProjections, calculateWalletBalance, describeWalletBalanceFact } from '../../../components/wallet/walletBalanceDomain';
+import { getEffectiveInvoiceCycles, getInvoiceCycleDates, getPurchaseInvoiceMonth } from '../../../components/wallet/invoiceStatementDomain';
 import { getBankVisual, getCreditSummary } from '../../../components/wallet/walletPresentation';
 import { walletRepository, type WalletOverviewSnapshot } from '../services/walletRepository';
 import { WalletOverviewSummary } from '../components/WalletOverviewSummary';
@@ -77,7 +79,7 @@ const deriveOverview = (snapshot: WalletOverviewSnapshot, today: string) => {
     getBankVisual(account.institution_key || account.bank_name || account.nickname).key,
   ));
   const credit = getCreditSummary(cards);
-  const spending = getWalletSpendingOverview(snapshot.expenses, month);
+  const spending = getWalletSpendingOverview(snapshot.expenses, month, 4, snapshot.spendingOperations || []);
   const exactDueDates = new Map((snapshot.cardInvoiceDates || [])
     .map(item => [item.card_id + ':' + item.due_month.slice(0, 7), item.due_date] as const));
   const invoiceList: Commitment[] = cards.flatMap(card =>
@@ -87,7 +89,7 @@ const deriveOverview = (snapshot: WalletOverviewSnapshot, today: string) => {
         const explicitDate=exactDueDates.get(card.id + ':' + cycle.dueMonth.slice(0, 7));
         if (!card.due_day && !explicitDate) return [];
         const { closingDate, dueDate } = getInvoiceCycleDates(
-          cycle.dueMonth, card.closing_day, card.due_day, explicitDate,
+          cycle.dueMonth, card.closing_day, card.due_day, explicitDate, card,
         );
         const competence = closingDate.slice(5,7) + '/' + closingDate.slice(0,4);
         return [{
@@ -101,9 +103,14 @@ const deriveOverview = (snapshot: WalletOverviewSnapshot, today: string) => {
         }];
       }),
   );
-  // Only the current calendar month's invoices enter the monthly projection.
+  // A projeção do mês inclui faturas do mês e faturas vencidas ainda não pagas:
+  // dívida atrasada não some da previsão.
+  // Compromissos: tudo que vence nos próximos 30 dias, mais o que já venceu e não foi pago.
+  const horizon = new Date(today + 'T12:00:00Z');
+  horizon.setUTCDate(horizon.getUTCDate() + 30);
+  const horizonDate = horizon.toISOString().slice(0, 10);
   const currentInvoiceTotal = sum(
-    invoiceList.filter(invoice => invoice.dueDate.slice(0, 7) === month),
+    invoiceList.filter(invoice => invoice.dueDate <= horizonDate),
     invoice => invoice.amount,
   );
   const receivedIds = new Set(snapshot.recurringReceipts
@@ -117,6 +124,22 @@ const deriveOverview = (snapshot: WalletOverviewSnapshot, today: string) => {
     openCardInvoices: currentInvoiceTotal,
     payables: snapshot.payables,
     month,
+    pendingOperations: snapshot.pendingOperations || [],
+    horizonDate,
+  });
+  // Saldo previsto por conta: mesmas parcelas do total, distribuídas pela conta de cada item.
+  const accountProjections = calculateAccountProjections({
+    accounts,
+    recurringIncomes: snapshot.recurringIncomes,
+    receivedIncomeIds: receivedIds,
+    payables: snapshot.payables,
+    invoices: invoiceList.filter(invoice => invoice.dueDate <= horizonDate).map(invoice => ({
+      accountId: cards.find(card => card.id === invoice.id.split(':')[0])?.account_id || null,
+      amount: invoice.amount,
+    })),
+    pendingOperations: snapshot.pendingOperations || [],
+    month,
+    horizonDate,
   });
 
   const openPayables: Commitment[] = snapshot.payables.filter(isOpenPayable)
@@ -162,15 +185,19 @@ const deriveOverview = (snapshot: WalletOverviewSnapshot, today: string) => {
   });
 
   return {
-    accounts, cards, accountBalance, institutionCount: institutionKeys.size,
-    credit, currentInvoiceTotal, balance, upcoming, spending, overdueCount, overdueInvoiceCount, dueSoonCount,
+    accounts, cards, bankAvailableReferences: snapshot.bankAvailableReferences || [],
+    cardMovements: { expenses: snapshot.expenses },
+    accountBalance, institutionCount: institutionKeys.size,
+    credit, currentInvoiceTotal, balance, accountProjections, upcoming, spending, overdueCount, overdueInvoiceCount, dueSoonCount,
     timelineEvents,
   };
 };
 
 export const WalletOverviewPage: React.FC<Props> = ({ activeUser, onNavigate }) => {
   const privacyHidden = useFinancialPrivacy();
-  const [snapshot, setSnapshot] = useState<WalletOverviewSnapshot | null>(null);
+  const [snapshot, setSnapshot] = useState<WalletOverviewSnapshot | null>(() =>
+    typeof walletRepository.peekSyncOverview === 'function' ? walletRepository.peekSyncOverview() : null
+  );
   const [error, setError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [today, setToday] = useState(() => businessDateInManaus());
@@ -196,12 +223,14 @@ export const WalletOverviewPage: React.FC<Props> = ({ activeUser, onNavigate }) 
         setToday(businessDateInManaus());
       }
     });
-    walletRepository.loadOverview()
+    // Um resumo em cache é útil para o primeiro quadro, mas ao entrar na
+    // Visão geral os valores devem ser revalidados com a mesma fonte do detalhe.
+    walletRepository.loadOverview({ force: true })
       .then(result => { if (mounted) { setSnapshot(result); setToday(businessDateInManaus()); setError(''); } })
       .catch(reason => {
-        if (mounted && !hasCached) setError(
-          reason instanceof Error ? reason.message : 'Não foi possível carregar a carteira.',
-        );
+        if (mounted) setError(hasCached
+          ? 'Falha ao atualizar. Os valores apresentados podem estar desatualizados.'
+          : reason instanceof Error ? reason.message : 'Não foi possível carregar a carteira.');
       });
     const onChange = () => {
       void refresh().catch(() => {
@@ -243,14 +272,17 @@ export const WalletOverviewPage: React.FC<Props> = ({ activeUser, onNavigate }) 
     </section>;
   }
 
-  const { accounts, cards, balance, credit, upcoming } = overview;
+  const { accounts, cards, balance, credit, upcoming, accountProjections } = overview;
   const deficit = balance.projectedBalance < 0;
 
   return <section aria-label="Visão geral da carteira"
     className="w-full min-w-0 space-y-4 pb-24 lg:pb-8">
     {error && <div role="alert" className="rounded-xl border border-rose-500/30 bg-rose-950/20 p-3 text-xs text-rose-200">{error}</div>}
 
-    <WalletOverviewSummary accounts={accounts} cards={cards} accountBalance={overview.accountBalance}
+    <WalletOverviewSummary accounts={accounts} cards={cards}
+      bankAvailableReferences={overview.bankAvailableReferences}
+      cardMovements={overview.cardMovements}
+      accountBalance={overview.accountBalance}
       currentInvoiceTotal={overview.currentInvoiceTotal} credit={credit} onNavigate={onNavigate}/>
 
     <WalletSpendingGuide projectedBalance={balance.projectedBalance} creditPercent={credit.percentage}
@@ -258,6 +290,20 @@ export const WalletOverviewPage: React.FC<Props> = ({ activeUser, onNavigate }) 
       overdueCount={overview.overdueCount} overdueInvoiceCount={overview.overdueInvoiceCount}
       dueSoonCount={overview.dueSoonCount}
       pendingIncome={balance.pendingRecurringIncome} spending={overview.spending} onNavigate={onNavigate}/>
+
+    {(() => {
+      // Lembrete no app: fatura que fecha ou vence em até 3 dias (regra de ciclo de cada cartão).
+      const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Manaus' }).format(new Date());
+      // Vencimento só avisa se a fatura ainda tem valor a pagar.
+      const reminders = buildInvoiceReminders(cards, today)
+        .filter(item => item.kind === 'CLOSE' || overview.upcoming.some(invoice => invoice.id.startsWith(item.cardId + ':') && invoice.dueDate === item.date))
+        .map(item => ({ key: item.key, text: item.text }));
+      if (!reminders.length) return null;
+      return <aside aria-label="Lembretes de fatura" className="rounded-xl border border-amber-500/30 bg-amber-950/20 p-3">
+        <p className="text-xs font-bold text-amber-200">Lembretes de fatura</p>
+        <ul className="mt-1 space-y-0.5 text-xs text-amber-100/90">{reminders.map(item => <li key={item.key}>{item.text}</li>)}</ul>
+      </aside>;
+    })()}
 
     {/* 1. SEÇÃO BALANÇO DO MÊS */}
     <article className="rounded-xl border border-slate-800 bg-slate-900 p-4 sm:p-5">
@@ -274,7 +320,7 @@ export const WalletOverviewPage: React.FC<Props> = ({ activeUser, onNavigate }) 
           (privacyHidden ? 'border-slate-700 bg-slate-950/50 text-slate-300' :
            deficit ? 'border-rose-500/30 bg-rose-500/10 text-rose-300' :
              'border-emerald-500/30 bg-emerald-500/10 text-emerald-300')}>
-          {privacyHidden ? 'Indicador oculto' : deficit ? 'Déficit no mês' : 'Superávit no mês'}
+          {privacyHidden ? 'Indicador oculto' : deficit ? 'Falta prevista' : 'Sobra prevista'}
         </span>
       </div>
 
@@ -285,101 +331,81 @@ export const WalletOverviewPage: React.FC<Props> = ({ activeUser, onNavigate }) 
           <dd className="mt-1 break-words text-base font-bold tabular-nums text-emerald-300 sm:text-lg"><PrivateMoney value={money(balance.totalResources)} /></dd>
         </div>
         <div className="min-w-0 p-3 sm:border-r sm:border-slate-800 sm:p-4">
-          <dt className="text-xs font-medium text-slate-300">Compromissos do mês</dt>
+          <dt className="text-xs font-medium text-slate-300">Compromissos (próx. 30 dias)</dt>
           <dd className="mt-1 break-words text-base font-bold tabular-nums text-rose-300 sm:text-lg"><PrivateMoney value={money(balance.totalLiabilities)} /></dd>
         </div>
         <div className={`col-span-2 min-w-0 border-t border-slate-800 p-3 sm:col-span-1 sm:border-t-0 sm:p-4 ${privacyHidden ? 'bg-slate-950/30' : deficit ? 'bg-rose-950/15' : 'bg-emerald-950/10'}`}>
-          <dt className="text-xs font-semibold text-white">Projeção após compromissos</dt>
+          <dt className="text-xs font-semibold text-white">Sobra prevista após compromissos</dt>
           <dd className={`mt-1 break-words text-lg font-bold tabular-nums ${privacyHidden ? 'text-slate-300' : deficit ? 'text-rose-300' : 'text-emerald-300'}`}><PrivateMoney value={money(balance.projectedBalance)} /></dd>
         </div>
       </dl>
-      {!privacyHidden && <section aria-label="Composição explicada do balanço"
-        className="mt-4 space-y-3 border-t border-slate-700 pt-4">
-        <h4 className="text-sm font-semibold text-white">Como chegamos à projeção</h4>
-        <p className="text-xs leading-relaxed text-slate-300">
-          Somente o saldo das contas já está disponível. As receitas futuras são previsões;
-          faturas e dívidas entram como compromissos apenas uma vez.
-        </p>
-        <div className="grid gap-4 lg:grid-cols-12">
-          <div className="min-w-0 lg:col-span-6">
-            <h5 className="mb-2 text-xs font-semibold text-emerald-300">Saldo e entradas</h5>
-            <dl className="space-y-2 text-sm tabular-nums">
-              <div className="flex justify-between gap-2"><dt className="text-slate-200">Saldo disponível em contas hoje</dt>
-                <dd className="font-semibold text-white"><PrivateMoney value={money(balance.accountBalance)}/></dd></div>
-              <div className="flex justify-between gap-2"><dt className="text-slate-300">+ Receitas recorrentes ainda não recebidas</dt>
-                <dd className="font-semibold text-white"><PrivateMoney value={money(balance.pendingRecurringIncome)}/></dd></div>
+      {accountProjections.length > 0 && <details className="mt-3 rounded-xl border border-slate-800 bg-slate-950/40">
+        <summary className="cursor-pointer px-3 py-2.5 text-xs font-semibold text-blue-200">Saldo previsto por conta</summary>
+        <ul className="divide-y divide-slate-800 border-t border-slate-800">
+          {accountProjections.map(item => <li key={item.accountId || 'none'} className="px-3 py-2.5">
+            <div className="flex items-center justify-between gap-2 text-xs">
+              <span className="min-w-0 truncate font-semibold text-slate-100">{item.name}</span>
+              <span className={`shrink-0 font-bold tabular-nums ${item.projected < 0 ? 'text-rose-300' : 'text-emerald-300'}`}><PrivateMoney value={money(item.projected)} /></span>
+            </div>
+            <dl className="mt-1 space-y-0.5 text-[11px] text-slate-400">
+              {item.accountId && <div className="flex justify-between gap-2"><dt>Saldo atual</dt><dd className="tabular-nums"><PrivateMoney value={money(item.balance)} /></dd></div>}
+              {item.lines.map(line => <div key={line.label} className="flex justify-between gap-2"><dt>{line.label}</dt>
+                <dd className={`tabular-nums ${line.amount < 0 ? 'text-rose-300/90' : 'text-emerald-300/90'}`}>{line.amount < 0 ? '− ' : '+ '}<PrivateMoney value={money(Math.abs(line.amount))} /></dd></div>)}
             </dl>
-          </div>
-          <div className="min-w-0 lg:col-span-6">
-            <h5 className="mb-2 text-xs font-semibold text-rose-300">Saídas previstas</h5>
-            <dl className="space-y-2 text-sm tabular-nums">
-              <div className="flex justify-between gap-2"><dt className="text-slate-300">− Faturas com vencimento neste mês</dt>
-                <dd className="font-semibold text-white"><PrivateMoney value={money(balance.openCardInvoices)}/></dd></div>
-              <div className="flex justify-between gap-2"><dt className="text-slate-300">− Dívidas e contas pendentes do mês</dt>
-                <dd className="font-semibold text-white"><PrivateMoney value={money(balance.monthPayables)}/></dd></div>
-            </dl>
-          </div>
-        </div>
-        <p className="text-xs leading-relaxed text-slate-300">
-          Resultado: <strong className="text-white"><PrivateMoney value={money(balance.projectedBalance)}/></strong>
-          {' '}de saldo projetado após esses compromissos. Não é lucro de empréstimos, crédito do cartão nem confirmação de recebimento.
-          Compras já incluídas nas faturas não são subtraídas novamente.
+          </li>)}
+        </ul>
+        <p className="border-t border-slate-800 px-3 py-2 text-[11px] leading-relaxed text-slate-500">
+          Próximos 30 dias, incluindo o que já venceu. Faturas entram na conta vinculada ao cartão.
         </p>
-      </section>}
-      {privacyHidden && <p className="mt-3 text-xs text-slate-400">
-        Composição do balanço oculta pelo controle de privacidade.
-      </p>}
+      </details>}
     </article>
 
     {/* 2. SEÇÃO COMPROMISSOS PRÓXIMOS */}
-    <article className="rounded-xl border border-slate-800 bg-slate-900 p-4 sm:p-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="flex items-center gap-2 text-base sm:text-lg font-bold text-white"><CalendarClock size={18} className="text-blue-400"/> Compromissos próximos</h2>
-          <p className="mt-1 text-xs sm:text-sm text-slate-300">Até 8 obrigações vencidas ou com vencimento nos próximos 45 dias</p>
-        </div>
-        <button type="button" onClick={() => go('dividas')} className="flex min-h-10 items-center gap-1.5 text-sm font-semibold text-blue-300 transition-colors hover:text-blue-200">
-          <span>Ver contas a pagar</span> <ArrowRight size={16}/>
+    <article className="rounded-xl border border-slate-800 bg-slate-900 p-3 sm:p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="flex items-center gap-2 text-sm sm:text-base font-bold text-white"><AppIcon name="calendar" size={20} /> Compromissos próximos</h2>
+        <button type="button" onClick={() => go('dividas')} className="flex min-h-9 items-center gap-1 text-xs font-semibold text-blue-300 transition-colors hover:text-blue-200">
+          <span>Ver contas a pagar</span> <ArrowRight size={14}/>
         </button>
       </div>
-      {privacyHidden ? <p className="mt-4 rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-sm text-slate-300">
+      {privacyHidden ? <p className="mt-2.5 rounded-lg border border-slate-800 bg-slate-950/40 p-2.5 text-xs text-slate-300">
         Detalhes e vencimentos ocultos pelo controle de privacidade.
-      </p> : <div className="mt-4 divide-y divide-slate-800">
+      </p> : <div className="mt-2 divide-y divide-slate-800">
         {upcoming.length ? upcoming.map(item => {
           const overdue = item.dueDate < today;
+          const subtitle = item.accountLabel && item.accountLabel !== item.institution
+            ? `${item.institution} · ${item.accountLabel}`
+            : item.institution;
           return (
             <div
               key={item.id}
-              className="flex flex-col gap-2 rounded-lg px-1 py-3 sm:flex-row sm:items-center sm:justify-between"
+              className="flex items-center justify-between gap-2.5 py-2"
             >
-              {/* Lado Esquerdo */}
-              <div className="flex min-w-0 items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-700/80 bg-slate-950 text-slate-200">
+              <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-700/80 bg-slate-950 text-slate-200">
                   <BankLogo name={item.institution} alternateName={item.title} size="sm" />
                 </div>
                 <div className="min-w-0">
-                  <p className="truncate text-sm sm:text-base font-semibold text-white">{item.title}</p>
-                  <p className="mt-0.5 truncate text-xs sm:text-sm text-slate-300">{item.institution} · {item.accountLabel}</p>
+                  <p className="truncate text-xs sm:text-sm font-semibold text-white">{item.title}</p>
+                  <p className="truncate text-[11px] text-slate-400">{subtitle}</p>
                 </div>
               </div>
-
-              {/* Centro & Lado Direito */}
-              <div className="flex items-center justify-between gap-3 sm:justify-end shrink-0">
-                <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
+              <div className="shrink-0 text-right">
+                <strong className="block text-xs sm:text-sm font-bold text-white tracking-tight tabular-nums">
+                  <PrivateMoney value={money(item.amount)} />
+                </strong>
+                <span className={`mt-0.5 inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
                   overdue
                     ? 'border-rose-500/30 bg-rose-500/10 text-rose-300'
-                    : 'border-slate-700 bg-slate-950 text-slate-200'
+                    : 'border-slate-700 bg-slate-950 text-slate-300'
                 }`}>
                   {overdue ? 'Vencido · ' : ''}{dateLabel(item.dueDate)}
                 </span>
-                <strong className="text-right text-base sm:text-lg font-bold text-white tracking-tight tabular-nums">
-                  <PrivateMoney value={money(item.amount)} />
-                </strong>
               </div>
             </div>
           );
-        }) : <p className="rounded-xl border border-dashed border-slate-700 p-6 text-center text-sm text-slate-300">
-          Nenhum compromisso com vencimento informado nos próximos 45 dias.
+        }) : <p className="rounded-xl border border-dashed border-slate-700 p-4 text-center text-xs text-slate-300">
+          Nenhum compromisso previsto nos próximos 45 dias.
         </p>}
       </div>}
     </article>

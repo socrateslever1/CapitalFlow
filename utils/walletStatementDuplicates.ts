@@ -7,17 +7,39 @@ const normalized = (s: string): string => s.normalize('NFD')
   .replace(/[^\p{L}\p{N}]+/gu, ' ').trim().replace(/\s+/g, ' ');
 const signature = (date: string, description: string, amount: number): string =>
   date + '|' + Math.round(amount * 100) + '|' + normalized(description);
+const cardSignature = (date: string, description: string, amount: number): string =>
+  date + '|' + Math.abs(Math.round(amount * 100)) + '|' + normalized(description);
 
 export function detectPreviouslyImported(
   incoming: readonly ParsedStatementRow[],
   existing: readonly WalletStatementRow[],
   kind: 'ACCOUNT' | 'CARD',
   targetId: string,
+  documentHash?: string,
 ): ReadonlySet<string> {
-  const signatures = new Set(existing.filter(row => row.target_kind === kind && row.target_id === targetId)
-    .map(row => signature(row.entry_date, row.description, Number(row.amount))));
-  return new Set(incoming.filter(row => signatures.has(signature(row.date, row.description, row.amount)))
-    .map(row => row.rowKey));
+  const scoped = existing.filter(row => row.target_kind === kind && row.target_id === targetId);
+  const crossFileSignatures = new Set(
+    scoped
+      .filter(row => !documentHash || row.document_hash !== documentHash)
+      .map(row => kind === 'CARD'
+        ? cardSignature(row.entry_date, row.description, Number(row.amount))
+        : signature(row.entry_date, row.description, Number(row.amount)))
+  );
+  const sameFileKeys = new Set(
+    documentHash
+      ? scoped.filter(row => row.document_hash === documentHash).map(row => row.row_key)
+      : []
+  );
+  return new Set(
+    incoming
+      .filter(row =>
+        sameFileKeys.has(row.rowKey) ||
+        crossFileSignatures.has(kind === 'CARD'
+          ? cardSignature(row.date, row.description, row.amount)
+          : signature(row.date, row.description, row.amount))
+      )
+      .map(row => row.rowKey)
+  );
 }
 
 /**
@@ -33,11 +55,21 @@ export function detectRecoverableStatementRows(
   documentHash: string,
 ): ReadonlySet<string> {
   if (kind !== 'CARD' || !documentHash) return new Set<string>();
-  return new Set(incoming.filter(row => row.amount > 0 && existing.some(previous =>
+  const scoped = existing.filter(previous =>
     previous.target_kind === 'CARD' && previous.target_id === targetId
-    && previous.document_hash === documentHash && previous.row_key === row.rowKey
-    && previous.expense_id == null
-    && signature(previous.entry_date, previous.description, Number(previous.amount))
-      === signature(row.date, row.description, row.amount)
-  )).map(row => row.rowKey));
+  );
+  return new Set(incoming.filter(row => {
+    const exactMatches = scoped.filter(previous =>
+      cardSignature(previous.entry_date, previous.description, Number(previous.amount))
+        === cardSignature(row.date, row.description, row.amount)
+    );
+    // Same-document retries are idempotent even after the item was recorded.
+    if (exactMatches.some(previous =>
+      previous.document_hash === documentHash && previous.row_key === row.rowKey
+    )) return true;
+
+    // The RPC reuses one matching source row per call. It checks that the
+    // linked expense is pending and unpaid before replacing it.
+    return exactMatches.some(previous => previous.document_hash !== documentHash);
+  }).map(row => row.rowKey));
 }

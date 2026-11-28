@@ -4,11 +4,21 @@ import test from 'node:test';
 
 test('cards page exposes the three credit magnitudes and the manual override action', () => {
   const page = readFileSync('features/wallet/pages/WalletCardsPage.tsx', 'utf8');
-  assert.match(page, /Fatura selecionada/);
-  assert.match(page, /Faturas posteriores/);
-  assert.match(page, /Limite disponível/);
-  assert.match(page, /Definir Valor da Fatura/);
+  const modal = readFileSync('components/wallet/InvoiceOverrideModal.tsx', 'utf8');
+  assert.match(page, /formatMoney\(cycle\.amount\)/);
+  assert.match(page, /banco informou \$\{formatMoney\(bankInvoiceTotal\)\}/);
+  assert.match(page, /Próximas faturas/);
+  assert.match(page, /formatCardAvailableOrigin\(availablePresentation\?\.bankReference/);
+  const presentation = readFileSync('features/wallet/domain/cardAvailablePresentation.ts', 'utf8');
+  assert.match(presentation, /'Disponível · banco '/);
+  assert.match(presentation, /'Limite estimado'/);
+  assert.match(page, /bankLimitReference=/);
+  assert.match(page, /saveObservedBankAvailable/);
+  assert.match(page, /usedLimit: \(limitCents - amountCents\) \/ 100/);
+  assert.match(page, /Ajustar fatura/);
   assert.match(page, /InvoiceOverrideModal/);
+  assert.match(modal, /saveLabel="Salvar valores do banco"/);
+  assert.doesNotMatch(page, /Definir vencimento e valores|Corrigir vencimento e valores/);
 });
 
 test('wallet service dispatches all phase 3 financial writes through RPCs with request ids', () => {

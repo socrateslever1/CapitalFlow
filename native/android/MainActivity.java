@@ -22,6 +22,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(WalletFileInboxPlugin.class);
         registerPlugin(CapitalFlowApkInstallerPlugin.class);
         registerPlugin(WalletBankNotificationsPlugin.class);
+        registerPlugin(WalletQuickAccessPlugin.class);
         super.onCreate(savedInstanceState);
 
         configureSystemBarInsets();
@@ -41,6 +42,7 @@ public class MainActivity extends BridgeActivity {
         setIntent(intent);
         if (getBridge() != null) {
             getBridge().triggerWindowJSEvent("capitalflow:file-arrived");
+            getBridge().triggerWindowJSEvent("capitalflow:quick-access");
         }
     }
 

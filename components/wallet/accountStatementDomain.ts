@@ -34,6 +34,14 @@ type StatementRowLike = {
   description: string; amount: number; category: string;
 };
 
+/** Repara descrições legadas em UTF-8 duplamente decodificado sem alterar nomes. */
+export function normalizeWalletStatementDescription(description: string): string {
+  return description
+    .replace(/^EmprÃ©stimo concedido\s*Â·\s*/i, 'Empréstimo · ')
+    .replace(/^Empréstimo concedido\s*[·-]\s*/i, 'Empréstimo · ')
+    .replace(/^Empréstimo\s*·\s*/i, 'Empréstimo · ');
+}
+
 export function buildAccountStatementEntries(input: {
   accountId: string;
   accounts: AccountLike[];
@@ -41,12 +49,20 @@ export function buildAccountStatementEntries(input: {
   expenses: ExpenseLike[];
   invoicePayments: InvoicePaymentLike[];
   statementRows: StatementRowLike[];
+  cardFundedLoanIds?: readonly string[];
 }): AccountStatementEntry[] {
+  const cardFundedLoanIds = new Set(input.cardFundedLoanIds || []);
+  const isCardFundedAccountingEntry = (operation: OperationLike) =>
+    Boolean(operation.contract_id && cardFundedLoanIds.has(operation.contract_id) &&
+      (operation.operation_type === 'LOAN_DISBURSEMENT' ||
+        (operation.operation_type === 'INCOME' && operation.category === 'Auditoria' &&
+         operation.description.toLocaleLowerCase('pt-BR').includes('estorno: empréstimo financiado no cartão'))));
   const operationRequestIds = new Set(
     input.operations.map(operation => operation.request_id).filter(Boolean),
   );
   const operationEntries = input.operations
     .filter(operation => !operation.voided_at && !operation.voids_operation_id &&
+      !isCardFundedAccountingEntry(operation) &&
       (operation.from_account_id === input.accountId || operation.to_account_id === input.accountId))
     .map(operation => {
       const incoming = operation.to_account_id === input.accountId;
@@ -76,7 +92,7 @@ export function buildAccountStatementEntries(input: {
         category = operation.category || 'Recebimento de contrato';
       } else if (operation.operation_type === 'LOAN_DISBURSEMENT') {
         tag = 'Empréstimo concedido';
-        category = 'Empréstimo concedido';
+        category = 'Valor emprestado';
       } else if (operation.operation_type === 'LOAN_REPAYMENT') {
         tag = 'Parcela recebida';
         category = operation.category || 'Parcela recebida';
@@ -85,10 +101,17 @@ export function buildAccountStatementEntries(input: {
       } else if (operation.operation_type === 'INCOME' && operation.category === 'Saldo inicial') {
         tag = 'Saldo inicial';
       }
+      const normalizedLabel = operation.contract_id && /^(recebimento de contrato|recebimento do contrato)\s*[·-]\s*/i.test(operation.description)
+        ? operation.description.replace(/^(recebimento de contrato|recebimento do contrato)\s*[·-]\s*/i, 'Recebimento de ')
+        : operation.contract_id && /^empr[eé]stimo concedido\s*[·-]\s*/i.test(operation.description)
+          ? operation.description.replace(/^empr[eé]stimo concedido\s*[·-]\s*/i, 'Empréstimo · ')
+          : operation.operation_type === 'CAPITAL_TRANSFER' && /^transfer[eê]ncia de capital\s*[·-]\s*/i.test(operation.description)
+            ? operation.description.replace(/^transfer[eê]ncia de capital\s*[·-]\s*/i, 'Capital · ')
+            : operation.description;
       return {
         id: operation.id,
         date: operation.operation_date,
-        label: operation.description,
+        label: normalizeWalletStatementDescription(normalizedLabel),
         category,
         tag,
         amount: incoming ? Number(operation.amount) : -Number(operation.amount),

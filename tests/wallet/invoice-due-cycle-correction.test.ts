@@ -38,10 +38,11 @@ test('the editor changes the SAME invoice via one transactional RPC, never a sec
   const sql=readFileSync('supabase/migrations/20261030214000_wallet_correct_invoice_due_cycle.sql','utf8');
   assert.match(component,/Mês de pagamento/);
   assert.match(component,/Data exata de vencimento/);
-  assert.match(component,/Competência \(fechamento\)/);
+  assert.match(component,/Fecha \{shortDate\(dates\.closingDate\)\}/);
+  assert.match(component,/Vence \{shortDate\(dates\.dueDate\)\}/);
   assert.match(component,/hasExistingConsolidation/);
   assert.match(page,/personalWalletService\.correctInvoiceOverride/);
-  assert.match(page,/previousDueMonth:selectedCycle\?\.hasOverride/);
+  assert.match(page,/previousDueMonth:\s*selectedCycle\?\.hasOverride/);
   assert.match(service,/supabase\.rpc\('personal_wallet_correct_invoice_override'/);
   assert.match(sql,/pg_advisory_xact_lock/);
   assert.match(sql,/v_target\.amount<>v_previous\.amount/);
@@ -60,23 +61,40 @@ test('overview shows competence by closing date and respects the actual payment 
   assert.match(overview,/title: 'Fatura ' \+ card\.nickname \+ ' · competência ' \+ competence/);
   assert.match(overview,/getInvoiceCycleDates\(/);
   assert.match(overview,/snapshot\.cardInvoiceDates/);
-  assert.match(service,/select\('card_id,due_month,due_date'\)/);
+  assert.match(service,/select\('card_id,due_month,due_date,closing_date,available_limit,updated_at'\)/);
 });
 
 test('primeira fatura permite mês manual sem fatura preexistente nem limite disponível inventado', () => {
   const page = readFileSync('features/wallet/pages/WalletCardsPage.tsx', 'utf8');
   const preview = readFileSync('components/wallet/CardInvoiceSummaryPreview.tsx', 'utf8');
+  const modal = readFileSync('components/wallet/InvoiceOverrideModal.tsx', 'utf8');
   assert.equal(resolveManualInvoiceMonth(null, '2026-12-01'), '2026-12-01');
   assert.equal(resolveManualInvoiceMonth('2026-12', null), '2026-12-01');
   assert.equal(resolveManualInvoiceMonth('2026-13', null), null);
   assert.equal(resolveManualInvoiceMonth('2026-12-05', null), null);
-  assert.match(page, /setInvoiceFactsModalMonth\(resolveManualInvoiceMonth\(statementMonth, suggestedNewInvoiceMonth\)\)/);
-  assert.match(page, /dueMonth:confirmedDueMonth/);
+  assert.match(page, /initialDueMonth=\{creatingInvoice \? suggestedNewInvoiceMonth/);
+  assert.match(page, /dueMonth:\s*confirmedDueMonth/);
   assert.match(page, /availableLimit: editedInvoiceFacts\?\.available_limit \?\? null/);
-  assert.match(page, /type="month" required/);
-  assert.match(page, /form="wallet-manual-invoice-form"/);
-  assert.match(page, /busy=\{invoiceFactsSaving\}/);
+  assert.match(modal, /type="month" required/);
+  assert.match(modal, /setMonth\(next\)/);
+  assert.match(modal, /form id="invoice-override-adjustment-form"/);
+  assert.match(modal, /formId="wallet-invoice-override-facts-form"/);
   assert.match(preview, /inlineSave \&\&/);
   assert.match(preview, /onSavingChange\?\.\(true\)/);
   assert.doesNotMatch(page, /if \(!selected \|\| !statementMonth\) throw new Error\('Selecione o cartão e o mês/);
+});
+
+test('conferência da fatura explica quando apenas registra dados e quando inicia a posição do cartão', () => {
+  const page=readFileSync('features/wallet/pages/WalletCardsPage.tsx','utf8');
+  const preview=readFileSync('components/wallet/CardInvoiceSummaryPreview.tsx','utf8');
+  const modal=readFileSync('components/wallet/InvoiceOverrideModal.tsx','utf8');
+  assert.match(page,/<InvoiceOverrideModal/);
+  assert.match(modal,/Mês de pagamento/);
+  assert.match(modal,/saveLabel="Salvar valores do banco"/);
+  assert.match(modal,/onSave=\{summary=>onSaveInvoiceFacts\(month\+'-01',summary\)\}/);
+  assert.match(preview,/Salve aqui os valores que aparecem no app ou na fatura do banco/);
+  assert.match(preview,/tamb.m podem registrar a posi..o inicial/);
+  assert.match(preview,/não um pagamento/);
+  assert.match(preview,/mês de pagamento selecionado/);
+  assert.doesNotMatch(preview,/não modifica compras, limite bancário ou saldo contábil/);
 });

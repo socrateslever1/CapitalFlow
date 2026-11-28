@@ -12,6 +12,8 @@ import {
 import { getPaymentGroupKey } from '../../../utils/paymentGroups';
 import { ReceiptInstallmentDetails } from './ReceiptInstallmentDetails';
 
+const RECENT_LIMIT = 5;
+
 interface LedgerListProps {
   ledger: LedgerEntry[];
   loan: Loan;
@@ -25,14 +27,17 @@ export const LedgerList: React.FC<LedgerListProps> = ({
 }) => {
   const entries = React.useMemo(() => getLedgerDisplayEvents(ledger || []), [ledger]);
   const reversalIndex = React.useMemo(() => getLedgerReversalIndex(ledger || []), [ledger]);
+  // Sem rolagem interna: no celular uma lista rolável dentro do card prende o toque e trava a página.
+  const [showAll, setShowAll] = React.useState(false);
+  const visibleEntries = showAll ? entries : entries.slice(0, RECENT_LIMIT);
 
   if (entries.length === 0) {
     return <p className="py-5 text-center text-xs text-slate-500">Nenhuma movimentação registrada.</p>;
   }
 
   return (
-    <div className="max-h-[380px] space-y-1 overflow-y-auto overscroll-contain pr-1 custom-scrollbar" aria-label="Extrato do contrato em ordem cronológica decrescente">
-      {entries.map((entry) => {
+    <div className="space-y-1" aria-label="Extrato do contrato em ordem cronológica decrescente">
+      {visibleEntries.map((entry) => {
         const reversal = isLedgerReversal(entry);
         const audit = isLedgerAudit(entry) && !reversal;
         const reversed = reversalIndex.reversedIds.has(entry.id)
@@ -118,7 +123,7 @@ export const LedgerList: React.FC<LedgerListProps> = ({
                     onClick={(event) => { event.stopPropagation(); onReverseTransaction(entry, loan); }}
                     className="inline-flex min-h-8 items-center gap-1 rounded-md border border-rose-500/35 px-2 text-[10px] font-semibold text-rose-300 hover:bg-rose-500/10"
                     aria-label={`Estornar lançamento ${entry.id.slice(0, 8)}`}
-                    title="Estornar este recebimento pela rotina auditável"
+                    title="Estornar este recebimento"
                   >
                     <Undo2 size={12}/> Estornar
                   </button>
@@ -128,6 +133,16 @@ export const LedgerList: React.FC<LedgerListProps> = ({
           </article>
         );
       })}
+      {entries.length > RECENT_LIMIT && (
+        <button
+          type="button"
+          onClick={() => setShowAll(value => !value)}
+          aria-expanded={showAll}
+          className="mt-1 flex min-h-10 w-full items-center justify-center rounded-md border border-slate-800 text-[11px] font-semibold text-slate-300 hover:bg-slate-800/60"
+        >
+          {showAll ? 'Mostrar só os recentes' : `Ver extrato completo (${entries.length})`}
+        </button>
+      )}
     </div>
   );
 };

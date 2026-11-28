@@ -103,6 +103,9 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
   const [newCardNickname, setNewCardNickname] = useState('');
   const [newCardLimit, setNewCardLimit] = useState('');
   const [newCardLastFour, setNewCardLastFour] = useState('');
+  const [newCardClosingDay, setNewCardClosingDay] = useState('');
+  const [newCardDueDay, setNewCardDueDay] = useState('');
+  const [newCardBrand, setNewCardBrand] = useState('');
   const ownerDefaults = useWalletOwnerDefaults(activeUser, accountType !== 'CASH');
   useEffect(() => {
     if (thirdPartyAccount || accountType === 'CASH') return;
@@ -208,6 +211,9 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
       if (!newCardNickname.trim()) { setError('Informe o nome do novo cartão vinculado.'); return; }
       if (!bankName.trim()) { setError('Informe o emissor do novo cartão.'); return; }
       if (newCardLastFour && !/^\d{4}$/.test(newCardLastFour)) { setError('Informe apenas os quatro últimos dígitos do cartão.'); return; }
+      for (const [day, label] of [[newCardClosingDay, 'fechamento'], [newCardDueDay, 'vencimento']] as const) {
+        if (day && !(Number(day) >= 1 && Number(day) <= 31)) { setError(`Dia do ${label} deve estar entre 1 e 31.`); return; }
+      }
     }
     if (linkedCardId && linkedCardId !== '__create__' && !linkedCard) {
       setError('O cartão selecionado não está mais disponível. Atualize a lista.'); return;
@@ -241,9 +247,9 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
           account: { ...accountInput, bank_name: bankName.trim() },
           existingAccountId: null,
           card: {
-            nickname: newCardNickname.trim(), issuer: bankName.trim(), brand: null,
+            nickname: newCardNickname.trim(), issuer: bankName.trim(), brand: newCardBrand || null,
             last_four: newCardLastFour || null, credit_limit: parseWalletMoney(newCardLimit.trim() || '0', 'limite do cartão'),
-            closing_day: null, due_day: null,
+            closing_day: newCardClosingDay ? Number(newCardClosingDay) : null, due_day: newCardDueDay ? Number(newCardDueDay) : null,
           },
           opening: { used_limit: 0, invoice_amount: 0, future_amount: 0, future_months: 0, invoice_month: new Date().toISOString().slice(0, 7) + '-01', invoice_state: 'OPEN' },
           requestId: openingRequestIdRef.current,
@@ -410,44 +416,46 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
               />
             </label>
 
-            <label className={labelClass}>
-              Tipo de Conta
-              <select
-                disabled={isPhysicalWallet}
-                value={accountType}
-                onChange={(e) => {
-                  const next = e.target.value;
-                  setAccountType(next);
-                  if (next === 'CASH' && !nickname) setNickname('Carteira física');
-                }}
-                className={inputClass}
-              >
-                {isPhysicalWallet ? (
-                  <option value="CASH">Carteira Física (Dinheiro)</option>
-                ) : (
-                  <>
-                    <option value="CHECKING">Conta Corrente</option>
-                    <option value="PAYMENT">Conta de Pagamento</option>
-                    <option value="SAVINGS">Poupança</option>
-                    <option value="INVESTMENT">Investimento</option>
-                  </>
-                )}
-              </select>
-            </label>
+            <div className="grid grid-cols-2 gap-3 sm:col-span-2">
+              <label className={`${labelClass} min-w-0`}>
+                Tipo de Conta
+                <select
+                  disabled={isPhysicalWallet}
+                  value={accountType}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    setAccountType(next);
+                    if (next === 'CASH' && !nickname) setNickname('Carteira física');
+                  }}
+                  className={inputClass}
+                >
+                  {isPhysicalWallet ? (
+                    <option value="CASH">Carteira Física (Dinheiro)</option>
+                  ) : (
+                    <>
+                      <option value="CHECKING">Conta Corrente</option>
+                      <option value="PAYMENT">Conta de Pagamento</option>
+                      <option value="SAVINGS">Poupança</option>
+                      <option value="INVESTMENT">Investimento</option>
+                    </>
+                  )}
+                </select>
+              </label>
 
-            <label className={labelClass}>
-              Saldo Inicial (R$)
-              <FinancialCalculatorInput
-                value={initialBalance}
-                onCommit={(next) => {
-                  openingRequestIdRef.current = generateUUID();
-                  setInitialBalance(next);
-                }}
-                placeholder="0,00"
-                fieldLabel="saldo inicial"
-                className={inputClass}
-              />
-            </label>
+              <label className={`${labelClass} min-w-0`}>
+                Saldo Inicial (R$)
+                <FinancialCalculatorInput
+                  value={initialBalance}
+                  onCommit={(next) => {
+                    openingRequestIdRef.current = generateUUID();
+                    setInitialBalance(next);
+                  }}
+                  placeholder="0,00"
+                  fieldLabel="saldo inicial"
+                  className={inputClass}
+                />
+              </label>
+            </div>
 
             {!isPhysicalWallet ? (
               <>
@@ -533,9 +541,9 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
             </label>
           </div>
 
-          {!isPhysicalWallet && <details className="rounded-xl border border-slate-800 bg-slate-950/50" open={thirdPartyAccount || Boolean(linkedCardId)}>
+          {!isPhysicalWallet && <details className="rounded-xl border border-slate-800 bg-slate-950/50" open={thirdPartyAccount}>
             <summary className="cursor-pointer px-3 py-3 text-xs font-semibold text-blue-200">
-              Mais opções bancárias (opcional): titular, dados da conta e cartão vinculado
+              Mais opções bancárias (opcional): titular e dados da conta
             </summary>
             <div className="space-y-3 border-t border-slate-800 p-3">
               <div className="rounded-lg border border-slate-700/70 bg-slate-950/50 p-3">
@@ -559,30 +567,65 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
                 </p>
               </div>
               <BankAccountDetailsFields value={bankDetails} onChange={setBankDetails} showCreditCard={false}/>
-              <fieldset className="space-y-3 border-t border-slate-800 pt-4">
-                <legend className="px-1 text-sm font-semibold text-slate-200">Vincular cartão de crédito (opcional)</legend>
-                <select value={linkedCardId} onChange={event => setLinkedCardId(event.target.value)} className={inputClass} aria-label="Cartão vinculado à conta">
-                  <option value="">Conta independente, sem cartão vinculado</option>
-                  {existingCards.filter(card => card.status !== 'CANCELED' && !card.account_id).map(card => (
-                    <option key={card.id} value={card.id}>{card.nickname}{card.last_four ? ` · •••• ${card.last_four}` : ''}</option>
-                  ))}
-                  <option value="__create__">+ Criar novo cartão vinculado agora</option>
-                </select>
-                {linkedCardId === '__create__' && <div className="grid gap-3 sm:grid-cols-2">
-                  <label className={labelClass}>Nome do cartão
-                    <input required maxLength={120} value={newCardNickname} onChange={event => setNewCardNickname(event.target.value)} placeholder="Ex.: Cartão principal" className={inputClass}/>
-                  </label>
-                  <label className={labelClass}>Limite de crédito (R$)
-                    <FinancialCalculatorInput value={newCardLimit} onCommit={setNewCardLimit} fieldLabel="limite do cartão" placeholder="Ex.: 1.500,00" className={inputClass}/>
-                  </label>
-                  <label className={labelClass}>Final do cartão (opcional)
-                    <input inputMode="numeric" maxLength={4} value={newCardLastFour} onChange={event => setNewCardLastFour(event.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="1234" className={inputClass}/>
-                  </label>
-                </div>}
-                <p className="text-[11px] leading-relaxed text-slate-400">Vincule um cartão existente ou cadastre um novo. O limite é informado apenas no cartão. Sem seleção, somente a conta será criada.</p>
-              </fieldset>
             </div>
           </details>}
+          {!isPhysicalWallet && (() => {
+            const freeCards = existingCards.filter(card => card.status !== 'CANCELED' && !card.account_id);
+            const mode = linkedCardId === '__create__' ? 'create' : linkedCardId ? 'existing' : 'none';
+            return <fieldset className="space-y-3 rounded-xl border border-slate-800 bg-slate-950/50 p-3">
+              <legend className="px-1 text-sm font-semibold text-slate-200">Cartão de crédito desta conta</legend>
+              <div role="radiogroup" aria-label="Cartão de crédito desta conta" className="grid grid-cols-3 gap-2">
+                {([['none', 'Sem cartão'], ['existing', 'Cartão que já tenho'], ['create', 'Criar cartão junto']] as const).map(([value, label]) =>
+                  <button key={value} type="button" role="radio" aria-checked={mode === value}
+                    disabled={value === 'existing' && freeCards.length === 0}
+                    onClick={() => {
+                      if (value === 'create' && !newCardNickname.trim()) setNewCardNickname(bankName.trim() || nickname.trim());
+                      setLinkedCardId(value === 'create' ? '__create__' : value === 'existing' ? (freeCards[0]?.id || '') : '');
+                    }}
+                    className={`min-h-11 rounded-lg border px-2 text-xs font-semibold transition disabled:opacity-40 ${mode === value ? 'border-blue-400 bg-blue-500/15 text-blue-100' : 'border-slate-700 text-slate-300 hover:border-slate-500'}`}>
+                    {label}
+                  </button>)}
+              </div>
+              {mode === 'existing' && <select value={linkedCardId} onChange={event => setLinkedCardId(event.target.value)} className={inputClass} aria-label="Cartão vinculado à conta">
+                {freeCards.map(card => (
+                  <option key={card.id} value={card.id}>{card.nickname}{card.last_four ? ` · •••• ${card.last_four}` : ''}</option>
+                ))}
+              </select>}
+              {mode === 'create' && <div className="grid gap-3 sm:grid-cols-2">
+                <label className={labelClass}>Nome do cartão
+                  <input required maxLength={120} value={newCardNickname} onChange={event => setNewCardNickname(event.target.value)} placeholder="Ex.: Cartão principal" className={inputClass}/>
+                </label>
+                <label className={labelClass}>Limite de crédito (R$)
+                  <FinancialCalculatorInput value={newCardLimit} onCommit={setNewCardLimit} fieldLabel="limite do cartão" placeholder="Ex.: 1.500,00" className={inputClass}/>
+                </label>
+                <div className="grid grid-cols-2 gap-3 sm:col-span-2">
+                  <label className={`${labelClass} min-w-0`}>Fechamento (dia)
+                    <input type="number" min={1} max={31} inputMode="numeric" aria-label="Dia do fechamento (opcional)" value={newCardClosingDay} onChange={event => setNewCardClosingDay(event.target.value.replace(/\D/g, '').slice(0, 2))} placeholder="Ex.: 25" className={inputClass}/>
+                  </label>
+                  <label className={`${labelClass} min-w-0`}>Vencimento (dia)
+                    <input type="number" min={1} max={31} inputMode="numeric" aria-label="Dia do vencimento (opcional)" value={newCardDueDay} onChange={event => setNewCardDueDay(event.target.value.replace(/\D/g, '').slice(0, 2))} placeholder="Ex.: 5" className={inputClass}/>
+                  </label>
+                </div>
+                <div className="grid grid-cols-[minmax(0,1fr)_6.5rem] gap-3 sm:col-span-2 sm:grid-cols-2">
+                  <label className={`${labelClass} min-w-0`}>Bandeira (opcional)
+                    <select value={newCardBrand} onChange={event => setNewCardBrand(event.target.value)} className={inputClass}>
+                      <option value="">Não informada</option>
+                      {['Mastercard', 'Visa', 'Elo', 'American Express', 'Hipercard'].map(brand => <option key={brand} value={brand}>{brand}</option>)}
+                    </select>
+                  </label>
+                  <label className={`${labelClass} min-w-0`}>Final (4 díg.)
+                    <input inputMode="numeric" maxLength={4} aria-label="Final do cartão (opcional)" value={newCardLastFour} onChange={event => setNewCardLastFour(event.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="1234" className={inputClass}/>
+                  </label>
+                </div>
+              </div>}
+              <p className="text-[11px] leading-relaxed text-slate-400">
+                {mode === 'create'
+                  ? 'Conta e cartão são criados e vinculados na mesma operação. Fatura atual e compras parceladas você informa depois na tela Cartões; a regra de fechamento fica em Editar cartão.'
+                  : mode === 'existing' ? 'O cartão escolhido passa a ficar vinculado a esta conta.'
+                  : 'Somente a conta será criada. Você pode vincular um cartão depois.'}
+              </p>
+            </fieldset>;
+          })()}
           {error && (
             <p role="alert" className="rounded-xl border border-rose-500/30 bg-rose-950/30 px-3 py-2 text-xs text-rose-200">
               {error}

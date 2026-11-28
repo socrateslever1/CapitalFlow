@@ -3,8 +3,12 @@ import { walletRepository, type WalletSnapshot } from '../services/walletReposit
 
 /** A shared data boundary; financial writes remain in the canonical service/RPCs. */
 export function useWalletSnapshot() {
-  const [data, setData] = useState<WalletSnapshot | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<WalletSnapshot | null>(() =>
+    typeof walletRepository.peekSyncFull === 'function' ? walletRepository.peekSyncFull() : null
+  );
+  const [loading, setLoading] = useState(() =>
+    !(typeof walletRepository.peekSyncFull === 'function' && walletRepository.peekSyncFull())
+  );
   const [error, setError] = useState('');
   const refresh = useCallback(async () => {
     try {

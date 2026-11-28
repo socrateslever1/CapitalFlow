@@ -44,19 +44,25 @@ test('bank facts navigate real due-month cycles while preserving distinct financ
   assert.match(domain, /for \(const fact of facts\)/);
   assert.match(domain, /cancelled\.has\(month\)/);
   assert.match(domain, /cycles\.sort\(/);
-  assert.match(page, /Saldo de fatura registrado/);
+  assert.match(page, /aria-label="Outros valores do cartão"/);
+  assert.match(page, /Próximas faturas/);
   assert.match(page, /selectedCycle\?\.amount \|\| 0/);
-  assert.match(page, /Disponível informado pelo banco/);
+  assert.match(page, /Disponível informado/);
+  assert.match(page, /formatCardAvailableOrigin\(availablePresentation\?\.bankReference/);
+  const presentation = read('features/wallet/domain/cardAvailablePresentation.ts');
+  assert.match(presentation, /'Disponível · banco '/);
+  assert.match(page, /bankFactLastUpdate/);
+  assert.match(page, /<details className="rounded-lg border border-slate-800/);
   assert.match(page, /Aplicar valores já salvos à posição do cartão/);
   assert.match(page, /await Promise\.all\(\[refreshInvoiceFacts\(\),\s*refresh\(\)\]\)/);
   assert.match(page, /setStatementMonth\(result\.due_month\)/);
-  assert.match(preview, /Dados do PDF salvos; posição financeira não modificada/);
-  assert.match(preview, /Fatura e posição financeira registradas/);
+  assert.match(preview, /Referência salva em Valores do banco; total da lista mantido/);
+  assert.match(preview, /Fatura e posição inicial do cartão registradas/);
 });
 
 test('invoice review form does not reset on parent object recreation', () => {
   assert.match(preview, /const summaryIdentity = JSON\.stringify\(\{/);
-  assert.match(preview, /useEffect\(\(\) => \{ setForm\(toForm\(summary\)\); setSaved\(null\); setError\('\'\); \}, \[summaryIdentity\]\)/);
+  assert.match(preview, /useEffect\(\(\) => \{ setForm\(toForm\((?:summary|resolvedSummary)\)\); setSaved\(null\); setError\('\'\); \}, \[summaryIdentity\]\)/);
   assert.doesNotMatch(preview, /\}, \[summary\]\)/);
 });
 

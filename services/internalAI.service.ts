@@ -40,10 +40,15 @@ function resolveMetrics(context: InternalAIContext) {
   const monthIn = n(flow.in ?? flow.entrada ?? flow.receitas);
   const monthOut = n(flow.out ?? flow.saida ?? flow.despesas);
   const netFlow = monthIn - monthOut;
+  const exposureShare = n(ctx.exposureShare ?? (totalLent > 0 ? n(ctx.totalAtRisk) / totalLent : 0));
+  const topDebtorsShare = n(ctx.topDebtorsShare);
+  // Concentração crítica: exposição ao risco acima de 50% do capital ou 3 maiores devedores acima de 40%.
+  const concentrationCritical = exposureShare > 0.5 || topDebtorsShare > 0.4;
   const latePressure = activeCount > 0 ? lateCount / activeCount : lateCount > 0 ? 1 : 0;
   const liquidityPressure = totalLent > 0 ? Math.min(1, Math.max(0, (totalLent - sourceLiquidity) / totalLent)) : 0;
   const flowPenalty = netFlow < 0 ? Math.min(18, Math.abs(netFlow) / Math.max(1, totalLent) * 100) : 0;
-  const score = clamp(Math.round(92 - latePressure * 38 - liquidityPressure * 18 - flowPenalty + Math.min(8, interestBalance / Math.max(1, totalLent) * 100)));
+  const concentrationPenalty = Math.min(25, Math.max(0, exposureShare - 0.2) * 40) + (topDebtorsShare > 0.4 ? 8 : 0);
+  const score = clamp(Math.round(92 - latePressure * 38 - liquidityPressure * 18 - flowPenalty - concentrationPenalty + Math.min(8, interestBalance / Math.max(1, totalLent) * 100)));
 
   return {
     totalLent,
@@ -56,11 +61,15 @@ function resolveMetrics(context: InternalAIContext) {
     monthOut,
     netFlow,
     score,
+    exposureShare,
+    topDebtorsShare,
+    concentrationCritical,
   };
 }
 
-function resolveRiskLabel(score: number, lateCount: number) {
-  if (lateCount > 0 && score < 55) return 'RISCO ALTO';
+function resolveRiskLabel(score: number, lateCount: number, concentrationCritical = false) {
+  if ((lateCount > 0 || concentrationCritical) && score < 55) return 'RISCO ALTO';
+  if (concentrationCritical) return 'ATENÇÃO';
   if (lateCount > 0 || score < 72) return 'ATENÇÃO';
   if (score >= 85) return 'SAUDÁVEL';
   return 'CONTROLADO';
@@ -68,7 +77,7 @@ function resolveRiskLabel(score: number, lateCount: number) {
 
 function buildPortfolioAnalysis(context: InternalAIContext, source: 'LOCAL' | 'FALLBACK' = 'LOCAL'): InternalAIResponse {
   const metrics = resolveMetrics(context);
-  const label = resolveRiskLabel(metrics.score, metrics.lateCount);
+  const label = resolveRiskLabel(metrics.score, metrics.lateCount, metrics.concentrationCritical);
   const topLate = metrics.topLateLoans
     .slice(0, 3)
     .map((item: any) => `${item.name || 'Cliente'} (${money(item.amount)}, ${n(item.days)} dia(s))`)
@@ -77,7 +86,10 @@ function buildPortfolioAnalysis(context: InternalAIContext, source: 'LOCAL' | 'F
   const analysis = [
     `Leitura interna CapitalFlow: carteira com ${metrics.activeCount || 'sem'} contrato(s) ativo(s), capital em aberto de ${money(metrics.totalLent)} e ${metrics.lateCount} contrato(s) em atraso.`,
     `Caixa/lucro disponível identificado: ${money(metrics.interestBalance)}. Fluxo do mês: entradas de ${money(metrics.monthIn)}, saídas de ${money(metrics.monthOut)}, saldo operacional de ${money(metrics.netFlow)}.`,
-    topLate ? `Prioridade de cobrança: ${topLate}.` : 'Não há concentração crítica de atraso nos dados recebidos.',
+    metrics.concentrationCritical
+      ? `Concentração crítica: exposição ao risco de ${Math.round(metrics.exposureShare * 100)}% do capital e ${Math.round(metrics.topDebtorsShare * 100)}% do capital com os 3 maiores devedores.`
+      : `Concentração sob controle: exposição ao risco de ${Math.round(metrics.exposureShare * 100)}% do capital.`,
+    topLate ? `Prioridade de cobrança: ${topLate}.` : 'Sem contratos em atraso nos dados recebidos.',
     source === 'FALLBACK' ? 'A análise foi gerada pelo motor interno porque a IA externa não está configurada ou falhou.' : 'A análise foi gerada pelo motor interno do sistema.',
   ].join('\n');
 

@@ -81,7 +81,16 @@ export function deriveOverviewFromSnapshot(
     payables: full.payables,
     recurringIncomes: full.recurringIncomes,
     recurringReceipts: full.recurringReceipts,
+    spendingOperations: full.accountOperations.filter(op => op.operation_type === 'EXPENSE'),
+    // Cópias offline antigas não têm pendentes.
+    pendingOperations: full.pendingOperations || [],
     cardInvoiceDates: resolvedDates,
+    bankAvailableReferences: (full.cardInvoiceFacts || [])
+      .filter(fact => fact.available_limit != null)
+      .map(fact => ({
+        card_id: fact.card_id, due_month: fact.due_month,
+        available_limit: fact.available_limit, updated_at: fact.updated_at,
+      })),
   };
 }
 

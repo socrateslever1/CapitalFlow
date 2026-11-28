@@ -14,7 +14,6 @@ test('o olho controla a ocultação da carteira através de um provedor React co
     'features/wallet/pages/WalletOverviewPage.tsx',
     'features/wallet/pages/WalletCardsPage.tsx',
     'features/wallet/pages/WalletIncomePage.tsx',
-    'features/wallet/pages/WalletAccountsPage.tsx',
     'components/wallet/CardInvoiceStatement.tsx',
     'components/wallet/AccountDetailsPage.tsx',
   ]) {

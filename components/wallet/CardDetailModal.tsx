@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { CreditCard, DollarSign, FileUp, Image as ImageIcon, Maximize2, Plus, Receipt, RotateCw, X } from 'lucide-react';
 import type { PersonalWalletAccount, PersonalWalletCard, PersonalWalletExpense, PersonalWalletExpenseInstallment, UpdatePersonalWalletExpense, WalletStatementRow } from '../../services/personalWallet.service';
 import { formatMoney } from '../../utils/formatters';
@@ -6,6 +7,7 @@ import { VirtualCreditCard } from './VirtualCreditCard';
 import { WalletStatementImport } from './WalletStatementImport';
 import { CardInvoiceStatement } from './CardInvoiceStatement';
 import { getBankVisual } from './walletPresentation';
+import { getCardCreditPosition } from './invoiceStatementDomain';
 
 export interface CardDetailModalProps {
   card: PersonalWalletCard;
@@ -43,6 +45,10 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
   const [showFullPhoto, setShowFullPhoto] = useState(false);
   const [photoUnavailable, setPhotoUnavailable] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const creditPosition = useMemo(
+    () => getCardCreditPosition(card, expenses, installments),
+    [card, expenses, installments],
+  );
 
   useEffect(() => {
     setPhotoUnavailable(false);
@@ -123,7 +129,7 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
     <button type="button" onClick={() => setImportOpen(true)} className="w-full lg:w-auto flex items-center justify-center gap-2 rounded-lg border border-cyan-500/40 bg-cyan-900/20 p-3 text-xs font-bold text-cyan-300"><FileUp size={16}/> Importar PDF da fatura para conferência</button>
   ) : null;
 
-  return (
+  return createPortal((
     <div role="dialog" aria-modal="true" data-modal-open="true" className="fixed inset-0 z-[2000] bg-slate-950/90 backdrop-blur-sm animate-in fade-in lg:p-6">
       <div className="mx-auto flex h-[100dvh] w-full max-w-7xl flex-col overflow-hidden bg-slate-900 shadow-2xl lg:h-[calc(100dvh-3rem)] lg:rounded-2xl lg:border lg:border-slate-800">
         <div className="hidden shrink-0 items-center justify-between border-b border-slate-800 bg-slate-900/95 p-4 lg:flex">
@@ -156,14 +162,21 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
             <main className="min-w-0 space-y-4 lg:col-span-7">
               <CardInvoiceStatement cardId={card.id} dueMonth={invoiceDueMonth} expenses={expenses} installments={installments} onEdit={onEditExpense} onDelete={onDeleteExpense} headerAction={importButton} className="m-0" />
               {onImported && <p className="text-[11px] text-slate-400 lg:hidden">{importedRows.length} lançamentos do PDF importados para consulta, sem somar à fatura já cadastrada.</p>}
-              {importedRows.length > 0 && <section className="rounded-xl border border-slate-800 bg-slate-950/50 p-4"><h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">Conferência do PDF</h3><p className="mt-1 text-[11px] text-slate-400">{importedRows.length} lançamentos importados para consulta, sem somar à fatura cadastrada.</p><div className="mt-3 max-h-52 divide-y divide-slate-800 overflow-y-auto">{importedRows.slice(0, 50).map(row => <div key={row.id} className="flex justify-between gap-3 py-2 text-xs"><div className="min-w-0"><p className="truncate text-slate-200">{row.description}</p><p className="text-[10px] text-slate-400">{row.entry_date.split('-').reverse().join('/')} · {row.category}</p></div><span className={row.amount >= 0 ? 'shrink-0 text-emerald-300' : 'shrink-0 text-rose-300'}>{formatMoney(Math.abs(Number(row.amount)))}</span></div>)}</div></section>}
+              {importedRows.length > 0 && <section className="rounded-xl border border-slate-800 bg-slate-950/50 p-4"><h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">Conferência do PDF</h3><p className="mt-1 text-[11px] text-slate-400">{importedRows.length} lançamentos importados para consulta, sem somar à fatura cadastrada.</p><div className="mt-3 divide-y divide-slate-800">{importedRows.slice(0, 50).map(row => <div key={row.id} className="flex justify-between gap-3 py-2 text-xs"><div className="min-w-0"><p className="truncate text-slate-200">{row.description}</p><p className="text-[10px] text-slate-400">{row.entry_date.split('-').reverse().join('/')} · {row.category}</p></div><span className={row.amount >= 0 ? 'shrink-0 text-emerald-300' : 'shrink-0 text-rose-300'}>{formatMoney(Math.abs(Number(row.amount)))}</span></div>)}</div></section>}
             </main>
           </div>
         </div>
       </div>
       {importOpen && onImported && (
-        <WalletStatementImport kind="CARD" targetId={card.id} targetName={card.nickname} onClose={() => setImportOpen(false)} onImported={onImported} />
+        <WalletStatementImport kind="CARD" targetId={card.id} targetName={card.nickname}
+          targetCreditLimit={Number(card.credit_limit || 0) || null}
+          targetEstimatedUsedLimit={creditPosition.committedLimit}
+          targetEstimatedFutureCommitments={creditPosition.futureCommitments}
+          targetEstimatedAvailableLimit={creditPosition.freeLimit}
+          targetEstimateDueMonth={creditPosition.dueMonth}
+          initialDueMonth={creditPosition.dueMonth}
+          onClose={() => setImportOpen(false)} onImported={onImported} />
       )}
     </div>
-  );
+  ), document.body);
 };

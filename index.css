@@ -19,6 +19,35 @@
   html, body {
     @apply w-full overflow-x-hidden;
     scroll-behavior: smooth;
+    color-scheme: dark;
+  }
+
+  input[type="date"],
+  input[type="month"],
+  input[type="datetime-local"],
+  input[type="time"] {
+    color-scheme: dark;
+  }
+
+  input[type="date"]::-webkit-calendar-picker-indicator,
+  input[type="month"]::-webkit-calendar-picker-indicator,
+  input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+  input[type="time"]::-webkit-calendar-picker-indicator {
+    filter: brightness(0) invert(1);
+    opacity: 0.85;
+    cursor: pointer;
+    transition: opacity 150ms ease, transform 150ms ease;
+  }
+
+  input[type="date"]::-webkit-calendar-picker-indicator:hover,
+  input[type="month"]::-webkit-calendar-picker-indicator:hover,
+  input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover,
+  input[type="time"]::-webkit-calendar-picker-indicator:hover,
+  input[type="date"]:focus-visible::-webkit-calendar-picker-indicator,
+  input[type="month"]:focus-visible::-webkit-calendar-picker-indicator,
+  input[type="datetime-local"]:focus-visible::-webkit-calendar-picker-indicator,
+  input[type="time"]:focus-visible::-webkit-calendar-picker-indicator {
+    opacity: 1;
   }
 
   body {
@@ -71,6 +100,19 @@
     opacity: 0;
     transform: translateY(100%);
     pointer-events: none;
+  }
+
+  /* Pesquisa de contratos no Android: o teclado assume a interação.
+     Oculte exclusivamente controles fixos, sem remover o conteúdo pesquisado
+     ou mudar o layout desktop. O estado volta ao normal no blur. */
+  @media (max-width: 767px) {
+    body:has(input[data-dashboard-contract-search]:focus) .fab-action-container,
+    body:has(input[data-dashboard-contract-search]:focus) .bottom-nav-mobile,
+    body:has(input[data-dashboard-contract-search]:focus) .fab-mascot {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
   }
 
   /* Ao organizar a barra inferior, os botões flutuantes não cobrem Concluir/Cancelar. */
@@ -375,6 +417,21 @@ body[data-capacitor-android="true"] .cf-auth-viewport {
 
 .cf-overdue-card-pulse {
   animation: cf-overdue-card-pulse 2.8s ease-in-out infinite;
+}
+
+@keyframes cf-due-soon-card-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(251, 191, 36, 0);
+    border-color: rgb(30 41 59);
+  }
+  50% {
+    box-shadow: 0 0 12px -8px rgba(251, 191, 36, 0.65);
+    border-color: rgba(251, 191, 36, 0.4);
+  }
+}
+
+.cf-due-soon-card-pulse {
+  animation: cf-due-soon-card-pulse 3.2s ease-in-out infinite;
 }
 
 @keyframes cf-overdue-container-pulse {
@@ -687,4 +744,274 @@ body[data-capacitor-android="true"] .cf-auth-viewport {
     color: #fda4af !important;
     justify-content: center;
   }
+}
+
+/* Nome longo em botão pequeno: vai e volta devagar, com pausa nas pontas (MarqueeText). */
+@keyframes cf-marquee {
+  0%, 18% { transform: translateX(0); }
+  50%, 68% { transform: translateX(var(--cf-marquee-shift, 0px)); }
+  100% { transform: translateX(0); }
+}
+.cf-marquee-run { animation: cf-marquee var(--cf-marquee-duration, 6s) ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .cf-marquee-run { animation: none; }
+}
+
+
+/* Micro-animações táteis nos ícones (disparo único por ação, apenas GPU transform/opacity). */
+@keyframes cf-icon-bar {
+  0% { transform: scaleY(.15); }
+  55% { transform: scaleY(1.32); }
+  78% { transform: scaleY(.88); }
+  100% { transform: scaleY(1); }
+}
+
+@keyframes cf-icon-fan {
+  0%, 100% { transform: translate(0) rotate(0); }
+  45% { transform: translate(-2px, -4.5px) rotate(-24deg); }
+  78% { transform: translateY(1px) rotate(6deg); }
+}
+
+@keyframes cf-icon-shine {
+  0%, 100% { opacity: 0; }
+  46% { opacity: 1; }
+}
+
+@keyframes cf-icon-layer {
+  0% { transform: translateY(-8px); }
+  62% { transform: translateY(2px); }
+  100% { transform: translateY(0); }
+}
+
+@keyframes cf-icon-slide {
+  0% { transform: translateX(var(--cf-part-start)); opacity: .2; }
+  55% { transform: translateX(var(--cf-part-overshoot)); opacity: 1; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes cf-icon-light {
+  0% { opacity: .15; transform: scale(.6); }
+  48% { opacity: 1; transform: scale(1.5); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes cf-icon-sway {
+  0%, 100% { transform: rotate(0); }
+  30% { transform: rotate(20deg); }
+  60% { transform: rotate(-11deg); }
+  84% { transform: rotate(4deg); }
+}
+
+@keyframes cf-icon-star {
+  0% { transform: rotate(-90deg) scale(.5); opacity: .3; }
+  62% { transform: rotate(18deg) scale(1.55); opacity: 1; }
+  100% { transform: rotate(0) scale(1); opacity: 1; }
+}
+
+@keyframes cf-icon-ring {
+  0% { transform: rotate(-120deg); }
+  62% { transform: rotate(12deg); }
+  83% { transform: rotate(-4deg); }
+  100% { transform: rotate(0); }
+}
+
+@keyframes cf-icon-coin {
+  0%, 100% { transform: translateY(0); }
+  35% { transform: translateY(-5px); }
+  73% { transform: translateY(3px); }
+}
+
+@keyframes cf-icon-seal {
+  0%, 100% { transform: scale(1); }
+  45% { transform: scale(1.45); }
+  75% { transform: scale(.9); }
+}
+
+@keyframes cf-icon-header-in {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(.6) rotate(-12deg);
+  }
+  55% { opacity: 1; transform: translateY(-3px) scale(1.16) rotate(4deg); }
+  80% { transform: translateY(1px) scale(.96) rotate(-1deg); }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+[data-cf-icon-active="true"] [data-cf-part] {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: var(--cf-part-animation) 680ms cubic-bezier(0.32, 0.72, 0, 1) var(--cf-part-delay, 0ms) both;
+}
+
+/* Ícone inteiro dá um "pulo" ao virar a aba ativa (antes só partes internas mexiam, quase invisível). */
+@keyframes cf-icon-pop {
+  0% { transform: scale(.7) translateY(3px); }
+  45% { transform: scale(1.24) translateY(-4px) rotate(-6deg); }
+  70% { transform: scale(.94) translateY(1px) rotate(2deg); }
+  100% { transform: scale(1) translateY(0) rotate(0); }
+}
+[data-cf-icon-active="true"]:not(.cf-icon-header-in) {
+  animation: cf-icon-pop 560ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+[data-cf-part="bar"] { --cf-part-animation: cf-icon-bar; }
+[data-cf-icon-active="true"] [data-cf-part="bar"] { transform-origin: center bottom; }
+[data-cf-part="bar"]:nth-child(3), [data-cf-part="light"]:nth-child(5),
+[data-cf-part="layer"]:nth-child(2) { --cf-part-delay: 90ms; }
+[data-cf-part="bar"]:nth-child(4), [data-cf-part="light"]:nth-child(8) { --cf-part-delay: 180ms; }
+[data-cf-part="fan"] { --cf-part-animation: cf-icon-fan; }
+[data-cf-part="shine"] { --cf-part-animation: cf-icon-shine; }
+[data-cf-part="layer"] { --cf-part-animation: cf-icon-layer; }
+[data-cf-part="left"] { --cf-part-animation: cf-icon-slide; --cf-part-start: 5px; --cf-part-overshoot: -1.25px; }
+[data-cf-part="right"] { --cf-part-animation: cf-icon-slide; --cf-part-start: -5px; --cf-part-overshoot: 1.25px; }
+[data-cf-part="light"] { --cf-part-animation: cf-icon-light; }
+[data-cf-part="balance"], [data-cf-part="paper"] { --cf-part-animation: cf-icon-sway; }
+[data-cf-icon-active="true"] [data-cf-part="balance"] { transform-origin: center top; }
+[data-cf-part="star"] { --cf-part-animation: cf-icon-star; }
+[data-cf-part="ring"] { --cf-part-animation: cf-icon-ring; }
+[data-cf-icon-active="true"] [data-cf-part="ring"] { transform-box: view-box; }
+[data-cf-part="coin"] { --cf-part-animation: cf-icon-coin; }
+[data-cf-part="seal"] { --cf-part-animation: cf-icon-seal; }
+
+.cf-icon-header-in {
+  animation: cf-icon-header-in 620ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+@keyframes cf-category-gauge-fill {
+  from { stroke-dashoffset: var(--cf-gauge-empty); opacity: 0; }
+  to { stroke-dashoffset: var(--cf-gauge-current); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  [data-cf-gauge-waiting="true"] { opacity: 0; }
+  .cf-category-gauge-progress {
+    animation: cf-category-gauge-fill 800ms cubic-bezier(0.32, 0.72, 0, 1) backwards;
+  }
+}
+
+.cf-icon-interactive {
+  transition: transform 200ms cubic-bezier(0.23, 1, 0.32, 1), opacity 200ms ease;
+}
+
+/* Toque no celular: o ícone afunda visivelmente antes de abrir a aba. */
+.group:active .cf-icon-interactive,
+button:active > .cf-icon-interactive {
+  transform: scale(.82);
+  transition-duration: 90ms;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .group:hover .cf-icon-interactive,
+  button:hover > .cf-icon-interactive {
+    transform: translateY(-3px) scale(1.16) rotate(-4deg);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-cf-icon-active="true"] [data-cf-part],
+  [data-cf-icon-active="true"],
+  .cf-icon-header-in {
+    animation: none !important;
+  }
+  .cf-icon-interactive {
+    transition: opacity 150ms ease !important;
+    transform: none !important;
+  }
+}
+
+/* Seletor de opções (abas internas, modos) no padrão das abas da Carteira. */
+.cf-seg {
+  display: flex;
+  gap: 0.125rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgb(30 41 59);
+  background: rgb(15 23 42 / 0.7);
+  padding: 0.125rem;
+}
+.cf-seg-tab {
+  display: inline-flex;
+  flex: 1 1 0%;
+  min-width: 0;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 0.5rem;
+  padding: 0.375rem 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.15;
+  text-align: center;
+  color: rgb(203 213 225);
+  transition: background-color 160ms ease, color 160ms ease, transform 150ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.cf-seg-tab:hover { background: rgb(30 41 59); color: #fff; }
+.cf-seg-tab:enabled:not([aria-disabled="true"]):active { transform: scale(0.97); }
+.cf-seg-tab:focus-visible { outline: none; box-shadow: inset 0 0 0 2px rgb(96 165 250); }
+.cf-seg-tab[data-active="true"] {
+  background: rgb(37 99 235 / 0.2);
+  box-shadow: inset 0 0 0 1px rgb(59 130 246 / 0.5);
+  color: rgb(219 234 254);
+}
+@media (prefers-reduced-motion: reduce) {
+  .cf-seg-tab:active { transform: none; }
+}
+
+/* Movimento funcional: preservar layout, foco e identidade dos icones. */
+:root {
+  --cf-motion-press: 100ms;
+  --cf-motion-state: 180ms;
+  --cf-motion-enter: 260ms;
+  --cf-motion-exit: 200ms;
+  --cf-motion-ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .cf-motion-press {
+    transition: background-color var(--cf-motion-state) ease, color var(--cf-motion-state) ease,
+      border-color var(--cf-motion-state) ease, opacity var(--cf-motion-state) ease,
+      scale var(--cf-motion-state) var(--cf-motion-ease);
+  }
+  .cf-motion-press:enabled:not([aria-disabled="true"]):active {
+    scale: 0.985;
+    transition-duration: var(--cf-motion-press);
+  }
+  .cf-motion-dialog {
+    transition: opacity var(--cf-motion-exit) var(--cf-motion-ease);
+  }
+  .cf-motion-dialog-panel {
+    transition: translate var(--cf-motion-exit) var(--cf-motion-ease),
+      scale var(--cf-motion-exit) var(--cf-motion-ease),
+      transform var(--cf-motion-exit) var(--cf-motion-ease),
+      opacity var(--cf-motion-exit) var(--cf-motion-ease);
+  }
+  .cf-motion-dialog[data-modal-state="open"] > .cf-motion-dialog-panel {
+    animation: cf-motion-dialog-enter var(--cf-motion-enter) var(--cf-motion-ease);
+  }
+  .cf-motion-dialog[data-modal-state="closing"] > .cf-motion-dialog-panel {
+    animation: none;
+  }
+  .cf-seg-tab {
+    transition: background-color var(--cf-motion-state) ease, color var(--cf-motion-state) ease,
+      transform var(--cf-motion-state) var(--cf-motion-ease);
+  }
+  .cf-seg-tab:enabled:not([aria-disabled="true"]):active {
+    transition-duration: var(--cf-motion-press);
+  }
+}
+@keyframes cf-motion-dialog-enter {
+  from { transform: translateY(8px) scale(0.99); opacity: 0.92; }
+  to { transform: none; opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cf-motion-press, .cf-motion-dialog, .cf-motion-dialog-panel, .cf-seg-tab {
+    animation: none;
+    transition: none;
+  }
+  .cf-motion-press:active { scale: none; }
+  .cf-seg-tab:active { transform: none; }
 }

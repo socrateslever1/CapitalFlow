@@ -134,17 +134,6 @@ const InstallmentCardComponent: React.FC<InstallmentCardProps> = ({
                             </>
                         )}
                     </div>
-                    {recordedBalance && !isPaid && (
-                        <div className="mt-2 space-y-1 rounded-md border border-blue-500/20 bg-blue-500/5 p-2 text-[10px] leading-relaxed">
-                            <p className="font-semibold text-blue-200">Saldo registrado após o último recebimento</p>
-                            <p className="text-slate-300">
-                                Já recebido: {formatMoney(Number(originalInst.paidTotal || 0), isStealthMode)}.
-                                Capital ainda devido: {formatMoney(displayDebt.principal, isStealthMode)}.
-                                Encargos ainda registrados: {formatMoney(displayDebt.interest + displayDebt.lateFee, isStealthMode)}.
-                            </p>
-                            <p className="text-slate-500">Novos encargos, se aplicáveis, serão conferidos antes de confirmar outro recebimento.</p>
-                        </div>
-                    )}
                 </div>
             </div>
 

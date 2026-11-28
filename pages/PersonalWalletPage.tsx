@@ -1,4 +1,6 @@
+import { AppIcon } from '../components/icons/AppIcons';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   CreditCard,
   ImagePlus,
@@ -43,7 +45,7 @@ import { businessDateInManaus } from '../utils/businessDate';
 import { getBankVisual } from '../components/wallet/walletPresentation';
 import { WalletBalanceOverview } from '../components/wallet/WalletBalanceOverview';
 import { CardInvoiceStatement } from '../components/wallet/CardInvoiceStatement';
-import { getEffectiveInvoiceCycles } from '../components/wallet/invoiceStatementDomain';
+import { getCardCreditPosition, getEffectiveInvoiceCycles } from '../components/wallet/invoiceStatementDomain';
 import { WalletStatementImport } from '../components/wallet/WalletStatementImport';
 import { AccountCardStack } from '../components/wallet/AccountCardStack';
 
@@ -149,6 +151,10 @@ export const PersonalWalletPage: React.FC<PersonalWalletPageProps> = ({ activeUs
   const [selectedCardForEdit, setSelectedCardForEdit] = useState<PersonalWalletCard | null>(null);
   const [activeStackCard, setActiveStackCard] = useState<PersonalWalletCard | null>(null);
   const [selectedCardForInvoice, setSelectedCardForInvoice] = useState<PersonalWalletCard | null>(null);
+  const activeStackCreditPosition = useMemo(
+    () => activeStackCard ? getCardCreditPosition(activeStackCard, data.expenses, data.installments) : null,
+    [activeStackCard, data.expenses, data.installments],
+  );
 
   const pageBack = usePageBack();
 
@@ -419,7 +425,7 @@ export const PersonalWalletPage: React.FC<PersonalWalletPageProps> = ({ activeUs
       .reduce((sum, expense) => sum + Number(expense.amount || 0), 0)
       + data.accountOperations.filter(op => op.operation_type === 'EXPENSE' && String(op.operation_date).slice(0,7) === currentMonth())
         .reduce((sum, op) => sum + Number(op.amount || 0), 0),
-    openInvoices: invoices.filter(invoice => invoice.dueMonth.slice(0, 7) === currentMonth())
+    openInvoices: invoices.filter(invoice => invoice.dueMonth.slice(0, 7) <= currentMonth())
       .reduce((sum, invoice) => sum + invoice.amount, 0),
   }), [data, invoices]);
   const receivedIncomeIdsThisMonth = useMemo(
@@ -446,6 +452,9 @@ export const PersonalWalletPage: React.FC<PersonalWalletPageProps> = ({ activeUs
       accounts={data.accounts}
       accountOperations={data.accountOperations}
       statementRows={data.statementRows}
+      recurringIncomes={data.recurringIncomes}
+      recurringReceipts={data.recurringReceipts}
+      recurringObligations={data.recurringObligations}
       ownerName={activeUser?.fullName || activeUser?.name}
       ownerCity={activeUser?.city}
       onBack={() => setSelectedAccountId(null)}
@@ -457,11 +466,10 @@ export const PersonalWalletPage: React.FC<PersonalWalletPageProps> = ({ activeUs
     <section className="space-y-3 pb-32 sm:pb-16 w-full max-w-7xl mx-auto px-4 sm:px-6 animate-in fade-in">
       <datalist id="wallet-bank-options">{BANK_CATALOG.map(bank => <option key={bank.id} value={bank.name}/>)}</datalist>
       {/* Cabeçalho Compacto e Integrado */}
-      {!moduleView && <PageHeader
-        icon={<WalletCards size={20} />}
+      {!moduleView && <PageHeader iconClassName="border-slate-700/70 bg-slate-900 shadow-black/30"
+        icon={<AppIcon name="wallet" size={28} />}
         title={<>Minha <span className="text-emerald-400">Carteira</span></>}
         subtitle="Seus cartões e finanças em um único lugar"
-        iconClassName="border-emerald-500/30 bg-gradient-to-br from-emerald-600 to-teal-700 text-white shadow-emerald-950/30"
         actions={(
           <div className="flex items-center gap-1.5 flex-wrap">
             <button
@@ -484,7 +492,7 @@ export const PersonalWalletPage: React.FC<PersonalWalletPageProps> = ({ activeUs
               type="button"
               onClick={() => openForm('EXPENSE')}
               disabled={!data.accounts.length && !data.cards.length}
-              className="h-8 px-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all shadow-md shadow-blue-600/20 flex items-center gap-1.5 disabled:cursor-not-allowed disabled:bg-slate-800 disabled:text-slate-500 disabled:shadow-none"
+              className="h-8 px-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all shadow-md shadow-blue-600/20 flex items-center gap-1.5 disabled:cursor-not-allowed disabled:bg-slate-800 disabled:text-white disabled:shadow-none"
             >
               <Plus size={14} />
               <span>Nova Despesa</span>
@@ -549,7 +557,7 @@ export const PersonalWalletPage: React.FC<PersonalWalletPageProps> = ({ activeUs
                 dueMonth={invoices.find(invoice => invoice.cardId === activeStackCard.id)?.dueMonth || null}
                 expenses={data.expenses} installments={data.installments}
                 onEdit={async (input, mutationRequestId) => { await personalWalletService.updateExpense(input, mutationRequestId); await refresh(); setSuccess('Lançamento atualizado. Fatura e limite recalculados.'); }}
-                onDelete={async (expenseId, mutationRequestId) => { await personalWalletService.cancelExpense(expenseId, mutationRequestId); await refresh(); setSuccess('Lançamento excluído. Fatura e limite recalculados.'); }}
+                onDelete={async (expenseId, mutationRequestId) => { await personalWalletService.removeCardEntry(data.expenses.find(item => item.id === expenseId), expenseId, mutationRequestId); await refresh(); setSuccess('Lançamento excluído. Fatura e limite recalculados.'); }}
                 className="m-0 border-0 bg-transparent p-0"
                 headerAction={<button type="button" onClick={() => setStatementImportOpen(true)} className="rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-[10px] font-bold text-cyan-300">Importar PDF da fatura</button>}
               />
@@ -571,7 +579,7 @@ export const PersonalWalletPage: React.FC<PersonalWalletPageProps> = ({ activeUs
       </div>
 
       {/* Formulário Modal/Drawer Mobile-First com Rodapé Fixo */}
-      {formMode && (
+      {formMode && createPortal(
         <div
           role="dialog"
           aria-modal="true"
@@ -760,13 +768,20 @@ export const PersonalWalletPage: React.FC<PersonalWalletPageProps> = ({ activeUs
               </div>
             </div>
           </form>
-        </div>
+        </div>,
+        document.body,
       )}
 
       {selectedCardForEdit && <CardEditModal key={selectedCardForEdit.id} card={selectedCardForEdit} accounts={data.accounts}
         onClose={() => setSelectedCardForEdit(null)} onSaved={refresh} />}
       {statementImportOpen && activeStackCard && (
         <WalletStatementImport kind="CARD" targetId={activeStackCard.id} targetName={activeStackCard.nickname}
+          targetCreditLimit={Number(activeStackCard.credit_limit || 0) || null}
+          targetEstimatedUsedLimit={activeStackCreditPosition?.committedLimit ?? null}
+          targetEstimatedFutureCommitments={activeStackCreditPosition?.futureCommitments ?? null}
+          targetEstimatedAvailableLimit={activeStackCreditPosition?.freeLimit ?? null}
+          targetEstimateDueMonth={activeStackCreditPosition?.dueMonth}
+          initialDueMonth={activeStackCreditPosition?.dueMonth}
           onClose={() => setStatementImportOpen(false)} onImported={async () => { await refresh(); setStatementImportOpen(false); }} />
       )}
       {/* Modal de Detalhes e Visualização do Cartão */}
@@ -787,7 +802,7 @@ export const PersonalWalletPage: React.FC<PersonalWalletPageProps> = ({ activeUs
             setSuccess('Lançamento atualizado. Fatura e limite recalculados.');
           }}
           onDeleteExpense={async (expenseId, mutationRequestId) => {
-              await personalWalletService.cancelExpense(expenseId, mutationRequestId);
+              await personalWalletService.removeCardEntry(data.expenses.find(item => item.id === expenseId), expenseId, mutationRequestId);
             const wallet = await personalWalletService.load();
             setData(wallet);
             setSelectedCardForDetail(wallet.cards.find(card => card.id === selectedCardForDetail.id) || null);

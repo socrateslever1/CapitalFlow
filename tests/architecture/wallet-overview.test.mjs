@@ -6,11 +6,10 @@ const overview = readFileSync('features/wallet/pages/WalletOverviewPage.tsx','ut
 const summary = readFileSync('features/wallet/components/WalletOverviewSummary.tsx','utf8');
 const shell = readFileSync('layout/AppShell.tsx','utf8');
 test('overview uses independent summary and the canonical wallet snapshot',()=>{
-  assert.match(overview,/walletRepository\.loadOverview\(\)/);
+  assert.match(overview,/walletRepository\.loadOverview\(\{ force: true \}\)/);
   assert.match(overview,/calculateWalletBalance/);
   assert.match(overview,/getCreditSummary/);
-  assert.match(overview,/lg:grid-cols-12/);
-  assert.match(overview,/lg:col-span-6/);
+  assert.match(overview,/Sobra prevista após compromissos/);
   for(const label of ['Contas','Cartões','Balanço do mês','Compromissos próximos']) assert.ok((overview+summary).includes(label),label);
   for(const route of ["onNavigate('contas')","onNavigate('cartoes')"]) assert.ok(summary.includes(route),route);
   assert.ok(overview.includes("go('dividas')"));

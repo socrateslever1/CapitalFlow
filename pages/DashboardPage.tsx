@@ -1,6 +1,8 @@
 
+import { AppIcon } from '../components/icons/AppIcons';
 import React, { useEffect, useMemo, useState } from 'react';
-import { BarChart3, Banknote, CheckCircle2, Briefcase, PieChart as PieIcon, TrendingUp, Users, Calendar, Percent, RefreshCw, ShieldAlert, Skull } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
+import { BarChart3, Banknote, CheckCircle2, Briefcase, PieChart as PieIcon, TrendingUp, Users, Calendar, Percent, ShieldAlert, Skull } from '../components/icons/brandIcons';
 import { Loan, CapitalSource, LedgerEntry, Agreement, AgreementInstallment, SortOption, UserProfile, Installment } from '../types';
 import { LoanCard } from '../components/cards/LoanCard';
 import { ClientGroupCard } from '../components/cards/ClientGroupCard';
@@ -174,12 +176,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="md:hidden bg-slate-900 p-1 rounded-lg border border-slate-800 flex relative overflow-hidden">
-          <button onClick={() => setMobileDashboardTab('CONTRACTS')} className={`flex-1 py-2.5 rounded-lg text-[10px] font-black uppercase transition-all flex items-center justify-center gap-2 ${mobileDashboardTab === 'CONTRACTS' ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-lg shadow-blue-600/30' : 'text-slate-500 hover:text-white'}`}>
-            <Briefcase size={14} /> Contratos
+      <div className="md:hidden cf-seg">
+          <button onClick={() => setMobileDashboardTab('CONTRACTS')} type="button" data-active={mobileDashboardTab === 'CONTRACTS'} className="cf-seg-tab">
+            <AppIcon name="contracts" size={20} muted={mobileDashboardTab !== 'CONTRACTS'} /> Contratos
           </button>
-          <button onClick={() => setMobileDashboardTab('BALANCE')} className={`flex-1 py-2.5 rounded-lg text-[10px] font-black uppercase transition-all flex items-center justify-center gap-2 ${mobileDashboardTab === 'BALANCE' ? 'bg-gradient-to-br from-emerald-600 to-emerald-700 text-white shadow-lg shadow-emerald-600/30' : 'text-slate-500 hover:text-white'}`}>
-            <TrendingUp size={14} /> Balanço
+          <button onClick={() => setMobileDashboardTab('BALANCE')} type="button" data-active={mobileDashboardTab === 'BALANCE'} className="cf-seg-tab">
+            <AppIcon name="reports" size={20} muted={mobileDashboardTab !== 'BALANCE'} /> Balanço
           </button>
       </div>
 
@@ -244,8 +246,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           <aside className={`w-full lg:w-80 shrink-0 min-w-0 space-y-5 sm:space-y-6 lg:contents lg:space-y-0 ${mobileDashboardTab === 'CONTRACTS' ? 'hidden md:block' : ''}`}>
               <div data-dashboard-indicator-heading className="flex items-center justify-between px-3 py-2 bg-slate-900/60 border border-slate-800/80 rounded-lg lg:col-start-2 lg:row-start-1 lg:self-stretch">
                   <div className="flex items-center gap-2">
-                      <div className="p-1.5 rounded-md bg-blue-500/10 border border-blue-500/20 text-blue-400">
-                          <TrendingUp size={14} />
+                      <div className="p-1.5 rounded-md bg-slate-900 border border-slate-700/70">
+                          <AppIcon name="trend" size={18} />
                       </div>
                       <div className="flex flex-col">
                           <h2 className="text-xs font-black uppercase tracking-wider text-slate-200 leading-none">Balanço Financeiro</h2>
@@ -358,7 +360,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                     compact isStealthMode={isStealthMode} onOpenLoan={id=>onNavigate(`/contrato/${id}`)} />
                   {onOpenReports && <button type="button" onClick={onOpenReports}
                     className="flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-blue-500/30 bg-blue-600/10 px-3 py-2 text-xs font-bold text-blue-300">
-                    Histórico mensal completo <BarChart3 size={15}/>
+                    Histórico mensal completo <AppIcon name="dashboard" size={16} />
                   </button>}
                 </div>
               )}
@@ -366,8 +368,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
               <div className="bg-slate-900 border border-slate-800 rounded-lg p-5 flex flex-col items-center shadow-xl group hover:border-slate-700 transition-all">
                   <div className="flex items-center justify-between w-full mb-6">
                       <h3 className="card-title font-black uppercase text-slate-500 group-hover:text-slate-400 transition-colors flex items-center gap-3">
-                          <div className="p-2 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400">
-                              <PieIcon className="w-4 h-4" />
+                          <div className="p-1.5 rounded-lg bg-slate-950 border border-slate-700/70">
+                              <AppIcon name="reports" size={18} />
                           </div>
                           Saúde da Carteira
                       </h3>
@@ -378,8 +380,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
                   <div className="flex items-center justify-between w-full mb-4 mt-8 pt-6 border-t border-slate-800/50">
                       <h3 className="card-title font-black uppercase text-slate-500 group-hover:text-slate-400 transition-colors flex items-center gap-3">
-                          <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
-                              <TrendingUp className="w-4 h-4" />
+                          <div className="p-1.5 rounded-lg bg-slate-950 border border-slate-700/70">
+                              <AppIcon name="growth" size={18} />
                           </div>
                           Evolução (6 Meses)
                       </h3>
@@ -390,7 +392,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                   </div>
               </div>
 
-              <AIBalanceInsight loans={loans} sources={sources} activeUser={activeUser} />
+              <AIBalanceInsight loans={loans} sources={sources} activeUser={activeUser} stats={stats} profileId={profileId} />
               </div>
           </aside>
       </div>

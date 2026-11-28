@@ -22,7 +22,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   iconClassName = 'border-blue-500/30 bg-blue-600 text-white shadow-blue-950/30',
 }) => (
   <header className={`grid w-full items-center gap-x-3 gap-y-4 border-b border-slate-800/70 pb-4 ${stackActionsUntilLg ? 'grid-cols-[3rem_minmax(0,1fr)] lg:grid-cols-[3rem_minmax(0,1fr)_auto]' : actionsInline ? 'grid-cols-[3rem_minmax(0,1fr)_auto]' : 'grid-cols-[3rem_minmax(0,1fr)] sm:grid-cols-[3rem_minmax(0,1fr)_auto]'} ${className}`}>
-    <div className={`page-header-icon flex items-center justify-center rounded-full border shadow-lg ${iconClassName}`}>
+    <div data-cf-icon-active="true" className={`page-header-icon cf-icon-header-in flex items-center justify-center rounded-full border shadow-lg ${iconClassName}`}>
       {icon}
     </div>
     <div className="min-w-0">

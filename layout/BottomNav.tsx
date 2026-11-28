@@ -1,4 +1,6 @@
+import { AppIcon } from '../components/icons/AppIcons';
 import React, { useEffect, useRef, useState } from 'react';
+import { MarqueeText } from '../components/ui/MarqueeText';
 import {
   LayoutDashboard, Users, Wallet, LayoutGrid, Calculator, ArrowRightLeft,
   Gavel, MessageSquare, CreditCard, GripVertical, Check, X,
@@ -24,15 +26,16 @@ interface BottomNavProps {
 const iconFor = (tab: AppTab, active: boolean): React.ReactNode => {
   const cls = active ? 'text-blue-400' : '';
   const size = 20;
+  const muted = !active;
   switch (tab) {
-    case 'DASHBOARD': return <LayoutDashboard size={size} className={cls} />;
-    case 'DOSSIER': return <ArrowRightLeft size={size} className={active ? 'text-cyan-400' : ''}/>;
-    case 'CLIENTS': return <Users size={size} className={active ? 'text-emerald-400' : ''}/>;
-    case 'SOURCES': return <Wallet size={size} className={active ? 'text-amber-400' : ''}/>;
-    case 'MY_WALLET': return <CreditCard size={size} className={active ? 'text-fuchsia-400' : ''}/>;
-    case 'SIMULATOR': return <Calculator size={size} className={active ? 'text-cyan-400' : ''}/>;
-    case 'LEGAL': return <Gavel size={size} className={active ? 'text-yellow-400' : ''}/>;
-    case 'SUPPORT': return <MessageSquare size={size} className={cls}/>;
+    case 'DASHBOARD': return <AppIcon name="dashboard" size={27} muted={muted} />;
+    case 'DOSSIER': return <AppIcon name="statement" size={27} muted={muted} />;
+    case 'CLIENTS': return <AppIcon name="clients" size={27} muted={muted} />;
+    case 'SOURCES': return <AppIcon name="capital" size={27} muted={muted} />;
+    case 'MY_WALLET': return <AppIcon name="wallet" size={27} muted={muted} />;
+    case 'SIMULATOR': return <AppIcon name="simulator" size={27} muted={muted} />;
+    case 'LEGAL': return <AppIcon name="legal" size={27} muted={muted} />;
+    case 'SUPPORT': return <AppIcon name="assistant" size={27} muted={muted} />;
     default: return <LayoutGrid size={size} className={cls}/>;
   }
 };
@@ -190,14 +193,16 @@ export const BottomNav: React.FC<BottomNavProps> = ({
               if (editing || scrollingRef.current?.moved) { event.preventDefault(); scrollingRef.current = null; return; }
               setActiveTab(tab);
             }}
-            className={'flex min-w-[64px] shrink-0 flex-col items-center gap-1 rounded-xl p-2 transition-all duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-95 ' +
+            className={'flex min-h-[3.75rem] min-w-[76px] shrink-0 flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 motion-safe:transition-transform motion-safe:duration-150 motion-safe:ease-[cubic-bezier(0.23,1,0.32,1)] motion-safe:active:scale-95 ' +
               (editing ? 'cursor-grab touch-none border border-dashed border-slate-600 active:bg-slate-800' :
-                activeTab === tab ? 'bg-blue-600/15 ring-1 ring-blue-500/30 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200')}
+                activeTab === tab ? 'bg-blue-600/20 ring-1 ring-inset ring-blue-500/50 text-blue-100' : 'text-slate-300 hover:bg-slate-800 hover:text-white')}
             style={editing ? { touchAction: 'none' } : undefined}
           >
-            {iconFor(tab, activeTab === tab)}
-            <span className={'w-full truncate text-center text-[10px] font-bold uppercase tracking-tight transition-colors duration-200 ' +
-              (activeTab === tab ? 'text-white' : '')}>{labelFor(tab)}</span>
+            <span data-cf-icon-active={activeTab === tab} className={`inline-flex items-center justify-center ${activeTab === tab ? '' : 'cf-icon-interactive'}`}>
+              {iconFor(tab, activeTab === tab)}
+            </span>
+            <MarqueeText text={labelFor(tab)} className={'w-full text-center text-[11.5px] font-semibold leading-tight transition-colors duration-200 ' +
+              (activeTab === tab ? 'text-blue-100' : '')} />
           </button>
         ))}
       </div>

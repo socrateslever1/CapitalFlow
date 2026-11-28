@@ -1,9 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { CalendarDays, Loader2, Save, X } from 'lucide-react';
 import type { PersonalWalletExpense, UpdatePersonalWalletExpense } from '../../services/personalWallet.service';
 import { generateUUID } from '../../utils/generators';
 import { parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
 import { FinancialCalculatorInput } from '../forms/FinancialCalculatorInput';
+import { CategoryPickerField } from './CategoryIconPicker';
 
 type ExpenseEditModalProps = {
   expense: PersonalWalletExpense;
@@ -58,7 +60,7 @@ export const ExpenseEditModal: React.FC<ExpenseEditModalProps> = ({ expense, com
 
   const fieldClass = 'w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20';
 
-  return (
+  return createPortal((
     <div role="dialog" aria-modal="true" aria-labelledby="edit-expense-title" className="fixed inset-0 z-[2200] flex items-end justify-center bg-slate-950/80 backdrop-blur-sm sm:items-center sm:p-4">
       <button type="button" aria-label="Fechar edição" className="absolute inset-0 cursor-default" onClick={() => !saving && onClose()} />
       <form onSubmit={submit} className="relative w-full rounded-t-3xl border border-slate-700 bg-slate-900 p-5 shadow-2xl sm:max-w-md sm:rounded-2xl">
@@ -75,14 +77,10 @@ export const ExpenseEditModal: React.FC<ExpenseEditModalProps> = ({ expense, com
           <label className="block text-xs font-bold text-slate-300">Descrição
             <input autoFocus maxLength={240} required value={description} onChange={(e) => setDescription(e.target.value)} className={`${fieldClass} mt-1.5`} />
           </label>
-          <div className="grid grid-cols-2 gap-3">
-            <label className="block text-xs font-bold text-slate-300">Valor
-              <FinancialCalculatorInput required value={amount} onCommit={setAmount} fieldLabel="valor do lançamento" className={`${fieldClass} mt-1.5`} />
-            </label>
-            <label className="block text-xs font-bold text-slate-300">Categoria
-              <input maxLength={100} value={category} onChange={(e) => setCategory(e.target.value)} className={`${fieldClass} mt-1.5`} />
-            </label>
-          </div>
+          <label className="block text-xs font-bold text-slate-300">Valor
+            <FinancialCalculatorInput required value={amount} onCommit={setAmount} fieldLabel="valor do lançamento" className={`${fieldClass} mt-1.5`} />
+          </label>
+          <CategoryPickerField value={category} onChange={setCategory} />
           <div className="grid grid-cols-2 gap-3">
             <label className="block text-xs font-bold text-slate-300">Data da compra
               <span className="relative mt-1.5 block"><CalendarDays className="pointer-events-none absolute left-3 top-3 text-slate-500" size={15} /><input type="date" required value={expenseDate} onChange={(e) => setExpenseDate(e.target.value)} className={`${fieldClass} pl-9`} /></span>
@@ -105,5 +103,5 @@ export const ExpenseEditModal: React.FC<ExpenseEditModalProps> = ({ expense, com
         </button>
       </form>
     </div>
-  );
+  ), document.body);
 };

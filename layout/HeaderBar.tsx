@@ -1,3 +1,4 @@
+import { AppIcon } from '../components/icons/AppIcons';
 import React, { useRef, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -20,14 +21,18 @@ import {
   FolderSearch,
   CreditCard,
   ShieldCheck,
+  GripVertical,
+  Check,
 } from 'lucide-react';
-import { UserProfile } from '../types';
+import { AppTab, UserProfile } from '../types';
+import { moveTabInOrder } from './navigationPreferences';
 import { Tooltip } from '../components/ui/Tooltip';
 import { InAppNotification } from '../hooks/useAppNotifications';
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
 import { resolveNotificationTarget } from '../utils/notificationRouting';
 import { notificationService } from '../services/notification.service';
 import { AndroidApkNotice } from '../components/system/AndroidApkNotice';
+import { NotificationAvatar, notificationTone, toneClasses } from '../components/notifications/NotificationAvatar';
 import { AndroidNativeUpdateNotice, useAndroidNativeUpdateAvailable } from '../components/system/AndroidNativeUpdateNotice';
 import { AppUpdateBanner } from '../components/system/AppUpdateBanner';
 import { pushSubscriptionService } from '../services/pushSubscription.service';
@@ -44,6 +49,7 @@ interface HeaderBarProps {
   isStealthMode: boolean;
   toggleStealthMode: () => void;
   navOrder: string[];
+  saveNavOrder?: (order: AppTab[]) => Promise<void>;
   notifications?: InAppNotification[];
   removeNotification?: (id: string) => void;
   clearAllNotifications?: () => void;
@@ -71,14 +77,8 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
   const deleteOpacity = useTransform(x, [-120, -60, 0], [1, 0.5, 0]);
   const deleteScale = useTransform(x, [-120, -60, 0], [1, 0.9, 0.8]);
   const isDraggingRef = useRef(false);
-  const toneDotClass =
-    notif.type === 'error'
-      ? 'bg-rose-400'
-      : notif.type === 'warning'
-        ? 'bg-amber-400'
-        : notif.type === 'success'
-          ? 'bg-emerald-400'
-          : 'bg-blue-400';
+  const tone = toneClasses[notificationTone(notif)];
+  const toneDotClass = tone.dot;
 
   return (
     <div className="relative overflow-hidden rounded-lg">
@@ -86,7 +86,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
         style={{ opacity: deleteOpacity, scale: deleteScale }}
         className="absolute inset-y-0 right-0 w-20 flex flex-col items-center justify-center rounded-lg bg-rose-500/12 border border-rose-500/20"
       >
-        <Trash2 size={16} className="text-rose-400" />
+        <AppIcon name="trash" size={18} />
         <span className="mt-1 text-[8px] font-black uppercase tracking-[0.18em] text-rose-400">
           Apagar
         </span>
@@ -118,15 +118,9 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
         }}
         className="relative cursor-pointer rounded-lg border border-white/[0.06] bg-[linear-gradient(180deg,rgba(15,23,42,0.92),rgba(8,15,30,0.98))] px-3 py-2.5 shadow-[0_16px_32px_-24px_rgba(0,0,0,0.9)]"
       >
-        <div className="pointer-events-none absolute inset-y-2.5 left-0 w-[3px] rounded-full bg-white/10" />
+        <div className={`pointer-events-none absolute inset-y-2.5 left-0 w-[3px] rounded-full ${tone.stripe}`} />
         <div className="flex items-start gap-2.5">
-          <div
-            className={`mt-0.5 h-8 w-8 shrink-0 rounded-lg border border-white/5 shadow-inner flex items-center justify-center ${getNotificationBg(
-              notif.type
-            )}`}
-          >
-            <Bell size={14} strokeWidth={1.8} className={getNotificationColor(notif.type)} />
-          </div>
+          <NotificationAvatar notif={notif} />
 
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-3">
@@ -160,10 +154,10 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
                   e.stopPropagation();
                   onRemove?.(notif.id);
                 }}
-                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-white/5 bg-slate-950/70 text-slate-500 transition-colors hover:border-rose-500/20 hover:text-rose-400"
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-white/5 bg-slate-950/70 transition-colors hover:border-rose-500/30 hover:bg-rose-500/15"
                 aria-label="Remover notificacao"
               >
-                <Trash2 size={13} strokeWidth={1.8} />
+                <AppIcon name="trash" size={15} />
               </button>
             </div>
           </div>
@@ -183,6 +177,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   isStealthMode,
   toggleStealthMode,
   navOrder,
+  saveNavOrder,
   notifications = [],
   removeNotification,
   clearAllNotifications,
@@ -197,8 +192,84 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   const [startX, setStartX] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [editingNav, setEditingNav] = useState(false);
+  const [savingNav, setSavingNav] = useState(false);
+  const [draftNavOrder, setDraftNavOrder] = useState<AppTab[]>(() => (navOrder || []) as AppTab[]);
+  const [navNotice, setNavNotice] = useState('');
+  const draggedTabRef = useRef<{ tab: AppTab; pointer: number } | null>(null);
   const hasNativeApkUpdate = useAndroidNativeUpdateAvailable();
   const alertBadgeCount = notifications.length + (hasNativeApkUpdate ? 1 : 0);
+
+  useEffect(() => {
+    if (!editingNav) {
+      setDraftNavOrder((navOrder || []) as AppTab[]);
+    }
+  }, [navOrder, editingNav]);
+
+  const enterNavEdit = () => {
+    setDraftNavOrder((navOrder || []) as AppTab[]);
+    setNavNotice('');
+    setEditingNav(true);
+    draggedTabRef.current = null;
+  };
+
+  const cancelNavEdit = () => {
+    if (savingNav) return;
+    setDraftNavOrder((navOrder || []) as AppTab[]);
+    setEditingNav(false);
+    draggedTabRef.current = null;
+  };
+
+  const finishNavEdit = async () => {
+    if (savingNav || !saveNavOrder) return;
+    setSavingNav(true);
+    try {
+      await saveNavOrder(draftNavOrder);
+      setNavNotice('');
+    } catch {
+      setNavNotice('Ordem salva neste navegador. Sincronização pendente.');
+    } finally {
+      setSavingNav(false);
+      setEditingNav(false);
+      draggedTabRef.current = null;
+    }
+  };
+
+  const onNavTabPointerDown = (event: React.PointerEvent<HTMLButtonElement>, tab: AppTab) => {
+    if (!editingNav || savingNav) return;
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    draggedTabRef.current = { tab, pointer: event.pointerId };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const onNavTabPointerMove = (event: React.PointerEvent<HTMLButtonElement>) => {
+    const dragged = draggedTabRef.current;
+    if (!editingNav || !dragged || dragged.pointer !== event.pointerId) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const scroll = scrollRef.current;
+    if (scroll) {
+      const rect = scroll.getBoundingClientRect();
+      if (event.clientX < rect.left + 34) scroll.scrollLeft -= 17;
+      if (event.clientX > rect.right - 34) scroll.scrollLeft += 17;
+    }
+    const target = document.elementFromPoint(event.clientX, event.clientY)
+      ?.closest<HTMLElement>('[data-desktop-nav-tab]')
+      ?.dataset.desktopNavTab as AppTab | undefined;
+    if (target && target !== dragged.tab) {
+      setDraftNavOrder((previous) => moveTabInOrder(previous, dragged.tab, target));
+    }
+  };
+
+  const onNavTabPointerEnd = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (draggedTabRef.current?.pointer !== event.pointerId) return;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    draggedTabRef.current = null;
+  };
 
   useEffect(() => {
     setShowNotifications(false);
@@ -276,7 +347,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   };
 
   const handlePointerDown = (e: React.PointerEvent) => {
-    if (!scrollRef.current || e.pointerType !== 'mouse') return;
+    if (editingNav || !scrollRef.current || e.pointerType !== 'mouse') return;
     setIsDragging(true);
     setHasDragged(false);
     setStartX(e.pageX - scrollRef.current.offsetLeft);
@@ -301,30 +372,30 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
     scrollRef.current.scrollLeft = scrollLeft - walk;
   };
 
-  const getTabIcon = (tab: string) => {
+  const getTabIcon = (tab: string, active = false) => {
     switch (tab) {
       case 'DASHBOARD':
-        return <LayoutDashboard size={14} className="text-blue-500" />;
+        return <AppIcon name="dashboard" size={18} onColor={active} />;
       case 'DOSSIER':
-        return <ArrowRightLeft size={14} className="text-cyan-400" />;
+        return <AppIcon name="statement" size={18} onColor={active} />;
       case 'CLIENTS':
-        return <Users size={14} className="text-indigo-500" />;
+        return <AppIcon name="clients" size={18} onColor={active} />;
       case 'SOURCES':
-        return <Wallet size={14} className="text-emerald-500" />;
+        return <AppIcon name="capital" size={18} onColor={active} />;
       case 'SIMULATOR':
-        return <Calculator size={14} className="text-blue-400" />;
+        return <AppIcon name="simulator" size={18} onColor={active} />;
       case 'FLOW':
-        return <ArrowRightLeft size={14} className="text-teal-500" />;
+        return <AppIcon name="statement" size={18} onColor={active} />;
       case 'LEGAL':
-        return <Gavel size={14} className="text-yellow-400" />;
+        return <AppIcon name="legal" size={18} onColor={active} />;
       case 'PROFILE':
-        return <User size={14} className="text-blue-400" />;
+        return <AppIcon name="profile" size={18} onColor={active} />;
       case 'MY_WALLET':
-        return <CreditCard size={14} className="text-fuchsia-400" />;
+        return <AppIcon name="wallet" size={18} onColor={active} />;
       case 'PLATFORM_ADMIN':
-        return <ShieldCheck size={14} className="text-amber-400" />;
+        return <AppIcon name="admin" size={18} onColor={active} />;
       case 'HUB':
-        return <Menu size={14} className="text-slate-400" />;
+        return <AppIcon name="menu" size={18} onColor={active} />;
       default:
         return null;
     }
@@ -384,43 +455,20 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
         boxShadow: `0 20px 50px rgba(0,0,0,0.85), 0 0 30px ${primaryColor}35`,
       }}
     >
-      <div
-        className="relative shrink-0 overflow-hidden border-b border-white/5 px-4 py-3.5"
-        style={{
-          background: `linear-gradient(135deg, ${primaryColor}22 0%, rgba(15,23,42,0.96) 46%, rgba(2,6,23,0.98) 100%)`,
-        }}
-      >
-        <div
-          className="pointer-events-none absolute -right-12 -top-12 h-28 w-28 rounded-full blur-3xl"
-          style={{ backgroundColor: `${primaryColor}22` }}
-        />
+      <div className="relative shrink-0 border-b border-slate-800 bg-slate-900/95 px-4 py-3">
         <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <div
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-white/10 shadow-inner"
-                style={{ backgroundColor: `${primaryColor}18` }}
-              >
-                <Bell size={18} strokeWidth={1.8} style={{ color: primaryColor }} />
-              </div>
-              <div className="min-w-0">
-                <h3 className="text-sm font-black uppercase tracking-[0.12em] text-white">
-                  Alertas
-                </h3>
-              </div>
+          <div className="flex min-w-0 items-center gap-2.5">
+            <AppIcon name="bell" size={26} />
+            <div className="min-w-0">
+              <h3 className="text-sm font-bold text-white">
+                Alertas
+              </h3>
             </div>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex shrink-0 items-center gap-1.5">
             {notifications.length > 0 && (
               <>
-                <span
-                  className="min-w-8 rounded-full border px-2 py-1 text-center text-[10px] font-black tabular-nums"
-                  style={{
-                    color: primaryColor,
-                    backgroundColor: `${primaryColor}14`,
-                    borderColor: `${primaryColor}33`,
-                  }}
-                >
+                <span className="min-w-7 rounded-full border border-blue-500/30 bg-blue-500/15 px-2 py-0.5 text-center text-[10px] font-black tabular-nums text-blue-300">
                   {notifications.length}
                 </span>
                 <button
@@ -429,21 +477,21 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                     e.stopPropagation();
                     clearAllNotifications?.();
                   }}
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-white/5 bg-rose-500/10 text-rose-500 transition-all hover:bg-rose-500 hover:text-white"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-700/70 bg-slate-900 transition-colors hover:border-rose-500/50 hover:bg-rose-500/10"
                   aria-label="Limpar todas as notificações"
                   title="Limpar alertas"
                 >
-                  <Trash2 size={15} strokeWidth={1.8} />
+                  <AppIcon name="trash" size={19} />
                 </button>
               </>
             )}
             <button
               type="button"
               onClick={() => setShowNotifications(false)}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-white/5 bg-slate-900/60 text-slate-500 transition-all hover:text-white hover:rotate-90"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-700/70 bg-slate-900 text-slate-300 transition-colors hover:text-white"
               aria-label="Fechar notificações"
             >
-              <X size={16} strokeWidth={1.8} />
+              <X size={18} strokeWidth={2} />
             </button>
           </div>
         </div>
@@ -456,8 +504,8 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
         <AndroidApkNotice placement="notifications" />
         {notifications.length === 0 ? (
           <div className="px-4 py-8 text-center">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-lg border border-white/5 bg-slate-900/80 shadow-inner">
-              <Bell size={20} className="text-slate-600" />
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-lg border border-slate-800 bg-slate-900/80 shadow-inner">
+              <AppIcon name="bell" size={26} muted />
             </div>
             <p className="text-sm text-slate-200 font-black tracking-tight">Sem outras notificações</p>
             <p className="mt-1 text-[11px] text-slate-500 leading-relaxed">
@@ -586,7 +634,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                       : 'bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800'
                   }`}
                 >
-                  <Bell size={20} className={alertBadgeCount > 0 ? 'animate-bell' : ''} />
+                  <AppIcon name="bell" size={20} onColor={showNotifications} className={alertBadgeCount > 0 ? 'animate-bell' : ''} />
                   {alertBadgeCount > 0 && (
                     <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[10px] font-black w-5 h-5 flex items-center justify-center rounded-full ring-4 ring-slate-950">
                       {alertBadgeCount}
@@ -601,40 +649,118 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             </div>
           </div>
 
-          <nav
-            ref={scrollRef}
-            onPointerDown={handlePointerDown}
-            onPointerUp={handlePointerUp}
-            onPointerMove={handlePointerMove}
-            className={`hidden md:flex w-full lg:w-auto lg:flex-1 order-3 lg:order-2 bg-slate-900/50 backdrop-blur-md p-1 rounded-lg border border-slate-800/50 gap-1 overflow-x-auto scrollbar-hide lg:mx-2 mt-2 lg:mt-0 min-w-0 ${
-              isDragging ? 'cursor-grabbing' : 'cursor-grab'
-            }`}
-            style={{ WebkitOverflowScrolling: 'touch' }}
+          <div
+            data-editing-nav={editingNav ? 'true' : undefined}
+            className="hidden md:flex flex-col w-full lg:w-auto lg:flex-1 order-3 lg:order-2 lg:mx-2 mt-2 lg:mt-0 min-w-0"
           >
-            {(navOrder || []).map((tab) => {
-                const isActive = activeTab === tab;
-                return (
+            <div className="flex items-center gap-1.5 min-w-0">
+              <nav
+                ref={scrollRef}
+                onPointerDown={handlePointerDown}
+                onPointerUp={handlePointerUp}
+                onPointerMove={handlePointerMove}
+                className={`flex flex-1 bg-slate-900/50 backdrop-blur-md p-1 rounded-lg border gap-1 overflow-x-auto scrollbar-hide min-w-0 ${
+                  editingNav
+                    ? 'border-blue-500/40 select-none'
+                    : isDragging
+                      ? 'border-slate-800/50 cursor-grabbing'
+                      : 'border-slate-800/50 cursor-grab'
+                }`}
+                style={{ WebkitOverflowScrolling: 'touch', touchAction: editingNav ? 'none' : 'pan-x' }}
+              >
+                {(editingNav ? draftNavOrder : ((navOrder || []) as AppTab[])).map((tab) => {
+                  const isActive = activeTab === tab;
+                  return (
+                    <button
+                      key={tab}
+                      type="button"
+                      data-desktop-nav-tab={tab}
+                      aria-label={editingNav ? `Arrastar ${getTabLabel(tab)}` : getTabLabel(tab)}
+                      aria-current={!editingNav && isActive ? 'page' : undefined}
+                      onPointerDown={(event) => onNavTabPointerDown(event, tab)}
+                      onPointerMove={onNavTabPointerMove}
+                      onPointerUp={onNavTabPointerEnd}
+                      onPointerCancel={onNavTabPointerEnd}
+                      onClick={(event) => {
+                        if (editingNav) {
+                          event.preventDefault();
+                          return;
+                        }
+                        if (!hasDragged) setActiveTab(tab);
+                      }}
+                      className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+                        editingNav
+                          ? 'cursor-grab touch-none border border-dashed border-slate-600 text-slate-200 hover:border-blue-400/70 hover:bg-slate-800/70'
+                          : isActive
+                            ? 'text-white shadow-xl shadow-blue-500/20'
+                            : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                      }`}
+                      style={
+                        editingNav
+                          ? { touchAction: 'none' }
+                          : {
+                              background: isActive
+                                ? `linear-gradient(135deg, ${primaryColor}, ${primaryColor}dd)`
+                                : 'transparent',
+                            }
+                      }
+                    >
+                      {getTabIcon(tab, !editingNav && isActive)} <span>{getTabLabel(tab)}</span>
+                    </button>
+                  );
+                })}
+              </nav>
+
+              {saveNavOrder && (
+                editingNav ? (
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      type="button"
+                      aria-label="Cancelar organização das abas"
+                      title="Cancelar"
+                      disabled={savingNav}
+                      onClick={cancelNavEdit}
+                      className="flex h-8 items-center gap-1 rounded-lg border border-slate-700 bg-slate-900 px-2 text-[10px] font-bold text-slate-300 hover:bg-slate-800 hover:text-white transition-colors disabled:opacity-50"
+                    >
+                      <X size={13} />
+                      <span className="hidden xl:inline">Cancelar</span>
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Salvar ordem das abas"
+                      title="Salvar ordem"
+                      disabled={savingNav}
+                      onClick={() => void finishNavEdit()}
+                      className="flex h-8 items-center gap-1 rounded-lg bg-blue-600 px-2.5 text-[10px] font-bold text-white hover:bg-blue-500 transition-colors disabled:opacity-50"
+                    >
+                      <Check size={13} />
+                      <span>{savingNav ? 'Salvando' : 'Concluir'}</span>
+                    </button>
+                  </div>
+                ) : (
                   <button
-                    key={tab}
-                    onClick={() => {
-                      if (!hasDragged) setActiveTab(tab);
-                    }}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
-                      isActive
-                        ? 'text-white shadow-xl shadow-blue-500/20'
-                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
-                    }`}
-                    style={{
-                      background: isActive
-                        ? `linear-gradient(135deg, ${primaryColor}, ${primaryColor}dd)`
-                        : 'transparent',
-                    }}
+                    type="button"
+                    aria-label="Organizar ordem das abas"
+                    title="Organizar abas"
+                    onClick={enterNavEdit}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-800 bg-slate-900/90 text-slate-400 hover:border-slate-700 hover:bg-slate-800 hover:text-white transition-colors"
                   >
-                    {getTabIcon(tab)} <span>{getTabLabel(tab)}</span>
+                    <GripVertical size={14} />
                   </button>
-                );
-              })}
-          </nav>
+                )
+              )}
+            </div>
+            {editingNav && (
+              <p className="mt-1 px-1 text-[10px] font-medium text-blue-300/90">
+                Arraste as abas para reorganizar a barra superior e clique em Concluir.
+              </p>
+            )}
+            {navNotice && !editingNav && (
+              <p role="status" className="mt-1 px-1 text-[10px] font-medium text-amber-300">
+                {navNotice}
+              </p>
+            )}
+          </div>
 
           <div id="header-right-section" className="flex items-center gap-1.5 sm:gap-3 order-2 lg:order-3 shrink-0">
             <div id="mobile-actions" className="flex items-center gap-1.5 sm:gap-2 md:hidden">
@@ -651,7 +777,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                       : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-white'
                   }`}
                 >
-                  <Bell size={16} className={alertBadgeCount > 0 ? 'animate-bell' : ''} />
+                  <AppIcon name="bell" size={19} onColor={showNotifications} className={alertBadgeCount > 0 ? 'animate-bell' : ''} />
                   {alertBadgeCount > 0 && (
                     <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[7px] sm:text-[8px] font-black w-3.5 h-3.5 sm:w-4 sm:h-4 flex items-center justify-center rounded-full ring-2 ring-slate-950">
                       {alertBadgeCount}

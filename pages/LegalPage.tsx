@@ -1,5 +1,7 @@
+import { AppIcon } from '../components/icons/AppIcons';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Scale, FileText, Scroll, Printer, User, Edit3, Bell, Trash2, MessageCircle, ShieldCheck, Archive, ArchiveRestore, Loader2 } from 'lucide-react';
+import { FileText, Edit3, Bell, Trash2, Archive, ArchiveRestore, Loader2 } from 'lucide-react';
+import { Scale, Scroll, Printer, User, MessageCircle, ShieldCheck } from '../components/icons/brandIcons';
 import { Loan, CapitalSource, UserProfile, Agreement, AgreementInstallment, LedgerEntry } from '../types';
 import { supabase } from '../lib/supabase';
 import { legalDocumentService } from '../services/legalDocument.service';
@@ -39,7 +41,7 @@ export const LegalPage: React.FC<LegalPageProps> = (props) => {
   const [legalDocs, setLegalDocs] = useState<any[]>([]);
   const [archivedDocIds, setArchivedDocIds] = useState<Set<string>>(new Set());
   const [signedDocIds, setSignedDocIds] = useState<Set<string>>(new Set());
-  const [showArchived, setShowArchived] = useState(false);
+  const [documentView, setDocumentView] = useState<'REGISTERED' | 'DRAFTS' | 'ARCHIVED'>('REGISTERED');
   const [busyDocumentId, setBusyDocumentId] = useState('');
   const [legalLoadError, setLegalLoadError] = useState('');
 
@@ -92,9 +94,22 @@ export const LegalPage: React.FC<LegalPageProps> = (props) => {
     || ['CANCELADO', 'SUPERSEDED', 'SUBSTITUIDO'].includes(
       String(doc.status_assinatura || doc.status || '').toUpperCase(),
     );
+  const isRegisteredDocument = (doc: any) => {
+    const status = String(doc.status_assinatura || doc.status || '').toUpperCase();
+    return status === 'ASSINADO'
+      || Boolean(doc.signed_at)
+      || doc.document_origin === 'UPLOADED_SIGNED'
+      || Boolean(doc.uploaded_signed_file_path);
+  };
   const activeLegalDocs = legalDocs.filter(doc => !isDocumentArchived(doc));
   const archivedLegalDocs = legalDocs.filter(isDocumentArchived);
-  const currentLegalDocs = showArchived ? archivedLegalDocs : activeLegalDocs;
+  const registeredLegalDocs = activeLegalDocs.filter(isRegisteredDocument);
+  const draftLegalDocs = activeLegalDocs.filter(doc => !isRegisteredDocument(doc));
+  const currentLegalDocs = documentView === 'ARCHIVED'
+    ? archivedLegalDocs
+    : documentView === 'DRAFTS'
+      ? draftLegalDocs
+      : registeredLegalDocs;
 
   const handleArchiveDocument = async (docId: string) => {
     if (!window.confirm('Arquivar este documento apenas da lista ativa? Assinaturas e histórico serão preservados.')) return;
@@ -202,15 +217,14 @@ export const LegalPage: React.FC<LegalPageProps> = (props) => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-        <PageHeader
-          icon={<Scale size={22} />}
-          iconClassName="border-violet-500/30 bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-indigo-950/30"
+        <PageHeader iconClassName="border-slate-700/70 bg-slate-900 shadow-black/30"
+          icon={<AppIcon name="legal" size={28} />}
           title="Jurídico"
           subtitle="Gestão de acordos e recuperação"
           actions={<div className="flex items-center gap-2 w-full sm:w-auto">
                 <button
                     onClick={() => setSubView('PROFILE')}
-                    className="flex-1 md:flex-none px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg transition-all flex items-center justify-center gap-2 text-[10px] font-black uppercase border border-slate-700"
+                    className="flex-1 md:flex-none px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg transition-all flex items-center justify-center gap-2 text-sm font-semibold border border-slate-700"
                 >
                     <User size={15}/> Perfil Jurídico
                 </button>
@@ -346,22 +360,26 @@ export const LegalPage: React.FC<LegalPageProps> = (props) => {
         <div className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
             <h3 className="flex items-center gap-2 text-sm font-semibold text-white">
-              <Scroll size={17} className="text-indigo-300"/> Documentos jurídicos registrados
+              <Scroll size={17} className="text-indigo-300"/> Documentos jurídicos
             </h3>
             <div className="flex flex-wrap gap-2" role="group" aria-label="Filtrar documentos jurídicos">
-              <button type="button" aria-pressed={!showArchived} onClick={() => setShowArchived(false)}
-                className={'min-h-10 rounded-lg border px-3 py-2 text-xs font-semibold ' + (!showArchived ? 'border-indigo-500 bg-indigo-600 text-white' : 'border-slate-700 bg-slate-900 text-slate-300')}>
-                Ativos ({activeLegalDocs.length})
+              <button type="button" aria-pressed={documentView === 'REGISTERED'} onClick={() => setDocumentView('REGISTERED')}
+                className={'min-h-10 rounded-lg border px-3 py-2 text-xs font-semibold ' + (documentView === 'REGISTERED' ? 'border-indigo-500 bg-indigo-600 text-white' : 'border-slate-700 bg-slate-900 text-slate-300')}>
+                Válidos ({registeredLegalDocs.length})
               </button>
-              <button type="button" aria-pressed={showArchived} onClick={() => setShowArchived(true)}
-                className={'min-h-10 rounded-lg border px-3 py-2 text-xs font-semibold ' + (showArchived ? 'border-indigo-500 bg-indigo-600 text-white' : 'border-slate-700 bg-slate-900 text-slate-300')}>
+              <button type="button" aria-pressed={documentView === 'DRAFTS'} onClick={() => setDocumentView('DRAFTS')}
+                className={'min-h-10 rounded-lg border px-3 py-2 text-xs font-semibold ' + (documentView === 'DRAFTS' ? 'border-indigo-500 bg-indigo-600 text-white' : 'border-slate-700 bg-slate-900 text-slate-300')}>
+                Minutas e pendências ({draftLegalDocs.length})
+              </button>
+              <button type="button" aria-pressed={documentView === 'ARCHIVED'} onClick={() => setDocumentView('ARCHIVED')}
+                className={'min-h-10 rounded-lg border px-3 py-2 text-xs font-semibold ' + (documentView === 'ARCHIVED' ? 'border-indigo-500 bg-indigo-600 text-white' : 'border-slate-700 bg-slate-900 text-slate-300')}>
                 Arquivados e cancelados ({archivedLegalDocs.length})
               </button>
             </div>
           </div>
-          <p className="text-xs text-slate-300">Documentos gerados não são necessariamente assinados. Arquivar apenas retira da lista ativa; excluir definitivamente só é permitido para minuta pendente, própria e sem assinaturas ou vínculos protegidos.</p>
+          <p className="text-xs text-slate-300">A aba Válidos mostra somente documentos assinados ou arquivos assinados enviados. Minutas e registros pendentes ficam separados e não são apresentados como documentos existentes.</p>
           {legalLoadError && <p role="alert" className="rounded-lg border border-rose-500/30 bg-rose-950/20 p-3 text-sm text-rose-200">Falha ao atualizar documentos: {legalLoadError}</p>}
-          <section aria-label="Documentos jurídicos registrados">
+          <section aria-label={documentView === 'REGISTERED' ? 'Documentos jurídicos válidos' : documentView === 'DRAFTS' ? 'Minutas e pendências jurídicas' : 'Documentos jurídicos arquivados'}>
             {currentLegalDocs.length === 0
               ? <p className="rounded-xl border border-dashed border-slate-700 p-6 text-center text-sm text-slate-300">Nenhum documento nesta categoria.</p>
               : <ul className="grid grid-cols-1 gap-3 lg:grid-cols-2">

@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { FileText, X } from 'lucide-react';
 import { useWalletSnapshot } from './hooks/useWalletSnapshot';
 import { consumeIncomingWalletFile, hasIncomingWalletFile, suggestWalletDestination,
   type WalletDestination } from './walletFileInboxBridge';
 import type { PersonalWalletAccount, PersonalWalletCard } from '../../services/personalWallet.service';
+import { getCardCreditPosition } from '../../components/wallet/invoiceStatementDomain';
 
 const FlatStatementReader = React.lazy(() => import('../../components/wallet/FlatSmartStatementReader')
   .then(module => ({ default: module.FlatSmartStatementReader })));
@@ -41,8 +43,12 @@ const WalletFileReview: React.FC<{ file: File; onClose: () => void }> = ({ file,
   const cards = (data?.cards || []).filter(card => card.status !== 'CANCELED');
   const available = kind === 'CARD' ? cards : accounts;
   const selected = available.find(item => item.id === selection);
+  const selectedCard = kind === 'CARD' ? selected as PersonalWalletCard | undefined : undefined;
+  const selectedCreditPosition = useMemo(() => selectedCard && data
+    ? getCardCreditPosition(selectedCard, data.expenses, data.installments) : null,
+    [selectedCard, data]);
   const selectedName = selected?.nickname || '';
-  return <div role="dialog" aria-modal="true" aria-label="Conferir documento bancário recebido"
+  return createPortal(<div role="dialog" aria-modal="true" aria-label="Conferir documento bancário recebido"
     className="fixed inset-0 z-[2200] flex items-center justify-center bg-slate-950/90 p-2 backdrop-blur-sm sm:p-5">
     <section className="flex max-h-[95dvh] w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-slate-700 bg-slate-900 text-white">
       <header className="flex shrink-0 items-center gap-3 border-b border-slate-800 p-4">
@@ -92,6 +98,11 @@ const WalletFileReview: React.FC<{ file: File; onClose: () => void }> = ({ file,
         {data && readerOpen && selected && <React.Suspense fallback={<p>Preparando leitor...</p>}>
           <FlatStatementReader isFlat key={selected.id} initialFile={file}
             kind={kind} targetId={selected.id} targetName={selectedName}
+            targetCreditLimit={selectedCard ? Number(selectedCard.credit_limit || 0) || null : null}
+            targetEstimatedUsedLimit={selectedCreditPosition?.committedLimit ?? null}
+            targetEstimatedFutureCommitments={selectedCreditPosition?.futureCommitments ?? null}
+            targetEstimatedAvailableLimit={selectedCreditPosition?.freeLimit ?? null}
+            targetEstimateDueMonth={selectedCreditPosition?.dueMonth}
             onClose={() => setReaderOpen(false)} onImported={async () => {
               await refresh();
               window.dispatchEvent(new Event('capitalflow:wallet-updated'));
@@ -99,7 +110,7 @@ const WalletFileReview: React.FC<{ file: File; onClose: () => void }> = ({ file,
         </React.Suspense>}
       </div>
     </section>
-  </div>;
+  </div>, document.body);
 };
 
 export const NativeWalletFileInbox: React.FC = () => {

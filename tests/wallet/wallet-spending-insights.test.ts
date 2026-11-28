@@ -75,7 +75,8 @@ test('the banking presentation preserves card/carousel and accounts are independ
   assert(accounts.includes('Saldo disponível'));
   assert(accounts.includes('Saldo consolidado'));
   assert(!accounts.includes('Limite disponível'));
-  assert(overview.includes('getWalletSpendingOverview(snapshot.expenses, month)'));
-  assert(overview.includes('Como chegamos à projeção'));
+  // Gastos do mês = compras no cartão + despesas pagas pela conta.
+  assert(overview.includes('getWalletSpendingOverview(snapshot.expenses, month, 4, snapshot.spendingOperations || [])'));
+  assert(overview.includes('Sobra prevista após compromissos'));
   assert(overview.includes('getCreditSummary(cards)'));
 });

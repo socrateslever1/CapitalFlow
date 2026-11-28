@@ -67,9 +67,10 @@ test('card clipboard copies each field separately without exposing a synthetic f
  assert.match(form,/Número completo e código de segurança/);
 });
 
-test('wallet mobile navigation renders all five tabs without horizontal scrolling', () => {
+test('wallet mobile navigation renders four tabs and compact balance without horizontal scrolling', () => {
  const module=read('features/wallet/WalletModule.tsx');
- assert.match(module,/grid-cols-5/);
+ assert.match(module,/grid-cols-4/);
+ assert.match(module,/<WalletBalanceDock \/>/);
  assert.match(module,/sm:hidden/);
  assert.doesNotMatch(module,/overflow-x-auto/);
  assert.match(module,/PageHeader/);
@@ -82,12 +83,73 @@ test('navegação de faturas apresenta linhas compactas e meses efetivamente reg
   assert.match(page, /getVisibleInvoiceCycles\(/);
   assert.match(page, /aria-label="Faturas registradas"/);
   assert.match(page, /aria-pressed={active}/);
-  assert.match(page, /Fatura {competence}/);
-  assert.match(page, /'Vence ' \+ due/);
+  // Fatura identificada pelo mês de vencimento, como no banco.
+  assert.match(page, /Fatura {dueLabel}/);
+  assert.match(page, /'Fecha ' \+ closing \+ ' · vence ' \+ due/);
   assert.match(page, /hideFinancialValues \? 'Vencimento protegido'/);
-  assert.match(page, /hideFinancialValues \? 'Situação protegida' : label/);
+  assert.match(page, /hideFinancialValues \? 'Situação protegida' : /);
   assert.match(page, /Adicionar fatura/);
   assert.match(page, /resolveInvoiceMonthSelection\(/);
-  assert.match(page, /dueMonth: statementMonth,/);
+  assert.match(page, /<CardInvoiceStatement cardId=\{selected\.id\} dueMonth=\{statementMonth\}/);
   assert.match(page, /getInvoiceCycleDates\(/);
+});
+
+test('a tela do cartão exibe uma fatura e consulta as demais por Ver mais', () => {
+  const page = read('features/wallet/pages/WalletCardsPage.tsx');
+  const statement = read('components/wallet/CardInvoiceStatement.tsx');
+  assert.match(page, /invoiceCycles\.filter\(cycle => cycle\.dueMonth === statementMonth\)/);
+  assert.match(page, /invoiceCycles\.length > 1 && <button/);
+  assert.match(page, /Ver mais \(\{invoiceCycles\.length - 1\}\)/);
+  assert.match(page, /setInvoiceHistoryOpen\(true\)/);
+  assert.match(page, /aria-label="Consultar outras faturas"/);
+  assert.match(page, /setStatementMonth\(cycle\.dueMonth\)/);
+  assert.match(page, /setInvoiceHistoryOpen\(false\)/);
+  assert.match(page, /<CardInvoiceStatement cardId=\{selected\.id\} dueMonth=\{statementMonth\}/);
+  assert.match(statement, /flex min-w-0 items-start justify-between gap-3/);
+  assert.doesNotMatch(statement, /<ShoppingBag/);
+  assert.match(statement, /onSave=\{onEdit\}/);
+  assert.match(statement, /onDelete\(expense\.id,\s*requestId\)/);
+});
+
+test('extrato do cartão acompanha o scroll da página e evita caixas redundantes', () => {
+  const page = read('features/wallet/pages/WalletCardsPage.tsx');
+  const statement = read('components/wallet/CardInvoiceStatement.tsx');
+  assert.doesNotMatch(page, /min-w-0 rounded-2xl border border-slate-800 bg-slate-900 p-2\.5 sm:p-3\.5/);
+  assert.match(page, /aria-label="Faturas registradas"/);
+  assert.match(page, /aria-label="Consultar outras faturas"/);
+  assert.doesNotMatch(statement, /max-h-56|overflow-y-auto|overscroll-contain/);
+  assert.match(statement, /mt-2 divide-y divide-slate-800\/70/);
+  assert.match(statement, /min-w-0 break-words/);
+  assert.match(statement, /min-h-9 items-center justify-center/);
+  assert.match(statement, /onClick=\{\(\) => setEditing\(expense\)\}/);
+  assert.match(statement, /onClick=\{\(\) => \{ setConfirmingDelete\(expense\);/);
+  assert.match(statement, /setAdvancingExpense\(expense\)/);
+  assert.match(statement, /Number\(installment\.amount\) - Number\(installment\.paid_amount \|\| 0\)/);
+  assert.match(statement, /PrivateMoney value=\{isCredit \? `− \$\{formatMoney\(remainingAmount\)\}` : formatMoney\(remainingAmount\)\}/);
+});
+
+test('bank credit limit does not flash estimate while per-card facts are unresolved', () => {
+  const page = read('features/wallet/pages/WalletCardsPage.tsx');
+  const stack = read('components/wallet/BankStack.tsx');
+  assert.match(page, /resolveCardInvoiceFactsView/);
+  assert.match(page, /data\?\.cardInvoiceFacts/);
+  assert.match(page, /getCardAvailablePresentation\(selected, invoiceFacts, data \|\| undefined\)/);
+  assert.match(page, /bankLimitStatus=\{bankLimitStatus\}/);
+  assert.match(page, /bankAvailableReferences=\{data\.cardInvoiceFacts\}/);
+  assert.doesNotMatch(page, /\[invoiceFacts, setInvoiceFacts\] = useState/);
+  // Sem resposta do banco o cartão mostra '—' (CardLimitValues recebe null), nunca a estimativa provisória.
+  assert.match(stack, /remaining=\{limitState === 'READY' \? available : null\}/);
+  assert.match(stack, /remaining === null \? '—'/);
+});
+
+test('a slower manual fact refresh cannot replace the current card generation', () => {
+  const cards = read('features/wallet/pages/WalletCardsPage.tsx');
+  assert.match(cards, /const invoiceFactsRequestGeneration = useRef\(0\)/);
+  assert.match(cards, /const generation = \+\+invoiceFactsRequestGeneration\.current/g);
+  assert.match(cards, /generation === invoiceFactsRequestGeneration\.current/);
+  assert.match(cards, /if \(generation !== invoiceFactsRequestGeneration\.current\) return/);
+  const manualRefresh = cards.slice(cards.indexOf('const refreshInvoiceFacts = async'), cards.indexOf('const importedStatementRows ='));
+  assert.match(manualRefresh, /catch \(cause\)/);
+  assert.match(manualRefresh, /outcome: 'ERROR'/);
+  assert.match(cards, /invoiceFactsRequestGeneration\.current \+= 1/);
 });

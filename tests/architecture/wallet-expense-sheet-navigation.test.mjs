@@ -17,25 +17,67 @@ test('card expense sheet is detached from clipped wallet panels and keeps its ow
   assert.match(sheet, /onSubmit=\{handleSubmit\}/);
 });
 
-test('accounts list exposes direct expense action on phone and desktop with explicit account destination', () => {
+test('accounts list keeps only account list outside while account detail and FAB expose expense actions', () => {
   const accounts = read('features/wallet/pages/WalletAccountsPage.tsx');
-  assert.match(accounts, /const \[expenseOpen, setExpenseOpen\] = useState\(false\)/);
-  assert.equal((accounts.match(/Registrar despesa/g) || []).length, 1, 'only one direct account expense action');
-  assert.match(accounts, /expenseOpen && <QuickExpenseModal/);
-  assert.match(accounts, /initialMode="ACCOUNT"/);
-  assert.match(accounts, /initialAccountId=\{data\.accounts\.length === 1 \? data\.accounts\[0\]\.id : null\}/);
-  assert.match(accounts, /requireExplicitDestination=\{data\.accounts\.length !== 1\}/);
-  assert.match(accounts, /disabled=\{!data\.accounts\.length\}/);
-  assert.match(accounts, /onSaved=\{async \(\) => \{ await refresh\(\); \}\}/);
+  assert.doesNotMatch(accounts, /Transferir \/ Movimentar/);
+  assert.doesNotMatch(accounts, /Gerar cobrança PIX/);
+  assert.match(accounts, /<AccountCardStack/);
+  assert.match(accounts, /<AccountDetailsPage/);
 });
 
 test('existing account detail and card expense buttons share canonical expense form', () => {
   const detail = read('components/wallet/AccountDetailsPage.tsx');
   const card = read('features/wallet/pages/WalletCardsPage.tsx');
   const sheet = read('components/wallet/QuickExpenseModal.tsx');
-  assert.match(detail, /Registrar despesa/);
+  // No celular o rótulo visível é "Despesa"; "Registrar " continua para leitores de tela.
+  assert.match(detail, /<span className="sr-only sm:not-sr-only">Registrar <\/span>/);
+  assert.match(detail, /despesa<\/span>/);
   assert.match(detail, /initialMode="ACCOUNT" initialAccountId=\{account\.id\}/);
   assert.match(card, /defaultMethod="CARD"/);
   assert.match(sheet, /personalWalletService\.recordAccountOperation\(/);
   assert.match(sheet, /personalWalletService\.createExpense\(/);
+});
+
+test('card-specific expense actions lock the selected card and default historical purchases to the current open invoice', () => {
+  const card = read('features/wallet/pages/WalletCardsPage.tsx');
+  const sheet = read('components/wallet/QuickExpenseModal.tsx');
+  const cycle = read('features/wallet/utils/minhasFinancasWalletTools.ts');
+  assert.match(card, /setQuickExpenseCardId\(card\.id\)/);
+  assert.match(card, /lockCardSelection=\{Boolean\(quickExpenseCardId\)\}/);
+  assert.match(sheet, /lockCardSelection \?/);
+  assert.match(sheet, /aria-label="Cartão selecionado"/);
+  // Compras antigas (fatura já vencida) continuam indo para a fatura aberta; a regra
+  // completa (data da compra, fechamento exclusivo) fica no domínio compartilhado.
+  assert.match(sheet, /resolvePurchaseInvoiceMonth\(\{\s*purchaseDate: expenseDate, today: referenceToday/);
+  assert.match(sheet, /if \(candidate >= currentOpenMonth\)/);
+  assert.match(cycle, /const currentOpenDueMonth = getPurchaseInvoiceMonth\(today, input\.closingDay, input\.dueDay(?:, input\.card)?\)/);
+  assert.match(sheet, /Selecionar próxima fatura/);
+  assert.match(card, /requestedStatementMonth,[\s\S]*?suggestedNewInvoiceMonth/);
+  assert.match(card, /setQuickExpenseDueMonth\(suggestedNewInvoiceMonth\)/);
+  assert.match(card, /initialDueMonth=\{quickExpenseDueMonth \|\| statementMonth\}/);
+  assert.doesNotMatch(sheet, /Mover para \{closedInvoiceWarning\.nextOpenLabel\}/);
+});
+
+test('statement import search filters rows without merging installment data into descriptions', () => {
+  const reader = read('components/wallet/FlatSmartStatementReader.tsx');
+  const parser = read('utils/walletStatementPdf.ts');
+  assert.match(reader, /type="search"/);
+  assert.match(reader, /matchesStatementRowSearch\(row, rowSearch\)/);
+  assert.match(reader, /visibleRows\.map\(\(\{ row, index \}\)/);
+  assert.match(reader, /Parcela \{row\.installmentNumber\}\/\{row\.installmentTotal\}/);
+  assert.match(parser, /cleanStatementDescription\(\[beforeDate, afterDate\]/);
+});
+
+test('statement import compares extracted rows with the invoice amount in the PDF', () => {
+  const reader = read('components/wallet/FlatSmartStatementReader.tsx');
+  const parser = read('utils/walletStatementPdf.ts');
+  const summary = read('utils/cardInvoiceSummary.ts');
+  assert.match(reader, /Compras apuradas/);
+  assert.match(reader, /!isCardInvoicePaymentDescription\(row\.description\)/);
+  assert.match(reader, /Total da fatura no PDF/);
+  assert.match(reader, /Diferença \(fatura − apurado\)/);
+  assert.match(reader, /Selecionado para importar:/);
+  assert.match(reader, /invalidAmountCount/);
+  assert.match(parser, /rows\.reduce\(/);
+  assert.match(summary, /institution === 'Bradesco'[\s\S]*?total\\s\+da\\s\+fatura/);
 });

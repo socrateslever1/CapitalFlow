@@ -146,7 +146,7 @@ function readerHarness(name: 'FlatSmartStatementReader' | 'WalletStatementImport
       await find(node => node.type === SummaryPreview).props.onSave(summary);
       render();
     },
-    async save() { await button('Confirmar itens selecionados').props.onClick(); render(); },
+    async save() { await button('Confirmar').props.onClick(); render(); },
     setMonth(month: string) {
       find(node => node.type === 'input' && node.props.type === 'month')
         .props.onChange({ target: { value: month } }); render();
@@ -230,9 +230,9 @@ for (const reader of ['FlatSmartStatementReader', 'WalletStatementImport'] as co
     app.props.targetId = 'card-b'; app.props.targetName = 'Cartão B'; app.props.hasOpening = false;
     app.render(); app.render();
     if (reader === 'FlatSmartStatementReader') {
-      assert.throws(() => app.button('Confirmar itens selecionados'), /Expected reader control is present/);
+      assert.throws(() => app.button('Confirmar'), /Expected reader control is present/);
     } else {
-      assert.equal(app.button('Confirmar itens selecionados').props.disabled, true);
+      assert.equal(app.button('Confirmar').props.disabled, true);
     }
     assert.equal(app.calls.rows.length, 0);
   });
@@ -260,17 +260,10 @@ for (const reader of ['FlatSmartStatementReader', 'WalletStatementImport'] as co
     assert.equal(app.calls.rows.length, 1);
   });
 
-  test(`${reader}: image reading waits for explicit consent before calling cloud parsing`, async () => {
+  test(`${reader}: image files are rejected locally without invoking cloud AI parsing`, async () => {
     const app = readerHarness(reader);
     await app.load('image/png', 'synthetic.png');
     assert.equal(app.calls.parses.length, 0);
-    app.io.consent = false;
-    app.button('Ler imagem com IA').props.onClick(); await app.flush();
-    assert.equal(app.calls.parses.length, 0);
-    app.io.consent = true;
-    app.button('Ler imagem com IA').props.onClick(); await app.flush();
-    assert.equal(app.calls.parses.length, 1);
-    assert.equal(app.calls.parses[0][2].forceAi, true);
-    assert.equal(app.calls.parses[0][2].cloudConsent, true);
+    assert.throws(() => app.button('Ler imagem com IA'), /Expected reader control is present/);
   });
 }

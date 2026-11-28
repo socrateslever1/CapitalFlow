@@ -15,7 +15,7 @@ test('account type is localized throughout overview and bank stack',()=>{
 test('overview renders compact card rows beside credit summary and keeps detail navigation',()=>{
  assert.match(summary,/aria-label="Seus cartões"/);
  assert.match(summary,/cards\.slice\(0,4\)\.map\(card =>/);
- assert.match(summary,/card.primary_color \|\| visual.accent/);
+ assert.match(helper,/card.primary_color\?\.trim\(\) \|\| visual.accent/);
  assert.match(summary,/card.last_four/);
  assert.match(summary,/onNavigate\('cartoes'\)/);
  assert.match(summary,/getCardSummaryDestination\(card.id\)/);

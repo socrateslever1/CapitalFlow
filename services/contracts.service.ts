@@ -7,6 +7,7 @@ import { clearStableFinancialRequestKey, getStableFinancialRequestKey } from './
 import { validateFundingAllocations } from '../domain/finance/fundingAllocations';
 import { calculateAdditionalCapital, canReceiveCapitalAdvance } from '../domain/finance/capitalAdvance';
 import { adjustSourceBalanceSafe } from './payments/paymentWallets';
+import { checkLinkedCardFunding, usesSingleCardSource } from '../features/loans/domain/cardFundingSource';
 
 /* =========================
    Helpers de Sanitização
@@ -356,6 +357,14 @@ export const contractsService = {
       cliente_foto_url: loan.clientAvatarUrl,
     };
 
+    const selectedSource = _sources.find(source => safeUUID(source.id) === safeUUID(loan.sourceId));
+    const hasExplicitMultiSourceAllocations = !editingLoan && Array.isArray(loan.fundingAllocations) && loan.fundingAllocations.length > 1;
+    const isCardFundedLoan = !editingLoan && usesSingleCardSource(
+      selectedSource?.type,
+      loan.fundingPaymentMethod,
+      loan.fundingAllocations?.length || 0,
+    );
+
     if (editingLoan) {
       await runContractMutationWithSchemaFallback(loanPayload, (payload) =>
         supabase.from('contratos').update(payload).eq('id', safeUUID(loanId))
@@ -526,12 +535,53 @@ export const contractsService = {
       });
       if (error) throw new Error(error.message);
     } else {
-      await runContractMutationWithSchemaFallback({
-        ...loanPayload,
-        portal_token: loan.portalToken || generateUUID(),
-        portal_shortcode: loan.portalShortcode || Math.floor(100000 + Math.random() * 900000).toString(),
-        created_at: new Date().toISOString(),
-      }, (payload) => supabase.from('contratos').insert(payload));
+      let existingCardLoan = false;
+      if (isCardFundedLoan) {
+        const { data: existing, error: existingError } = await supabase.from('contratos')
+          .select('id, owner_id, source_id, principal, funding_total_payable, funding_installments_count')
+          .eq('id', loanId).maybeSingle();
+        if (existingError) throw existingError;
+        if (existing) {
+          if (safeUUID(existing.owner_id) !== ownerId
+            || safeUUID(existing.source_id) !== safeUUID(loan.sourceId)
+            || safeFloat(existing.principal) !== principal
+            || safeFloat(existing.funding_total_payable) !== safeFloat(loan.fundingTotalPayable)
+            || Number(existing.funding_installments_count || 1) !== Number(loan.fundingInstallmentsCount || 1)) {
+            throw new Error('O contrato pode ter sido gravado com dados diferentes. Confira-o antes de tentar novamente.');
+          }
+          existingCardLoan = true;
+        }
+      }
+      if (isCardFundedLoan && !existingCardLoan && !options?.skipTransaction) {
+        const { data: links, error: linksError } = await supabase.from('capital_source_wallet_references')
+          .select('target_kind,target_id').eq('source_id', safeUUID(loan.sourceId));
+        if (linksError) throw new Error('Não foi possível conferir o cartão vinculado. Atualize a Carteira e tente novamente.');
+        const cardLink = links?.length === 1 && links[0].target_kind === 'CARD' ? links[0] : null;
+        let card: { status: string; credit_limit: number; used_limit: number } | null = null;
+        if (cardLink) {
+          const { data, error } = await supabase.from('personal_wallet_cards')
+            .select('status,credit_limit,used_limit').eq('id', cardLink.target_id).maybeSingle();
+          if (error) throw new Error('Não foi possível conferir o cartão vinculado. Atualize a Carteira e tente novamente.');
+          card = data;
+        }
+        const issue = checkLinkedCardFunding(links || [], card, safeFloat(loan.fundingTotalPayable) || safeFloat(loan.principal));
+        if (issue === 'LINK') throw new Error('Vincule exatamente um cartão da Carteira à fonte antes de emitir o contrato.');
+        if (issue === 'CARD') throw new Error('O cartão vinculado está indisponível. Ative-o ou escolha outra fonte.');
+        // Uma compra já efetivada pelo banco deve poder ser contabilizada mesmo
+        // durante uma conciliação pendente. O banco validará data, valor, prova
+        // e autorização de SUPER_ADMIN dentro da RPC transacional.
+        if (issue === 'LIMIT' && loan.policiesSnapshot?.cardPurchaseAlreadyCharged !== true) {
+          throw new Error('Crédito disponível insuficiente para o total financiado. Confira o limite do cartão.');
+        }
+      }
+      if (!existingCardLoan) {
+        await runContractMutationWithSchemaFallback({
+          ...loanPayload,
+          portal_token: loan.portalToken || generateUUID(),
+          portal_shortcode: loan.portalShortcode || Math.floor(100000 + Math.random() * 900000).toString(),
+          created_at: new Date().toISOString(),
+        }, (payload) => supabase.from('contratos').insert(payload));
+      }
 
       if (loan.installments?.length) {
         const instPayload = loan.installments.map((inst, index) => ({
@@ -555,13 +605,48 @@ export const contractsService = {
           paid_total: 0,
         }));
 
-        const { error: instErr } = await supabase.from('parcelas').insert(instPayload);
-        if (instErr) throw instErr;
+        let shouldInsertInstallments = true;
+        if (existingCardLoan) {
+          const { count, error: countError } = await supabase.from('parcelas')
+            .select('id', { count: 'exact', head: true }).eq('loan_id', loanId);
+          if (countError) throw countError;
+          if (count && count !== instPayload.length) {
+            throw new Error('O contrato pode ter sido gravado com parcelas incompletas. Confira-o antes de tentar novamente.');
+          }
+          shouldInsertInstallments = !count;
+        }
+        if (shouldInsertInstallments) {
+          const { error: instErr } = await supabase.from('parcelas').insert(instPayload);
+          if (instErr) throw instErr;
+        }
       }
 
       // Saída de Caixa (novo contrato)
       const safeSrcId = safeUUID(loan.sourceId);
-      if (safeSrcId && !options?.skipTransaction) {
+      if (hasExplicitMultiSourceAllocations && !options?.skipTransaction) {
+        const allocationsPayload = (loan.fundingAllocations || []).map((allocation) => ({
+          source_id: safeUUID(allocation.sourceId),
+          amount: Math.round(Number(allocation.amount || 0) * 100) / 100,
+        }));
+        const { error: allocationError } = await supabase.rpc('finalize_loan_funding_allocations_v1', {
+          p_loan_id: safeUUID(loanId),
+          p_allocations: allocationsPayload,
+        });
+        if (allocationError) {
+          throw new Error('O contrato pode ter sido gravado, mas a composição entre fontes falhou. Confira os saldos, o cartão e o contrato antes de tentar novamente.');
+        }
+      } else if (isCardFundedLoan && !options?.skipTransaction) {
+        const { error: finalizationError } = await supabase.rpc('finalize_card_funded_loan_v1', {
+          p_loan_id: safeUUID(loanId),
+        });
+        if (finalizationError) {
+          const known = String(finalizationError.message || '');
+          if (/Informe data, valor e identificação|Valor da cobrança bancária diferente|Data da cobrança bancária fora|Esta identificação de compra bancária já está|Limite disponível do cartão insuficiente/i.test(known)) {
+            throw new Error('O contrato pode ter sido gravado, mas o cartão não foi lançado. ' + known + ' Confira o contrato antes de tentar novamente.');
+          }
+          throw new Error('O contrato pode ter sido gravado, mas o cartão não foi lançado. Confira os dados, o limite e o contrato antes de tentar novamente.');
+        }
+      } else if (safeSrcId && !options?.skipTransaction) {
         await adjustSourceBalanceSafe(safeSrcId, -principal);
 
         const { error: initialEntryError } = await supabase.from('transacoes').insert({
@@ -675,7 +760,7 @@ export const contractsService = {
     });
 
     if (error) {
-       throw new Error(`Erro ao aplicar aporte: ${error.message}`);
+      throw new Error(`Erro ao aplicar aporte: ${error.message}`);
     }
     clearStableFinancialRequestKey(stableRequest.storageKey);
     return true;

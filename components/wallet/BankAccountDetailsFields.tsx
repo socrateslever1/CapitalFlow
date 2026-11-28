@@ -8,10 +8,34 @@ export const BankAccountDetailsFields: React.FC<{value:BankAccountDetailsDraft;o
   const change=(key:keyof BankAccountDetailsDraft,next:string|boolean)=>onChange({...value,[key]:next});
   return <fieldset className="space-y-4 border-t border-slate-800 pt-4">
     <legend className="px-1 text-sm font-semibold text-slate-200">Dados bancários opcionais</legend>
-    <div className="grid gap-3 sm:grid-cols-2">
-      {(Object.keys(bankTextFields) as Array<keyof typeof bankTextFields>).filter(key=>key!=='other_products').map(key=><label key={key} className="text-xs font-medium text-slate-300">{bankTextFields[key]}
-        <input maxLength={120} className={input} value={value[key]} onChange={event=>change(key,event.target.value)}/>
-      </label>)}
+    <div className="space-y-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <label className="text-xs font-medium text-slate-300">{bankTextFields.holder_name}
+          <input maxLength={120} className={input} value={value.holder_name} onChange={event=>change('holder_name',event.target.value)}/>
+        </label>
+        <label className="text-xs font-medium text-slate-300">{bankTextFields.holder_document}
+          <input maxLength={120} className={input} value={value.holder_document} onChange={event=>change('holder_document',event.target.value)}/>
+        </label>
+      </div>
+      <div className="grid grid-cols-[minmax(0,1fr)_5.5rem] gap-2.5 sm:grid-cols-[minmax(0,1fr)_6.5rem] sm:gap-3">
+        <label className="min-w-0 text-xs font-medium text-slate-300">{bankTextFields.agency}
+          <input maxLength={120} className={input} value={value.agency} onChange={event=>change('agency',event.target.value)}/>
+        </label>
+        <label className="min-w-0 text-xs font-medium text-slate-300"><span className="block truncate" title={bankTextFields.agency_digit}>Dígito</span>
+          <input maxLength={120} aria-label={bankTextFields.agency_digit} className={input} value={value.agency_digit} onChange={event=>change('agency_digit',event.target.value)}/>
+        </label>
+      </div>
+      <div className="grid grid-cols-[minmax(0,1fr)_4.5rem_5.5rem] gap-2.5 sm:grid-cols-[minmax(0,1fr)_5.5rem_7rem] sm:gap-3">
+        <label className="min-w-0 text-xs font-medium text-slate-300">{bankTextFields.account_number}
+          <input maxLength={120} className={input} value={value.account_number} onChange={event=>change('account_number',event.target.value)}/>
+        </label>
+        <label className="min-w-0 text-xs font-medium text-slate-300"><span className="block truncate" title={bankTextFields.account_digit}>Dígito</span>
+          <input maxLength={120} aria-label={bankTextFields.account_digit} className={input} value={value.account_digit} onChange={event=>change('account_digit',event.target.value)}/>
+        </label>
+        <label className="min-w-0 text-xs font-medium text-slate-300"><span className="block truncate" title={bankTextFields.operation_code}>Operação</span>
+          <input maxLength={120} aria-label={bankTextFields.operation_code} className={input} value={value.operation_code} onChange={event=>change('operation_code',event.target.value)}/>
+        </label>
+      </div>
     </div>
     <div className="space-y-4">
       {([
@@ -20,7 +44,7 @@ export const BankAccountDetailsFields: React.FC<{value:BankAccountDetailsDraft;o
         ['has_loans','Possui limite de empréstimo',['loan_balance']],
       ] as const).filter(([key])=>showCreditCard || key!=='has_credit_card').map(([key,label,amounts])=><div key={key} className="space-y-3">
         <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm text-slate-200"><input type="checkbox" checked={value[key]} onChange={event=>change(key,event.target.checked)} className="h-4 w-4 accent-blue-500"/>{label}</label>
-        {value[key] && <div className="grid gap-3 pl-7 sm:grid-cols-2">{amounts.map(amount=><label key={amount} className="text-xs text-slate-300">{bankMoneyFields[amount]} (R$)
+        {value[key] && <div className={`grid gap-3 pl-4 sm:pl-7 ${amounts.length > 1 ? 'grid-cols-2' : 'grid-cols-1 sm:grid-cols-2'}`}>{amounts.map(amount=><label key={amount} className="min-w-0 text-xs text-slate-300">{bankMoneyFields[amount]} (R$)
           <FinancialCalculatorInput placeholder="Ex.: 1.500,00" className={input} value={value[amount]} fieldLabel={bankMoneyFields[amount]} onCommit={next=>change(amount,next)}/>
         </label>)}</div>}
       </div>)}

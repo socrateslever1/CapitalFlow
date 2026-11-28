@@ -3,7 +3,8 @@ import { Copy, Check, RotateCw, Wifi } from 'lucide-react';
 import { PersonalWalletCard } from '../../services/personalWallet.service';
 import { formatMoney } from '../../utils/formatters';
 import { copyCardFieldToClipboard, copyCardLastFourToClipboard } from '../../utils/cardClipboard';
-import { resolveBankLogo } from '../../utils/bankLogoRegistry';
+import { BankLogo } from './BankLogo';
+import { getBankVisual, getWalletCardVisual } from './walletPresentation';
 
 export interface VirtualCreditCardProps {
   card: PersonalWalletCard;
@@ -13,104 +14,24 @@ export interface VirtualCreditCardProps {
 }
 
 // Configurações visuais por emissor / banco
-export function getCardTheme(nickname: string, issuer?: string | null) {
-  const text = `${nickname} ${issuer || ''}`.toLowerCase();
-
-  if (text.includes('nu') || text.includes('nubank') || text.includes('roxinho') || text.includes('ultravioleta')) {
-    return {
-      gradient: 'from-[#501382] via-[#61199c] to-[#2c0948]',
-      accentColor: '#a855f7',
-      textColor: 'text-purple-100',
-      logoText: 'nu',
-      brand: 'Mastercard',
-      category: 'Black / Platinum',
-      shine: 'from-purple-400/20 via-transparent to-pink-500/10',
-      stripeColor: 'bg-purple-950',
-    };
-  }
-  if (text.includes('inter')) {
-    return {
-      gradient: 'from-[#ff6f00] via-[#ea580c] to-[#9a3412]',
-      accentColor: '#f97316',
-      textColor: 'text-orange-100',
-      logoText: 'inter',
-      brand: 'Mastercard',
-      category: 'Black',
-      shine: 'from-orange-300/30 via-transparent to-amber-500/15',
-      stripeColor: 'bg-orange-950',
-    };
-  }
-  if (text.includes('itau') || text.includes('itaú')) {
-    return {
-      gradient: 'from-[#0b2447] via-[#19376d] to-[#041226]',
-      accentColor: '#38bdf8',
-      textColor: 'text-blue-100',
-      logoText: 'Itaú',
-      brand: 'Visa',
-      category: 'Personalité',
-      shine: 'from-cyan-400/20 via-transparent to-blue-500/20',
-      stripeColor: 'bg-slate-950',
-    };
-  }
-  if (text.includes('santander')) {
-    return {
-      gradient: 'from-[#b91c1c] via-[#991b1b] to-[#450a0a]',
-      accentColor: '#f87171',
-      textColor: 'text-red-100',
-      logoText: 'Santander',
-      brand: 'Mastercard',
-      category: 'Select / Elite',
-      shine: 'from-red-300/20 via-transparent to-rose-500/20',
-      stripeColor: 'bg-red-950',
-    };
-  }
-  if (text.includes('bradesco')) {
-    return {
-      gradient: 'from-[#9f1239] via-[#881337] to-[#4c0519]',
-      accentColor: '#fb7185',
-      textColor: 'text-rose-100',
-      logoText: 'bradesco',
-      brand: 'Visa',
-      category: 'Prime',
-      shine: 'from-rose-300/20 via-transparent to-red-500/20',
-      stripeColor: 'bg-rose-950',
-    };
-  }
-  if (text.includes('xp') || text.includes('carbon') || text.includes('black') || text.includes('c6')) {
-    return {
-      gradient: 'from-[#18181b] via-[#09090b] to-[#000000]',
-      accentColor: '#fbbf24',
-      textColor: 'text-amber-100',
-      logoText: text.includes('c6') ? 'C6 BANK' : 'XP',
-      brand: 'Mastercard',
-      category: 'Carbon Black',
-      shine: 'from-amber-400/25 via-transparent to-yellow-600/15',
-      stripeColor: 'bg-black',
-    };
-  }
-  if (text.includes('bb') || text.includes('brasil')) {
-    return {
-      gradient: 'from-[#1e3a8a] via-[#172554] to-[#0f172a]',
-      accentColor: '#facc15',
-      textColor: 'text-yellow-100',
-      logoText: 'BB',
-      brand: 'Visa',
-      category: 'Estilo',
-      shine: 'from-yellow-400/20 via-transparent to-blue-400/20',
-      stripeColor: 'bg-slate-950',
-    };
-  }
-
-  // Padrão escuro sofisticado
+export function getCardTheme(issuer?: string | null) {
+  const visual = getBankVisual(issuer);
+  const defaults: Record<string, { brand: string; category: string }> = {
+    nubank: { brand: 'Mastercard', category: 'Black / Platinum' },
+    inter: { brand: 'Mastercard', category: 'Black' },
+    itau: { brand: 'Visa', category: 'Personnalité' },
+    santander: { brand: 'Mastercard', category: 'Select / Elite' },
+    bradesco: { brand: 'Visa', category: 'Prime' },
+    xp: { brand: 'Mastercard', category: 'Carbon Black' },
+    c6: { brand: 'Mastercard', category: 'Carbon Black' },
+    bb: { brand: 'Visa', category: 'Estilo' },
+  };
   return {
-    gradient: 'from-[#1e293b] via-[#0f172a] to-[#020617]',
-    accentColor: '#60a5fa',
-    textColor: 'text-slate-100',
-    logoText: issuer || 'BANCO',
-    brand: 'Mastercard',
-    category: 'Platinum',
-    shine: 'from-blue-400/20 via-transparent to-indigo-500/15',
-    stripeColor: 'bg-slate-950',
+    logoText: visual.name,
+    ...(defaults[visual.key] || { brand: 'Mastercard', category: 'Platinum' }),
+    shine: visual.key === 'bradesco'
+      ? 'from-rose-200/20 via-transparent to-rose-900/20'
+      : 'from-white/15 via-transparent to-white/5',
   };
 }
 
@@ -123,7 +44,8 @@ export const VirtualCreditCard: React.FC<VirtualCreditCardProps> = ({
   const [isFlipped, setIsFlipped] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
 
-  const theme = getCardTheme(card.nickname, card.issuer);
+  const visual = getWalletCardVisual(card);
+  const theme = getCardTheme(card.institution_key || card.issuer || card.nickname);
 
   const effectiveHolder = holderName || card.cardholder_name || card.nickname.toUpperCase();
   const rawNumber = card.last_four ? `•••• •••• •••• ${card.last_four}` : '•••• •••• •••• ----';
@@ -163,14 +85,15 @@ export const VirtualCreditCard: React.FC<VirtualCreditCardProps> = ({
             setIsFlipped((value) => !value);
           }
         }}
-        className={`relative aspect-[1.586/1] w-full rounded-2xl p-5 sm:p-6 shadow-2xl transition-all duration-500 motion-reduce:transition-none transform cursor-pointer border border-white/10 overflow-hidden bg-gradient-to-br focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${theme.gradient}`}
+        className={`relative aspect-[1.586/1] w-full rounded-2xl p-5 sm:p-6 shadow-2xl transition-all duration-500 motion-reduce:transition-none transform cursor-pointer border border-white/10 overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400`}
         style={{
+          background: visual.background,
           boxShadow: '0 20px 35px -10px rgba(0, 0, 0, 0.6), 0 0 20px 2px rgba(255, 255, 255, 0.05) inset',
         }}
       >
         {/* Camada de brilho / textura reflexiva */}
         <div className={`absolute inset-0 bg-gradient-to-tr ${theme.shine} pointer-events-none`} />
-        <div className="absolute -right-20 -top-20 w-56 h-56 bg-white/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="pointer-events-none absolute -right-14 -top-16 h-56 w-56 rounded-full border border-white/10" />
 
         {!isFlipped ? (
           /* FRENTE DO CARTÃO */
@@ -178,13 +101,7 @@ export const VirtualCreditCard: React.FC<VirtualCreditCardProps> = ({
             {/* Topo: Emissor, Banco e Contactless */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                {resolveBankLogo(card.issuer, card.nickname) ? (
-                  <img src={resolveBankLogo(card.issuer, card.nickname)!} alt={`Logo ${card.issuer || card.nickname}`} className="h-9 w-9 shrink-0 rounded-lg object-contain" />
-                ) : (
-                  <span className="font-extrabold text-sm sm:text-base tracking-wider uppercase text-white/95">
-                    {card.issuer || theme.logoText}
-                  </span>
-                )}
+                <BankLogo variant="card" size="card" name={card.institution_key || card.issuer || theme.logoText} alternateName={card.nickname}/>
                 <span className="text-[10px] font-bold uppercase tracking-widest text-white/80 bg-black/25 px-2 py-0.5 rounded-full border border-white/15">
                   {card.nickname}
                 </span>

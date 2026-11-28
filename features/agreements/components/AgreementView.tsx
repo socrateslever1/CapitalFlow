@@ -368,7 +368,7 @@ export const AgreementView: React.FC<AgreementViewProps> = ({ agreement, loan, a
                                                 setPaymentAmount(String(forgiveLateFee ? principalRemaining : (principalRemaining + lf)));
                                                 setShowCustomAmount(false);
                                             }}
-                                            className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase border transition-all ${
+                                            className={`flex-1 py-2 rounded-lg text-sm font-semibold border transition-all ${
                                                 !showCustomAmount
                                                     ? 'bg-emerald-600/20 text-emerald-400 border-emerald-500'
                                                     : 'bg-slate-950 text-slate-500 border-slate-800 hover:text-white'
@@ -381,7 +381,7 @@ export const AgreementView: React.FC<AgreementViewProps> = ({ agreement, loan, a
                                             onClick={() => {
                                                 setShowCustomAmount(true);
                                             }}
-                                            className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase border transition-all ${
+                                            className={`flex-1 py-2 rounded-lg text-sm font-semibold border transition-all ${
                                                 showCustomAmount
                                                     ? 'bg-blue-600/20 text-blue-400 border-blue-500'
                                                     : 'bg-slate-950 text-slate-500 border-slate-800 hover:text-white'

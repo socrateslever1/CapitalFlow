@@ -21,8 +21,6 @@ import { isAppleMobile } from './utils/appleMobile';
 import { Toaster } from 'sonner';
 import { Loader2 } from 'lucide-react';
 
-import { notificationService } from './services/notification.service';
-import { pushSubscriptionService } from './services/pushSubscription.service';
 import { LoadingScreen } from './components/ui/LoadingScreen';
 import { isDev } from './utils/isDev';
 import { Agreement, AgreementInstallment, AppTab, LedgerEntry, Loan } from './types';
@@ -31,7 +29,10 @@ import { ModalProvider } from './contexts/ModalContext';
 import { ModalHost } from './components/modals/ModalHost';
 import { filesService } from './services/files.service';
 import { contractsService } from './services/contracts.service';
-import { platformAdminService } from './services/platformAdmin.service';
+import { useWalletPreload } from './hooks/useWalletPreload';
+import { usePlatformAccess } from './hooks/usePlatformAccess';
+import { useMasterTools } from './hooks/useMasterTools';
+import { useNetworkSync } from './hooks/useNetworkSync';
 
 const DashboardContainer = lazy(() => import('./containers/DashboardContainer').then(({ DashboardContainer }) => ({ default: DashboardContainer })));
 const ClientsContainer = lazy(() => import('./containers/ClientsContainer').then(({ ClientsContainer }) => ({ default: ClientsContainer })));
@@ -137,6 +138,13 @@ export const App: React.FC = () => {
   const location = useLocation();
 
   const handleSetActiveTab = useCallback((tab: any) => {
+    if (tab === 'MY_WALLET') {
+      if (window.location.pathname !== '/carteira/visao-geral' || window.location.search) {
+        routerNavigate('/carteira/visao-geral');
+      }
+      setActiveTab('MY_WALLET');
+      return;
+    }
     if (window.location.pathname !== '/' && tab !== 'CONTRACT_DETAILS' && tab !== 'LEGAL') {
       routerNavigate('/');
     }
@@ -167,35 +175,17 @@ export const App: React.FC = () => {
   // ✅ view pública: portalToken OU rota pública de campanha OU assinatura pública
   const isPublicView = hasPortalAccessParams || !!portalToken || !!legalSignToken || !!clientRegistrationToken;
 
-  const [isPlatformSuperAdmin, setIsPlatformSuperAdmin] = useState(false);
-  const [isPlatformAccessChecked, setIsPlatformAccessChecked] = useState(false);
-  useEffect(() => {
-    let active = true;
-    setIsPlatformAccessChecked(false);
-    if (!activeUser || activeUser.id === 'DEMO') {
-      setIsPlatformSuperAdmin(false);
-      setIsPlatformAccessChecked(true);
-      return () => { active = false; };
-    }
-    platformAdminService.isSuperAdmin()
-      .then((allowed) => { if (active) { setIsPlatformSuperAdmin(allowed); setIsPlatformAccessChecked(true); } })
-      .catch(() => { if (active) { setIsPlatformSuperAdmin(false); setIsPlatformAccessChecked(true); } });
-    return () => { active = false; };
-  }, [activeUser]);
+  const { isPlatformSuperAdmin, isPlatformAccessChecked } = usePlatformAccess(activeUser);
+  useMasterTools(!isPublicView && isPlatformSuperAdmin ? activeUser?.id || null : null,
+    isPlatformAccessChecked && !isPublicView, activeTab);
 
   useEffect(() => {
     // Se o path já foi processado ou é o mesmo, ignora (evita loop ao fechar)
     if (location.pathname === processedPathRef.current) return;
 
     if (isWalletPath && activeTab !== 'MY_WALLET') {
-      if (isPlatformSuperAdmin) {
-        processedPathRef.current = location.pathname;
-        setActiveTab('MY_WALLET');
-      } else if (isPlatformAccessChecked) {
-        processedPathRef.current = location.pathname;
-        routerNavigate('/', { replace: true });
-        handleSetActiveTab('DASHBOARD');
-      }
+      processedPathRef.current = location.pathname;
+      setActiveTab('MY_WALLET');
     } else if (contractIdFromUrl && activeTab !== 'CONTRACT_DETAILS') {
       processedPathRef.current = location.pathname;
       ui.setSelectedLoanId(contractIdFromUrl);
@@ -244,51 +234,31 @@ const { loanCtrl, clientCtrl, sourceCtrl, profileCtrl, paymentCtrl, fileCtrl, ai
   controllers;
 
 useEffect(() => {
-    if (isPlatformAccessChecked && !isPlatformSuperAdmin && ['MY_WALLET', 'PLATFORM_ADMIN'].includes(activeTab)) {
-      if (location.pathname === '/carteira' || location.pathname.startsWith('/carteira/')) {
-        routerNavigate('/', { replace: true });
-      }
-      handleSetActiveTab('DASHBOARD');
-    }
-  }, [activeTab, handleSetActiveTab, isPlatformAccessChecked, isPlatformSuperAdmin, location.pathname, routerNavigate]);
+  if (isPlatformAccessChecked && !isPlatformSuperAdmin && activeTab === 'PLATFORM_ADMIN') {
+    handleSetActiveTab('DASHBOARD');
+  }
+}, [activeTab, handleSetActiveTab, isPlatformAccessChecked, isPlatformSuperAdmin]);
 
 // O APK já contém todos os arquivos locais; preparar somente os módulos
 // necessários para a primeira abertura. Nenhum saldo, contrato, token ou
 // extrato é persistido nem pré-carregado pelo service worker.
-useEffect(() => {
-  if (!activeUser?.id || !isPlatformAccessChecked || !isPlatformSuperAdmin || isPublicView) return;
-  let cancelled = false;
-  const preload = () => {
-    if (cancelled || document.visibilityState !== 'visible') return;
-    void import('./features/wallet/WalletModule').catch(() => undefined);
-    void import('./features/wallet/pages/WalletOverviewPage').catch(() => undefined);
-    // Preload one user-scoped overview snapshot after the main dashboard
-    // becomes usable. The canonical repository keeps it in memory only
-    // (25-second TTL, invalidated on updates and realtime notifications).
-    void import('./features/wallet/services/walletRepository')
-      .then(({ walletRepository }) => {
-        void walletRepository.prefetchAccess().catch(() => undefined);
-        return walletRepository.loadOverview();
-      })
-      .catch(() => undefined);
-  };
-  const timer = window.setTimeout(preload, 2500);
-  return () => {
-    cancelled = true;
-    window.clearTimeout(timer);
-  };
-}, [activeUser?.id, isPlatformAccessChecked, isPlatformSuperAdmin, isPublicView]);
+useWalletPreload({
+  userId: activeUser?.id,
+  accessChecked: isPlatformAccessChecked,
+  isPlatformSuperAdmin,
+  isPublicView,
+});
 
 const filterRestrictedTabs = useCallback(
   (tabs: AppTab[]) =>
-    tabs.filter((tab) => isPlatformSuperAdmin || (tab !== 'MY_WALLET' && tab !== 'PLATFORM_ADMIN')),
+    tabs.filter((tab) => isPlatformSuperAdmin || tab !== 'PLATFORM_ADMIN'),
   [isPlatformSuperAdmin]
 );
 
 const visibleNavOrder = filterRestrictedTabs(navOrder);
 const visibleHubOrder = isPlatformSuperAdmin
   ? Array.from(new Set([...hubOrder, 'MY_WALLET' as any, 'PLATFORM_ADMIN' as any]))
-  : filterRestrictedTabs(hubOrder);
+  : Array.from(new Set([...filterRestrictedTabs(hubOrder), 'MY_WALLET' as any]));
 
 const handleOpenClientFromDashboard = useCallback((clientId: string | null | undefined, clientName: string) => {
   const client = (clients as any[]).find((item: any) => item.id === clientId)
@@ -317,6 +287,26 @@ const { notifications, removeNotification, clearAllNotifications, addNotificatio
   },
   disabled: isPublicView,
 });
+
+const handlePullRefresh = useCallback(async () => {
+  if (!activeProfileId) return;
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    showToast('Sem conexão com a internet para atualizar.', 'warning');
+    return;
+  }
+
+  try {
+    await fetchFullData(activeProfileId);
+    if (activeTab === 'MY_WALLET' || isWalletPath) {
+      const { walletRepository } = await import('./features/wallet/services/walletRepository');
+      await walletRepository.prefetchFull({ force: true });
+      window.dispatchEvent(new Event('capitalflow:wallet-updated'));
+    }
+    showToast('Informações atualizadas.', 'success');
+  } catch {
+    showToast('Não foi possível atualizar agora.', 'error');
+  }
+}, [activeProfileId, activeTab, fetchFullData, isWalletPath, showToast]);
 
 const handleOperatorFileUpload = useCallback(async (
   file: File | undefined,
@@ -366,36 +356,7 @@ useEffect(() => {
   }
 }, [location.pathname, activeTab, goBackPage]);
 
-useEffect(() => {
-  if (activeUser && !isPublicView) {
-    notificationService.requestPermission().then((granted) => {
-      if (granted) {
-        void pushSubscriptionService.register(activeUser.id);
-      }
-    });
-  }
-}, [activeUser, isPublicView]);
-
-// ✅ MONITOR DE CONEXÃO: Tenta processar fila de escrita quando a rede volta
-useEffect(() => {
-  const handleOnline = async () => {
-    console.log('[NETWORK] Conexão restabelecida. Processando fila de sincronização...');
-    try {
-      const { syncService } = await import('./services/sync.service');
-      // Refresh the authoritative snapshot immediately; pending writes are
-      // serialized and continue in the background without blocking reads.
-      window.dispatchEvent(new CustomEvent('capitalflow:sync-requested'));
-      void syncService.processQueue().catch((error) => {
-        console.error('[NETWORK] Falha ao processar fila em segundo plano:', error);
-      });
-    } catch (e) {
-      console.error('[NETWORK] Falha ao processar fila após volta da rede:', e);
-    }
-  };
-
-  window.addEventListener('online', handleOnline);
-  return () => window.removeEventListener('online', handleOnline);
-}, []);
+useNetworkSync(activeUser, isPublicView);
 
 const effectiveSelectedStaffId =
   activeUser && (activeUser.accessLevel === 'OPERATOR' || (activeUser as any).accessLevel === 2) ? activeUser.id : selectedStaffId;
@@ -538,6 +499,7 @@ return (
             onOpenSupport={() => ui.openModal('SUPPORT_CHAT')}
             navOrder={visibleHubOrder}
             desktopNavOrder={visibleHubOrder}
+            saveDesktopNavOrder={(nextOrder: AppTab[]) => saveNavConfig(navOrder, nextOrder)}
             mobileNavOrder={mobileNavOrder}
             saveMobileNavOrder={saveMobileNavOrder}
             onGoBack={goBack}
@@ -552,6 +514,7 @@ return (
             activeModal={ui.activeModal}
             onCloseSupport={ui.closeModal}
             clients={clients}
+            onRefresh={handlePullRefresh}
           >
             <Suspense fallback={<div role="status" className="p-6 text-sm text-slate-400">Carregando página…</div>}>
               {/* Dashboard - Persistente para manter scroll ao voltar de detalhes */}
@@ -729,7 +692,7 @@ return (
                   </motion.div>
                 )}
 
-                  { activeTab === 'MY_WALLET' && isPlatformSuperAdmin && (
+                  { activeTab === 'MY_WALLET' && (
                     <motion.div
                       key="wallet-view"
                       initial={{ opacity: 0, y: 6 }}

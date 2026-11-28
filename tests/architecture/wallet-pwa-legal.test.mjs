@@ -55,20 +55,38 @@ test('PWA caches versioned wallet JS/CSS, not session or financial data', () => 
   assert.doesNotMatch(sw, /indexedDB|localStorage|Authorization|\bsupabase\.from\(/);
 });
 
-test('only authorized master preloads wallet view code; no preloading private records', () => {
+test('authenticated users preload wallet view code; no preloading private records in public views', () => {
   const app=read('App.tsx');
-  assert.match(app, /!isPlatformSuperAdmin \|\| isPublicView/);
-  assert.match(app, /import\('\.\/features\/wallet\/WalletModule'\)/);
-  assert.match(app, /import\('\.\/features\/wallet\/pages\/WalletOverviewPage'\)/);
-  assert.match(app, /walletRepository\.loadOverview\(\)/);
+  const preload=read('hooks/useWalletPreload.ts');
+  assert.match(app, /useWalletPreload\(\{/);
+  assert.match(app, /isPlatformSuperAdmin/);
+  assert.match(app, /isPublicView/);
   assert.doesNotMatch(app, /localStorage\.setItem.*wallet|indexedDB\.open.*wallet/);
 
+  assert.match(preload, /!userId \|\| !accessChecked \|\| isPublicView/);
+  assert.match(preload, /import\('\.\.\/features\/wallet\/WalletModule'\)/);
+  assert.match(preload, /import\('\.\.\/features\/wallet\/pages\/WalletOverviewPage'\)/);
+  assert.match(preload, /import\('\.\.\/features\/wallet\/services\/walletRepository'\)/);
+  assert.match(preload, /walletRepository\.loadOverview\(\)/);
+  assert.match(preload, /import\('\.\.\/features\/wallet\/pages\/WalletCardsPage'\)/);
+  assert.match(preload, /import\('\.\.\/features\/wallet\/pages\/WalletAccountsPage'\)/);
+  assert.match(preload, /import\('\.\.\/features\/wallet\/pages\/WalletPayablesPage'\)/);
+  assert.match(preload, /import\('\.\.\/features\/wallet\/pages\/WalletIncomePage'\)/);
+  assert.match(preload, /import\('\.\.\/features\/wallet\/pages\/WalletReportPage'\)/);
+  assert.doesNotMatch(preload, /localStorage\.setItem.*wallet|indexedDB\.open.*wallet/);
+
+  const platformAdmin = read('services/platformAdmin.service.ts');
+  assert.match(platformAdmin, /isNetworkFailure/);
+  assert.match(platformAdmin, /SUPER_ADMIN.*bloqueadas/);
+  assert.doesNotMatch(platformAdmin, /loadWalletOfflineAccess/);
 });
 
 test('legal hub displays documents and legal tools but no second contract dashboard', () => {
   const legal=read('pages/LegalPage.tsx');
   const dashboard=read('App.tsx');
-  assert.match(legal, /Documentos jurídicos registrados/);
+  assert.match(legal, /Documentos jurídicos/);
+  assert.match(legal, /Válidos/);
+  assert.match(legal, /Minutas e pendências/);
   assert.match(legal, /currentLegalDocs\.map/);
   assert.match(legal, /Confissão de Dívida/);
   assert.match(legal, /Nota Promissória/);
@@ -81,8 +99,8 @@ test('legal hub displays documents and legal tools but no second contract dashbo
 test('wallet navigation has consistent tappable buttons and no clipped mobile labels', () => {
   const wallet = read('features/wallet/WalletModule.tsx');
   const fab = read('features/wallet/components/WalletExpenseFab.tsx');
-  assert.match(wallet, /grid-cols-5/);
-  assert.match(wallet, /min-h-14/);
+  assert.match(wallet, /grid-cols-4/);
+  assert.match(wallet, /min-h-11/);
   assert.match(wallet, /whitespace-nowrap/);
   assert.match(wallet, /item\.key === 'dividas' \? 'Pagar'/);
   assert.match(wallet, /focus-visible:ring-2/);
@@ -149,4 +167,62 @@ test('service worker caches all static routes, reports completion and retries a 
   assert.equal(counts.get('/assets/finance-87654321.css'), 1);
   assert.equal(counts.get('/assets/wallet-12345678.js'), 2);
   for (const file of targets) assert.ok(stored.has(file), 'asset not cached: ' + file);
+});
+
+test('service worker still serves a page chunk when caching its network response fails', async () => {
+  const handlers = new Map();
+  const worker = {
+    location: { origin: 'https://capitalflow.example' },
+    addEventListener: (name, listener) => { handlers.set(name, listener); },
+  };
+  vm.runInNewContext(read('public/service-worker.js'), {
+    self: worker, URL, Response, fetch: async () => new Response('admin module', { status: 200 }),
+    caches: {
+      match: async () => undefined,
+      open: async () => ({ put: async () => { throw new DOMException('Storage full', 'QuotaExceededError'); } }),
+    },
+    console, Promise, Set, Map,
+  });
+
+  let responsePromise;
+  handlers.get('fetch')({
+    request: new Request('https://capitalflow.example/assets/PlatformAdminPage-12345678.js'),
+    respondWith: (promise) => { responsePromise = promise; },
+  });
+
+  const response = await responsePromise;
+  assert.equal(response.status, 200);
+  assert.equal(await response.text(), 'admin module');
+});
+
+test('service worker fetches a page chunk when CacheStorage cannot be read', async () => {
+  const handlers = new Map();
+  let networkRequests = 0;
+  const worker = {
+    location: { origin: 'https://capitalflow.example' },
+    addEventListener: (name, listener) => { handlers.set(name, listener); },
+  };
+  vm.runInNewContext(read('public/service-worker.js'), {
+    self: worker, URL, Response,
+    fetch: async () => {
+      networkRequests += 1;
+      return new Response('reports module', { status: 200 });
+    },
+    caches: {
+      match: async () => { throw new DOMException('Storage unavailable', 'InvalidStateError'); },
+      open: async () => ({ put: async () => undefined }),
+    },
+    console, Promise, Set, Map,
+  });
+
+  let responsePromise;
+  handlers.get('fetch')({
+    request: new Request('https://capitalflow.example/assets/ReportsPage-12345678.js'),
+    respondWith: (promise) => { responsePromise = promise; },
+  });
+
+  const response = await responsePromise;
+  assert.equal(response.status, 200);
+  assert.equal(await response.text(), 'reports module');
+  assert.equal(networkRequests, 1);
 });

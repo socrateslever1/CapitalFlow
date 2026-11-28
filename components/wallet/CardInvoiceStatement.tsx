@@ -1,16 +1,17 @@
 import { PrivateMoney } from '../../contexts/FinancialPrivacyContext';
-import React, { useMemo, useRef, useState } from 'react';
-import { AlertTriangle, CalendarDays, FastForward, Pencil, ReceiptText, ShoppingBag, Tag, Trash2 } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { AlertTriangle, CalendarDays, FastForward, Pencil, ReceiptText, Search, Tag, Trash2, X } from 'lucide-react';
 import type { PersonalWalletExpense, PersonalWalletExpenseInstallment, UpdatePersonalWalletExpense } from '../../services/personalWallet.service';
 import { formatMoney } from '../../utils/formatters';
 import { generateUUID } from '../../utils/generators';
 import { ExpenseEditModal } from './ExpenseEditModal';
-import { getCardInvoiceEntries, type InvoiceCycleDates, type InvoiceCycleState } from './invoiceStatementDomain';
+import { getCardInvoiceEntries, getInvoiceOpeningBreakdown, type InvoiceCycleDates } from './invoiceStatementDomain';
 import { Modal, modalPrimaryActionClass, modalSecondaryActionClass } from '../ui/Modal';
 import { formatInstallmentBadgeLabel } from '../../features/wallet/utils/cardInstallmentPlan';
 import { formatWalletMoneyInput, parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
 import { resolveLiveBrazilianCentsChange } from '../../features/wallet/utils/liveBrazilianMoneyInput';
 import { calculateInstallmentAdvancement } from '../../features/wallet/utils/minhasFinancasWalletTools';
+import { createFinancialSearchMatcher } from '../../features/wallet/utils/financialSearch';
 
 export type InstallmentDeleteScope = 'ALL' | 'CURRENT_AND_NEXT' | 'ONLY_CURRENT';
 
@@ -21,6 +22,8 @@ type CardInvoiceStatementProps = {
   installments: PersonalWalletExpenseInstallment[];
   onEdit: (input: UpdatePersonalWalletExpense, requestId: string) => Promise<void>;
   onDelete: (expenseId: string, requestId: string) => Promise<void>;
+  /** Excluir vários de uma vez (uma única operação no banco). */
+  onDeleteMany?: (expenseIds: string[], requestId: string) => Promise<void>;
   onScopedInstallmentDelete?: (
     expense: PersonalWalletExpense,
     installment: PersonalWalletExpenseInstallment,
@@ -35,8 +38,9 @@ type CardInvoiceStatementProps = {
     requestId: string,
   ) => Promise<void>;
   onCancelConsolidation?: (dueMonth: string, requestId: string) => Promise<void>;
+  /** "Considerar no limite do cartão?" — a compra continua na fatura. */
+  onToggleAffectsLimit?: (expense: PersonalWalletExpense, affectsLimit: boolean) => Promise<void>;
   headerAction?: React.ReactNode;
-  invoiceState?: InvoiceCycleState;
   cycleDates?: InvoiceCycleDates;
   className?: string;
   openingBalance?: number;
@@ -49,17 +53,25 @@ export const CardInvoiceStatement: React.FC<CardInvoiceStatementProps> = ({
   installments,
   onEdit,
   onDelete,
+  onDeleteMany,
   onScopedInstallmentDelete,
   onAdvanceInstallments,
+  onToggleAffectsLimit,
   onCancelConsolidation,
   headerAction,
-  invoiceState,
   cycleDates,
   openingBalance = 0,
   className = '',
 }) => {
   const [editing, setEditing] = useState<PersonalWalletExpense | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState<PersonalWalletExpense | null>(null);
+  const [selecting, setSelecting] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [confirmingMany, setConfirmingMany] = useState(false);
+  const [deletingMany, setDeletingMany] = useState(false);
+  const manyRequest = useRef<{ key: string; id: string } | null>(null);
+  // Trocar de mês ou de cartão limpa a seleção: nunca excluir o que não está na tela.
+  useEffect(() => { setSelecting(false); setSelectedIds(new Set()); setConfirmingMany(false); }, [dueMonth, cardId]);
   const [confirmingDeleteInstallment, setConfirmingDeleteInstallment] = useState<PersonalWalletExpenseInstallment | null>(null);
   const [deleteScope, setDeleteScope] = useState<InstallmentDeleteScope>('ALL');
   const [advancingExpense, setAdvancingExpense] = useState<PersonalWalletExpense | null>(null);
@@ -71,10 +83,54 @@ export const CardInvoiceStatement: React.FC<CardInvoiceStatementProps> = ({
   const consolidationRequests = useRef(new Map<string, string>());
   const advanceRequestIds = useRef(new Map<string, string>());
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [limitBusyId, setLimitBusyId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const [error, setError] = useState('');
   const deleteRequestIds = useRef(new Map<string, string>());
   const entries = useMemo(() => getCardInvoiceEntries(cardId, dueMonth, expenses, installments), [cardId, dueMonth, expenses, installments]);
-  const hasOverride = entries.some(entry => entry.expense.entry_type === 'INVOICE_OVERRIDE');
+  const openingBreakdown = useMemo(
+    () => getInvoiceOpeningBreakdown(cardId, dueMonth, expenses, installments),
+    [cardId, dueMonth, expenses, installments],
+  );
+  const [showInitialDetails, setShowInitialDetails] = useState(false);
+  useEffect(() => { setShowInitialDetails(false); }, [cardId, dueMonth]);
+
+  const normalizedQuery = searchQuery.trim();
+  const searchMatches = useMemo(() => createFinancialSearchMatcher(searchQuery), [searchQuery]);
+
+  const visibleEntries = useMemo(() => entries.filter(({ expense, installment }) => {
+    const remaining = Number(installment.amount) - Number(installment.paid_amount || 0);
+    return searchMatches({
+      texts: [
+        expense.entry_type === 'INVOICE_OVERRIDE' ? 'Fatura consolidada' : expense.description,
+        expense.category,
+        expense.notes,
+        formatInstallmentBadgeLabel(expense, installment),
+        expense.is_invoice_credit ? 'Crédito Estorno' : 'Compra',
+        String(installment.installment_number),
+        String(expense.installment_count),
+      ],
+      amounts: [
+        expense.is_invoice_credit ? -remaining : remaining,
+        Number(expense.amount),
+        Number(installment.amount),
+        Number(installment.paid_amount || 0),
+      ],
+      dates: [expense.expense_date, installment.due_month],
+    });
+  }), [entries, searchMatches]);
+
+  const filteredTotal = useMemo(
+    () =>
+      visibleEntries.reduce(
+        (sum, { expense, installment }) => {
+          const remaining = Math.max(0, Number(installment.amount) - Number(installment.paid_amount || 0));
+          return sum + (expense.is_invoice_credit ? -remaining : remaining);
+        },
+        0,
+      ),
+    [visibleEntries],
+  );
 
   const futureInstallmentsByExpenseId = useMemo(() => {
     const map = new Map<string, PersonalWalletExpenseInstallment[]>();
@@ -114,8 +170,9 @@ export const CardInvoiceStatement: React.FC<CardInvoiceStatementProps> = ({
     setConfirmingDelete(null);
     setConfirmingDeleteInstallment(null);
     setError('');
-    const requestId = deleteRequestIds.current.get(expense.id) || generateUUID();
-    deleteRequestIds.current.set(expense.id, requestId);
+    const deleteKey = `${expense.id}:${targetInstallment?.id || 'all'}:${chosenScope}`;
+    const requestId = deleteRequestIds.current.get(deleteKey) || generateUUID();
+    deleteRequestIds.current.set(deleteKey, requestId);
     try {
       if (
         onScopedInstallmentDelete &&
@@ -127,7 +184,7 @@ export const CardInvoiceStatement: React.FC<CardInvoiceStatementProps> = ({
       } else {
         await onDelete(expense.id, requestId);
       }
-      deleteRequestIds.current.delete(expense.id);
+      deleteRequestIds.current.delete(deleteKey);
     }
     catch (cause) { setError(cause instanceof Error ? cause.message : 'Não foi possível excluir o lançamento.'); }
     finally { setDeletingId(null); }
@@ -177,68 +234,184 @@ export const CardInvoiceStatement: React.FC<CardInvoiceStatementProps> = ({
   };
 
   return (
-    <section aria-labelledby="invoice-statement-title" className={`mx-4 mb-3 rounded-xl border border-slate-800 bg-slate-950/60 p-4 ${className}`}>
-      <header className="flex flex-wrap items-center justify-between gap-3">
+    <section aria-labelledby="invoice-statement-title" className={`mx-2 mb-2 rounded-xl border border-slate-800 bg-slate-950/60 p-2.5 sm:p-3 ${className}`}>
+      <header className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h3 id="invoice-statement-title" className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-slate-200"><ReceiptText size={15} className="text-cyan-400" /> Extrato da Fatura</h3>
-          <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] text-slate-400">
-            {dueMonth ? <span>{cycleDates ? `Fecha em ${cycleDates.closingDate.split('-').reverse().join('/')} • Vence em ${cycleDates.dueDate.split('-').reverse().join('/')}` : `Ciclo ${dueMonth.slice(0, 7).split('-').reverse().join('/')}`}</span> : <span>Nenhuma fatura em aberto</span>}
-            {invoiceState && <span className={`rounded-full border px-2 py-0.5 font-bold ${invoiceState === 'OPEN' ? 'border-sky-500/20 bg-sky-500/10 text-sky-400' : invoiceState === 'CLOSED' ? 'border-amber-500/20 bg-amber-500/10 text-amber-400' : invoiceState === 'OVERDUE' ? 'border-rose-500/20 bg-rose-500/10 text-rose-400' : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400'}`}>{invoiceState === 'OPEN' ? 'Aberta' : invoiceState === 'CLOSED' ? 'Fechada' : invoiceState === 'OVERDUE' ? 'Vencida' : 'Paga'}</span>}
-          </div>
+          <p className="mt-0.5 text-[11px] text-slate-400">
+            {cycleDates ? `Fecha ${cycleDates.closingDate.slice(8, 10)}/${cycleDates.closingDate.slice(5, 7)}` : dueMonth ? `Ciclo ${dueMonth.slice(5, 7)}/${dueMonth.slice(0, 4)}` : 'Nenhuma fatura'}
+          </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">{headerAction}<span className="rounded-full bg-slate-800 px-2 py-1 text-[10px] font-bold text-slate-300">{entries.length}</span></div>
+        <div className="flex items-center gap-2">
+          {onDeleteMany && (
+            <button type="button" aria-pressed={selecting}
+              onClick={() => { setSelecting(value => !value); setSelectedIds(new Set()); setError(''); }}
+              className="min-h-9 rounded-md px-2 text-[11px] font-semibold text-slate-300 hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-blue-400">
+              {selecting ? 'Cancelar seleção' : 'Selecionar'}
+            </button>
+          )}
+          {(openingBreakdown || openingBalance > 0) && (
+            <button type="button" aria-expanded={showInitialDetails}
+              aria-controls="invoice-initial-details" onClick={() => setShowInitialDetails(value => !value)}
+              className="min-h-9 rounded-md px-2 text-[11px] font-semibold text-slate-300 hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-blue-400">
+              {showInitialDetails ? 'Ocultar detalhes' : 'Detalhes'}
+            </button>
+          )}
+          {headerAction}
+          <span className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] font-bold text-slate-300">{entries.length}</span>
+        </div>
       </header>
 
-      {hasOverride && <p className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-[10px] text-amber-100">A fatura inicial já inclui os gastos informados antes dela. Novos gastos entram conforme o ciclo do cartão.</p>}
-      {openingBalance > 0 && <article className="mt-3 flex items-center justify-between gap-3 rounded-lg bg-slate-900 p-3 text-xs"><div><p className="font-semibold text-slate-200">Demais gastos da carga inicial</p><p className="mt-1 text-[10px] text-slate-400">Ainda sem detalhamento · fora da fatura deste ciclo</p></div><strong className="shrink-0 text-amber-200"><PrivateMoney value={formatMoney(openingBalance)} /></strong></article>}
+      {showInitialDetails && (openingBreakdown || openingBalance > 0) && (
+        <div id="invoice-initial-details" className="mt-2 space-y-2 rounded-lg border border-slate-800 bg-slate-900/65 p-3 text-xs">
+          {openingBreakdown && (
+            <>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-slate-300">Saldo inicial</span>
+                <strong className="tabular-nums text-slate-100"><PrivateMoney value={formatMoney(openingBreakdown.opening)} /></strong>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-slate-300">Após abertura</span>
+                <strong className="tabular-nums text-slate-100"><PrivateMoney value={formatMoney(openingBreakdown.subsequent)} /></strong>
+              </div>
+              <div className="flex items-center justify-between gap-2 border-t border-slate-700 pt-2 font-semibold">
+                <span>Total pendente</span>
+                <strong className="tabular-nums text-emerald-300"><PrivateMoney value={formatMoney(openingBreakdown.current)} /></strong>
+              </div>
+            </>
+          )}
+          {openingBalance > 0 && (
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-slate-300">Saldo inicial fora deste ciclo</span>
+              <strong className="tabular-nums text-amber-200"><PrivateMoney value={formatMoney(openingBalance)} /></strong>
+            </div>
+          )}
+        </div>
+      )}
 
-      {!entries.length ? <p className="mt-3 rounded-lg border border-dashed border-slate-800 px-3 py-4 text-center text-xs text-slate-400">Nenhum lançamento ativo nesta fatura.</p> : (
-        <div className="mt-3 max-h-56 divide-y divide-slate-800 overflow-y-auto pr-1 overscroll-contain lg:max-h-none">
-          {entries.map(({ expense, installment }) => {
+      {!entries.length ? <p className="mt-2 rounded-lg border border-dashed border-slate-800 px-3 py-3 text-center text-xs text-slate-400">Nenhum lançamento ativo nesta fatura.</p> : (
+        <>
+          <div className="mt-2.5 grid grid-cols-[minmax(0,1fr)_auto] items-stretch gap-2">
+            <label className="relative flex min-h-10 min-w-0 items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/90 px-2.5 sm:px-3 text-slate-400 transition-colors focus-within:border-cyan-500/70 focus-within:ring-2 focus-within:ring-cyan-500/15">
+              <Search size={14} className="shrink-0" aria-hidden="true" />
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                aria-label="Buscar no extrato da fatura por nome, data, valor, categoria ou parcela"
+                placeholder="Buscar compra, valor, data, categoria ou parcela…"
+                className="min-w-0 flex-1 bg-transparent py-1.5 text-xs text-white outline-none placeholder:text-slate-500"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  aria-label="Limpar busca"
+                  className="shrink-0 rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
+                >
+                  <X size={13} />
+                </button>
+              )}
+            </label>
+
+            <div className="flex min-h-10 shrink-0 flex-col items-end justify-center rounded-xl bg-slate-900/70 px-2.5 py-1 ring-1 ring-inset ring-slate-800/90 sm:flex-row sm:items-center sm:gap-3 sm:px-3.5">
+              <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-400 sm:text-[11px] sm:normal-case sm:tracking-normal">
+                {normalizedQuery ? `${visibleEntries.length}/${entries.length}` : 'Total lançado'}
+              </span>
+              <strong className={`whitespace-nowrap text-xs sm:text-sm font-extrabold tabular-nums tracking-tight leading-tight ${filteredTotal < 0 ? 'text-emerald-300' : 'text-rose-300'}`}>
+                <PrivateMoney value={filteredTotal < 0 ? `− ${formatMoney(Math.abs(filteredTotal))}` : formatMoney(filteredTotal)} />
+              </strong>
+            </div>
+          </div>
+
+          {!visibleEntries.length ? (
+            <p className="mt-2 rounded-lg border border-dashed border-slate-800 px-3 py-4 text-center text-xs text-slate-400">
+              Nenhum lançamento encontrado para "{searchQuery.trim()}".
+            </p>
+          ) : (
+            <div className="mt-2 divide-y divide-slate-800/70">
+              {visibleEntries.map(({ expense, installment }) => {
             const installmentBadge = formatInstallmentBadgeLabel(expense, installment);
             const futurePending = futureInstallmentsByExpenseId.get(expense.id) || [];
-            const canAdvance = Boolean(onAdvanceInstallments && futurePending.length > 0 && expense.entry_type !== 'INVOICE_OVERRIDE');
+            const isCredit = Boolean(expense.is_invoice_credit);
+            const canAdvance = Boolean(onAdvanceInstallments && futurePending.length > 0 && expense.entry_type !== 'INVOICE_OVERRIDE' && !isCredit);
+            const isOverride = expense.entry_type === 'INVOICE_OVERRIDE';
+            const remainingAmount = Number(installment.amount) - Number(installment.paid_amount || 0);
             return (
-              <article key={installment.id} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 py-3">
-                <span className={`grid h-9 w-9 place-items-center rounded-xl ${expense.entry_type === 'INVOICE_OVERRIDE' ? 'bg-amber-500/10 text-amber-300' : 'bg-cyan-500/10 text-cyan-300'}`}><ShoppingBag size={16} /></span>
-                <div className="min-w-0">
-                  <p className="flex min-w-0 flex-wrap items-center gap-1.5 text-xs font-bold text-slate-100">
-                    <span className="truncate">{expense.description}</span>
-                    {installmentBadge && (
-                      <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-[10px] font-bold text-cyan-200">
-                        Parcela {installmentBadge}
-                      </span>
-                    )}
-                    {expense.entry_type === 'INVOICE_OVERRIDE' && <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-amber-200">Valor consolidado</span>}
-                  </p>
-                  <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[10px] text-slate-400"><CalendarDays size={11} />{expense.expense_date.split('-').reverse().join('/')}<span>·</span><Tag size={11} />{expense.category}</p>
+              <article key={installment.id} className={`relative min-w-0 ${isOverride ? 'my-1 rounded-lg border border-amber-500/30 bg-amber-950/20 px-2.5 py-2' : 'py-2.5'} ${selecting && !isOverride ? 'pl-9' : ''}`}>
+                {selecting && !isOverride && (
+                  <input type="checkbox" aria-label={`Selecionar ${expense.description}`}
+                    checked={selectedIds.has(expense.id)}
+                    onChange={event => setSelectedIds(current => {
+                      const next = new Set(current);
+                      if (event.target.checked) next.add(expense.id); else next.delete(expense.id);
+                      return next;
+                    })}
+                    className="absolute left-1.5 top-3 h-5 w-5 accent-rose-500" />
+                )}
+                <div className="flex min-w-0 items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className={`flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm font-semibold ${isOverride ? 'text-amber-200' : isCredit ? 'text-emerald-200' : 'text-slate-100'}`}>
+                      <span className="min-w-0 break-words">{isOverride && expense.is_opening_summary ? 'Saldo inicial registrado' : isOverride ? 'Ajuste consolidado da fatura' : expense.description}</span>
+                      {isCredit && <span className="shrink-0 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-bold text-emerald-300">Crédito / Estorno</span>}
+                      {installmentBadge && <span className="shrink-0 text-[11px] font-medium text-cyan-300">Parcela {installmentBadge}</span>}
+                    </p>
+                    <p className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-slate-400">
+                      <CalendarDays size={12} aria-hidden="true" />{expense.expense_date.split('-').reverse().join('/')}
+                      <span aria-hidden="true">·</span><Tag size={12} aria-hidden="true" />{expense.category}
+                    </p>
+                  </div>
+                  <strong className={`shrink-0 whitespace-nowrap text-sm font-bold tabular-nums ${isOverride ? 'text-amber-200' : isCredit ? 'text-emerald-300' : 'text-rose-300'}`}>
+                    <PrivateMoney value={isCredit ? `− ${formatMoney(remainingAmount)}` : formatMoney(remainingAmount)} />
+                  </strong>
                 </div>
-                <div className="text-right">
-                  <strong className="block text-xs font-extrabold text-rose-300"><PrivateMoney value={formatMoney(Number(installment.amount) - Number(installment.paid_amount || 0))} /></strong>
-                  {expense.entry_type === 'INVOICE_OVERRIDE' && onCancelConsolidation && <button type="button" onClick={() => setConfirmingConsolidation(expense)} disabled={cancelingConsolidation} className="mt-1 rounded-md border border-rose-500/30 px-2 py-1 text-[10px] text-rose-300 disabled:opacity-40">Cancelar consolidação</button>}
-                  {expense.entry_type !== 'INVOICE_OVERRIDE' && <div className="mt-1 flex flex-wrap justify-end gap-1">
-                    {canAdvance && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setAdvancingExpense(expense);
-                          setAdvanceCount(String(futurePending.length));
-                          setAdvanceDiscount('');
-                        }}
-                        aria-label={`Antecipar parcelas de ${expense.description}`}
-                        className="inline-flex min-h-10 items-center justify-center gap-1 rounded-md px-2 text-[11px] font-semibold text-emerald-300 transition hover:bg-emerald-500/10"
-                      >
-                        <FastForward size={13} /> Antecipar ({futurePending.length})
-                      </button>
-                    )}
-                    <button type="button" onClick={() => setEditing(expense)} aria-label={`Editar ${expense.description}`} className="inline-flex min-h-10 min-w-10 items-center justify-center gap-1 rounded-md px-2 text-[11px] text-blue-300 transition hover:bg-blue-500/10"><Pencil size={14} /> Editar</button>
-                    <button type="button" disabled={deletingId === expense.id} onClick={() => { setConfirmingDelete(expense); setConfirmingDeleteInstallment(installment); setDeleteScope('ALL'); }} aria-label={`Excluir ${expense.description}`} className="inline-flex min-h-10 min-w-10 items-center justify-center gap-1 rounded-md px-2 text-[11px] text-rose-300 transition hover:bg-rose-500/10 disabled:opacity-40"><Trash2 size={14} /> Excluir</button>
-                  </div>}
-                </div>
+                {isOverride && onCancelConsolidation && <div className="mt-1.5 flex justify-end">
+                  <button type="button" onClick={() => setConfirmingConsolidation(expense)} disabled={cancelingConsolidation}
+                    className="min-h-9 rounded-md px-2 py-1 text-xs font-semibold text-amber-200 hover:bg-amber-900/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 disabled:opacity-40">Cancelar consolidação</button>
+                </div>}
+                {!isOverride && <div className="mt-1 flex flex-wrap items-center justify-end gap-x-2 gap-y-0.5">
+                  {canAdvance && (
+                    <button type="button" onClick={() => {
+                      setAdvancingExpense(expense);
+                      setAdvanceCount(String(futurePending.length));
+                      setAdvanceDiscount('');
+                    }}
+                      aria-label={`Antecipar parcelas de ${expense.description}`}
+                      className="inline-flex min-h-9 items-center justify-center gap-1 rounded-md px-2 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400">
+                      <FastForward size={14} aria-hidden="true" /> Antecipar ({futurePending.length})
+                    </button>
+                  )}
+                  {onToggleAffectsLimit && !isCredit && expense.entry_type !== 'INVOICE_OVERRIDE' && (
+                    <button type="button" disabled={limitBusyId === expense.id}
+                      onClick={async () => {
+                        setLimitBusyId(expense.id); setError('');
+                        try { await onToggleAffectsLimit(expense, expense.affects_limit === false); }
+                        catch (cause) { setError(cause instanceof Error ? cause.message : 'Não foi possível alterar o limite.'); }
+                        finally { setLimitBusyId(null); }
+                      }}
+                      aria-pressed={expense.affects_limit === false}
+                      title={expense.affects_limit === false ? 'Fora do limite: continua na fatura, mas não consome o limite. Toque para voltar a considerar.' : 'Toque para não considerar no limite do cartão (continua na fatura).'}
+                      className={`inline-flex min-h-9 items-center justify-center gap-1 rounded-md px-2 text-xs font-semibold hover:bg-slate-700/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-40 ${expense.affects_limit === false ? 'text-amber-300' : 'text-slate-400'}`}>
+                      {expense.affects_limit === false ? 'Fora do limite' : 'No limite'}
+                    </button>
+                  )}
+                  <button type="button" onClick={() => setEditing(expense)} aria-label={`Editar ${expense.description}`}
+                    className="inline-flex min-h-9 items-center justify-center gap-1 rounded-md px-2 text-xs text-blue-300 hover:bg-blue-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
+                    <Pencil size={14} aria-hidden="true" /> Editar
+                  </button>
+                  <button type="button" disabled={deletingId === expense.id}
+                    onClick={() => { setConfirmingDelete(expense); setConfirmingDeleteInstallment(installment); setDeleteScope('ALL'); }}
+                    aria-label={`Excluir ${expense.description}`}
+                    className="inline-flex min-h-9 items-center justify-center gap-1 rounded-md px-2 text-xs text-rose-300 hover:bg-rose-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 disabled:opacity-40">
+                    <Trash2 size={14} aria-hidden="true" /> Excluir
+                  </button>
+                </div>}
               </article>
             );
           })}
-        </div>
+            </div>
+          )}
+        </>
       )}
       {error && <p role="alert" className="mt-2 text-xs text-rose-300">{error}</p>}
       {editing && <ExpenseEditModal compact expense={editing} onClose={() => setEditing(null)} onSave={onEdit} />}
@@ -314,6 +487,46 @@ export const CardInvoiceStatement: React.FC<CardInvoiceStatementProps> = ({
           </form>
         </Modal>
       )}
+      {selecting && (
+        <div className="sticky bottom-2 z-10 mt-2 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-700 bg-slate-900/95 p-2 shadow-xl backdrop-blur">
+          <span className="text-xs font-semibold text-slate-200">{selectedIds.size} selecionado(s)</span>
+          <div className="flex gap-2">
+            <button type="button" onClick={() => setSelectedIds(new Set(visibleEntries
+              .filter(({ expense, installment }) => expense.entry_type !== 'INVOICE_OVERRIDE'
+                && installment.status !== 'PAID' && Number(installment.paid_amount || 0) === 0)
+              .map(({ expense }) => expense.id)))}
+              className="min-h-9 rounded-lg border border-slate-700 px-3 text-xs font-semibold text-slate-200">Selecionar todos</button>
+            <button type="button" disabled={!selectedIds.size} onClick={() => { setError(''); setConfirmingMany(true); }}
+              className="inline-flex min-h-9 items-center gap-1 rounded-lg bg-rose-600 px-3 text-xs font-semibold text-white disabled:opacity-40">
+              <Trash2 size={13} /> Excluir
+            </button>
+          </div>
+        </div>
+      )}
+      {confirmingMany && onDeleteMany && <Modal compact title={`Excluir ${selectedIds.size} lançamento(s)?`} subtitle="Saem do registro; fatura e limite são recalculados." icon={<AlertTriangle size={17} />} onClose={() => setConfirmingMany(false)} busy={deletingMany}>
+        <div className="space-y-3">
+          <p className="text-sm leading-relaxed text-slate-300">Se algum não puder ser apagado (parcela paga ou vínculo), nada é apagado e o motivo aparece aqui.</p>
+          {error && <p role="alert" className="rounded-lg border border-rose-500/30 bg-rose-950/30 px-3 py-2 text-xs text-rose-200">{error}</p>}
+          <div className="grid gap-2 sm:grid-cols-2">
+            <button type="button" disabled={deletingMany} className={modalPrimaryActionClass} onClick={async () => {
+              const visibleIds = new Set(visibleEntries.map(({ expense }) => expense.id));
+              const ids = [...selectedIds].filter(id => visibleIds.has(id)).sort();
+              if (!ids.length) { setError('Nenhum lançamento selecionado nesta fatura.'); return; }
+              const key = ids.join(',');
+              if (manyRequest.current?.key !== key) manyRequest.current = { key, id: generateUUID() };
+              setDeletingMany(true); setError('');
+              try {
+                await onDeleteMany(ids, manyRequest.current.id);
+                manyRequest.current = null;
+                setConfirmingMany(false); setSelecting(false); setSelectedIds(new Set());
+              } catch (cause) {
+                setError(cause instanceof Error ? cause.message : 'Não foi possível excluir os lançamentos.');
+              } finally { setDeletingMany(false); }
+            }}><Trash2 size={14} /> {deletingMany ? 'Excluindo…' : 'Excluir selecionados'}</button>
+            <button type="button" disabled={deletingMany} onClick={() => setConfirmingMany(false)} className={modalSecondaryActionClass}>Manter</button>
+          </div>
+        </div>
+      </Modal>}
       {confirmingDelete && <Modal compact title="Excluir lançamento?" subtitle="A fatura e o limite serão recalculados." icon={<AlertTriangle size={17} />} onClose={() => { setConfirmingDelete(null); setConfirmingDeleteInstallment(null); }}>
         <div className="space-y-4">
           <p className="text-sm leading-relaxed text-slate-300">Excluir <strong className="text-white">{confirmingDelete.description}</strong> deste extrato?</p>

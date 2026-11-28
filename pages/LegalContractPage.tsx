@@ -268,7 +268,7 @@ export const LegalContractPage: React.FC<LegalContractPageProps> = ({
                       <button
                         onClick={() => handleGenerate(docType.id)}
                         disabled={!!isGenerating}
-                        className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-lg text-[10px] font-black uppercase transition-all shadow-lg shadow-indigo-900/20"
+                        className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-all shadow-lg shadow-indigo-900/20"
                       >
                         {isCurrentGenerating ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
                         Gerar Documento
@@ -277,7 +277,7 @@ export const LegalContractPage: React.FC<LegalContractPageProps> = ({
                       <div className="flex items-center gap-2 w-full sm:w-auto">
                         <button
                           onClick={() => window.open(`/portal/doc/${doc.public_access_token}`, '_blank')}
-                          className="flex-1 sm:flex-none p-2.5 bg-slate-800 text-slate-400 hover:text-white rounded-lg transition-all border border-slate-700 flex items-center justify-center gap-2 text-[10px] font-black uppercase"
+                          className="flex-1 sm:flex-none p-2.5 bg-slate-800 text-slate-400 hover:text-white rounded-lg transition-all border border-slate-700 flex items-center justify-center gap-2 text-sm font-semibold"
                         >
                           <Eye size={14} /> Visualizar
                         </button>
@@ -285,7 +285,7 @@ export const LegalContractPage: React.FC<LegalContractPageProps> = ({
                         {doc.status !== 'SIGNED' && (
                           <button
                             onClick={() => window.open(`/portal/doc/${doc.public_access_token}`, '_blank')}
-                            className="flex-1 sm:flex-none p-2.5 bg-emerald-600/10 text-emerald-500 hover:bg-emerald-600 hover:text-white rounded-lg transition-all flex items-center justify-center gap-2 text-[10px] font-black uppercase"
+                            className="flex-1 sm:flex-none p-2.5 bg-emerald-600/10 text-emerald-500 hover:bg-emerald-600 hover:text-white rounded-lg transition-all flex items-center justify-center gap-2 text-sm font-semibold"
                           >
                             <PenTool size={14} /> Assinar
                           </button>

@@ -307,21 +307,22 @@ export const ReminderFormModal: React.FC<ReminderFormModalProps> = ({
           </div>
 
           {/* Data e Horário com atalhos rápidos */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4">
             {/* Marcador de Data */}
-            <div className="space-y-1.5">
+            <div className="min-w-0 space-y-1.5">
               <label className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
-                <Calendar size={13} className="text-amber-400" />
-                Data do Lembrete *
+                <Calendar size={13} className="text-amber-400 shrink-0" />
+                <span className="truncate">Data *</span>
               </label>
               <input
                 type="date"
                 required
+                aria-label="Data do Lembrete"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
                 className="w-full px-3 py-2.5 bg-slate-950 border border-slate-800 rounded-2xl text-xs text-white focus:outline-none focus:border-blue-500 transition-colors"
               />
-              <div className="flex items-center gap-1.5 pt-1">
+              <div className="flex flex-wrap items-center gap-1.5 pt-1">
                 <button
                   type="button"
                   onClick={() => setQuickDate(0)}
@@ -347,19 +348,20 @@ export const ReminderFormModal: React.FC<ReminderFormModalProps> = ({
             </div>
 
             {/* Marcador de Horário Específico */}
-            <div className="space-y-1.5">
+            <div className="min-w-0 space-y-1.5">
               <label className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
-                <Clock size={13} className="text-blue-400" />
-                Horário Específico *
+                <Clock size={13} className="text-blue-400 shrink-0" />
+                <span className="truncate">Horário *</span>
               </label>
               <input
                 type="time"
                 required
+                aria-label="Horário Específico"
                 value={dueTime}
                 onChange={(e) => setDueTime(e.target.value)}
                 className="w-full px-3 py-2.5 bg-slate-950 border border-slate-800 rounded-2xl text-xs text-white focus:outline-none focus:border-blue-500 transition-colors"
               />
-              <div className="flex items-center gap-1.5 pt-1">
+              <div className="flex flex-wrap items-center gap-1.5 pt-1">
                 <button
                   type="button"
                   onClick={() => setQuickTime(15)}
@@ -393,7 +395,7 @@ export const ReminderFormModal: React.FC<ReminderFormModalProps> = ({
           </div>
 
           {/* Prioridade e Categoria */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4">
             <div className="space-y-1.5">
               <label className="text-xs font-bold uppercase tracking-wider text-slate-300">
                 Prioridade

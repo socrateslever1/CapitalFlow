@@ -1,3 +1,360 @@
+## 27/11/2026 — Integração de movimento funcional e taxas fracionárias
+
+- Pedido: integrar diretamente na main os candidatos `3193699` e `f696a8f`. Escopo restrito aos componentes visuais, parser de taxas, testes e documentação. Nenhuma migração, dado financeiro, rota ou dependência alterada.
+- Movimento: feedback 100 ms, estado 180 ms, entrada 260 ms, saída existente 200 ms. Preservar ícones próprios, foco e rolagem; sem animar valores financeiros. Taxas: decimal explícito com vírgula ou ponto; até seis casas; centavos monetários preservados.
+- Validação: testes isolados registrados nos candidatos. Suíte integrada, render do aplicativo e revisão independente não executados localmente por limitação do ambiente. Integração autorizada expressamente pelo proprietário; não declarar CI, deploy ou APK concluídos sem evidência. Rollback: revert do commit consolidado, sem alteração de banco.
+
+## 27/11/2026 — Editar conta reconhece o cartão já cadastrado
+
+- `AccountDetailsPage`: `linkedCards` (mesmo `account_id`, ou mesmo `institution_key` sem conta) esconde o campo informativo de cartão e mostra o limite real; ao salvar, limpa `has_credit_card`/`credit_card_limit` de `bank_details`. Sem migração.
+
+## 27/11/2026 — Animação dos ícones mais visível
+
+- `index.css`: pulo do ícone inteiro ao ativar (`cf-icon-pop`), partes internas com amplitude maior, cabeçalho com entrada maior, hover e toque mais marcados. Respeita movimento reduzido. Cabeçalho do Atendimento passou ao ícone próprio `assistant` (antes lucide em círculo azul); abas, "Gerenciar conversas" e botões do topo do Atendimento no padrão da Carteira. Não validado em celular físico. Classes `cf-seg`/`cf-seg-tab` para seletores em 6 telas e texto normal nos botões de ação em caixa alta de 7 telas.
+
+## 27/11/2026 — Verificação da paridade com o Minhas Finanças
+
+- Todos os itens das Fases 0, 1 e 2 de `docs/PLANO_CARTEIRA_PARIDADE.md` conferidos no código (banco, tela e testes); tabela na seção "Verificação no código".
+- Limitação pendente: salvar cartão em duas chamadas (`CardEditModal.tsx`). Só documentação; nenhum código alterado.
+
+## 27/11/2026 — Barra inferior e Central de Alertas padronizadas
+
+- `layout/BottomNav.tsx` segue o padrão visual da navegação da Carteira (`features/wallet/WalletModule.tsx`).
+- `NotificationAvatar`: quadro único `h-10 w-10 rounded-xl` para todo tipo de aviso. Ícones da Carteira/Painel e alertas (Antigravity) entram no mesmo commit.
+- Só interface; sem migração. Não validado em celular físico.
+
+## 27/11/2026 — Compromissos dos próximos 30 dias e consistência do painel
+
+- Carteira: `calculateWalletBalance` e `calculateAccountProjections` aceitam `horizonDate` opcional (sem ele, comportamento antigo do mês). A Visão geral usa hoje+30 para faturas, contas a pagar e pendentes; vencidos sempre entram.
+- Painel: Saídas do gráfico Evolução incluem o empréstimo inicial; Auditor IA lê as estatísticas do painel e o balanço mensal.
+- Clientes: risco só com contratos abertos.
+- Testes reais: ver CHANGELOG.md (mesma data). Sem migração. Limitação: não validado em celular físico; divergência de saldo de um cliente entre telas (principal x dívida total) segue para confirmação.
+
+## 25/11/2026 — Cartões no web (fileira, mouse, medidor) e data de compra de empréstimo por cartão
+
+- **Pedido:** opções 1 + 3 + 4 para o cartão no modo web (cartões lado a lado, interação de mouse, medidor de limite) e correção da data da compra gerada por empréstimo financiado por cartão (já registrada como risco em 20/11: `finalize_card_funded_loan_v1` usava `created_at`).
+- **Evidência (leitura):** empréstimo com data de início anterior, digitado dias depois, gerou compra no cartão com a data de digitação. Outros vínculos recentes já estavam com a data do empréstimo.
+- **Correção de dados autorizada pelo usuário:** a compra desse empréstimo teve a data ajustada para a data do empréstimo via `personal_wallet_update_expense_idempotent` (compra 1x; mesma fatura, valor e parcela; `request_id` fixo). Nada mais foi alterado.
+- **Código:** migration `20261125090000_card_funded_loan_uses_start_date.sql` (**não aplicada**; rollback = reaplicar a função de `20261122073000`). `BankStack` ganha modo web por `matchMedia('(min-width: 1024px) and (hover: hover) and (pointer: fine)')`, mantendo a pilha no celular; ações compartilhadas; medidor via `cardLimitUsagePercent`.
+- **Verificação visual:** conferido no navegador do app em 1280×800 (fileira, seleção, verso) e 375×812 (pilha, medidor, conteúdo do cartão sem corte). Sem aparelho físico.
+- **Pendências:** aplicar as migrations pendentes; editar a data de início do contrato ainda não altera a compra já gerada no cartão.
+
+## 24/11/2026 — Ícones de categoria com anel medidor (branch `feat/wallet-category-icons`)
+
+- **Pedido:** ícones nas categorias e um medidor gráfico nos ícones, nos cartões e nas contas, inspirado em apps de finanças pessoais. A cópia local de outro aplicativo indicada pelo usuário não contém o pacote de ícones de categoria (só favicons e código compilado), e esses desenhos são de terceiros; foram usados ícones `lucide-react` com cores próprias.
+- **Decisão do usuário:** o anel mede a **fatia da categoria no total** do período (não orçamento), sem tabela nova no Supabase.
+- **Implementação:** ver `CHANGELOG.md` 24/11/2026. Cartão: parcelas do ciclo selecionado; conta: operações `EXPENSE` do mês saídas da conta, sem anuladas/estornos. Percentuais por maior resto (somam 100).
+- **Conflitos previstos:** `QuickExpenseModal.tsx` também é alterado por trabalho não commitado na `main` (categoria automática); a troca do seletor ocupa o mesmo trecho e precisará de ajuste simples ao integrar (`value={effectiveCategory}` e `setCategoryManuallySelected(true)` no `onChange`).
+- **Reclassificação autorizada pelo usuário (24/11):** com o classificador ampliado, 14 lançamentos de cartão que estavam em "Outros" receberam a categoria sugerida por `UPDATE` restrito à coluna `category` (IDs explícitos, só se ainda em "Outros", fora cancelados e saldos de abertura). Não foi usada `personal_wallet_update_expense_idempotent` porque ela recria as parcelas (renumera e redivide valores), o que corromperia parcelados importados. Valores, datas, parcelas e saldos não foram tocados. Os demais lançamentos em "Outros" são pagamentos a pessoas ou intermediadores sem tipo de comércio identificável.
+- **Visão geral (pedido do usuário):** ícones e anel também em "Despesas por categoria". Na conferência apareceu outra falha: o resumo de gastos ignorava as despesas pagas por conta (só lia `personal_wallet_expenses`), exibindo "Conta 0%" com despesas de conta existentes no mês. Corrigido em `walletSpendingInsights.ts`, `loadOverview` (consulta filtrada `operation_type = EXPENSE` desde o mês anterior) e derivação offline; testes de arquitetura da leitura rápida atualizados de 9 para 10 fontes, mantendo a exclusão das demais tabelas pesadas.
+- **Correção da edição (autorizada pelo usuário):** migration `20261124150000_wallet_edit_expense_preserve_installments.sql` faz a RPC de edição preservar as parcelas em mudanças só de texto e manter a numeração original quando precisa recriá-las. **Não aplicada** no Supabase; aplicar após aprovação, conferindo com `pg_get_functiondef`. Rollback: reaplicar a definição de `20261030200500_wallet_cancel_invoice_consolidation.sql`.
+- **Pendências:** validar em aparelho; aplicar a migration de edição; orçamento por categoria fica para depois, se desejado (exige migration).
+
+## 24/11/2026 — Correção de ciclo de fatura, fatura atual, previsão e disponível (branch `fix/wallet-cycle-logic`)
+
+- **Consolidação:** commit `4040a8a` reúne os commits `c43f352`, `4c071f2`, `cc3abc5`, `bb6a5cb`, `cb1a112` e a versão local `6cfdc3c`, além das alterações não commitadas da `main` preservadas em stash e dos reforços de revisão descritos abaixo. A versão remota anterior `ef9bb21` foi lida; as diferenças úteis já estão na versão local mais completa.
+- **Origem:** estudo da lógica da Carteira e auditoria somente leitura de um cartão real (consultas `SELECT` e PDFs de fatura do próprio usuário). O app reproduzia fielmente o extrato em aberto importado; a diferença estrutural de limite vinha de uma compra parcelada antiga ausente desse extrato e presente apenas na fatura fechada.
+- **Mudanças:** ver `CHANGELOG.md` 24/11/2026. Regra de roteamento: data da compra; fatura fechada recebe a compra só até o vencimento e sem pagamento; fechamento exclusivo; nunca antes da situação inicial. Tela de Cartões: fatura nomeada pelo vencimento, valor lançado em destaque, abertura na fatura a pagar, aviso só para diferença não explicada e rótulo "Disponível · banco dd/mm + lançamentos".
+- **Riscos e rollback:** migration `20261124120000_wallet_purchase_date_invoice_routing.sql` **não aplicada**; aplicar só após aprovação do PR, verificando com `pg_get_functiondef`. Rollback: reaplicar a definição de `private.wallet_card_first_due_date` de `20261119205000_wallet_card_open_cycle_default.sql` e reverter os commits. Nenhum dado existente é reescrito pela migration.
+- **Limitações conhecidas (revisão independente):** a prévia do `QuickExpenseModal` não conhece pagamentos registrados (a RPC corrige e, nesse caso, grava o dia 1º do mês, comportamento anterior); diferença SQL/TS pré-existente quando o dia de vencimento não existe no mês; `private.wallet_invoice_cycle_state` (sem chamadas atuais) ainda trata o fechamento como inclusivo; a herança de mês em `QuickExpenseModal` ainda usa a data efetiva antiga. As mudanças de apresentação posteriores não passaram por nova revisão independente.
+- **Testes executados:** `npx tsc --noEmit` ok; `npm run test:quality` exit 0 (56 suítes, build incluída); `npm run test:wallet-visual-next` 62/62; `tests/wallet/*` com 1 falha **pré-existente na `main`** (`wallet-floating-dialogs.test.ts`, também falha sem estas mudanças); `test:app-updates` e `profile-changelog-sync` ok; `git diff --check` limpo. Uma execução intermediária falhou no precache PWA por duas builds simultâneas no mesmo `dist`; build isolada e reexecução passaram.
+- **Teste guiado e reconciliação:** feitos com o usuário em servidor local da branch, comparando com a fatura fechada do emissor. Após ajustes de dados autorizados pelo usuário, executados pelas RPCs existentes da interface (`personal_wallet_update_card_metadata`, `personal_wallet_cancel_expense_idempotent`, `personal_wallet_update_expense_idempotent`, `personal_wallet_record_card_purchase_atomic`, com `request_id` fixos), a fatura do mês ficou igual à do emissor e o limite usado com diferença de centavos. Valores e identificadores financeiros não são registrados aqui por política do repositório. Sem aparelho físico.
+- **Pendências:** aplicar a migration após aprovação; validar no aparelho; o emissor varia o dia de fechamento entre meses, então o cadastro do cartão precisa acompanhar.
+- **Revisão independente da consolidação:** corrigido o aviso de data após fechamento quando `today < closingDate`; cálculo da diferença agora desconta pagamentos da mesma fatura registrados após `referenceUpdatedAt`; lojas Apple/Google são classificadas como compras, mantendo Google Play/iCloud como assinaturas. Migration de edição corrigida para importar apenas o número de parcelas restantes (11/18 → oito linhas, até 18/18), sem projetar parcelas 19–28. A trava da edição compara a posição antes/depois, permitindo redução válida acima do limite, e a migration de ciclo também limita `p_explicit_due_date` ao mês mínimo de abertura.
+- **Verificação nesta consolidação:** `npm run test:quality` passou com build e todas as suítes, incluindo `test:wallet`; dentro dele, 404 testes TS/TSX + 34 MJS passaram e `test:wallet-visual-next` passou 62/62. Os testes financeiros direcionados passaram 44/44; `git diff --cached --check` limpo. A validação PostgreSQL real não foi possível: Supabase CLI, Docker e `psql` não estão instalados neste ambiente; nenhuma migration foi aplicada ao banco.
+
+## 24/11/2026 — Extratos compactos e validações de UX no Lançamento Rápido (`FinancialCalculatorInput.tsx`, `QuickExpenseModal.tsx`, `minhasFinancasWalletTools.ts`)
+
+- **Problemas observados nas capturas:**
+  1. `FinancialCalculatorInput.tsx` aceitava letras (ex.: `"Google"`) no rascunho quando `formatMoneyExpressionOperand` retornava `null` e caía no fallback `setDraft(next?.value ?? raw)`.
+  2. `QuickExpenseModal.tsx` mantinha `Categoria` fixa em `Alimentação` sem chamar `suggestWalletAccountCategory(description, categoryManuallySelected)`, e termos digitais comuns como `Google` não estavam mapeados em `classifyStatementDescription`.
+  3. Ao selecionar fatura fechada/vencida/paga, exibia-se um parágrafo longo de 4 linhas mesmo com data compatível e permitia-se informar data posterior ao fechamento do ciclo.
+  4. Nos extratos (`AccountActivityPanel.tsx` e `CardInvoiceStatement.tsx`), busca e resumo empilhavam no mobile.
+  5. Clicar no botão `Carteira` (`MY_WALLET`) com um cartão aberto (`/carteira/cartoes?card=...`) caía no `Painel`: `handleSetActiveTab('MY_WALLET')` em `App.tsx` redirecionava para `'/'`, disparando o efeito de `previousPathname.startsWith('/carteira') && location.pathname === '/'` que chamava `goBackPage()`.
+- **Refinamentos aplicados:**
+  - `App.tsx` + `hooks/usePersistedTab.ts`: `handleSetActiveTab('MY_WALLET')` passa a direcionar para `/carteira/visao-geral` (mantendo o usuário na Visão geral da Carteira mesmo quando já está dentro de um cartão/conta), e `usePersistedTab` preserva rotas explícitas diferentes de `'/'` no carregamento inicial.
+  - `liveBrazilianMoneyInput.ts` + `FinancialCalculatorInput.tsx`: guarda `isAllowedFinancialInputDraft` bloqueia letras e caracteres inválidos em tempo real (`onChange` e `onPaste`), aceitando apenas algarismos, separadores e operadores aritméticos válidos.
+  - `QuickExpenseModal.tsx` + `utils/walletStatementPdf.ts`: conectada sugestão automática por `suggestWalletAccountCategory` (preservando escolha manual via `categoryManuallySelected`) e ampliado reconhecimento de serviços digitais (`Google`, `Apple`, `iCloud`, `Microsoft`, `OpenAI`, `ChatGPT`, etc. → `Serviços`).
+  - `minhasFinancasWalletTools.ts` + `QuickExpenseModal.tsx`: `checkClosedOrPaidInvoiceWarning` agora expõe `closingDate`, `isDateAfterClosing` e `shortMessage`. Em fatura fechada/vencida/paga, o campo `Data da Compra` limita `max={closingDate}`, desabilita atalhos `Hoje`/`Ontem` posteriores ao fechamento, bloqueia o envio se `expenseDate > closingDate` e exibe aviso curto de 1 linha (`Data após o fechamento (DD/MM)...` em vermelho quando inválida, ou `Fatura fechada · aceita compras até DD/MM.` quando válida).
+  - `AccountActivityPanel.tsx` + `CardInvoiceStatement.tsx`: busca e resumo em linha única (`grid-cols-[minmax(0,1fr)_auto]`) inclusive no celular, com valores alinhados ao topo e `Editar`/`Excluir` lado a lado.
+- **Escopo e segurança:** frontend/UX e validações locais de formulário; zero alterações em cálculos de saldo, ledger ou RLS; há migrations na integração descritas acima e não aplicadas. Sem validação em aparelho celular físico.
+
+## 22/11/2026 — apresentação estável dos limites nos cartões
+
+- **Evidência:** Bradesco mostra primeiro R$ 3.386,87 como estimativa e depois R$ 2.683,51 como referência bancária, sem nenhuma alteração financeira entre as capturas.
+- **Causa:** `WalletCardsPage` começa com `invoiceFacts=[]` e consulta as referências bancárias separadamente, mesmo quando `WalletSnapshot.cardInvoiceFacts` já as contém. `BankStack` então recai na estimativa durante a espera.
+- **Concorrência (revisão independente):** tanto a busca automática quanto o refresh manual usam uma geração compartilhada. Uma consulta atrasada não sobrescreve estado mais novo nem deixa a interface em carregamento sem nova requisição.
+- **Correção:** as referências do snapshot completo são usadas no primeiro render; a consulta individual posterior é associada à identidade do cartão e do snapshot, ignorando resultado assíncrono antigo. Um único cálculo de apresentação alimenta o cartão e o resumo, como na Visão geral. Ausência de referência é distinguida de leitura pendente ou falha de rede. A troca de cartão usa imediatamente sua referência já em memória.
+- **Escopo:** frontend e testes somente; nenhum saldo, limite, fatura, ledger, contrato, migração, RPC ou política RLS alterados.
+- **Validação requerida:** testes unitários, arquitetura, Quality Gates, revisão independente, Android debug e inspeção visual do aplicativo; não afirmar publicação antes de verificar release.
+
+## 22/11/2026 — auditoria complementar dos atalhos e atualização de canal
+
+- **Toque no corpo:** o clique antes abria o formulário de gasto mesmo com instrução "Escolha uma ação". Agora abre somente `/carteira/visao-geral` com ação nativa `wallet` autenticada, isolada dos botões de gasto e entrada.
+- **Retorno ao Android:** a tela de Preferências consulta o estado no `focus`, `pageshow` e `visibilitychange` visível, descartando respostas atrasadas concorrentes ao alterar as preferências. Quando bloqueada pelo sistema, a indicação não diz indevidamente "Ativada".
+- **Reinício:** sem receiver de `BOOT_COMPLETED` intencionalmente; o atalho não é recriado fora de sessão validada. Após autenticação o módulo nativo reaplica as preferências por perfil. Não usar foreground service artificial.
+- **Invariantes:** sem mudanças de banco, cartões, lançamentos, contas, RLS, autenticação ou fluxo financeiro; notificação acionada por intent imutável, autorizada e consumida uma vez. Testes de arquitetura acrescidos; validação da versão assinada e teste no Samsung seguem obrigatórios.
+
+## 22/11/2026 — melhoria do destaque da notificação no Android
+
+- **Evidência:** captura no Samsung mostra o CapitalFlow abaixo de outras notificações. Não comprova isoladamente que o usuário ativou o modo destacado ou qual ordenação está selecionada.
+- **Falha do código:** canal normal `IMPORTANCE_LOW`; canal opcional `IMPORTANCE_DEFAULT`; `setSilent(true)` em ambos forçava silenciamento também no destaque.
+- **Implementação:** `setSilent(!prominent())` com canal de destaque padrão sem som e sem vibração, respeitando bloqueios do sistema. API nativa `openNotificationSettings` abre o canal efetivo em Configurações ou as informações do aplicativo como fallback. `getStatus` devolve a importância real do canal e o Perfil a apresenta.
+- **Limite:** nenhuma API de aplicativo pode garantir primeira posição no painel. Ordenação por horário/prioridade é preferência do Samsung e prevalece sobre a solicitação de destaque.
+- **Segurança e QA:** sem mudança de contratos, ledger, contas, banco, RLS, notificações financeiras ou privilégios especiais; preservar duas ações autenticadas. Exigir `npm run test:master-tools`, `npm run test:quality`, revisor independente e teste no dispositivo. Rollback por reversão do commit único.
+
+## 22/11/2026 — apresentação de saldos entre Visão geral e Cartões; retorno por níveis
+
+- **Diagnóstico validado:** o resumo usava `credit_limit - used_limit` enquanto o cartão selecionado mostrava a última referência de limite disponível no banco. Ex.: Bradesco com disponível estimado de R$ 3.386,87 e referência de banco R$ 2.683,51 (datada, não tempo real). Não alterar nenhum desses valores artificialmente.
+- **Mudança de apresentação:** novo domínio puro `cardAvailablePresentation` seleciona a última referência válida, identifica origem e data e mantém estimativa calculada separada. `WalletOverviewSummary`, `WalletCardsPage`, `BankStack` e `WalletBalanceDock` adotam a mesma regra. O total misto indica banco + estimado; uso percentual é estimado.
+- **Dados e cache:** a consulta rápida de resumo reaproveita a tabela de fatos de fatura já consultada para obter `available_limit` e `updated_at`. A derivação offline mantém os fatos do snapshot completo. Ao abrir a Visão geral há revalidação e aviso explícito para falhas de atualização.
+- **Histórico:** `WalletModule` insere lista de Cartões/Contas antes de abrir detalhe oriundo da Visão geral. Back do Android, botão Voltar e fallback de links profundos retornam primeiro à lista, depois à Visão geral e ao Painel. Preservadas rotas reais do React Router e os seletores por ID.
+- **Validação:** testes de resumo, origem monetária, página e roteamento. Nenhum SQL de escrita, mudança de RLS, saldos, contratos, tarifas ou faturas. Reverter commit em caso de regressão; verificar no Samsung após APK atualizado.
+
+## 22/11/2026 — notificação Android de lançamento rápido
+
+- Layout nativo compacto; dois atalhos com distinção visual e ícones Android diferentes. Símbolos nos nomes devido à ocultação de ícones dos botões no Android 7+.
+- Destaque **opcional** no perfil, por canal secundário `IMPORTANCE_DEFAULT` silencioso; não usa heads-up/foreground e não pode forçar topo da central de notificações. A opção respeita canais bloqueados e é reversível.
+- Mantidos perfil, intents, autorização, privacidade, confirmação manual e ausência de escrita financeira. Revisar CI e testar no Samsung antes de afirmar fidelidade visual. Reverter commit para rollback.
+
+## 22/11/2026 — Perfil Android: configuração de atalho compacta
+
+- Transferido `AndroidQuickAccessSettings` do topo da página para `Perfil → Preferências & Menus`.
+- Resumo permanente reduzido a `Lançamento rápido`, estado ativado/desativado e botão reversível. Instruções técnicas extensas removidas da interface; detalhes do comportamento e permissões permanecem em `docs/MASTER_DIAGNOSTICS_ANDROID_SHORTCUT.md`. Avisos de permissão e falhas continuam visíveis quando relevantes.
+- Não altera a implementação nativa, permissões, preferência por perfil, notificações, abertura dos formulários, backend ou lançamentos financeiros. Cenários testáveis: estado ativo/inativo, alternância, ausência no perfil web, erros e permissão negada. Verificação visual em aparelho físico permanece pendente até evidência.
+
+## 22/11/2026 — reparo transacional de empréstimos financiados por cartão
+
+- **Falha confirmada:** função `finalize_card_funded_loan_v1` ativa no Supabase estava na versão antiga, que reduzia `fontes.balance` indevidamente e usava `funding_installments_count` (parcelas do cliente) para dividir compra no cartão. A versão segura no repositório não estava aplicada à produção.
+- **Reparo:** migração `20261122073000_card_funded_historical_reconciliation.sql` restabelece a finalização sem débito da fonte/conta, mantém `LOAN_INITIAL` com metadados `source_balance_effect=NONE`, vincula compra pelo `loan_id` idempotente e utiliza `cardPurchaseInstallmentsCount` da `policies_snapshot`, padrão 1x. Em caso antigo com transação inicial já debitada, registra correção auditável no caminho existente.
+- **Modo compra bancária já realizada:** o formulário exige marcação explícita, data da cobrança, valor idêntico ao total financiado e identificação textual do extrato (8–160 caracteres). Somente o administrador principal pode finalizar; SQL valida data nos últimos 366 dias, valor e referência não utilizada em outro contrato no mesmo cartão. A checagem de limite é dispensada **somente nesse modo**, para contabilizar fato já ocorrido, sem autorizar novas operações. As verificações de vínculo e cartão ativo permanecem. Data efetiva do cartão será a data confirmada da compra.
+- **Efeito esperado no exemplo:** empréstimo de R$ 400, compra de R$ 419,96 no PicPay (já debitada em 20/11) não consumirá novamente saldo da fonte. O limite contábil calculado poderá ser negativo em R$ 142,06; a diferença com a posição bancária não será ocultada ou reescrita. Não cadastrar o mesmo evento com novo contrato se houver lançamento anterior.
+- **Segurança e auditoria:** nenhum dado histórico é excluído ou alterado pela migração; `loan_card_wallet_charges` e `personal_wallet_expenses.request_id` preservam idempotência. O modo histórico não pode ser utilizado por contas comuns e é rastreável em `transacoes.meta` e notas da despesa. Sem mudança RLS nem uso de service-role no cliente.
+- **Testes:** `tests/financial/card-funded-loan-wallet-charge.test.ts` carrega a nova migração e cobre aprovação histórica, idempotência, preservação da fonte e rejeições; `tests/financial/loan-origin-and-card-defaults.test.ts` valida input e trava normal. Deployment Supabase deve ser aplicado somente depois da aprovação CI; verificar por `pg_get_functiondef` e consultas read-only. Rollback possível via função anterior do Git (somente código), sem manipulação de saldos.
+
+## 22/11/2026 — Bradesco: limite bancário declarado e divergência com parcelas futuras
+
+- **Evidência read-only:** cartão Bradesco final 4999, limite R$ 10.000,00, `used_limit` R$ 6.613,13, disponível contábil R$ 3.386,87. Referência manual salva em 19/11 com disponível R$ 2.683,51 e utilizado R$ 7.316,49. Usuário informou o disponível real atual de R$ 2.621,49. Cinco despesas novas (R$ 6,60 + R$ 6,30 + R$ 33,90 + R$ 5,50 + R$ 9,72 = R$ 62,02) explicam a diferença da referência antiga; a falta de conciliação estrutural residual no limite é R$ 765,38, **não atribuída automaticamente a compras inexistentes**.
+- **Erro da mensagem de fatura:** `registeredInvoiceTotalCents` antes somava débitos e crédito positivo como se todos fossem compras. Com crédito Eucatur de R$ 86,00, o bruto R$ 3.164,90 gerava diferença falsa de R$ 234,02 com a referência R$ 2.930,88. O domínio canônico já calcula o líquido R$ 2.992,90, deixando diferença correta de R$ 62,02. A UI passou a reutilizá-lo.
+- **UI bancária:** `BankStack` distingue o limite estimado dos lançamentos do valor bancário efetivamente declarado, com data abreviada; `WalletCardsPage` mostra a data da referência e oferece edição consciente do disponível via serviço autenticado `saveCardInvoiceFacts`, sem alterar compras ou `personal_wallet_cards.used_limit`. O valor real fornecido no chat **não foi gravado automaticamente**. Nenhuma alteração do ledger, da posição contábil, da fatura ou do banco nesta revisão de código.
+- **Segurança:** o fluxo de atualização é uma ação explícita do usuário, com validação de centavos, limite, assinatura idempotente e proteção contra duplicação; só se habilita quando há lançamentos ativos no cartão, condição em que a RPC apenas atualiza a referência informativa. As referências PDF/OFX conservam a proveniência: a edição manual só é habilitada quando a referência existente é do tipo MANUAL. Para PDF/OFX, a renovação exige nova importação com conferência. Os saldos de uso de crédito operacionais permanecem sujeitos à reconciliação dos R$ 765,38.
+- **QA:** verificar `tests/wallet/wallet-ui-architecture.test.ts`, `tests/wallet/wallet-credit-phase3-ui.test.ts`, `tests/wallet/invoice-credit-separation.test.ts`, Quality Gates, `npm run build`, UI mobile. Sem migrações. Rollback: revert do commit de UI.
+
+## 20/11/2026 — extrato de cartões sem textos redundantes
+
+- **Diagnóstico:** na tela PicPay, saldo da fatura repetido no resumo e na fatura; dois avisos sobre o mesmo saldo inicial não detalhado; mensagens extensas de consolidação e cabeçalho do extrato repetindo vencimento e status.
+- **Mudança visual:** `WalletCardsPage` substitui o bloco de três linhas por um indicador horizontal compacto apenas de próximas faturas e disponível. A fatura atual continua exibida na linha da própria fatura. Referências bancárias ficam em `<details>` recolhido. Diferenças com o banco permanecem visíveis somente se não nulas. `CardInvoiceStatement` preserva os registros e operações, mas remove os parágrafos informativos duplicados. O saldo de abertura, movimentos posteriores, total pendente e a abertura fora do ciclo continuam acessíveis pelo botão `Detalhes`, inicialmente fechado. O fechamento é abreviado no cabeçalho. 
+- **Preservação:** `PrivateMoney` em todas as quantias, sem mudanças de estado financeiro, banco, limites, pagamentos, ciclos, consultas, RLS ou lançamentos. Erros da fonte bancária permanecem acessíveis na área de valores do banco. A informação não detalhada é conservada.
+- **Validação:** `tests/wallet/wallet-ui-architecture.test.ts`, `npm run build` e Quality Gates do CI. Inspeção visual do APK não realizada neste fluxo; rollback por revert, sem migrations.
+
+## 20/11/2026 — fontes do contrato com marcas e fatura de abertura dinâmica
+
+- **Escopo:** investigação read-only confirmou `INVOICE_OVERRIDE` inicial de R$ 1.007,87 em dezembro/2026, junto com sete compras posteriores que totalizavam R$ 1.695,53. O total do ciclo é R$ 2.703,40, não uma fatura congelada de R$ 1.007,87. Os sete lançamentos não estão ligados à abertura por `opening_invoice_id`.
+- **Ajuste visual na fatura:** `getInvoiceOpeningBreakdown` usa os ciclos já calculados em `invoiceStatementDomain` para exibir abertura (histórico), movimentações adicionais líquidas e saldo pendente atual. `CardInvoiceStatement` destaca que o registro original é um snapshot, não a fatura atual. Consolidações comuns não são tratadas como saldo de abertura dinâmico.
+- **Ícones de fonte de capital:** `LoanFormFinancialSection` resolve a identidade de fontes com vínculo único de cartão pelo registro autorizado em `capital_source_wallet_references` e dados já carregados de `personal_wallet_cards`. Fonte sem vínculo mostra logo do próprio nome ou imagem configurada, sem inventar vínculo. Contas em dinheiro usam `Wallet`. `SelectOptionList` mantém logotipo também na opção selecionada.
+- **Risco da data do contrato:** a RPC atual `finalize_card_funded_loan_v1` toma `created_at` em vez de `start_date`. Em seis vínculos consultados, duas datas divergiam. Nenhum lançamento retroativo foi alterado: a correção financeira exige transação com verificação de pagamentos, fechamento de ciclo, idempotência, vínculos e auditoria. O cliente também edita `contratos.start_date` sem alterar a compra no cartão. Planejar mudança backend separada.
+- **Não alterado:** saldo, RLS, RPC, contrato, datas históricas, ledger, compras, faturas, Supabase e limitações bancárias. Cobertura por `tests/wallet/invoice-credit-separation.test.ts` e `tests/wallet/wallet-ui-architecture.test.ts`, com validação de CI e revisão mobile necessárias.
+- **Rollback:** reverter este commit de apresentação; não há migração ou reversão de dados.
+
+## 20/11/2026 — correção do teclado Android na pesquisa de contratos
+
+- **Sintoma:** durante a pesquisa por nome/CPF, Gboard aparece e os FABs fixos (novo contrato, lembretes, suporte) e a navegação inferior continuam cobrindo o formulário e os contratos; o mascote também ocupa a superfície de pesquisa.
+- **Causa técnica verificada:** `DashboardControls` faz `autoFocus` no campo; `AppShell` mantém `.fab-action-container` e `BottomNav` fixos; `index.css` oculta esses elementos somente em modal/edição de navegação, não quando o teclado de busca está ativo.
+- **Correção:** `index.css` oculta FAB, mascote e barra inferior na largura móvel quando a pesquisa de contratos tem foco, sem alterar navegação desktop. O campo recebe teclado de pesquisa e rótulo acessível. `DashboardControls` escuta mudanças de `visualViewport`, recoloca o campo na área visível, desregistra ouvintes no cleanup, libera o foco com Enter/Escape e quando o teclado é fechado via resize após abrir.
+- **Preservado:** `searchTerm`, filtros, ordenação, permissões, contratos, API, banco, ledger e funções financeiras. Nenhuma alteração ao Android nativo nem ao Supabase.
+- **Validação:** cobertura estática em `tests/architecture/navigation-persistence.test.mjs`, executada em `test:navigation-persistence` pelo Quality Gates. Validação de teclado Gboard em dispositivo físico ainda não realizada. Rollback por revert do commit; nenhum dado foi mutado.
+
+## 20/11/2026 — busca monetária e textual ampliada em extratos
+
+- **Diagnóstico:** busca no extrato da fatura consultava apenas o valor restante da parcela formatado em texto; não encontrava valores originais da compra, parcela paga nem variantes BRL consistentemente. Extratos individuais e gerais de contas e o extrato financeiro não filtravam valores. Na tela financeira a busca não era aplicada à relação de recebíveis.
+- **Implementação:** função local compartilhada em \`features/wallet/utils/financialSearch.ts\` combina termos sem acento, valores em centavos, sinais (+/-), formatos R$ 700, 700,00, 700.00, 1.700,00 e datas BR/ISO. Ligada a \`CardInvoiceStatement\`, \`AccountActivityPanel\`, \`WalletAccountsPage\` e \`FinancialStatementPage\`. Fatura inclui valor original, parcela, pago, remanescente, descrição, categoria, observações, data e indicador de parcela; o relatório financeiro também filtra recebíveis por nome, identificador e valor.
+- **Preservação:** busca somente nos dados já carregados/autorizados, mantendo a fatura corrente e períodos ativos; não agrega registros de outros cartões/meses, não remove RLS, não cria escrituras financeiras ou altera banco.
+- **Testes:** \`tests/wallet/wallet-financial-search.test.ts\` anexado a \`test:wallet-visual-next\` com cenários de BRL, centavos, acentos, data, sinais e compra parcelada. Verificação por GitHub Actions; teste visual em dispositivo físico não executado. Rollback por revert do commit; sem migration.
+
+## 20/11/2026 — logotipo do cartão ativo no lançamento rápido
+
+- **Causa:** apesar de `selectedCard` estar no estado, o modal utilizava `Receipt` no cabeçalho e `CreditCard` em todos os itens do seletor.
+- **Correção:** `QuickExpenseModal` agora utiliza `BankLogo` com a instituição do cartão (ou da conta vinculada) em seu cabeçalho, lista de cartões e modo bloqueado; quando o cartão é alterado, o ícone acompanha o `selectedCardId`. Para contas, a seleção mostra o logotipo, imagem cadastrada da conta ou ícone de dinheiro para `CASH`.
+- **Privacidade:** não inserir fotos do próprio cartão (`card.image_url`) nos campos de ícone; preservar o padrão de logotipo da carteira.
+- **Escopo:** somente interface, teste de arquitetura e registro de continuidade. Inalterados RPCs, dados, saldos, limite, fatura e lançamento. Nenhuma despesa registrada.
+- **Validação/rollback:** `test:wallet-visual-next` e `test:quality` pelo CI; revisão visual em APK físico pendente. Reverter commit caso o CI falhe.
+
+## 20/11/2026 — destravar registro de movimentações e sugerir categorias
+
+- **Diagnóstico:** `AccountActivityPanel.submit` aguardava `personalWalletService.recordAccountOperation` e depois `onSaved`, enquanto `notifyFinancialDataChanged({wallet:true})` já disparava o refresh da carteira. O modal permanecia em `Registrando...` até terminar a atualização integral, com consultas redundantes. Consulta read-only ao Supabase não encontrou um lançamento manual de R$ 156,88 descrito como Alimentação no intervalo consultado; isso não comprova o resultado de uma requisição ainda pendente.
+- **Solução:** após confirmação da RPC, o modal libera os controles, limpa o formulário e usa exclusivamente o evento `wallet-updated` para recarregar a tela. A chamada financeira tem prazo de espera de 18 s; se a resposta for inconclusiva, busca o mesmo `request_id` sob RLS por até 6 s. Sem comprovação de gravação, preserva o formulário e o mesmo ID para repetição idempotente, alerta sobre incerteza e dispara refresh de leitura, sem criar outra escrita.
+- **Categorias:** sugestões locais reaproveitam `classifyStatementDescription` do extrato OFX/PDF; textos reconhecidos atualizam a categoria exibida, mas escolhas manuais permanecem soberanas. Termos ambíguos não geram sugestão e nenhuma categorização grava transação por si só.
+- **Preservado:** tabelas, saldo, RLS, RPC, ledger, parâmetros de valores, contratos, faturas e dados históricos; não houve gravações financeiras de teste. `personalWallet.service.ts` ganhou somente consulta de existência por `request_id` autenticado.
+- **Testes:** contrato de sugestão em `tests/wallet/account-category-selection.test.ts`, prazo de espera em `tests/wallet/operation-confirmation.test.ts` e `test:wallet-visual-next`. Verificar CI/build e APK separadamente. Timeout não prova falha da operação: o usuário deve conferir o extrato antes de tentar novamente.
+- **Rollback:** reverter apenas este commit, sem migração ou alteração de dados.
+
+## 20/11/2026 — contexto unificado em despesa, pagamento, receita, recebimento e transferência
+
+- **Problema:** os diálogos para Despesa, Pagamento, Receita e Recebimento não tinham logotipo ou saldo visível, embora Transferência tivesse cartão de saldo distinto.
+- **Implementação:** o diálogo comum `AccountActivityPanel` usa `Modal.icon` com `AccountOptionIcon` (logo bancária/imagem personalizada e fallback) e mostra saldo contábil no CapitalFlow em todas as cinco modalidades. Todas passam a mostrar saldo projetado em centavos após o lançamento, respeitando `PrivateMoney` e edição monetária por calculadora.
+- **Segurança:** pré-validação para `EXPENSE`, `PAYMENT` e `TRANSFER` impede saldo insuficiente na UI. A RPC existente continua validando autenticação, proprietário, valor, saldo com lock e idempotência. Receitas e recebimentos exibem somente a projeção, sem registrar novas entradas por esta alteração.
+- **Escopo preservado:** sem SQL, sem alterações no Supabase, sem reclassificação de contas, sem alteração no mecanismo de lançamento e sem duplicar saldo. Regras especiais de faturas e PIX preservadas.
+- **Testes:** `tests/wallet/account-transfer-preview.test.ts` cobre débito/crédito/precisão e `tests/wallet/wallet-ui-architecture.test.ts` cobre a interface unificada; execução de CI e validação em dispositivo devem ser verificadas separadamente. Rollback mediante revert deste commit, sem migração de dados.
+
+## 20/11/2026 — ícones de contas na transferência interna
+
+- **Diagnóstico:** o seletor compartilhado `SelectOptionList` já suporta `options[].icon` no menu e na opção selecionada, porém `AccountActivityPanel` fornecia somente nome e saldo.
+- **Mudança de interface:** `AccountActivityPanel` passa a usar `BankLogo` da própria Carteira (com `bank_name`/`institution_key`, `nickname`, imagem personalizada `image_url` e fallback interno) na conta de origem e em cada destino. Contas do tipo `CASH` usam o ícone Wallet existente. Ícones reaparecem também quando a conta de destino já está selecionada.
+- **Escopo preservado:** seletor genérico, contratos, operações, saldos, RPC, RLS, dados e Supabase não foram alterados; nenhuma operação financeira foi executada.
+- **Teste:** contrato de UI adicionado a `tests/wallet/wallet-ui-architecture.test.ts`, executado pelo gate `test:wallet-visual-next`. Verificar visualmente em mobile quando o APK estiver disponível; os testes estáticos não substituem validação em dispositivo físico.
+- **Rollback:** reverter somente este commit de interface se for identificada regressão de renderização.
+
+## 20/11/2026 — saldo contextual no modal de transferência entre contas
+
+- **Escopo:** `AccountActivityPanel`, entrada monetária compartilhada, prévia pura em centavos e testes. A conta de origem é a mesma exibida em `AccountDetailsPage`, alimentada por `personal_wallet_accounts.balance`.
+- **Interface:** mostra saldo registrado do CapitalFlow no topo da transferência, saldo projetado após digitação/confirmar expressão, aviso de saldo insuficiente; respeita `PrivateMoney` na privacidade global; substitui categoria manual por `Transferência interna` neste tipo de operação e preenche descrição inicial editável.
+- **Segurança:** não consulta diretamente o banco Nubank e não altera saldo por cálculo local. A pré-validação usa o valor carregado, sujeito a desatualização por mudanças concorrentes; a RPC `personal_wallet_record_account_operation` continua validando proprietário, saldo sob lock, centavos, idempotência e duas contas diferentes.
+- **Banco:** inspecionados campos, RLS e definição da RPC no Supabase de produção. Nenhuma migration, alteração de política ou lançamento financeiro nesta tarefa.
+- **Testes adicionados:** `tests/wallet/account-transfer-preview.test.ts` ligado a `test:wallet-visual-next`; cobre centavos, transferência integral, insuficiência e valores inválidos. Execução de testes e validação em dispositivo dependem dos checks verificáveis do GitHub Actions; não foi realizado teste em aparelho físico neste atendimento.
+- **Rollback:** reverter o commit desta alteração em `main` caso o CI identifique incompatibilidade de UI. Não há rollback de dados, pois nenhum dado é modificado por esta correção.
+
+## 20/11/2026 — conciliação financeira REAL de empréstimos pagos no cartão (Nubank)
+
+**Causa-raiz identificada no Supabase de produção:** o gatilho \`trg_sync_transacao_to_wallet()\` efetivamente instalado era uma versão anterior ao código versionado e debitava \`personal_wallet_accounts.balance\` ao inserir qualquer \`LOAN_INITIAL\`, mesmo em contratos \`funding_payment_method=CREDIT_CARD\` com fonte do tipo \`CARD\`. Havia três desembolsos para o mesmo cliente: R$ 700,00, R$ 200,00 e R$ 200,00; todos tinham compras financeiras correspondentes em \`loan_card_wallet_charges\` e \`personal_wallet_expenses\` (respectivamente R$ 734,93, R$ 209,98 e R$ 209,98; \`account_id\` nulo nas despesas). O primeiro já tinha ajuste e estorno auditável de R$ 700,00; os dois últimos não.
+
+**Correção executada diretamente no banco:** migração \`20261120232000_reconcile_card_funded_wallet_debits.sql\`. Protege o gatilho de novos débitos de empréstimos financiados por cartão ANTES de sincronizar saldo, verificando metadados e modalidade do contrato/fonte, sem depender da compra do cartão já ter sido criada. Mantém integralmente a sincronização normal de desembolsos em dinheiro e recebimentos.
+
+A correção histórica aplicou **dois estornos de R$ 200,00**, cada um com \`request_id\` determinístico, operação de auditoria na Carteira, transação \`ADJUSTMENT\` no ledger com \`reversed_of_transaction_id\`, metadados de correção e referência na nova tabela \`personal_wallet_card_funding_reconciliations\` (chave única de contrato). Os registros originais permanecem intactos, e os lançamentos auditáveis são excluídos somente da **apresentação normal** via filtragem que verifica vínculos reais de cartão. O gatilho existente de espelhamento sincronizou a fonte Nu com a conta Nubank, registrando dois ajustes de R$ 200,00 em \`financial_balance_audit\`.
+
+**Resultado verificado em produção:**
+- Conta Nubank: R$ 1.316,21 → **R$ 1.716,21**
+- Fonte Nu sincronizada: R$ 1.316,21 → **R$ 1.716,21**
+- Soma contábil das oito movimentações da conta após compensação: **R$ 1.716,21**
+- \`personal_wallet_card_funding_reconciliations\`: 2 registros, R$ 400,00, duas operações e dois ajustes no ledger.
+- \`loan_card_wallet_charges\` dos 3 contratos: \`source_balance_effect='REVERSED'\`, com referência de correção; o contrato de R$ 700,00 não recebeu segundo estorno.
+- Proteção ativa no gatilho comprovada por consulta à definição da função no banco.
+- **Não foram alterados:** valores dos contratos, clientes, despesas nem faturas do cartão. Apenas a conta e sua fonte espelhada foram creditadas com o valor que havia sido debitado indevidamente.
+- Em ambientes vazios, reaplicação do script não cria valores artificiais; há verificação de exatamente dois débitos de R$ 200,00 não compensados antes de qualquer ajuste. \`tests/wallet/wallet-card-funding-reconciliation.test.ts\` protege a regra e a igualdade do saldo com o resultado das movimentações.
+- **Limite:** esse saldo é o valor contábil conciliado no sistema; não significa confirmação externa do extrato real do banco Nubank. Testes CI e APK devem ser verificados no commit correspondente.
+
+
+## 20/11/2026 — Extrato da conta: separar empréstimos financiados por cartão
+- **Diagnóstico em produção:** Nubank mostrou `LOAN_DISBURSEMENT` de R$ 700,00 + R$ 200,00 + R$ 200,00, todos vinculados a contratos com `funding_payment_method=CREDIT_CARD` e com linhas efetivas em `loan_card_wallet_charges`. Há estorno de auditoria de R$ 700,00 para o primeiro contrato. Esses lançamentos são registros contábeis do empréstimo e não movimentações bancárias diretamente iniciadas pelo usuário.
+- **Correção visual segura:** `services/personalWallet.service.ts` lê `loan_id` apenas de `loan_card_wallet_charges`, protegido por RLS de proprietário. `accountStatementDomain.ts` filtra do **extrato operacional da conta** somente os desembolsos cujo `contract_id` consta nessa lista e seus estornos de auditoria associados. Empréstimos realmente desembolsados com recursos da conta continuam exibidos. `WalletAccountsPage`, `AccountDetailsPage` e `AccountActivityPanel` recebem a mesma lista para manter totais de extrato coerentes com suas linhas. Ao substituir rótulo `Desembolso do contrato`, a categoria legível dos empréstimos em dinheiro passa a `Valor emprestado`.
+- **NÃO exclui dados:** histórico original, contratos, transações, faturas, cartão, fontes de capital, saldos e auditoria do Supabase permanecem fisicamente inalterados. Não há estorno nem crédito implícito no saldo; **os débitos históricos de R$ 200,00 + R$ 200,00 que parecem não ter compensação precisam de reconciliação específica** antes de alterar valores financeiros. O resultado das movimentações visíveis não é sinônimo de saldo bancário.
+- **Teste:** `tests/wallet/wallet-card-funded-account-statement.test.ts`: filtra apenas contratos com comprovante de financiamento via cartão, inclui contrapartida de auditoria, preserva empréstimos de conta, mantém imutabilidade dos dados. A execução foi solicitada diretamente no `main`, sujeita a validação CI e publicação Android.
+
+## 20/11/2026 — Voltar da conta, CRUD seguro dos lançamentos e descrições em português
+
+**Diagnóstico baseado no código do main e no esquema real de produção:**
+- \`features/wallet/pages/WalletAccountsPage.tsx\`: \`closeAccount\` chamava \`navigate(-1)\`, que podia voltar ao Painel e perder a aba Contas. Passa a remover apenas \`?conta=\` com \`replace: true\`, preservando a rota atual, os filtros e a aba ativa. O evento \`capitalflow:back\` continua fechando o detalhe.
+- \`components/wallet/AccountActivityPanel.tsx\` e \`components/wallet/accountStatementDomain.ts\`: o extrato misturava o resultado líquido das movimentações com a noção de saldo real. O rótulo passa a \`Resultado das movimentações\`, mantendo sinais positivos/negativos conforme a direção da operação. A ação **Editar** passa a acompanhar **Excluir** apenas para receitas/despesas manuais elegíveis; transferência, desembolso, parcela de contrato, fatura, cobrança, ajuste de saldo e estorno não são diretamente editáveis ou excluíveis neste painel.
+- \`services/personalWallet.service.ts\`: integração de \`personal_wallet_edit_manual_operation\` com validação do resultado. \`supabase/migrations/20261120215500_wallet_manual_edit_description_cleanup.sql\`: RPC transacional, valida \`auth.uid()\`, \`can_access_personal_wallet()\`, RLS da conta, valores em centavos, categoria, descrição, data, vínculo e idempotência. Bloqueia edição de registros de contratos, faturas, cobranças, transferência e outros módulos. Serializa por titular, trava a operação e a conta, atualiza **somente a diferença do valor** no saldo e registra antes/depois em \`personal_wallet_manual_operation_revisions\`. Rejeita saldo negativo; não apaga registros físicos. \`DELETE\` de operação manual continua usando a RPC de estorno pré-existente \`personal_wallet_void_manual_operation\`.
+- **Codificação de texto:** três operações de \`LOAN_DISBURSEMENT\` em 17/11/2026 estavam salvas como \`EmprÃ©stimo concedido Â· ...\`. A migração normaliza exclusivamente \`description\` e \`category\` dessas operações da Carteira, preserva valores e \`contract_id\`, e instala trigger para novas descrições. A apresentação também tem normalização defensiva e diferencia o tipo de movimentação de sua categoria sem repetir a mesma frase.
+- **Importante: achado financeiro independente:** os três desembolsos em 17/11/2026 estão associados a contratos com \`funding_payment_method=CREDIT_CARD\` e têm débitos no extrato de conta. Foi detectado estorno de R$ 700,00, mas não compensações de R$ 200,00 + R$ 200,00. **Não aplicar correção monetária automática sem conferir o contrato, idempotência da migração anterior e a reconciliação atual.** Não ocultar linhas para falsificar o saldo e não alterar \`contratos\`, fontes ou ledger.
+- **Validação:** migração aplicada no Supabase de produção, RPC testada sob papel \`authenticated\` com variação de R$ 0,01 e aferição de saldo e auditoria; \`ROLLBACK\` garantiu que esse teste não alterasse os lançamentos reais. Os novos testes \`tests/wallet/wallet-account-edit-navigation-text.test.ts\` cobrem retorno, formatação e barreiras de edição. Gates do GitHub Actions e APK devem ser verificados para o commit correspondente. Não alegar publicação web/Cloudflare sem confirmação.
+
+
+## 20/11/2026 — Correção dos gates da Carteira e renderização de importação
+
+- `WalletStatementImport` agora usa portal em `document.body` no navegador e retorna o diálogo diretamente quando não existe DOM. Isso evita `ReferenceError` nos ambientes de teste sem navegador sem mudar o comportamento na interface.
+- Atualizados testes de contrato que ainda apontavam para os controles antigos de ajuste de fatura, layout offline, posição/cor do cartão e rótulo do FAB. O teste do cadastro do cartão agora confirma explicitamente que o CVC não é solicitado nem armazenado. Ao salvar vínculos de origem, a alocação manual antiga é zerada (`null`), conforme a regra documentada: a disponibilidade usa o saldo integral atual da conta ou cartão.
+- Evidências: `npm run test:wallet` (335/335), `npm run test:wallet-statement-import` (69/69), testes focados de contratos/UI (24/24), `npm run test:wallet-visual` (2/2), `npm run test:wallet-overview-localization` (2/2), `npm run test:quality` passou e `git diff --check` passou. Build dentro do gate concluiu com avisos de chunk/importações dinâmicas. Sem alteração em RPC, migration ou regras financeiras.
+
+## 20/11/2026 — Idioma da interface limitado a Português (Brasil)
+
+- A seleção de inglês/espanhol foi removida do perfil e da tela de login porque a tradução cobria apenas autenticação e navegação, enquanto o restante da interface permanecia em português. O perfil agora mostra Português (Brasil) como idioma disponível; o login exibe a mesma informação sem controle interativo. O tipo de idioma selecionável foi separado dos locales legados aceitos pelas funções de tradução, para impedir chamadas tipadas a `setLanguage('en'/'es')`.
+- Preferências antigas `en`/`es` (ou códigos inválidos) em `capitalflow:language` são normalizadas para `pt-BR` ao inicializar. O contrato de idioma e os dicionários legados permanecem para compatibilidade interna, mas não há mais caminho de seleção para eles.
+- Critérios observados: um único idioma aparece nos pontos de seleção, idioma antigo volta para pt-BR, `html lang` permanece `pt-BR`. `node scripts/i18n/englishUiText.mjs` encontrou zero texto inglês rastreável; essa varredura não mede a cobertura das traduções EN/ES. `npm run build` concluiu com avisos existentes de chunks/importações dinâmicas. `git diff --check` passou. Testes automatizados não foram executados.
+
+## 20/11/2026 — Remoção do acesso duplicado à conferência da fatura
+
+- Removido o botão superior “Definir/Corrigir vencimento e valores” e seu modal independente em `WalletCardsPage`. O resumo de valores bancários permanece visível; “Ajustar fatura”, abaixo, preserva o fluxo para corrigir a fatura e abrir a conferência dos valores do banco.
+- Revisão independente confirmou que `InvoiceOverrideModal` já salva os valores bancários pelo mesmo callback, sem criar compra ou pagamento; não foi identificada perda de funcionalidade única nem estado sem uso.
+- `npm run build` concluiu e `git diff --check` passou. Sem testes automatizados ou validação visual no navegador nesta alteração.
+## 20/11/2026 — Correção da posição dos diálogos da Carteira
+
+- Causa do PIX no rodapé: `WalletPixCharge` renderizava o overlay fixo dentro da página de detalhes. Ancestrais com transformação/rolagem podiam virar o bloco de referência do `position: fixed`. O diálogo agora usa portal em `document.body`, preservando a versão incorporada da página de Cobrança e o drawer mobile. No desktop, o painel também fica limitado a 90dvh/960px e largura máxima de 6xl, com rolagem interna.
+- A varredura de overlays próprios da Carteira encontrou o mesmo risco em pagamento de fatura, edição de despesa, ações rápidas, formulário de conta, detalhes/scanner do cartão, importação/leitura de extrato, inbox de arquivo, recorrências e pagamento de dívida. Todos foram portados para `document.body`; os que já usavam o `Modal` compartilhado/portal não precisaram de mudança.
+- A busca global deixou três diálogos próprios fora da Carteira sem portal (`TermsAcceptanceModal`, `PlatformAdminPage` e `ExitConfirmDialog`); não há relato ou evidência de que reproduzam o sintoma nesta execução, ficam como candidatos para validação específica. Drawers e estados fixos não modais não foram alterados.
+- Evidências: `npm run build` concluiu, `git diff --check` passou e revisão independente não encontrou problemas nos wrappers/handlers. Sem testes automatizados; navegador indisponível para validação visual. Build manteve avisos existentes de divisão de chunks/importações dinâmicas.
+## 20/11/2026 — Revisão final do ícone e do cartão Bradesco
+
+- O ícone nas três representações passou a ter 36px, marca centralizada em tile marinho com contorno branco e sem placa branca. O cartão Bradesco usa o gradiente vinho escuro da referência (`#9f1239` → `#4c0519`), com aro fino e luz discreta no canto superior.
+- `npm run build` concluiu; `git diff --check` passou. Sem testes automatizados ou validação visual no navegador, cujo host estava indisponível.## 20/11/2026 — Refinamento do vermelho e das logos dos cartões
+
+- Após feedback visual, escurecido o gradiente do Bradesco para vinho, preservando a cor personalizada quando cadastrada; retomados os brilhos e os aros sutis dos cartões. Logos voltaram ao bloco escuro original, sem a moldura branca aplicada na revisão anterior.
+- `npm run build` concluiu e `git diff --check` passou. Não foram executados testes automatizados nem validação visual no navegador/aparelho; o host do navegador estava indisponível. Avisos de chunk/importação dinâmica permanecem no build.
+- Risco/rollback: alteração somente visual, reversível nos componentes e helper de apresentação do cartão.## 20/11/2026 — Padronização visual dos cartões da carteira
+
+- `BankStack`, cartões compactos do resumo e `VirtualCreditCard` agora usam a mesma paleta por emissor, incluindo a cor personalizada do cartão. As logos usam o mesmo componente com superfície branca, proporção e espaçamento consistentes; removido o quadrado branco duplicado nas miniaturas.
+- Preservadas as cores distintas por instituição (por exemplo, Bradesco, Nu e PicPay), os dados, os handlers e os cálculos. Nenhuma regra financeira ou persistência foi alterada.
+- Evidências: `npm run build` concluiu; `git diff --check` passou; revisão independente dos componentes não encontrou regressões. Não foram executados testes automatizados nem validação visual no navegador/aparelho nesta alteração. Avisos de chunk e importações dinâmicas apareceram no build.
+- Risco/rollback: mudança restrita à apresentação e reversível revertendo os cinco componentes/helpers de UI alterados.## 20/11/2026 — Ajuste de tamanho e distribuição dos botões do contrato
+
+- Em `components/cards/LoanCardComposition/Footer.tsx`, as ações principais agora se reorganizam por largura disponível: mantêm largura equilibrada, quebram em linhas e centralizam itens restantes. Aumentados altura mínima, ícones, texto e espaçamento; o bloco Arquivar/Restaurar permanece separado visualmente e também ganhou alvo de toque maior.
+- Mantidos ordem, handlers, condições, cores semânticas e estados. Nenhuma regra financeira foi alterada.
+- Verificação: detector Impeccable `detect --scope layout` sem ocorrências; `git diff --check` passou; `npm run build` passou (com avisos de chunk/importação dinâmica preexistentes); revisão independente sem achados. O navegador abriu a página do app, mas o cartão dos screenshots não estava aberto no estado necessário para validar esse render.
+## 20/11/2026 — Reorganização dos botões no cartão de grupo
+
+- Em `components/cards/ClientGroupCard.tsx`, a grade dos sete botões passou a usar `auto-fit` por largura real disponível, com largura mínima por ação, espaçamento maior, alvo de pelo menos 48px, ícones e rótulos ampliados. “Venc.”/“Arq.” foram substituídos por “Vencidas”/“Arquivar”; “Unir” virou “Unificar”.
+- A ordem, os handlers, os filtros e os estados desabilitados foram preservados. Nenhuma lógica ou dado financeiro foi alterado.
+- Verificação: detector Impeccable `detect --scope layout` sem ocorrências; `git diff --check` passou. Revisão independente não encontrou problemas no escopo. Não rodei testes; validação visual no navegador ficou indisponível porque o host de navegador estava fora do ar.
+## 20/11/2026 — Remoção do bloco explicativo do cartão de parcela
+
+- A pedido do usuário, removido de `components/cards/components/InstallmentCard.tsx` o bloco azul “Saldo registrado após o último recebimento” e seus parágrafos. Permanecem inalterados o valor exibido da parcela, vencimento, status, ofertas, encargos e ações de pagamento; nenhuma regra ou gravação financeira foi alterada.
+- Atualizado `tests/financial/partial-payment-display.test.ts` para impedir que o bloco removido volte a aparecer.
+- Verificação: `npx tsx --test tests/financial/partial-payment-display.test.ts` passou (6/6); `git diff --check` passou. A suíte geral mostrou falha existente em `tests/audit/business-date-consistency.test.ts:94` (inventário de chamadas a `new Date().toISOString().slice(0, 10)` em outros arquivos). A revisão visual no navegador não foi possível porque o host de navegador estava indisponível.
+## 20/11/2026 — Reimportação real da fatura Bradesco 4999
+
+- A pedido do usuário, substituída a importação anterior pela leitura atual do PDF `BradescoCartoes2026-11-19.165820.pdf` (`SHA-256 632dc00d98d02570188d6c669c16d212a4c1dfb10aaf9ad2e59db2a2f81033e1`), preservando idempotência e cancelando/recriando somente compras pendentes e não pagas pela RPC autorizada.
+- Conferência no Supabase `hzchchbxkhryextaymkn`: 90 linhas vinculadas ao cartão Bradesco 4999; 89 compras e 1 crédito de `PAG EUCATUR*Eucat` por -R$ 86,00; total assinado importado **R$ 2.930,88**. O pagamento da fatura anterior de R$ 2.517,55 não foi importado como compra.
+- `private.wallet_effective_cycle_amount` confirmou **R$ 2.930,88** para dezembro/2026. Parcelas futuras pendentes: jan/2027 R$ 695,85; fev R$ 633,57; mar R$ 561,08; abr, mai e jun R$ 495,67 cada; jul R$ 242,72.
+- Migrations remotas confirmadas: `20261120033624_wallet_safe_reimport_invoice_credits` e `20261120034838_wallet_preserve_statement_source_on_reimport`. Revisão independente confirmou o caso de reimportação vinculada; permanece a limitação de que uma linha órfã sem despesa vinculada, se encontrada em outro PDF, pode ser atualizada no lugar em vez de preservada como fonte histórica.
+- Testes após as alterações locais: `npm run test:wallet-statement-import` (69/69), `npm run test:wallet-import-contract` (4/4) e `git diff --check` passaram. `npm run test:quality` falhou em 1 teste: `tests/wallet/wallet-global-privacy.test.tsx:89` espera encontrar `hideFinancialValues ? 'Situação protegida' : label` em `WalletCardsPage`; o gate geral não está aprovado. Sem validação visual no navegador/aparelho nesta execução.
+## 20/11/2026 — Créditos/estornos na fatura, ajuste fino para baixo e geração automática de parcelas futuras (n/m) na importação
+
+- **Migration aplicada no Supabase (`hzchchbxkhryextaymkn`) e versionada em `supabase/migrations/20261120001000_wallet_invoice_credits_and_statement_installments.sql`:**
+  - Adicionada coluna aditiva `is_invoice_credit boolean NOT NULL DEFAULT false` em `public.personal_wallet_expenses` (preservando todas as check constraints `amount > 0` e `entry_type`).
+  - Atualizada `private.wallet_effective_cycle_amount` para abater lançamentos com `is_invoice_credit = true` do total efetivo do ciclo (limitado a `>= 0`).
+  - Atualizada `public.personal_wallet_pay_invoice_partial` para ignorar créditos na alocação de pagamento e encerrar o ciclo quando o saldo efetivo chega a zero.
+  - Criada RPC `public.personal_wallet_create_invoice_credit` para lançar créditos/estornos/ajustes negativos na fatura com idempotência por `request_id`.
+  - Criada sobrecarga de 12 argumentos de `public.personal_wallet_record_card_purchase_atomic` (mantendo a sobrecarga legada de 10 argumentos delegando para ela):
+    - Valores negativos (`p_amount < 0`, exceto pagamentos de fatura anterior filtrados na UI) são gravados como crédito (`is_invoice_credit = true`), abatendo da fatura sem congelar compras futuras.
+    - Compras parceladas (`p_installment_number >= 1` e `p_installment_total > p_installment_number`, fora de detalhamento inicial) geram automaticamente a parcela atual e todas as parcelas restantes nos meses futuros (`p_due_month + 0..(remaining - 1)`), preenchendo **Faturas posteriores** e **Disponível estimado**.
+- **Frontend e serviços (`services/personalWallet.service.ts`, `components/wallet/invoiceStatementDomain.ts`, `components/wallet/CardInvoiceStatement.tsx`, `components/wallet/FlatSmartStatementReader.tsx`, `components/wallet/WalletStatementImport.tsx`, `components/wallet/InvoiceOverrideModal.tsx`, `features/wallet/pages/WalletCardsPage.tsx`):**
+  - Importação de fatura agora seleciona automaticamente compras positivas e créditos/estornos (ex.: `PAG EUCATUR*Eucat -86,00`), mantendo desmarcado apenas pagamento da fatura anterior (`PAGTO ANTECIPADO PIX`), e envia `installmentNumber`/`installmentTotal` para gerar parcelas futuras.
+  - `CardInvoiceStatement` exibe créditos em verde (`− R$ X`) com selo `Crédito / Estorno` e abate corretamente no subtotal da busca.
+  - `InvoiceOverrideModal` ("Ajustar fatura" → `Reajustar por diferença`) agora permite tanto ajustar para cima (`Despesa de ajuste`) quanto para baixo (`Crédito de ajuste`), sem congelar compras futuras.
+- **Testes executados (sem commit ainda, branch `codex/wallet-invoice-purpose-ux-20261119`):**
+  - `npm run lint`: 0 erros.
+  - `npm run test:wallet-statement-import`: 66/66 passaram (incluindo novo teste de crédito + parcelas futuras).
+  - `npm run test:wallet-import-contract`: 4/4 passaram.
+  - `npm run test:wallet-visual-next`: 39/39 passaram.
+  - `npm run test:quality`: falhou em 2 testes pré-existentes da branch (`tests/audit/business-date-consistency.test.ts:94` e `tests/wallet/wallet-global-privacy.test.tsx:77`), não introduzidos por esta alteração.
+- **Limitações:** sem validação visual em aparelho celular físico. Compras parceladas importadas *antes* desta atualização precisam ser excluídas e reimportadas (ou a fatura não paga excluída e reimportada) para que o banco gere as parcelas futuras dos próximos meses.
+
+## 17/11/2026 — Atualização por gesto no aplicativo
+
+- Adicionado o gesto de puxar para atualizar no contêiner principal autenticado, com indicador discreto para os estados de puxar, soltar e atualizar. O gesto só inicia no topo, com um toque, e é bloqueado em campos editáveis, áreas marcadas, modais, suporte aberto e regiões internas já roladas.
+- A atualização reutiliza `fetchFullData`; na Carteira também força a leitura canônica pelo `walletRepository` e emite `capitalflow:wallet-updated`. Sem conexão ou falha, exibe mensagem compreensível e não altera dados financeiros diretamente.
+- Arquivos: `App.tsx`, `layout/AppShell.tsx`, `components/system/PullToRefreshIndicator.tsx`, `hooks/usePullToRefresh.ts`, `utils/pullToRefreshGuard.ts` e `tests/architecture/pull-to-refresh.test.ts`.
+- Verificação automatizada: teste direcionado do gesto, build TypeScript/Vite e suítes de qualidade executados no mesmo working tree. A interação tátil, o rubber-banding e a convivência com o navegador ainda precisam de validação em aparelho Android físico; não foi gerado nem publicado novo APK nesta etapa.
+
+## 17/11/2026 — Separação estrita de origem (Conta, Cartão e Composição), compra à vista no cartão, encoding UTF-8 e correção do contrato da Deyse
+
+- **Causa raiz:**
+  - `finalize_card_funded_loan_v1` usava `funding_installments_count` (parcelas do contrato com o cliente) para parcelar a compra no cartão e gravava descrição longa (`"Emprestimo a ..."`), enquanto `useLoanForm.ts` / `LoanFormFinancialSection.tsx` iniciavam `fundingInstallmentsCount` com `'10'`.
+  - Empréstimos fora de `INSTALLMENT_FIXED` em fontes `CARD` podiam cair no caminho de débito de conta, e `trg_sync_transacao_to_wallet()` debitava `personal_wallet_accounts` em qualquer `LOAN_INITIAL` sem verificar `funding_origin = 'CREDIT_CARD'` / `source_balance_effect = 'NONE'`.
+  - Composição explícita entre múltiplas fontes (`MULTI_SOURCE_CREATION_ENABLED`) estava desativada na UI e sem RPC atômica/idempotente no backend.
+  - Textos com mojibake UTF-8/Latin-1 em `services/personalWallet.service.ts`, `MessageHubModal.tsx`, `automation/n8n/*.json` e `trg_sync_transacao_to_wallet()`, além de `tests/architecture/runtime-text-encoding.test.mjs` depender de `rg` (inexistente no Windows).
+- **Arquivos alterados:**
+  - `types.ts`, `features/loans/hooks/useLoanForm.ts`, `features/loans/domain/loanForm.mapper.ts`, `components/forms/LoanFormFinancialSection.tsx`, `services/contracts.service.ts`.
+  - `supabase/migrations/20261117150000_card_funded_loan_no_account_debit.sql`.
+  - `services/personalWallet.service.ts`, `components/modals/MessageHubModal.tsx`, `automation/n8n/capitalflow-whatsapp.json`, `automation/n8n/workflows/capitalflow-whatsapp.json`, `automation/n8n/workflows/capitalflow-manual-collections.json`.
+  - `tests/financial/card-funded-loan-wallet-charge.test.ts`, `tests/financial/loan-origin-and-card-defaults.test.ts`, `tests/architecture/runtime-text-encoding.test.mjs`.
+- **Correção verificada em produção (Deyse · contrato `2ac454ac-04f0-4c60-bd04-1fbb069857a4`):**
+  - Estorno auditável de `R$ 700,00` na conta Nubank (`7ab23316-51c9-4f55-8156-02276a1ae53d`) e fonte espelhada (`5a34b718-47f9-4bfe-a175-6bfeeabe3ef6`), ambos confirmados em `R$ 1.716,21`.
+  - Despesa do cartão Nu `4736` (`9f2a023e-bb85-415e-b42d-b955e4c1623b`) atualizada para `"Empréstimo Deyse"`, `installment_count = 1`, `R$ 734,93` em `2026-12-01` (`current_bill = R$ 3.804,15`, `used_limit = R$ 6.519,17`, `available_limit = R$ 472,13`).
+- **Limitações:**
+  - A aplicação de DDL via `supabase_mcp:apply_migration` foi cancelada automaticamente pelo cliente MCP; a correção dos dados da Deyse foi aplicada e verificada em transação DML no Supabase, e o arquivo `supabase/migrations/20261117150000_card_funded_loan_no_account_debit.sql` aguarda `supabase db push` no ambiente remoto para atualizar as funções `trg_sync_transacao_to_wallet`, `finalize_card_funded_loan_v1` e `finalize_loan_funding_allocations_v1`.
+  - Sem validação visual em dispositivo Android físico nesta etapa.
+
 ## 13/11/2026 — transferência contábil Capital → Minha Carteira e legibilidade
 
 - **Layout:** `LoanFundingCostFields.tsx` reflow responsivo por largura real, rótulos com altura coerente e inputs financeiros inteiros; sem alteração em juros, fórmula de custo nem principal.
@@ -1012,9 +1369,468 @@ O ícone do olho já acionava o `FinancialPrivacyProvider`, mas os elementos aba
 - Os cards de fontes passaram a ocupar altura uniforme por linha e exibem separadamente o saldo operacional da fonte e o valor associado à Minha Carteira, sem substituir um pelo outro.
 - `ClientsPage` passou a mostrar o score de risco no card do cliente, consolidando o pior score entre contratos ativos ou históricos vinculados exclusivamente por `client_id`. O score não foi colocado no card de contrato.
 - Validação: TypeScript, arquitetura, `test:wallet-visual-next`, `test:wallet-pages`, build de produção e `git diff --check` passaram. Não houve alteração em Supabase, RPC, migration, ledger, pagamento, estorno ou RLS.
+- O score foi remodelado como uma faixa visível no card do cliente (`Risco X/100 · nível`) e passou a considerar também contratos históricos vinculados por `client_id`; nenhum vínculo por nome/documento foi criado.
+
+## 14/11/2026 - Separação entre fontes, contas e documentos jurídicos
+
+- O vínculo de integração com o Capital deixou de aparecer na página geral de Contas; a configuração permanece na edição da Fonte de Capital, onde a relação fonte → conta/cartão é definida.
+- Os rótulos da edição foram corrigidos de “Editar carteira” para “Editar fonte de capital”.
+- O Jurídico agora separa documentos válidos (assinados ou arquivo assinado enviado), minutas/pendências e arquivados; registros pendentes não são apresentados como documentos existentes e nenhum histórico foi apagado.
+- Validação: testes do Jurídico, referências da Carteira, TypeScript e `git diff --check` passaram. Não houve alteração em RPC, migration, ledger, pagamento, estorno ou RLS.
 
 ## 13/11/2026 - Vitrine comercial rolável na tela de login e merge da auditoria de datas (`main`)
 
 - **Auth (`features/auth/AuthScreen.tsx`, `features/auth/AuthCommercialSection.tsx`, `i18n/locales/*.ts`):** adicionada seção comercial rolável abaixo da dobra (`100dvh`) com apresentação em 3 passos, vantagens reais da operação (incluindo Fontes e Carteira integradas, sem prometer gestão de equipe ainda incompleta), comparativo Free/Pro e retorno suave ao topo.
 - **Merge da branch de auditoria (`claude/jolly-heisenberg-s9ob7a` / `f330607`):** incorporadas na `main` as correções de data civil em `America/Manaus` para acordos (`agreementDates.ts`), contas a pagar (`payablesDomain.ts`, `PersonalWalletPage.tsx`), `services/paymentOffers.service.test.ts` e a suíte `test:audit` no `package.json`.
 - **Limitações:** alterações de interface, datas de negócio e testes; sem alteração de RPCs, migrations, ledger ou RLS neste commit. Sem validação em aparelho físico.
+
+## 14/11/2026 - Lançamentos fixos embutidos no detalhe da conta
+
+- Receitas fixas (salário, pensão, aluguel recebido e similares) agora aparecem dentro do detalhe da conta de destino, com cadastro, confirmação mensal idempotente e desativação.
+- Despesas/pagamentos fixos agora aparecem dentro do detalhe da conta de origem, com cadastro, geração idempotente dos próximos vencimentos e pausa/reativação.
+- A página separada `Receitas` deixou de aparecer na navegação; links antigos para `/carteira/receitas` são direcionados para `Contas`, sem apagar os serviços, registros ou histórico existentes.
+- O extrato, o FAB, os lançamentos avulsos e os fluxos de pagamentos de contratos permanecem inalterados. Nenhuma migration, RPC, ledger, pagamento, estorno ou RLS foi alterado.
+- Validação executada após a implementação: TypeScript, arquitetura da Carteira, visão geral, páginas, testes visuais da Carteira e recebimentos. Sem validação em aparelho físico.
+
+## 15/11/2026 — Foco da Carteira: linha de base atual e acompanhamento futuro
+
+- Prioridade de produto: acompanhar saldos existentes, gastos atuais e contratos ainda vigentes, registrando movimentos daqui em diante para medir sua evolução.
+- O fluxo de conciliação de recebimentos históricos foi retirado da interface da Carteira e do serviço frontend. Valores passados que não representam recursos disponíveis não serão reclassificados como saldo atual.
+- As migrations e tabelas históricas permanecem preservadas no banco/código para não apagar auditoria nem alterar dados existentes; nenhuma migração reversa ou operação remota foi executada.
+- Próximos passos recomendados: validar a linha de base atual de contas/fontes/cartões, despesas correntes e contratos ativos; melhorar estados vazios e relatórios futuros sobre essa base.
+- Correções de testes após a remoção do fluxo histórico:
+  - Restaurado UTF-8 e removido `useEffect` não utilizado em `features/wallet/pages/WalletIncomePage.tsx` (a quebra de encoding fazia `tests/wallet/wallet-quick-receipts.test.ts` falhar na verificação de `'Histórico de entradas avulsas'`).
+  - Atualizado `tests/architecture/historical-receipt-reconciliation.test.mjs` para garantir que `HistoricalReceiptReconciliationPanel.tsx`, os métodos de reconciliação histórica em `services/personalWallet.service.ts` e o gatilho na tela de Receitas permaneçam ausentes, preservando os fluxos de receitas atuais e recorrentes e mantendo intacto `tests/financial/historical-receipt-reconciliation.test.mjs` sobre a migration histórica preservada.
+  - Restaurada a codificação UTF-8 preservada de `docs/CARTEIRA_CONTINUIDADE.md` sem perder o histórico anterior.
+- Validação executada nesta etapa: `npm run lint` (passou), `npm run build` (passou), `npm run test:wallet-visual-next` (39/39), `npm run test:wallet-receipts` (21 + 5 + 5 = 31/31), `npm run test:wallet-pages` (9/9), `npm run test:i18n` (9/9) e `npm run test:quality` (exit code 0). Sem alteração em RPCs, migrations, ledger, regras de pagamento/estorno ou RLS. Sem validação em aparelho físico.
+## 15/11/2026 — Refatoração do App, foco operacional e release Android
+
+- `App.tsx` teve responsabilidades de acesso administrativo, sincronização de rede/notificações e pré-carregamento da Carteira extraídas para `hooks/usePlatformAccess.ts`, `hooks/useNetworkSync.ts` e `hooks/useWalletPreload.ts`. Os efeitos preservam as dependências e condições de autorização existentes; o hook de pré-carga continua restrito ao superadmin e a telas privadas autenticadas.
+- O teste de contrato do FAB foi alinhado às classes responsivas por rota (`bottom-28` em Cartões e `bottom-20` nas demais), sem mudar o comportamento visual implementado.
+- **Direção confirmada pelo titular:** medir daqui para frente usando saldos atuais, gastos correntes e contratos vigentes. O painel e os métodos frontend de reconciliação de recebimentos históricos foram removidos. Migrations e auditoria histórica permanecem preservadas; não houve operação remota nem reclassificação dos recebimentos antigos.
+- **Commits na `main`:** `105a484` remove o fluxo histórico da Carteira; `7be9c31` extrai hooks do `App.tsx` e ajusta o teste do FAB. Árvore de trabalho limpa no fechamento.
+- **Validação no commit `7be9c31`:** `npm run test:quality` local aprovado; Quality Gates remoto aprovado (`43744506493`); workflow Android APK aprovado (`43744506560`). Os testes `test:wallet-visual-next`, `test:wallet-receipts`, `test:wallet-pages`, `test:wallet-pwa-legal`, `test:wallet-import-contract` e os testes Android locais passaram durante esta sequência. `git diff --check` passou.
+- **APK:** workflow publicou `CapitalFlow-Android.apk` na release assinada `android-signed-beta`, para o commit `7be9c31`. SHA-256 do APK: `96b14533f4be1837d66f6e7503f89a141082058bc1fa35d5105f4adcf341f366`. Não houve validação em aparelho físico nem publicação na Play Store.
+- **Próximos passos:** priorizar linha de base de contas/fontes/cartões, gastos atuais e contratos ativos; onboarding/estados vazios, acessibilidade e métricas de carregamento. Reconciliação histórica não é pendência de produto da Carteira.
+
+## 15/11/2026 — Diagnóstico local do master e notificação Android de lançamento
+
+- Implementadas as frentes 01 e 02 autorizadas pelo titular; lançamentos em lote (03) continuam fora do escopo.
+- Admin: painel **Diagnóstico do sistema**, com cópia do relatório, seleção manual e limpeza. Captura global JS/promises, console, React, toasts do hook compartilhado e erros dos formulários rápidos. Somente sessão master confirmada pela autorização existente no servidor; histórico local separado por perfil, até 100 grupos/7 dias. Não coleta aparelhos de outros usuários nem crash nativo.
+- Privacidade: não persiste mensagens livres, payloads, URLs ou stacks completos. Guarda classificação indicativa, origem, tela, build, horários, contagem e referência limitada do bundle. O registro legado `cm_last_boot_error` foi removido e é limpo ao iniciar. Erros anteriores à autorização e falhas tratadas silenciosamente em outros componentes não são cobertos.
+- Android: plugin controlado `WalletQuickAccessPlugin`, permissão `POST_NOTIFICATIONS` e controle opcional no Perfil. Notificação silenciosa com **Lançar gasto / Registrar entrada**, oculta na tela bloqueada, sem sobreposição ou interceptação de links. Apenas abre os formulários existentes, sem confirmar lançamentos. Preferência por perfil, cancelamento no logout e descarte de intents de outro perfil.
+- Revisão: `usePlatformAccess` vincula o resultado ao perfil verificado. A sessão nativa não depende da identidade de `navigate`; uma revisão independente identificou e confirmou a correção desse risco. Nenhum problema importante adicional encontrado na segunda revisão.
+- Agentes: lidos AGENTS.md, skills aplicáveis, definições Impeccable e hooks locais; amostrados autorização/registro de tools e roteamento de intents em `ai/`. As suítes de AI/skills/tools/evals passaram; isso não constitui auditoria completa dos agentes ou do ambiente remoto. O diagnóstico não usa IA nem executa correções automáticas.
+- Documentação: `docs/MASTER_DIAGNOSTICS_ANDROID_SHORTCUT.md` e plano em `docs/superpowers/plans/2026-11-15-diagnostics-android-shortcut.md`.
+- Testes dedicados: `test:master-tools` (8/8) e teste Python do gerador Android (1/1), incluindo aplicação idempotente do manifest/plugin. TypeScript, build e o quality completo passaram durante a implementação; `test:wallet-visual-next` passou (39/39). Quality contém 10 TODOs preexistentes de inventário de datas de negócio; não foram corrigidos neste escopo. Avisos existentes de bundle/imports mistos permanecem.
+- Layout: painel visto no Chrome desktop em prévia isolada com dados fictícios e CSS de produção. Não é validação autenticada, mobile ou em aparelho físico. Testes Java são estáticos; sem JDK/projeto Gradle local, compilação nativa e cold/warm launch, permissões e troca de perfil no dispositivo permanecem pendentes.
+- Estado: trabalho local sobre `7be9c31`, sem novo commit, merge, deploy ou publicação de APK. A alteração preexistente deste documento foi preservada. Nenhuma RPC, migration, ledger, regra financeira ou RLS foi alterada.
+- Limitação Android: notificações contínuas podem ser dispensadas no Android 14+; sem serviço de primeiro plano e sem inicialização no boot, abrir/autenticar o app restaura a opção habilitada. Antes da release, verificar pacote, assinatura, versão monotônica, commit exato, asset e comportamento no dispositivo.
+
+## 15/11/2026 — Navegação da conta e ações compactas no celular
+
+- O toque em conta da Visão geral agora navega para `contas?conta=<id>` e abre diretamente o detalhe selecionado. A seleção da lista de Contas também usa URL, permitindo voltar à etapa anterior pelo botão nativo ou pelo botão visível. Link direto sem histórico retorna à lista de Contas.
+- No detalhe, o retorno mobile foi reduzido a “Voltar”. Registrar despesa e Movimentar permanecem visíveis; Reajustar saldo, Editar, Arquivar e Excluir ficam em “Mais opções” no celular. No desktop, as ações permanecem à vista. Nenhuma operação financeira foi alterada.
+- O cartão já usava `cartoes?card=<id>` para focar o cartão escolhido; foi acrescentado retorno visível no contexto de cartão focado, com saída segura para a lista quando não há histórico.
+- Testes: `tests/architecture/wallet-detail-navigation.test.mjs` (3/3), navegação nativa e foco do cartão (9/9), `test:wallet-visual-next` (39/39), TypeScript e quality completo. Sem validação em aparelho físico. O layout foi ajustado com base nas capturas fornecidas; não houve inspeção autenticada da nova tela no celular nesta etapa.
+
+## 15/11/2026 — Lançamento rápido: educação, detalhe e expressão monetária
+
+- Incluída a categoria **Educação** no seletor de despesas rápidas. O campo opcional “Observações” passou a “Detalhe da despesa” com exemplo concreto; continua usando o campo `notes` existente, sem migração ou alteração financeira.
+- O input da calculadora agora formata cada operando da expressão em pt-BR, mantendo milhar e centavos no segundo, terceiro e demais valores. Colagem de `R$` funciona em quantia simples e expressão. O parser financeiro canônico permanece responsável pelo resultado e pelas rejeições de valores inválidos.
+- Testes direcionados: `tests/wallet/wallet-money-input.test.ts` (22/22), incluindo expressão com três valores e colagem de reais. `test:wallet-visual-next` (39/39). Quality completo executado no estado final. Sem validação visual em aparelho físico.
+
+## 15/11/2026 — Correção da digitação por centavos em expressões
+
+- Cada operando digitado no `FinancialCalculatorInput` com `centsEntry` agora desloca os algarismos da direita para a esquerda: `15,00 + 1 → 15,00 + 0,01`, `+10 → +0,10`, `+1015 → +10,15`. O mesmo vale para operadores seguintes e parênteses; a colagem de `R$` continua representando o valor declarado.
+- Backspace no final da expressão remove um algarismo do último operando, inclusive pelo teclado Android sem `keydown`. Campos configurados para digitação em reais preservam o modo anterior. O parser financeiro, saldos, faturas, RPCs e dados persistidos não foram alterados.
+- Testes: `npm run test:wallet-money-apk` (29/29), `npm run test:wallet-visual-next` (39/39) e `npm run test:quality` concluídos sem falhas. Commit: correção registrada neste commit da `main`. Não houve validação em celular físico nem build release do APK.
+
+## 15/11/2026 — Operadores inseridos dentro de valores monetários
+
+- No `FinancialCalculatorInput` compartilhado, digitar ou tocar um operador dentro de `15,00` após o primeiro algarismo produz `1,00+5,00`. Cada lado do sinal é normalizado como quantia completa, inclusive quando há separador de milhar. O operador no fim preserva a quantia anterior; selecionar o valor inteiro e tocar no operador acrescenta o sinal em vez de apagar o valor.
+- A mudança cobre os campos monetários que usam o componente compartilhado. Expressões coladas também exibem cada quantia completa (`1+5,00 → 1,00+5,00`); a digitação por centavos após o sinal, o parser financeiro e a persistência preservam seus contratos.
+- Testes: `test:wallet-money-apk` (30/30), `loan-financial-calculator.test.ts` (5/5), `test:wallet-visual-next` (39/39) e `test:quality` concluídos sem falhas. Commit: este registro da `main`. Sem teste em aparelho físico ou novo APK release.
+
+## 15/11/2026 — Janelas suspensas na Carteira (Contas e Cartões)
+
+- Adicionada a variante `variant="wallet"` em `components/ui/Modal.tsx`, mantendo os demais modais do sistema com a aparência padrão intacta. No celular, a janela suspensa mantém margem visível (`p-3`), respeita safe-areas (`env(safe-area-inset-top/bottom/left/right)`), acompanha o teclado via `window.visualViewport`, rola internamente (`data-dialog-body`), mantém cabeçalho e rodapé acessíveis e intercepta primeiro o botão Voltar do Android via `registerDialogBack`.
+- Em `components/wallet/AccountActivityPanel.tsx`: as ações **Receita**, **Receber**, **Despesa**, **Pagar**, **Transferir** e **Saldo inicial** passaram a abrir em `Modal variant="wallet"`, preservando rascunhos, validações, prevenção de envio duplicado e `requestId` idempotentes (`transactionRef` e `openingRef`). A confirmação nativa `window.confirm` para exclusão de lançamento manual foi substituída por confirmação em `Modal variant="wallet"`.
+- Em `components/wallet/AccountDetailsPage.tsx`: **Editar conta**, **Arquivar conta**, **Excluir conta** e **Reajustar saldo** passaram a usar `Modal variant="wallet"`, mantendo visíveis os botões de navegação, cópia de PIX, cobrança e ações diretas sem ocultar o resumo da conta.
+- Em `features/wallet/pages/WalletCardsPage.tsx`: preservados os fluxos que já usam janelas e movida a importação de extrato/fatura (`FlatSmartStatementReader`) para `Modal variant="wallet"`, mantendo navegação, seleção de fatura, cópia e exportação com ação direta.
+- Testes executados após a implementação: `npx tsx --test components/ui/Modal.test.tsx tests/wallet/wallet-floating-dialogs.test.ts tests/wallet/wallet-account-manual-void.test.ts utils/dialogNavigation.test.ts tests/wallet/wallet-asset-deletion.test.ts` (16/16), `npm run test:wallet-visual-next` (39/39), `npm run test:financial`, `npm run test:wallet-import-contract` (3/3) e `npm run test:quality` (exit code 0, incluindo `build` e `test:wallet-pages`). Nenhuma RPC, migration, ledger ou RLS foi alterada.
+- Limitações: sem validação visual/tátil em aparelho físico e sem compilação/publicação de APK release nesta etapa.
+
+## 16/11/2026 — Cabeçalho compacto da Carteira e conta
+
+- A navegação da Carteira passou a usar quatro opções compactas com toque mínimo de 44 px; o saldo rápido entrou no mesmo bloco, ocupando uma linha própria em telas estreitas e o espaço lateral no desktop. O valor continua vindo do snapshot canônico e respeita a ocultação financeira.
+- Em Contas e PIX, o botão Atualizar foi preservado, a descrição redundante foi removida e o detalhe deixou de mostrar o botão Voltar. A URL da conta e o retorno pelo histórico/nativo permanecem ativos, inclusive após arquivar ou excluir.
+- Testes direcionados de arquitetura e navegação (28/28), saldo rápido (2/2), `test:wallet-visual-next` (39/39), `test:quality` completo sem falhas e detector de layout Impeccable sem achados. O teste antigo de posição sticky foi atualizado para a nova posição dentro da navegação. Sem validação visual/tátil em aparelho físico ou novo APK release. Commit: este registro da `main`.
+
+## 16/11/2026 — Contas mais próximas da navegação
+
+- O saldo rápido ocupa a área lateral das quatro opções da Carteira no celular; na Visão geral, as quatro opções continuam distribuídas pela largura toda. O saldo segue o snapshot existente e respeita a ocultação financeira.
+- Em Contas, removidos o título “Contas e PIX”, o painel de liquidez e capital transferível e o total consolidado repetido no rodapé da lista. A lista de instituições aparece logo após a navegação. Atualizar foi colocado junto das ações da lista; movimentação, transferência do Capital e cobrança PIX permanecem abaixo das contas, com as mesmas condições de acesso e habilitação.
+- Em Cartões, removidos o título “Cartões e faturas” e a descrição introdutória. O botão Atualizar permanece disponível.
+- Escopo restrito à apresentação: sem alteração de RPCs, migrations, ledger, regras de fatura, pagamento, estorno ou RLS. Base local: `8e219a9`; mudanças ainda sem commit ou merge. Sem validação em aparelho físico ou publicação de APK nesta etapa.
+- Validação: TypeScript, `test:wallet-pages` (9/9), `test:wallet-visual-next` (39/39), `test:architecture`, `test:quality` completo e detector de layout Impeccable sem achados. As duas primeiras tentativas do quality apontaram contratos de teste que ainda exigiam o painel removido; as verificações foram atualizadas e a execução final terminou sem falhas.
+
+## 16/11/2026 — Correção de corte horizontal, barra de saldo abaixo da navegação e compactação de ações
+
+- Corrigido o estouro horizontal na barra da Carteira: `WalletModule.tsx` voltou a usar `grid-cols-4` exclusivamente para as 4 abas e moveu `<WalletBalanceDock />` para logo abaixo do `<nav>` (fora da Visão geral), evitando o corte do valor e dos botões à direita no celular.
+- Removido o botão de atualizar (`RefreshCw`) do cabeçalho das páginas em `WalletPageFrame.tsx` e do cabeçalho da lista em `WalletAccountsPage.tsx`, eliminando a faixa vazia acima dos cartões e contas.
+- Em `AccountCardStack.tsx` ("Suas contas"): o subtítulo agora inicia recolhido e abre/fecha ao tocar no título `Suas contas`. Os botões **Registrar despesa** e **Nova conta** saíram do cabeçalho de `Suas contas` e foram para o painel de ações abaixo da lista em `WalletAccountsPage.tsx`.
+- Em `AccountDetailsPage.tsx`: compactados os botões superiores (**Registrar despesa**, **Movimentar**, **Mais opções** e ações secundárias) e protegido o bloco **SALDO** contra corte horizontal (`shrink-0`).
+- Em `BankStack.tsx`: compactados os botões **Importar fatura** e **+ Cartão** para não estourarem no celular e removido o rótulo recortado do cartão de trás na pilha.
+- Testes executados: `npm run test:wallet-pages` (9/9), `npm run test:wallet-visual-simplification` (11/11), `tests/wallet/wallet-floating-dialogs.test.ts` + `tests/wallet/wallet-payable-split.test.ts` (6/6) e `npm run test:quality` completo (`exit code 0`). Sem alteração de RPCs, migrations, ledger ou RLS. Sem validação em aparelho físico ou publicação de APK nesta etapa.
+
+## 16/11/2026 — Quality Gate completo, compactação da Carteira, Extrato geral e medição de carregamento
+
+- **Cartões, Contas e Visão geral:**
+  - Removidos `"Cartões e faturas"` e o subtítulo introdutório em `WalletCardsPage.tsx`; `"Cartões de crédito"` em `BankStack.tsx` passou a abrir/fechar o subtítulo ao toque. Compactados barra de navegação (`WalletModule.tsx`), faixa de saldo (`WalletBalanceDock.tsx`), controles do cartão (`BankStack.tsx`) e espaçamento do extrato.
+  - Em `CardInvoiceStatement.tsx`, `INVOICE_OVERRIDE` agora exibe um único rótulo (`Fatura consolidada`) em destaque âmbar separado das compras comuns.
+  - Em `WalletAccountsPage.tsx`, removidos os 5 atalhos externos abaixo da lista (mantendo o FAB e botão de criação apenas no estado vazio), movidos `Transferir do Capital` e `Nova conta` para **Mais opções** em `AccountDetailsPage.tsx`, e adicionado o **Extrato geral das contas** (busca, privacidade e navegação para a conta ao tocar).
+  - Em `WalletOverviewPage.tsx`, removida a frase `"Até 8 obrigações..."`, compactada a lista de **Compromissos próximos** e removido o `pb-28` duplicado em `WalletModule.tsx`.
+- **Recebimentos (destino opcional):** `PaymentManagerModal.tsx` e `InstallmentGrid.tsx` passaram a usar `components/wallet/ReceiptDestinationSelector.tsx` (lista selecionável compacta com ícones, sem parágrafos longos).
+- **Medição de carregamento:** criado `features/wallet/services/walletLoadingMetrics.ts` (amostragem em memória limitada a 30 leituras, latência média/pico e taxa de cache `memory`/`offline`), instrumentado em `walletRepository.ts` (`load` e `loadOverview`) e exibido em `AdminDiagnostics.tsx`.
+- **Validação final:** `npm run test:wallet-money-apk` (30/30), `npm run test:wallet-loading` (6/6), `npm run test:wallet-visual-next` (39/39), `npm run test:wallet-pages` (9/9), `npm run test:wallet-receipts` (31/31), `npm run test:wallet-settlement` (20/20), `npm run build`, `npm run lint` e `npm run test:quality` completo aprovados (`exit code 0`). Sem alteração em RPCs, migrations, ledger ou RLS. Sem validação em aparelho físico ou publicação de APK nesta etapa.
+
+## 17/11/2026 — Empréstimo financiado por cartão na fatura da Carteira
+
+- **Causa:** `saveLoan` debitava apenas o principal na fonte de capital e gravava `funding_total_payable` no contrato; o vínculo com o cartão da Carteira não criava despesa nem parcelas de fatura.
+- **Correção:** commit `a8e23d5` na `main`. A RPC `finalize_card_funded_loan_v1` usa o vínculo exclusivo fonte → cartão, autenticação do master, bloqueio transacional e chave do contrato para criar uma única despesa. A saída do principal e o lançamento no cartão são atômicos; repetição não duplica nenhum dos dois. A Carteira mantém RLS de leitura do novo vínculo contrato → despesa. Há índices nas FKs novas. Contratos com financiamento em débito bancário continuam fora desse fluxo.
+- **Caso Deyse:** contrato `2ac454ac-04f0-4c60-bd04-1fbb069857a4` reconciliado no Supabase em 17/11. Saída inicial de R$ 700,00 já existente, sem novo débito na fonte. Cartão Nubank final 4736 recebeu despesa `9f2a023e-bb85-415e-b42d-b955e4c1623b` de R$ 734,93. Limite usado passou de R$ 5.784,24 para R$ 6.519,17; disponível passou de R$ 1.207,06 para R$ 472,13. A fatura de dezembro começa com R$ 73,49; são nove parcelas de R$ 73,49 e a última de R$ 73,52, totalizando R$ 734,93. A fonte permaneceu em R$ 1.016,21.
+- **Testes:** `npm run test:quality`, `npm run test:wallet-visual-next`, `npm run test:financial`, `npm run lint` e teste PGlite novo aprovados. A RPC foi ensaiada em transação revertida antes da reconciliação; consulta posterior confirmou valor, parcelas, fatura, limite e ausência de segundo adiantamento. Advisor de saúde sem alertas; advisor de segurança sinaliza o `SECURITY DEFINER` autenticado intencional, com verificação de super admin e titularidade dentro da função. Os índices de FK foram adicionados após o advisor de desempenho.
+- **Limitações e pendências:** contrato e parcelas do cliente ainda são criados antes da RPC finalizadora; se a finalização falhar, o contrato fica sem saída de capital e sem cobrança do cartão, e uma nova tentativa com o mesmo ID completa o fluxo. Confirmar a execução do CI no commit publicado e a release Android assinada separadamente; não houve validação em celular físico.
+
+## 18/11/2026 — Padronização de seletores, extrato e apresentação da Carteira e recebimentos
+
+- **Escopo:** criado componente compartilhado `components/ui/SelectOptionList.tsx` para substituir `<select>` nativos por lista expansível padronizada em `LoanFormFinancialSection.tsx` (Fonte de capital) e `AccountActivityPanel.tsx` (Conta de destino e Categoria, mantendo opção personalizada); `accountStatementDomain.ts` padroniza a apresentação curta no extrato para recebimentos de contrato (`Recebimento de {cliente}`), concessões (`Empréstimo · {cliente}`) e transferências de capital (`Capital · {fonte}`), sem alterar registros persistidos; `FinancialCalculatorInput.tsx` exibe `%` em campos de taxa; `ReceiptDestinationSelector.tsx` remove opções “Padrão” e usa botão “Limpar”; `AppShell.tsx` ajusta o espaço inferior mobile da Carteira para `pb-28 md:pb-12` (preservando folga acima da barra inferior e do FAB).
+- **Branch e commit:** alterações inicialmente registradas em `codex/wallet-ui-feedback-20261118` (`48cd006`), ainda fora da `main` nessa etapa; sem alteração em RPCs, migrations, ledger, liquidação, saldo histórico ou RLS.
+- **Limitações e rollback:** sem validação visual em aparelho físico Android; alterações restritas à camada de apresentação e reversíveis por arquivo.
+
+## 19/11/2026 — Revisão antes da integração da interface da Carteira
+
+- **Pedido:** registrar na produção os arquivos pendentes, excluindo as imagens de `.codex-attachments/`, e identificar trabalho importante em outras branches.
+- **Correções da revisão independente:** os valores monetários dos novos seletores respeitam o olho de privacidade; categorias personalizadas são salvas por perfil e não são carregadas sem perfil ativo; Escape e clique fora fecham a lista de opções; o guia de gastos identifica compras parceladas pelo valor original, sem tratá-las como parcela vencida.
+- **Imagens:** o commit inicial `48cd006` incluiu seis anexos por engano. A remoção desses arquivos do índice e do diretório local foi preparada para um commit corretivo. A cópia no histórico do commit já publicado continua acessível até uma limpeza de histórico autorizada separadamente; esta etapa não usa `force push`.
+- **Contratos afetados:** apenas apresentação e armazenamento local de nomes de categorias. Não houve alteração em RPCs, migrations, ledger, RLS, liquidação ou saldos históricos. O armazenamento legado de categorias sem perfil não é carregado pela nova versão.
+- **Rollback:** reverter o commit de interface restaura os seletores anteriores; reverter o commit corretivo restaura as imagens e desfaz as proteções de privacidade, portanto exige revisão do conjunto antes de qualquer reversão. Sem validação em aparelho físico ou APK release nesta etapa.
+- **Evidências:** `npm run test:quality` concluído com exit code 0 antes da revisão do PR (inclui build, testes financeiros, arquitetura, Carteira e o novo teste de isolamento/privacidade); `npm run test:wallet-receipts` passou; teste dedicado de categorias e máscara 2/2; `git diff --check` sem erros. Revisor independente em contexto separado identificou os vazamentos e confirmou as correções em leitura de diff; não executou teste visual nem revisão humana no GitHub.
+- **Revisão do PR #138:** comentário automático identificou que o campo de categoria personalizada desaparecia ao digitar um prefixo igual a uma categoria existente. A seleção agora usa estado explícito de edição, com teste de sequência `Com → Compras → Compras online`; `test:wallet-visual-next` passou 40/40, TypeScript passou e o revisor independente não encontrou outra regressão concreta. A repetição local de `test:quality` parou por falta de memória virtual do Windows durante o build (esbuild, errno 1455), após os testes anteriores passarem. O quality completo havia passado antes desta correção; o CI do commit final deve validar o conjunto antes da integração. Sem teste em aparelho físico.
+
+## 19/11/2026 — Resultado da integração e publicação
+
+- **Changelog:** `CHANGELOG.md` registra as mudanças da atualização e os caminhos afetados. PR #138 integrado por squash em `aa7bad8`; commit posterior `7a193ec` disparou nova tentativa de deploy sem alterar a árvore de arquivos.
+- **Verificação:** os sete checks do PR passaram; `test:quality` completo passou no CI da `main` em `7a193ec`. A árvore da `main` não contém `.codex-attachments/`. O revisor independente examinou as correções da Carteira antes do merge; esta documentação não recebeu validação visual em aparelho físico.
+- **Android:** workflow `44464279303` passou no commit `7a193ec` e publicou APK release assinado e SHA-256 em `android-signed-beta` e `android-preview`; pacote `com.socrateslever.capitalflow`, `versionCode 100586`. A workflow verificou assinatura permanente, pacote, versão monotônica e bytes do asset publicado.
+- **Web pendente:** Cloudflare Pages passou no preview do PR, mas falhou imediatamente na publicação de produção tanto em `aa7bad8` quanto em `7a193ec`. O site anterior ainda respondeu HTTP 200; isso não comprova a versão nova em produção. É necessário consultar os logs do deploy no painel Cloudflare para diagnosticar a causa. O rollback do código é o revert do squash `aa7bad8` após revisão do diff; a release Android já publicada exige nova versão monotônica para correção, não substituição por APK de assinatura diferente.
+
+## 19/11/2026 — Alerta incorreto de saldo no contrato financiado pelo cartão PicPay
+
+- **Pedido e causa:** investigar o aviso de carteira negativa ao emitir contrato de R$ 500,00 pela fonte PicPay vinculada a cartão. Consulta somente leitura confirmou fonte `CARD` com saldo operacional R$ 0, cartão ativo e crédito disponível R$ 2.062,73 no momento da consulta. O formulário comparava o principal com `fontes.balance` mesmo quando a finalização usa cartão; a RPC existente lança o total financiado no cartão sem debitar o saldo da fonte.
+- **Correção local, sem commit:** a condição do aviso de caixa usa a mesma classificação de fonte única financiada por cartão empregada no salvamento. Fonte `CARD`, ou `MISTO` com `CREDIT_CARD`, deixa de exibir aviso de caixa negativo; fontes bancárias continuam com aviso. A RPC mantém a validação de vínculo, cartão ativo e limite suficiente. Sem alteração de dados, migrations, RPCs, ledger ou RLS.
+- **Evidências da primeira etapa:** teste direcionado de classificação 5/5; teste PGlite do empréstimo no cartão 6/6; `test:wallet-visual-next` 40/40; `test:quality` completo aprovado (exit code 0, inclui build, testes financeiros e de arquitetura). Revisão independente sem achado bloqueante. Os testes ampliados e a revisão posterior estão registrados abaixo. Sem teste visual em aparelho físico.
+- **Rollback e limite da primeira etapa:** reverter os arquivos do formulário, serviço e helper restaura o aviso anterior. Esta etapa inicial atendia ao contrato financiado por uma única fonte de cartão; a interface de múltiplas fontes foi ajustada na revisão abaixo.
+
+## 19/11/2026 — Revisão do vínculo fonte PicPay → cartão no contrato
+
+- **Inspeção somente leitura:** PicPay permanece com uma fonte `CARD` de saldo operacional R$ 0 e exatamente um cartão ativo vinculado, com crédito disponível R$ 2.062,73 na consulta. Para o exemplo da tela (total financiado R$ 524,95), o crédito consultado é suficiente; a RPC é a autoridade final e confere vínculo, status e limite sob bloqueio transacional.
+- **Erros corrigidos localmente, sem commit:** o formulário não oferece débito em conta para fonte exclusivamente `CARD`, corrige o texto que dizia que o cartão não consumiria limite, distingue falta de vínculo, múltiplos vínculos e indisponibilidade do crédito, e deixa de somar vínculos múltiplos como crédito utilizável. O serviço confere vínculo e limite antes de inserir novo contrato de fonte única financiada por cartão; contratos já gravados preservam a tentativa idempotente da RPC. A interface deixa de oferecer composição por várias fontes, que o serviço já bloqueava antes de gravar; a validação do formulário informa isso antes da confirmação de caixa.
+- **Proteção financeira:** nenhuma escrita no PicPay, em saldos ou contratos históricos. Sem alteração em RPCs, migrations, ledger, RLS, pagamentos ou estornos. A RPC continua rejeitando mudança concorrente de limite após a consulta inicial.
+- **Rollback:** reverter as mudanças desta branch no formulário, validações, serviço, helper e testes restaura a interface anterior. A composição por várias fontes permanece indisponível no serviço independentemente deste ajuste de apresentação.
+- **Evidências:** teste direcionado de contrato e vínculo 8/8; revisão independente combinada dos testes direcionados 13/13; `test:financial` aprovado; `test:wallet-visual-next` 40/40; teste de calculadora e apresentação 5/5; TypeScript aprovado; `test:quality` completo aprovado (exit code 0, incluindo build, testes financeiros, Carteira e arquitetura). Revisão independente final sem regressão concreta no fluxo ativo e `git diff --check` aprovado. Sem validação visual em aparelho físico.
+
+## 19/11/2026 — Publicação na `main` (`18d91d1`) e sincronização entre páginas/funções
+
+- **Commit publicado em `origin/main`:** `18d91d12f10470f5add1d0287bf5a0d0e2fdefdc` (`18d91d1`), integrando as correções de vínculo/validação prévia do cartão (PicPay) e o barramento central de sincronização `utils/appSyncEvents.ts`.
+- **Conexões adicionadas:** `useLoanController.ts` (emissão de contrato), `NewAporteModal.tsx` (aporte), `CapitalSourceTransferModal.tsx` (transferência Capital ↔ Carteira), `SourceWalletReferencePanel.tsx` (vínculo de origens) e os modais da Carteira (`QuickExpenseModal`, `QuickIncomeModal`, `AccountActivityPanel`, `AccountMovementModal`, `CardEditModal`) agora propagam `capitalflow:wallet-updated`, `capitalflow:sync-requested` e `capitalflow:source-origins-updated` de forma consistente; `LoanFormFinancialSection.tsx` também ajusta `fundingPaymentMethod` ao alternar entre fonte `CARD` e conta bancária.
+- **Testes e limpeza:** `tests/architecture/app-sync-connections.test.ts` (2/2), `npm run test:quality` completo (`exit code 0`) e `git diff --check`; `.codex-attachments/` e `.impeccable/config.json` excluídos do commit e limpos do working tree. `CHANGELOG.md` atualizado com a entrada correspondente. Sem validação visual em aparelho físico; migration `20261117150000_card_funded_loan_no_account_debit.sql` permanece pendente de `supabase db push` no ambiente remoto.
+
+## 19/11/2026 — Clareza sobre conferência e lançamentos antigos de fatura
+
+- **Causa esclarecida:** a conferência de valores do emissor grava uma referência em `personal_wallet_card_invoice_facts`; isso não cria compra nem altera o total da lista. Em cartões com histórico, para corrigir o total consolidado da fatura, o fluxo é **Ajustar fatura**. O mês selecionado e a data de vencimento agora são validados no formulário para impedir gravação com meses incompatíveis. A UI distingue uma referência salva de uma posição inicial realmente aplicada.
+- **Lançamentos antigos e cartão escolhido:** ao lançar pela pilha ou pela fatura do cartão selecionado, o cartão fica fixo no formulário; o lançamento global ainda permite escolher o cartão. A mensagem de ciclo fechado/vencido não recomenda a próxima fatura quando a data antiga da compra pertence ao ciclo selecionado. A ação explícita foi renomeada para “Selecionar próxima fatura”.
+- **Apresentação:** textos de contexto deixam de repetir o ano ao lado de campos de data; a conferência explica sua finalidade e limites.
+- **Validação:** `npm run test:quality` terminou com exit code 0, incluindo `npm run build`; `npm run test:wallet-visual-next` (39/39), `npm run test:wallet-money-apk` (30/30), `npm run test:wallet-pages` (11/11), testes direcionados de ciclo/conferência (36/36), e `tests/architecture/wallet-expense-sheet-navigation.test.mjs` (4/4). `git diff --check` sem erros. Revisão independente pendente; diff revisado localmente.
+- **Limites e rollback:** sem consultas ou escritas de dados no Supabase nesta etapa; nenhuma RPC, migration, ledger, liquidação, pagamento, estorno ou RLS foi alterada. Sem teste visual em navegador/aparelho físico ou publicação. Mudanças ainda não commitadas, na branch `codex/wallet-invoice-purpose-ux-20261119`; rollback é reversível por revert dos arquivos de UI/testes, sem migração de dados. Alterações preexistentes em `package-lock.json` e `CardEditModal.tsx` foram preservadas e não fazem parte deste escopo.
+
+## 19/11/2026 — Destino padrão de novos lançamentos de cartão e parcelamentos com data antiga
+
+- **Causa confirmada no fluxo:**
+  1. `getCardCreditPosition` usa o primeiro ciclo com saldo como ciclo ativo para preservar o saldo em aberto, e `WalletCardsPage` reutilizava esse mês antigo como fatura selecionada e destino inicial do formulário.
+  2. Em `QuickExpenseModal.tsx`, `resolveFirstInstallmentMonthLabel` calculava `getPurchaseInvoiceMonth(expenseDate, ...)` usando a data histórica da compra (`expenseDate`, ex.: `2026-03-29`) sempre que o modal era aberto sem `initialDueMonth` (como pelo botão flutuante `+`), quando `initialDueMonth` herdado era antigo, ou quando faltava `closing_day`/`due_day`, fazendo compras/parcelamentos antigos caírem em faturas passadas (ex.: maio/agosto) em vez da fatura aberta atual.
+  3. Em `minhasFinancasWalletTools.ts`, `checkClosedOrPaidInvoiceWarning` havia recebido uma exceção que ocultava o alerta quando `purchaseDate < today` coincidia com a fatura antiga da data da compra, e `stepInvoiceMonth(normalizedMonth, 1)` sugeria apenas `mês + 1` (ainda no passado) em vez da fatura aberta atual.
+- **Correção:**
+  - `QuickExpenseModal.tsx` e `QuickWalletActionsModal.tsx` agora ancoram o cálculo padrão da fatura na **fatura aberta atual** (`effectiveCycleDate = expenseDate > today ? expenseDate : today` via `getPurchaseInvoiceMonth`), preservando a `Data da Compra` histórica no registro mas iniciando o lançamento/parcelas na fatura aberta vigente para o fechamento/vencimento daquele cartão (ex.: aberta em novembro com vencimento em dezembro para `fechamento 24 / vencimento 03`), bloqueando herança automática de `initialDueMonth` anterior à fatura aberta atual.
+  - `checkClosedOrPaidInvoiceWarning` volta a alertar qualquer fatura fechada/vencida/paga mesmo para compras com data antiga e direciona o botão `"Selecionar próxima fatura"` diretamente para a fatura aberta atual (`currentOpenDueMonth`).
+  - `resolveInvoiceMonthSelection` prioriza o ciclo da fatura aberta atual ou próximo ciclo ativo (`>= anchorMonth`) antes de recuar para faturas vencidas antigas.
+  - `CardEditModal.tsx`: corrigido o alinhamento horizontal da linha `Limite total` / `Fechamento (dia)` / `Vencimento (dia)` e foco visual dos campos.
+  - `cardInvoiceSummary.ts` e `FlatSmartStatementReader.tsx`: incluídos `Bradesco`, `PicPay`, `Santander`, `Banco do Brasil`, `Inter` e `Caixa` no detector de faturas, priorizando linhas de cabeçalho sobre linhas de transações (`DD/MM`) para impedir falsos positivos quando houver compras em `"Mercado Pago"` ou `"RecargaPay"` dentro da fatura, e diferenciada a mensagem de divergência de banco vs. final de 4 dígitos.
+  - Removidos todos os diálogos nativos do navegador (`window.confirm`) na Carteira (`FlatSmartStatementReader.tsx`, `WalletStatementImport.tsx`, `WalletCapitalLinks.tsx` e `CapitalSourceTransferModal.tsx`), substituídos por cartões de confirmação internos (`role="alertdialog"`) na própria interface.
+  - `index.css` e `index.html`: aplicado `color-scheme: dark` e contraste claro (`filter: brightness(0) invert(1)`) em `::-webkit-calendar-picker-indicator` para todos os campos nativos de data/mês/hora (`date`, `month`, `datetime-local`, `time`).
+  - `hooks/useAppNotifications.ts`: removido o gatilho Realtime de `UPDATE` em `public.parcelas` que disparava `"Ação jurídica pendente"` usando o estado antigo em memória no momento da baixa/pagamento da parcela, e adicionada revogação automática de alertas vinculados a contratos já quitados/arquivados (`PAID`/`QUITADO`/`ENCERRADO`). As notificações residuais de `"Ação jurídica pendente"` de contratos quitados (como Erlivane da Silva Correa) foram marcadas como lidas no Supabase (`public.notificacoes`).
+- **Validação:** `npm run build` (exit 0); `npm run test:wallet-visual-next` (39/39); `npm run test:wallet-pages` (11/11); testes de ciclo/conferência e parcelamento; teste de navegação do formulário; `git diff --check` sem erros.
+- **Aplicação e verificação no Supabase (`hzchchbxkhryextaymkn`):**
+  - Atualizada a função `private.wallet_card_first_due_date(uuid, date, date)` diretamente no banco remoto (e versionada em `supabase/migrations/20261119205000_wallet_card_open_cycle_default.sql`) para calcular a fatura aberta atual (`v_reference_date := greatest(p_expense_date, (now() AT TIME ZONE 'America/Manaus')::date)`) conforme `closing_day` e `due_day` do cartão, impedindo que lançamentos com data de compra no passado recuem para faturas anteriores à fatura aberta vigente.
+  - Atualizado `opening_invoice_month = '2026-12-01'` no cartão Bradesco (`210b85f8-359e-477e-b988-0a21f4cb7735`, `closing_day = 24, due_day = 3`) e validada a função no banco com datas históricas (`2025-12-31`, `2026-03-29`), confirmando retorno `2026-12-01`.
+- **Limites:** sem validação visual em aparelho físico nesta etapa. Rollback reversível pela restauração da função `private.wallet_card_first_due_date` e revert dos arquivos de UI/teste.
+
+## 19/11/2026 — Importação de fatura Bradesco
+
+- **Pedido:** buscar lançamentos na tela de importação e interpretar a estrutura tabular do PDF, mantendo o parcelamento como metadado separado do nome da dívida.
+- **Análise/correção:** o PDF informa data, histórico, moeda de origem, conversão e total em colunas distintas. O parser Bradesco agrupa linhas por posição das colunas, recupera histórico quebrado em mais de uma linha, retira valores de conversão do nome e separa `n/m` em metadados de parcela. Ano ausente nas datas é inferido pela data de referência do extrato e pela sequência dos lançamentos; por exemplo, a compra Shopfacil de 31/12 foi lida como 31/12/2025, R$ 242,72, parcela 11/18.
+- **Interface:** campo de busca filtra por descrição, data, valor, categoria ou parcela; nome e badge de parcelamento permanecem separados.
+- **Validação:** `npm run build`, `npm run test:quality`, `npm run test:wallet-visual-next` (39/39), 14 testes de parser/leitor, 3 testes de contrato de importação e 5 testes de arquitetura da tela aprovados. `git diff --check` sem erros.
+- **Limites/rollback:** nenhuma RPC, migration ou dado do Supabase foi alterado nesta tarefa. Alterações locais reversíveis nos arquivos de parser, tela e testes. Não houve publicação nem validação visual no navegador/aparelho.
+
+## 19/11/2026 — Liberação geral da Minha Carteira e remoção da leitura de faturas por IA
+
+- **Pedido:** liberar a Minha Carteira para todos os usuários autenticados do sistema e remover a leitura de faturas/imagens via IA (mantendo leitura 100% local de OFX e PDF com texto).
+- **Supabase (`hzchchbxkhryextaymkn`, migration `20261119220000_open_personal_wallet_to_all_users.sql`):**
+  - Criada a função `public.can_access_personal_wallet()` (valida `auth.uid() IS NOT NULL` e ausência de bloqueio explícito `ativo = false` em `user_modulos` para `modulo_chave = 'carteira'`).
+  - Atualizadas as 18 policies RLS das tabelas `personal_wallet_*`, `loan_card_wallet_charges` e `payment_charges` (wallet) e as 55 funções/RPCs da Carteira para usar `public.can_access_personal_wallet()`, preservando integralmente o isolamento por `owner_user_id = auth.uid()` / `user_id = auth.uid()`.
+  - `personal_wallet_ensure_default_cash_account()` passou a garantir o registro inicial em `user_modulos` e `capital_source_wallet_origin_access` para novos usuários.
+  - `platform_admin_*`, `ai_assistant_requests`, `feature_registry`, `platform_support_sessions`, `profile_feature_access` e as funções históricas de reconciliação permanecem estritamente restritas a `public.is_platform_super_admin()`.
+- **Frontend:**
+  - `App.tsx`, `hooks/useWalletPreload.ts` e `features/wallet/services/walletRepository.ts`: `MY_WALLET` liberada na navegação, rota `/carteira` e pré-carregamento para todos os usuários autenticados; `PLATFORM_ADMIN` permanece restrita a `isPlatformSuperAdmin`.
+  - `PaymentManagerModal.tsx`, `InstallmentGrid.tsx`, `ModalGroups.tsx`, `CapitalSourceTransferModal.tsx`, `WalletAccountsPage.tsx` e `SourcesPage.tsx`: roteamento opcional de recebimentos/saques e transferência de Capital para contas da Carteira liberados para todos os titulares autenticados, mantendo seleção opcional para não bloquear quem ainda não cadastrou conta.
+  - `FlatSmartStatementReader.tsx`, `WalletStatementImport.tsx` e `utils/statementSmartReader.ts`: removidos os botões e o envio de PDF/imagens para Google Gemini; o leitor opera 100% localmente para OFX e PDF com texto (com suporte a senha local).
+  - `pages/ProfilePage.tsx`, `features/profile/components/ProfileChangelog.tsx`, `src/constants/changelog.ts` e `src/constants/version.ts`: adicionada a seção **Atualizações** no Perfil com histórico estruturado por versão (`v3.5.0`, `v3.4.0`, `v3.3.0`) e filtros por tipo (`Todas`, `Novidades`, `Melhorias`, `Correções`).
+  - `services/localDiagnostics.ts` e `components/system/AdminDiagnostics.tsx`: ampliada a captura segura de frames internos (também no ambiente local de desenvolvimento, removendo query strings e rejeitando domínios externos), adicionados `errorType` por allowlist segura e categorias `Renderização` / `Servidor de dados`, além de redesenho do painel com cards de resumo, filtros por origem e botão **Baixar JSON**.
+- **Limites/rollback:** sem validação visual em aparelho físico nesta etapa. Rollback reversível restaurando a verificação `is_platform_super_admin()` na migration/frontend se necessário.
+
+## 19/11/2026 — Comparação do total apurado na importação de fatura
+
+- **Problema:** a tela mostrava apenas a soma dos itens selecionados. O total da fatura Bradesco aparecia como não identificado quando o PDF separava `Total da Fatura em Real` e o valor por vários elementos da tabela.
+- **Correção:** a importação agora soma compras positivas de todas as linhas lidas, sem depender de busca ou seleção, mostra o valor declarado no PDF e a diferença `fatura − apurado`. O rodapé mantém separado o total selecionado para importar. Valores inválidos suspendem a comparação até serem corrigidos. O resumo Bradesco busca o valor após o rótulo tabular e `PAGTO ANTECIPADO PIX` é reconhecido como pagamento, não compra.
+- **PDF verificado:** 91 linhas extraídas; 90 compras apuradas totalizam R$ 3.102,88; o documento informa R$ 2.930,88; diferença de −R$ 172,00 (a fatura está R$ 172,00 abaixo da soma apurada). A divergência é exibida para conferência, sem correção automática de valores.
+- **Validação:** `npm run test:quality` (exit 0, incluindo build), `npm run test:wallet-visual-next` (39/39), testes direcionados do parser/resumo (23/23) e arquitetura da tela (6/6). Revisor independente não encontrou bloqueadores; a sugestão sobre valores não finitos foi tratada. `git diff --check` sem erros.
+- **Limites/rollback:** sem alteração em RPC, migration, RLS, dados ou total contábil no Supabase. Mudança local na apresentação e leitura do documento; não publicada. Sem validação visual em navegador ou aparelho físico.
+
+## 19/11/2026 — Sugestão de limite cadastrado na conferência de fatura
+
+- **Problema:** o limite total informado no cadastro do cartão aparecia no cartão, mas a conferência da fatura importada mostrava “Não informado” quando o PDF não continha esse dado.
+- **Correção:** os fluxos de importação passam o limite do cartão para a conferência. Se o PDF não declarar limite, o campo recebe o valor cadastrado como sugestão, sem mensagem adicional na interface; um limite explícito do PDF prevalece. O valor só é persistido pela ação existente de salvar a conferência.
+- **Validação:** `npx tsx --test tests/wallet/card-invoice-summary.test.ts` (12/12); `npm run build` (exit 0); `git diff --check` sem erros. `npm run test:quality` permanece com falha em contratos de consentimento/leitura de IA (`tests/wallet/wallet-statement-import-regression.test.ts` e `tests/architecture/wallet-import-contract.test.mjs`), fora da propagação do limite; não declarar o gate completo aprovado.
+- **Limites/rollback:** nenhuma alteração em Supabase, migration, RPC ou dado financeiro. Alteração local reversível nos componentes/utilitários de conferência e testes; não publicada. Sem validação visual em aparelho físico.
+
+## 19/11/2026 — Disponível estimado na conferência da fatura
+
+- **Pedido e aceite:** calcular o crédito restante usando o limite cadastrado menos a fatura atual e as parcelas futuras já registradas na Carteira. O valor aparece como estimativa própria, nunca como campo declarado pelo emissor nem como dado a salvar na conferência.
+- **Implementação:** os leitores de PDF recebem a posição de crédito canônica (`getCardCreditPosition`). A prévia verifica em centavos que `limite − comprometido = disponível` e mostra limite utilizado estimado, parcelas futuras registradas e disponível, mesmo se o PDF não trouxer data de vencimento. Linhas do PDF ainda não importadas são excluídas e indicadas.
+- **Interpretação do PDF Bradesco:** o documento informa o total da fatura e o número/valor da parcela atual, mas não declara um total explícito de todas as parcelas restantes. Por isso a estimativa usa os compromissos já cadastrados no cartão, sem multiplicar valores mensais do PDF e arriscar incluir juros ou arredondamentos incorretos.
+- **Exemplo validado:** limite de R$ 10.000,00 e compromissos de R$ 7.316,49 resultam em disponível estimado de R$ 2.683,51. O limite utilizado e o disponível estimado não são gravados como valores informados pelo banco.
+- **Validação:** posição financeira em centavos (teste específico: R$ 7.316,49 / R$ 2.683,51); testes direcionados (17/17); contrato de importação (4/4); `npm run test:wallet-visual-next` (39/39); `npm run build` concluído com exit 0. Na última execução, `npm run test:quality` parou no `test:ui-copy` por texto técnico já presente em `components/system/AdminDiagnostics.tsx:37` (“Banco ou RPC”), fora do escopo desta mudança. `git diff --check` nos arquivos desta mudança sem erros; a verificação global reporta espaços finais preexistentes em `src/constants/version.ts`, fora do escopo. Hook Impeccable sem problemas determinísticos. Sem validação visual em navegador ou aparelho físico.
+- **Limites/rollback:** alteração reversível apenas de apresentação e passagem de dados; sem Supabase, migrations, RPCs ou mutações de faturas. Não publicada. A estimativa não inclui itens que estejam somente no PDF e ainda não tenham sido importados.
+
+## 19/11/2026 - Classificação local de comerciantes na importação de extratos
+
+- **Pedido:** identificar automaticamente descrições de transporte (Uber, 99, combustível/postos, Eucatur e Transamazônica), alimentação (iFood, 99Food, lanches, churrascarias e restaurantes) e outras categorias conhecidas.
+- **Implementação:** `classifyStatementDescription` tornou-se a regra única para PDF, OFX e normalização de linhas lidas por IA. Regras locais dão precedência quando reconhecem o comerciante; uma categoria já oferecida pelo leitor é mantida somente quando a descrição não é reconhecida. Incluídos também os aliases de saúde, contas da casa, lazer, educação, serviços e compras.
+- **Ambiguidade e privacidade:** ?Mercado Pago? e ?RecargaPay? sem ramo reconhecível ficam em ?Outros?; `Posto de Saúde` permanece em Saúde. Nenhuma descrição ou valor é consultado/enviado pela internet: desconhecidos continuam para revisão manual, e nenhuma categoria cria ou confirma lançamento financeiro.
+- **Validação:** `npm run test:wallet-statement-import` (64/64); `npm run test:quality` (exit 0, incluindo `npm run build` e `npm run test:wallet-visual-next`); `git diff --check` nos arquivos desta tarefa sem erros. Revisão independente sem bloqueadores.
+- **Limites/rollback:** regras determinísticas baseadas no texto impresso pelo emissor podem deixar novos descritores em ?Outros? ou confundir descritores ambíguos. Correção reversível nos leitores e testes, sem alteração de Supabase, migrations, RPC, ledger ou dados. Sem publicação ou validação visual em aparelho físico.
+
+## 19/11/2026 - Seletor de categoria compacto na importação
+
+- **Pedido e decisão visual:** reduzir o seletor de categoria dos itens importados, que ocupava a largura inteira do cartão. A aplicação de Impeccable para a superfície Operate favoreceu densidade e hierarquia estáveis: o lançamento permanece principal e a categoria um controle secundário.
+- **Implementação:** `WalletStatementImport` e `FlatSmartStatementReader` limitam o seletor a 16rem a partir do breakpoint sm; em telas estreitas ele conserva a largura flexível disponível.
+- **Validação:** Impeccable layout detect sem achados e `git diff --check` sem erros nos dois componentes. Não foi aberto um navegador/aparelho para validar a renderização; sem testes de comportamento, Supabase ou publicação nesta alteração visual.
+- **Rollback:** reversãvel restaurando as classes anteriores dos dois seletores.
+
+## 19/11/2026 - Resposta imediata ao excluir item do extrato importado
+
+- **Problema:** a confirmação de exclusão mantinha o modal bloqueado durante `refresh()`, que consulta e reconcilia o snapshot completo da Carteira após o RPC já ter concluído a operação.
+- **Ajuste:** depois da confirmação do servidor, as linhas removidas são ocultadas no estado local e o modal fecha sem aguardar a atualização completa. A atualização continua em segundo plano; falhas mantêm os itens selecionados no modal e exibem a mensagem para nova tentativa. Se a sincronização posterior falhar, a UI informa que a lista pode estar desatualizada.
+- **Validação:** revisão estática do fluxo e `git diff --check`. Não executei testes automatizados nem medi o tempo do RPC real nesta etapa; nenhuma RPC, migration, ledger ou dado foi alterado.
+- **Limite/rollback:** a espera ainda depende do tempo de resposta do RPC de exclusão/cancelamento; o ganho remove a leitura adicional do caminho bloqueante. Reversível no fluxo da página de cartões.
+
+## 19/11/2026 - Reimportação de compra de cartão já existente
+
+- **Pedido e aceite:** itens apagados não devem continuar bloqueando a leitura/importação; se houver uma compra exata ativa, a nova importação deve substituir o registro para o ciclo escolhido, sem duplicar lançamentos. Compras repetidas em linhas diferentes do mesmo arquivo continuam distintas.
+- **Implementação:** leitores e conferência atual ignoram linhas de extrato ligadas a despesas canceladas. No servidor, a origem exata de outro arquivo é reapontada para o novo documento. Compra única, pendente, não paga e fora de posição inicial é cancelada com histórico preservado e recriada no ciclo selecionado; a linha já importada do mesmo documento permanece idempotente. Mais de uma parcela, pagamento ou posição inicial interrompe a substituição. Linhas idênticas separadas do arquivo consomem origens distintas.
+- **Supabase:** schema/RLS de `personal_wallet_statement_rows`, `personal_wallet_expenses` e cartão foram conferidos; advisories de health/performance sem achados nessas tabelas. Migrations aplicadas em `hzchchbxkhryextaymkn`: `20261120000927_wallet_reuse_exact_statement_imports`, `20261120001530_wallet_reimport_card_purchase_in_selected_cycle`, `20261120001804_wallet_reimport_purchase_fresh_request_id` e `20261120002010_wallet_reimport_only_pending_purchase`. RPC final confirmado como executável por `authenticated`, com chave nova para a despesa substituta e guarda de status pendente.
+- **Validação:** `git diff --check` sem erros nos arquivos desta alteração; migrations executadas e assinatura/grants conferidos no Supabase. Testes automatizados não executados nesta etapa; nenhuma validação visual ou publicação do frontend. A revisão independente encontrou e motivou correções para compras repetidas, ciclo pela data de vencimento, unicidade do `request_id` e estado pendente; parecer final sem bloqueadores.
+- **Riscos/limites:** o advisor de segurança do Supabase sinaliza a RPC como `SECURITY DEFINER`; ela valida sessão, acesso à Carteira e propriedade do cartão, e as consultas/mutações são sempre escopadas pelo usuário autenticado. A substituição gera cancelamento histórico e nova compra somente no ciclo selecionado; itens pagos/parcelados/iniciais exigem ajuste manual. As migrations locais anteriores de 19/11 permanecem pendentes no projeto remoto e não foram aplicadas neste escopo.
+
+## 19/11/2026 - Total do banco na fatura do cartão
+
+- **Problema:** o cabeçalho da fatura mostrava apenas a soma das compras registradas, mesmo havendo um total da fatura confirmado pelo banco.
+- **Ajuste:** quando existe uma conferência salva para o mesmo cartão e ciclo, o total do banco passa a aparecer como total principal da fatura; a soma integral das parcelas não canceladas e a diferença em centavos também são exibidas. Consolidações não contam como compras. Sem conferência salva, continua aparecendo o saldo em aberto e a ação existente para informar os valores do emissor. Nenhum fato do banco é somado às compras nem altera saldo/limite.
+- **Validação:** `git diff --check` e revisão estática do caminho de seleção por cartão/ciclo; testes automatizados não executados nesta etapa. Sem deploy ou validação visual em navegador/dispositivo.
+- **Limite/rollback:** diferença entre fatura bancária e compras continua sendo apenas uma comparação de leitura; importação ou liquidação não é criada automaticamente. Reversível restaurando o valor do ciclo no cabeçalho.
+
+## 19/11/2026 - Remover repetição do extrato importado
+
+- **Problema:** a página repetia cada compra já vinculada, apesar de elas aparecerem no extrato da fatura; excluir pela cópia também cancelava a compra.
+- **Ajuste:** a seção agora mantém somente o resumo do PDF e a contagem/total importado. A lista detalhada aparece apenas para linhas sem compra vinculada, que podem ser excluídas como referências sem alterar a fatura. Compras vinculadas são geridas no extrato principal, em um único lugar.
+- **Validação:** revisão estática do fluxo e isolamento de exclusão às linhas sem vínculo; `git diff --check` sem erros. Testes automatizados e validação visual não executados.
+- **Limite/rollback:** a estrutura de referências de importação é preservada; reversível restaurando a listagem completa.
+
+## 19/11/2026 - Centralizar janela de ajuste de fatura no celular
+
+- **Problema:** o modal de ajuste da fatura ficava alinhado ao rodapé em telas estreitas, obrigando o usuário a rolar a tela para chegar aos campos.
+- **Ajuste:** o painel agora é centralizado em todas as larguras, respeita as safe areas e limita a altura; quando o formulário excede o espaço disponível, a rolagem acontece dentro do modal.
+- **Validação:** revisão estática das classes de posicionamento e `git diff --check`; testes automatizados e validação visual em navegador/aparelho não executados. O navegador conectado não permitiu identificar a URL para reprodução.
+- **Limite/rollback:** mudança somente de apresentação; reversível restaurando as classes anteriores em `InvoiceOverrideModal.tsx`.
+
+## 19/11/2026 - Corrigir deslocamento do modal de ajuste de fatura
+
+- **Evidência e causa:** no vídeo enviado, a janela aparece centralizada e depois desce junto com a rolagem da Carteira. As classes de centralização atuavam dentro do contêiner transformado/rolável da página, em vez de usar o viewport.
+- **Ajuste:** renderizar o diálogo em um portal diretamente em `document.body`. O painel continua centralizado e com rolagem interna, mas deixa de herdar o contexto de posicionamento do cartão/página.
+- **Aceite:** ao rolar a Carteira com o modal aberto, o modal permanece no centro visível da tela; conteúdo alto continua rolável dentro do painel.
+- **Validação:** inspeção da gravação antes da correção e revisão estática do ponto de renderização; sem renderização pós-correção nem testes automatizados nesta etapa.
+- **Revisao independente:** parecer favoravel ao portal para o problema de posicionamento, sem bloqueios. Acessibilidade de foco e contencao da rolagem do fundo permanecem limitacoes preexistentes fora deste reparo.
+- **Limite/rollback:** mudança apenas de renderização, reversível retornando a renderização inline em `InvoiceOverrideModal.tsx`.
+
+## 19/11/2026 - Recursos de conferencia bancaria no ajuste da fatura
+
+- **Pedido/aceite:** a janela Ajustar fatura precisava oferecer os mesmos dados do banco disponiveis em Conferir fatura do banco, sem duplicar valor da fatura e vencimento nem misturar referencia do emissor com operacao financeira.
+- **Ajuste:** incluido no mesmo modal o formulario existente de conferencia: limite total/utilizado, pagamento minimo, disponivel informado e parcelas futuras. Valor da fatura e vencimento sao controles unicos compartilhados com o ajuste. A disponibilidade calculada aparece como `limite total - limite utilizado`, mantendo separada a disponibilidade informada pelo banco.
+- **Gravacao:** Salvar valores do banco usa `saveCardInvoiceFacts` e preserva o comportamento de referencia; Salvar correcao mantem os fluxos existentes de ajuste/ledger. Nao houve alteracao em RPC, migration, liquidacao ou regras de fatura.
+- **Revisao independente:** sem bloqueios; confirmou formularios separados, campos compartilhados e chamada explicita a `saveCardInvoiceFacts`. As ressalvas de ciclo vazio e modo durante salvamento foram tratadas desabilitando a acao/campos correspondentes.
+- **Validacao:** revisao estatica de formularios independentes, ciclo passado ao salvamento e sincronizacao dos dois campos compartilhados; `git diff --check` sem erros nos arquivos alterados. Testes automatizados e renderizacao visual nao executados nesta etapa.
+- **Risco/rollback:** os dois salvamentos sao explicitos e separados para evitar gravar referencia como compra/pagamento. Reversivel removendo a secao de conferencia do modal e as propriedades compartilhadas.
+
+## 23/11/2026 — hierarquia do cabeçalho de composição de empréstimo
+
+- **Alteração:** em `components/cards/LoanCardComposition/Header.tsx`, identificador e resumo do empréstimo ficam numa faixa; o valor em destaque fica alinhado em coluna própria; ao expandir, Capital, Encargos e Original aparecem em blocos legíveis.
+- **Invariantes:** somente apresentação. Não altera fórmulas, parcelas, juros, persistência ou dados financeiros.
+- **Validação:** revisão do diff, `git diff --check` e gates do projeto após combinar com a correção do PWA; teste visual manual em dispositivo não realizado.
+- **Rollback:** reverter o commit de apresentação e seus registros de changelog.
+
+## 23/11/2026 — PWA: falha de cache não deve bloquear páginas
+
+- **Sintoma investigado:** erro genérico ao carregar determinadas páginas, incluindo Administração, compatível com falha de importação dinâmica de chunk.
+- **Causa no código:** a estratégia `immutable-assets` do service worker propagava erros de `CacheStorage.match`, `open` e `put`. Se o armazenamento local falhasse (por exemplo, quota), uma resposta de rede válida não chegava ao navegador.
+- **Correção:** falhas ao consultar ou gravar cache são tratadas como falha de otimização; o service worker tenta a rede e devolve a resposta sem exigir que o cache funcione. Escopo restrito aos assets estáticos imutáveis.
+- **Cobertura e evidência:** teste de regressão reproduz quota excedida ao gravar o chunk da Administração e erro ao ler CacheStorage. `npm run test:wallet-pwa-legal` (7/7), `npm run build`, `npm run test:quality`, `npm run test:wallet-visual-next` (62/62), inspeção local dos 73 assets JS/CSS (200), revisão independente e `git diff --check` passaram.
+- **Limitações:** não houve inspeção do PWA instalado, diagnóstico de sessão real do usuário nem teste visual em aparelho. A correção elimina o bloqueio causado por falha do CacheStorage, mas não confirma por si só que esse foi o evento observado em produção. Build reportou avisos preexistentes de imports e chunks grandes.
+- **Escopo/rollback:** frontend e teste; sem mudanças de navegação, API, dados, Supabase ou domínio financeiro. Reversão localizada em `public/service-worker.js` e no teste de arquitetura.
+
+## 25/11/2026 — Aplicação das migrations da Carteira no Supabase
+
+- **Aplicadas em produção** (pelo SQL Editor, em transação, com registro em `supabase_migrations.schema_migrations`): `20261124120000_wallet_purchase_date_invoice_routing`, `20261124150000_wallet_edit_expense_preserve_installments` e `20261125090000_card_funded_loan_uses_start_date`.
+- **Pré-condições conferidas:** a base remota de `wallet_card_first_due_date` era a versão de 19/11 (com `opening_invoice_state`); `finalize_card_funded_loan_v1` remoto tinha o mesmo tamanho de corpo da versão de 22/11, que é a base da nova; `contratos.start_date` existe.
+- **Pós-condições conferidas:** as três versões estão registradas; `private.*` sem execução para `anon`/`authenticated`; RPCs públicas só para `authenticated`; teste do ciclo com cartão fictício confirma o fechamento exclusivo. Nenhum dado alterado.
+- **Pendências:** migrations locais de 17/11 (`card_funded_loan_no_account_debit`) e 19/11 (`open_personal_wallet_to_all_users`, `wallet_allow_same_document_repeated_rows`) não constam no histórico remoto com essas versões; não foram aplicadas nem avaliadas aqui. A troca de `start_date` em um contrato já finalizado não move a compra já criada no cartão.
+
+## 26/11/2026 — Plano de correções e paridade de ciclo; skills alinhadas
+
+- **Plano:** `docs/PLANO_CARTEIRA_PARIDADE.md`, em três fases (erros, ciclo do cartão, ferramentas), com aceite, testes, autorização e ordem de cada item. Nada foi implementado.
+- **Erros encontrados na comparação (sem correção ainda):** o restante da fatura levado à próxima e a antecipação de parcelas são compostos no cliente por várias chamadas separadas (`WalletCardsPage.tsx`); uma falha no meio deixa o dado pela metade.
+- **Skills/agentes alinhados:** `capitalflow-execution-safety` (commit direto na main como padrão do proprietário, atomicidade, procedimento de migration, repositório público), `capitalflow-wallet-ux` (invariantes de fatura e limite; gastos por categoria incluem operações de conta, o que a skill antiga negava), `AGENTS.md` e `docs/AGENT_EXECUTION_CONTRACT.md` (mesmas regras).
+- **Evidência:** somente documentação; `npm run test:quality` executado antes do commit.
+
+## 26/11/2026 — Fase 0 do plano: operações de cartão atômicas
+
+- **Pedido:** executar a Fase 0 de `docs/PLANO_CARTEIRA_PARIDADE.md` (autorizado pelo proprietário).
+- **0.3 varredura:** fluxos com várias escritas encadeadas no cliente encontrados só em `WalletCardsPage.tsx`: restante da fatura, antecipação e exclusão parcial de parcelas. `QuickWalletActionsModal`, `QuickExpenseModal` e `AccountMovementModal` fazem uma escrita por ação. Ajuste de fatura (`InvoiceOverrideModal`) também faz uma escrita por ação.
+- **0.1/0.2 e exclusão parcial:** migration `20261126120000_wallet_atomic_card_operations.sql` com `personal_wallet_roll_invoice_remainder`, `personal_wallet_advance_installments` e `personal_wallet_cancel_installments`; tela e serviço passam a chamar uma RPC por ação. O restante da fatura nunca funcionava antes (request_id `uuid:roll-clear` inválido).
+- **Revisão independente (agente com contexto separado):** aprovado com ressalvas, sem bloqueantes. Corrigidos: antecipação para competência passada recusada (tirava valor do limite comprometido); antecipação para fatura consolidada por valor fechado recusada (o valor sumia); ordem de travas em `cancel_installments` igual à do pagamento (evita deadlock); repetição do restante confere os dados; posição do cartão recalculada depois do restante; prévia da antecipação com a mesma regra do servidor (ignora parcela futura parcialmente paga); chave de exclusão separada por parcela e escopo.
+- **Limitações registradas:** o pagamento parcial e o tratamento do restante continuam sendo duas RPCs (se a segunda falhar, o restante fica na fatura atual, estado consistente, e a ação pode ser refeita pela fatura). Editar valor ou mês de uma compra antecipada ou com parcela excluída reconstrói as parcelas em meses seguidos (comportamento anterior de `personal_wallet_update_expense_idempotent`); o crédito de desconto da antecipação continua como lançamento próprio.
+- **0.4 migrations sem registro:** `20261119220000_open_personal_wallet_to_all_users` está no banco com conteúdo idêntico (falta só o registro da versão); `20261119233000_wallet_allow_same_document_repeated_rows` foi substituída por versões posteriores; `20261117150000_card_funded_loan_no_account_debit` teve a maior parte substituída, mas `finalize_loan_funding_allocations_v1` **não existe em produção**, e `services/contracts.service.ts` a chama ao criar contrato com mais de uma fonte. Correção pendente de autorização.
+- **Testes:** `tests/wallet/wallet-atomic-card-operations.test.ts` 14/14 (PGlite com as funções reais); testes TS da Carteira 407/407; `npm run test:quality` exit 0; `npm run test:wallet-visual-next` 62/62. Teste de arquitetura `runtime-text-encoding` falha também na main antes desta mudança (texto com codificação corrompida em `accountStatementDomain.ts`), fora do escopo.
+- **Sem validação visual em aparelho físico.**
+
+## 26/11/2026 — 0.4: função de composição entre fontes restaurada
+
+- `20261126140000_restore_loan_funding_allocations.sql` aplicada e registrada (autorizada pelo proprietário). Só cria `finalize_loan_funding_allocations_v1`, igual à de 17/11 exceto pela data da compra no cartão (`start_date`). Conferido antes: `loan_card_wallet_charges` tem chave primária em `loan_id` (o `on conflict` funciona). Conferido depois: função existe, só `authenticated` executa, versão registrada.
+- `20261119220000_open_personal_wallet_to_all_users`: conteúdo idêntico já em produção; o registro da versão no histórico **não foi feito** (bloqueado pela proteção automática da sessão) e fica pendente de autorização.
+- **Pendente:** contratos com várias fontes criados antes desta correção podem estar sem a saída das fontes; não foram alterados. Conferir caso a caso, com autorização, antes de qualquer ajuste.
+
+## 26/11/2026 — Fase 1 do plano: ciclo do cartão
+
+- **Entregue:** itens 1.0 a 1.4 de `docs/PLANO_CARTEIRA_PARIDADE.md` (detalhes em `CHANGELOG.md`). Migration `20261126160000_wallet_card_cycle_rules.sql` aplicada antes do código (o `load()` lê a tabela nova).
+- **Verificação em produção (sem valores):** versão registrada; 3 cartões e 3 regras iniciais; 0 divergências entre o roteamento novo e a fórmula anterior de dia fixo em 41 datas por cartão; `personal_wallet_set_card_cycle_rules` executável só por `authenticated`.
+- **Revisão independente:** reprovada na 1ª versão; bloqueios e itens importantes corrigidos (ver CHANGELOG). Não houve segunda rodada de revisão.
+- **Pendências:** ciclo pelo dia fixo ainda nas telas de importação e linha do tempo; salvar cartão + regra em duas chamadas; feriados locais fora; validação visual em aparelho não realizada.
+
+## 26/11/2026 — Fase 2 do plano: ferramentas
+
+- **Entregue:** 2.1 (considerar no limite), 2.2 (reabrir fatura), 2.4A (lembrete de fechamento no app). 2.3A (saldo previsto) já existia no balanço da Visão geral. Detalhes, revisão e limitações em `CHANGELOG.md`.
+- **Pendente do plano:** 2.3B (pendente/efetivado nas contas) e 2.4B (notificação push), que exigem autorização própria; Open Finance fora do escopo.
+- **Sem validação visual em aparelho físico.**
+
+## 26/11/2026 — Correções de tela no contrato
+
+- Modal no celular em largura total, extrato recente sem rolagem interna, notas de auditoria sem texto em inglês e quadro Capital/Encargos/Original em três colunas. Detalhes em `CHANGELOG.md`.
+- **Sem validação em aparelho físico.**
+
+## 26/11/2026 — Conta e cartão no mesmo cadastro, visíveis
+
+- O vínculo de 05/11 existia, mas ficava escondido em seções recolhidas. Agora é uma escolha visível nos dois cadastros; o cartão criado junto com a conta recebe fechamento, vencimento e bandeira. Sem mudança de RPC ou banco. Detalhes em `CHANGELOG.md`.
+- **Sem validação em aparelho físico.**
+
+## 26/11/2026 — Importação CSV/XLSX, senha de PDF e unificação
+
+- CSV e XLSX entram na importação (leitura local); PDF com senha já funcionava e o pedido de senha ficou em destaque; texto da unificação "normal" corrigido (ela congela o saldo, não cobra juros). Detalhes em `CHANGELOG.md`.
+- **Pendente:** unificação que soma contratos e mantém juros normais exige nova RPC, com autorização do proprietário.
+- **Sem validação em aparelho físico.**
+
+## 27/11/2026 — Fase 2 finalizada
+
+- Entregue: 2.3A saldo previsto por conta, 2.3B pendente/efetivado (migration 20261127090000 aplicada e registrada antes do código), 2.4A lembretes no sino. Detalhes em `CHANGELOG.md`.
+- **Pendente:** 2.4B notificação push (Edge Function + agendamento + VAPID). Unificação de contratos com juros normais (nova RPC).
+- **Sem validação em aparelho físico.**
+
+## 27/11/2026 — CI vermelho e APK não gerado (corrigido)
+
+- De `7792f44` a `2690812` o Quality Gates falhou num teste de arquitetura desatualizado e o APK não foi gerado. Teste ajustado; nenhuma mudança de produção. Antes de declarar gates aprovados, rodar também os passos do CI fora do `test:quality` (`test:wallet-statement-import`, `test:wallet-invoice-cycle`, `wallet-invoice-editor-regression`, `wallet-issuer-invoice-atomic`, `npm audit`).
+
+## 27/11/2026 — Limpeza de dados autorizada pelo proprietário
+
+- A pedido expresso do proprietário, as compras de um cartão importadas de uma fatura errada (já canceladas pelo app), suas parcelas e as marcações de importação foram apagadas definitivamente em produção, numa única transação com checagem prévia (todas canceladas, sem vínculo com empréstimo, conta a pagar ou pagamento de fatura). Cartão, regra de ciclo e conta vinculada mantidos. Verificado depois: 0 compras, 0 marcações e 0 parcelas órfãs nesse cartão; demais cartões intactos. Sem código alterado.
+
+## 27/11/2026 — Exclusão definitiva de lançamento errado
+
+- Regra do proprietário: excluir apaga do banco o que foi inserido por engano; efeito financeiro realizado segue com estorno. Migration 20261127120000 aplicada antes do código. Detalhes em `CHANGELOG.md`.
+- Registros cancelados antigos apagados com autorização expressa do proprietário (27/11/2026), numa transação com conferência prévia (sem pagamento, vínculo ou efeito em saldo): 16 lançamentos cancelados, 32 parcelas e 1 par anulado que se compensava. Depois: 0 cancelados, 0 parcelas órfãs, 0 anulados; soma dos saldos das contas inalterada; 125 compras ativas preservadas.
+
+## 27/11/2026 — Exclusão em lote, notificações e aviso repetido
+
+- Exclusão em lote (migration 20261127140000, aplicada antes do código), notificações com foto/logo/cor e correção do aviso de fatura duplicado (UUID estável + checagem no banco). Detalhes em `CHANGELOG.md`.
+- Registro anterior com contagem de testes errada (10/10 e 17/17) corrigido para 8/8 e 16/16; a mensagem do commit 5562cbb mantém o número antigo.
+- **Sem validação em aparelho físico.**
+
+## 27/11/2026 — Fase 1 concluída e textos
+
+- Pontas da Fase 1 fechadas: importação de fatura, linha do tempo e ferramentas de fatura usam a regra de ciclo de cada cartão. "Auditável" removido das telas. Detalhes em `CHANGELOG.md`.
+
+## 27/11/2026 — Unificação com juros normais
+
+- Migration 20261127160000 aplicada antes do código; regra e revisão em `CHANGELOG.md`.
+
+## 27/11/2026 — Fase 2.4B concluída (push de fatura)
+
+- Migrations 20261127180000 e 20261127190000 aplicadas; função `wallet-invoice-reminders` publicada; rotina diária ativa. Desligar a verificação de JWT da função foi recusado pela política de segurança; a rotina envia a chave pública do app guardada no Vault. Fases 0, 1 e 2 concluídas; pendente só o botão por cartão para desligar o push e o item opcional 0.5.
+
+## 27/11/2026 — Plano concluído
+
+- Ícones próprios nas abas e opção de aviso por cartão (migration 20261127200000). Fases 0, 1 e 2 do plano entregues; pendente só o item opcional 0.5.
+
+## 27/11/2026 — Ajustes do Antigravity integrados
+
+- Frente do cartão com Limite/Gasto/Restante, paleta de cores no editor, aviso de fatura vazia removido e atalhos compactos na conta. Testes de arquitetura ajustados ao novo formato. Detalhes em `CHANGELOG.md`. Sem aparelho físico.
+
+## 27/11/2026 — Item 0.5: data das compras de empréstimo (correção autorizada)
+
+- Com autorização expressa do proprietário, 2 compras de cartão ligadas a empréstimo, criadas antes de 25/11, passaram a usar a data do empréstimo. Transação única com checagens (nenhuma parcela paga; a fatura não muda). Cada compra guarda o registro da correção (`mutation_requests.correcao-data-0-5`: data anterior, nova e momento). Depois: 0 divergências; ambas continuam na mesma fatura. Sem código alterado.
+- **Plano concluído:** Fases 0, 1 e 2, incluindo o item 0.5.
+## 27/11/2026 — Movimento nos ícones e nas abas
+
+- Partes dos SVGs animam ao ativar abas e montar cabeçalhos. A Carteira tem pílula deslizante na aba ativa. Os keyframes usam transformação e opacidade, entre 330 e 420 ms incluindo os atrasos.
+- A revisão independente identificou que a preferência de movimento podia ficar desatualizada. A pílula agora acompanha mudanças dessa preferência durante a sessão. Mantida a faixa de duração solicitada.
+- A suíte visual passou (62/62), i18n passou (9/9) e textos da interface passaram. O gate geral detectou uma regressão no contrato entre a navegação e o saldo rápido. O provedor de animação foi movido para dentro da navegação e o teste direcionado passou (2/2). Gate completo pendente de nova execução.
+- Rollback localizado nos SVGs, componentes de navegação e cabeçalho, trecho de animações no CSS e changelogs. Validação de quadros em aparelho físico pendente.
+## 27/11/2026 — Anéis de gastos e movimento mais visível
+
+- Animação compartilhada dos anéis de categoria em fatura, conta, visão geral e relatório. O contorno SVG percorre de zero até o valor existente em 800 ms quando pelo menos 35% do ícone entra na área visível. Movimento reduzido mostra o valor final imediatamente. Suíte visual após o ajuste: 62/62.
+- Os ícones passaram a 420 ms por parte, com maior deslocamento lateral e vertical. Reversão localizada no CSS, no componente do anel e nos changelogs. Sem validação em aparelho físico.
+- Verificação local no Chrome: as 12 variantes recebem os keyframes. No componente React, o arco ficou vazio antes da rolagem, iniciou ao entrar na área visível e terminou em 49% no caso testado. A renderização de lista e faixa confirmou que percentuais e arcos ficam fora do HTML com privacidade ativa. O teste que verifica a aparência da navegação da Carteira passou após preservar o destaque na pílula (14/14 na suíte).
+- Gate completo `npm run test:quality` passou na nova execução, incluindo o build. Revisão independente aprovou o movimento e a privacidade. A medição de FPS em aparelho continua pendente.
+## 27/11/2026 — Seletores de categoria e receitas
+
+- Despesa fixa passa ao modal compartilhado. Movimentações de conta, receitas fixas, compromissos e despesas passam a usar o seletor por ícones. O texto dos atalhos distingue receita avulsa de cadastro mensal. Handlers e cálculos financeiros preservados.
+- `test:wallet-visual-next` 62/62, `test:wallet-visual-simplification` 14/14, `test:ui-copy` e `git diff --check` passaram. Rollback restrito aos componentes de interface e aos registros. Sem conferência em dispositivo físico.

@@ -44,7 +44,7 @@ const STEPS = [
 const ADVANTAGES = [
   {
     icon: History,
-    title: 'Histórico auditável',
+    title: 'Histórico completo',
     description: 'Pagamentos, baixas parciais e estornos preservam a rastreabilidade da operação.',
   },
   {

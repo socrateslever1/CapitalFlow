@@ -195,13 +195,13 @@ export const AIAssistantModal: React.FC<AIAssistantModalProps> = ({ onClose, onC
 
                 <div className="flex gap-3 w-full">
                     {status === 'IDLE' || status === 'ERROR' || strategicAnalysis ? (
-                        <button onClick={handleStartListening} className="flex-1 py-5 bg-blue-600 text-white rounded-full text-[10px] font-black uppercase hover:bg-blue-500 transition-all shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2">
+                        <button onClick={handleStartListening} className="flex-1 py-3.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-500 transition-all shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2">
                             {strategicAnalysis ? <><Mic size={16}/> Nova Consulta</> : status === 'IDLE' ? <><Play size={16} className="fill-white"/> Iniciar Microfone</> : 'Tentar Novamente'}
                         </button>
                     ) : null}
 
                     {strategicAnalysis && (
-                        <button onClick={onClose} className="flex-1 py-5 bg-slate-800 text-white rounded-full text-[10px] font-black uppercase transition-all">
+                        <button onClick={onClose} className="flex-1 py-3.5 bg-slate-800 text-white rounded-xl text-sm font-semibold transition-all">
                             Entendido
                         </button>
                     )}

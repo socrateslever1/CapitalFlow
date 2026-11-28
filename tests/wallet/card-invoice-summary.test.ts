@@ -1,6 +1,17 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { parseCardInvoiceSummary, reconcileCardInvoice } from '../../utils/cardInvoiceSummary';
+import { issuerMatchesBank, parseCardInvoiceSummary, reconcileCardInvoice, withCardCreditLimitSuggestion, withStatementEstimatedPosition } from '../../utils/cardInvoiceSummary';
+import { isCardInvoicePaymentDescription, parseStatementLines } from '../../utils/walletStatementPdf';
+
+test('registered card limit fills a missing PDF value as a suggestion without overriding a reported value', () => {
+  const parsed = parseCardInvoiceSummary(['Bradesco Cartões', 'Total da fatura R$ 896,98']);
+  const suggested = withCardCreditLimitSuggestion(parsed, 10000);
+
+  assert.equal(parsed.creditLimit, null);
+  assert.equal(suggested.creditLimit, 10000);
+  assert.equal(withCardCreditLimitSuggestion({ ...parsed, creditLimit: 12000 }, 10000).creditLimit, 12000);
+  assert.equal(withCardCreditLimitSuggestion(parsed, 0), parsed);
+});
 
 test('Mercado Pago: distinguish invoice, minimum, commitments and available limit', () => {
   const result = parseCardInvoiceSummary([
@@ -153,4 +164,76 @@ test('Itaú: total declarado também é correto sem financiamento alternativo', 
   ]);
   assert.equal(parsed.invoiceTotal, 1111.21);
   assert.equal(parsed.warnings.filter(w => /alternativo de financiamento/.test(w)).length, 0);
+});
+
+test('Bradesco e PicPay: compras em Mercado Pago ou RecargaPay dentro da fatura não trocam o banco emissor', () => {
+  const bradesco = parseCardInvoiceSummary([
+    'Bradesco Cartões',
+    'Total da fatura R$ 896,98',
+    'Vencimento: 03/12/2026',
+    '10/11 MERCADO PAGO *LOJA R$ 120,00',
+    '11/11 RECARGAPAY *CELULAR R$ 50,00',
+  ]);
+  assert.equal(bradesco.institution, 'Bradesco');
+  assert.equal(bradesco.invoiceTotal, 896.98);
+  assert.equal(issuerMatchesBank('Bradesco', bradesco.institution), true);
+
+  const columnarBradesco = parseCardInvoiceSummary([
+    'Aplicativo Bradesco Cartões', 'Total da Fatura em Real', '.', ' ', '.',
+    '.', 'R$ 2.930,88',
+  ]);
+  assert.equal(columnarBradesco.invoiceTotal, 2930.88);
+
+  const picpay = parseCardInvoiceSummary([
+    'PicPay Card',
+    'Total a pagar R$ 1.007,87',
+    '07/11 RECARGAPAY R$ 52,50',
+  ]);
+  assert.equal(picpay.institution, 'PicPay');
+  assert.equal(issuerMatchesBank('PicPay', picpay.institution), true);
+});
+
+test('Bradesco: calcula parcelas futuras, limite usado, disponível e desconsidera apenas pagamento da fatura anterior', () => {
+  const parsed = parseStatementLines([
+    { key: 'h', text: 'Data: 19/11/2026 - 17:58' },
+    { key: '1', text: '16/11 DROGARIA BOM PRECO 1/3 BRL 72,49 0,00 R$ 0,00 72,49' },
+    { key: '2', text: '07/11 DONA NOVINHA 1/2 BRL 62,28 0,00 R$ 0,00 62,28' },
+    { key: '3', text: '03/11 SALDO ANTERIOR BRL 0,00 0,00 R$ 0,00 2.517,55' },
+    { key: '4', text: '30/10 PAGTO ANTECIPADO PIX BRL -2.517,55 0,00 R$ 0,00 -2.517,55' },
+    { key: '5', text: '14/08 PAG EUCATUR*Eucat BRL -86,00 0,00 R$ 0,00 -86,00' },
+    { key: '6', text: '31/12 PG *SHOPFACIL SA 11/18 BRL 242,72 0,00 R$ 0,00 242,72' },
+  ], 'CARD');
+
+  const eucatur = parsed.rows.find(r => /eucatur/i.test(r.description));
+  const pagtoPix = parsed.rows.find(r => /pagto antecipado/i.test(r.description));
+  assert.equal(eucatur?.amount, -86);
+  assert.equal(isCardInvoicePaymentDescription(eucatur!.description), false);
+  assert.equal(pagtoPix?.amount, -2517.55);
+  assert.equal(isCardInvoicePaymentDescription(pagtoPix!.description), true);
+
+  const invoiceRows = parsed.rows.filter(r => !isCardInvoicePaymentDescription(r.description));
+  const sum = Math.round(invoiceRows.reduce((acc, r) => acc + r.amount, 0) * 100) / 100;
+  assert.equal(sum, Math.round((72.49 + 62.28 - 86 + 242.72) * 100) / 100);
+
+  const baseSummary = parseCardInvoiceSummary([
+    'Aplicativo Bradesco Cartões',
+    'Total da Fatura em Real R$ 2.930,88',
+  ]);
+  const estimated = withStatementEstimatedPosition(baseSummary, {
+    registeredCreditLimit: 10000,
+    statementRows: parsed.rows,
+    suggestedDueDate: '2026-12-03',
+  });
+  // Campos que o PDF não declara permanecem em branco para preenchimento manual fiel ao app do banco
+  assert.equal(estimated.summary.creditLimit, 10000);
+  assert.equal(estimated.summary.futureInstallments, null);
+  assert.equal(estimated.summary.usedLimit, null);
+  assert.equal(estimated.summary.availableLimit, null);
+  assert.equal(estimated.summary.dueDate, '2026-12-03');
+  assert.equal(estimated.summary.minimumPayment, null);
+  assert.equal(estimated.estimatedFields.creditLimit, true);
+  assert.equal(estimated.estimatedFields.futureInstallments, false);
+  assert.equal(estimated.estimatedFields.usedLimit, false);
+  assert.equal(estimated.estimatedFields.availableLimit, false);
+  assert.equal(estimated.estimatedFields.dueDate, true);
 });

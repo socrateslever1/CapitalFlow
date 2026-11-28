@@ -25,7 +25,8 @@ Gerenciar o ciclo de clientes, contratos, parcelas, recebimentos, renegociaçõe
 
 - O backend financeiro é a fonte de verdade. A interface apresenta resultados e solicita operações sem inventar valores ou substituir as regras do domínio.
 - Pagamentos e estornos críticos devem ser transacionais, auditáveis e idempotentes.
-- Preservar o histórico financeiro. Correções devem manter rastreabilidade, sem apagar registros para eliminar divergências.
+- Preservar o histórico financeiro do que aconteceu de fato: pagamentos, recebimentos, empréstimos e faturas pagas são corrigidos por estorno rastreável, nunca apagados.
+- Lançamento inserido por engano, sem efeito financeiro realizado (compra sem parcela paga, movimentação manual sem vínculo), é **apagado do registro** ao ser excluído, para não gerar dúvida em auditorias (decisão do proprietário, 27/11/2026). A exclusão é atômica, devolve o efeito no saldo/limite e recusa o que tiver vínculo.
 - Respeitar isolamento por tenant/perfil e autorização no servidor.
 - Bloquear mutações financeiras quando a operação segura não estiver disponível.
 - Tratar ambiguidades históricas explicitamente, sem presumir lançamentos sem evidência.

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Camera,
   X,
@@ -132,7 +133,7 @@ export const CardCameraScannerModal: React.FC<Props> = ({ onClose, onCardRecogni
     }
   };
 
-  return (
+  return createPortal((
     <div
       role="dialog"
       aria-modal="true"
@@ -294,5 +295,5 @@ export const CardCameraScannerModal: React.FC<Props> = ({ onClose, onCardRecogni
         </footer>
       </section>
     </div>
-  );
+  ), document.body);
 };

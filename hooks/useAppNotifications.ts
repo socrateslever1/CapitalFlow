@@ -10,6 +10,8 @@ import { playNotificationSound } from '../utils/notificationSound';
 import { formatMoney } from '../utils/formatters';
 import { formatBRDate } from '../utils/dateHelpers';
 import { repairMojibake } from '../utils/textEncoding';
+import { personalWalletService } from '../services/personalWallet.service';
+import { buildInvoiceReminders, stableReminderUuid, type InvoiceReminderCard } from '../features/wallet/utils/invoiceReminders';
 
 export interface InAppNotification {
   id: string;
@@ -141,11 +143,30 @@ export const useAppNotifications = ({
     if (
       item.item_type === 'carteira' ||
       item.title.toLowerCase().includes('saldo crítico') ||
-      item.title.toLowerCase().includes('saldo critico')
+      item.title.toLowerCase().includes('saldo critico') ||
+      item.title === 'Ação jurídica pendente' ||
+      item.title === 'Acao juridica pendente'
     ) {
       return true;
     }
     const metadata = item.metadata || {};
+    const targetLoanId = metadata.loan_id || (item.item_type === 'documento' ? item.item_id : null);
+    if (targetLoanId) {
+      const loan = loansRef.current.find((candidate) => candidate.id === targetLoanId);
+      if (loan) {
+        const rawStatus = String(loan.status || '').toUpperCase();
+        if (
+          (loan as any).isArchived ||
+          rawStatus === 'PAID' ||
+          rawStatus === 'QUITADO' ||
+          rawStatus === 'ENCERRADO' ||
+          !isLegallyActionable(loan) ||
+          loanEngine.computeLoanStatus(loan) === 'PAID'
+        ) {
+          return true;
+        }
+      }
+    }
     if (metadata.notification_rule === BILLING_NOTIFICATION_RULE) {
       if (metadata.milestone_date !== todayISO()) return true;
       const loan = loansRef.current.find((candidate) => candidate.id === metadata.loan_id);
@@ -348,7 +369,7 @@ export const useAppNotifications = ({
     });
 
     const channel = supabase
-      .channel(`notification-center-${notificationProfileId}`)
+      .channel(`notification-center-${notificationProfileId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`)
       .on(
         'postgres_changes',
         {
@@ -385,18 +406,47 @@ export const useAppNotifications = ({
     };
   }, [notificationProfileId, disabled, flushQueue, mapDbNotification, dismissedMap, showToast, onDataChanged]);
 
-  // Revoga alertas locais de parcelas originais quando o contrato passa a seguir acordo.
+  // Revoga alertas locais quando o contrato é quitado/arquivado ou passa a seguir acordo.
   useEffect(() => {
     if (!loans.length) return;
     const activeLoans = new Map(loans.map((loan) => [loan.id, loan]));
     setNotifications((previous) => {
       const valid = previous.filter((item) => {
+        if (item.title === 'Ação jurídica pendente' || item.title === 'Acao juridica pendente') {
+          const targetDbId = item.dbId || (item.id && item.id.length === 36 ? item.id : null);
+          if (targetDbId) void notificationCenterService.markAsRead(targetDbId);
+          return false;
+        }
+        const targetLoanId = item.metadata?.loan_id || (item.item_type === 'documento' ? item.item_id : null);
+        if (targetLoanId) {
+          const loan = activeLoans.get(targetLoanId);
+          if (loan) {
+            const rawStatus = String(loan.status || '').toUpperCase();
+            const isSettledOrClosed =
+              Boolean((loan as any).isArchived) ||
+              rawStatus === 'PAID' ||
+              rawStatus === 'QUITADO' ||
+              rawStatus === 'ENCERRADO' ||
+              !isLegallyActionable(loan) ||
+              loanEngine.computeLoanStatus(loan) === 'PAID';
+            if (isSettledOrClosed && (item.item_type === 'parcela' || item.item_type === 'documento')) {
+              const targetDbId = item.dbId || (item.id && item.id.length === 36 ? item.id : null);
+              if (targetDbId) void notificationCenterService.markAsRead(targetDbId);
+              return false;
+            }
+          }
+        }
         if (item.metadata?.notification_rule !== BILLING_NOTIFICATION_RULE) return true;
         const loan = activeLoans.get(item.metadata?.loan_id);
         if (!loan) return true;
-        return resolveBillingNotificationInstallments(loan).some((inst) =>
+        const stillOpen = resolveBillingNotificationInstallments(loan).some((inst) =>
           inst.id === item.metadata?.installment_id && inst.dueDate === item.metadata?.due_date
         );
+        if (!stillOpen) {
+          const targetDbId = item.dbId || (item.id && item.id.length === 36 ? item.id : null);
+          if (targetDbId) void notificationCenterService.markAsRead(targetDbId);
+        }
+        return stillOpen;
       });
       return valid.length === previous.length ? previous : valid;
     });
@@ -407,7 +457,7 @@ export const useAppNotifications = ({
     if (!activeUser || !notificationProfileId || disabled) return;
 
     const channel = supabase
-      .channel(`global-urgent-alerts-${notificationProfileId}`)
+      .channel(`global-urgent-alerts-${notificationProfileId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`)
       .on(
         'postgres_changes',
         {
@@ -505,45 +555,6 @@ export const useAppNotifications = ({
           onDataChanged?.();
         }
       )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'parcelas',
-          filter: `profile_id=eq.${notificationProfileId}`,
-        },
-        (payload) => {
-          const loan = loansRef.current.find((l) => l.id === payload.new.loan_id);
-          if (
-            loan &&
-            loanEngine.computeLoanStatus(loan) === 'OVERDUE' &&
-            !loan.activeAgreement &&
-            !isDismissed('documento', loan.id)
-          ) {
-            const onClick = () => {
-                setActiveTab('LEGAL');
-                setSelectedLoanId(loan.id);
-            };
-            const dueDate = payload.new.data_vencimento || payload.new.due_date || payload.new.dueDate;
-            const dueText = dueDate ? ` Vencimento: ${formatBRDate(dueDate)}.` : '';
-            const message = `${loan.debtorName} está em atraso e ainda não tem confissão de dívida assinada.${dueText}`;
-            notificationService.notify(
-              'Ação jurídica pendente',
-              message,
-              onClick
-            );
-            addNotification({
-                title: 'Ação jurídica pendente',
-                message,
-                type: 'warning',
-                item_type: 'documento',
-                item_id: loan.id,
-                metadata: { loan_id: loan.id }
-            });
-          }
-        }
-      )
       .subscribe();
 
     return () => {
@@ -609,11 +620,41 @@ export const useAppNotifications = ({
                   milestone: milestone.key,
                   milestone_date: milestoneDate,
                   notification_rule: BILLING_NOTIFICATION_RULE,
+                  client_name: loan.debtorName || null,
+                  avatar_url: loan.clientAvatarUrl || null,
                 }
             });
           }
         });
       });
+    }
+
+    // C) Carteira: fatura que fecha ou vence em até 3 dias (uma vez por cartão/data).
+    try {
+      const reminderCards = await personalWalletService.loadInvoiceReminderCards();
+      const since = new Date(Date.now() - 4 * 86400000).toISOString();
+      for (const reminder of buildInvoiceReminders(reminderCards as InvoiceReminderCard[], todayISO())) {
+        const itemId = stableReminderUuid(reminder.key);
+        if (notifiedDueLoans.current.has('fatura:' + itemId)) continue;
+        notifiedDueLoans.current.add('fatura:' + itemId);
+        if (isDismissed('fatura', itemId)) continue;
+        // Outro aparelho ou recarga já avisou: não repete.
+        if (notificationProfileId && await notificationCenterService.existsForItem(notificationProfileId, 'fatura', itemId, since)) continue;
+        const card = (reminderCards as Array<{ id: string; issuer?: string | null; nickname?: string }>).find(item => item.id === reminder.cardId);
+        const title = reminder.kind === 'CLOSE' ? 'Fatura vai fechar' : 'Fatura vai vencer';
+        addNotification({
+          title,
+          message: reminder.text,
+          type: reminder.kind === 'DUE' && reminder.days <= 1 ? 'warning' : 'info',
+          item_type: 'fatura',
+          item_id: itemId,
+          action_url: '/carteira/cartoes',
+          metadata: { card_id: reminder.cardId, kind: reminder.kind, date: reminder.date, notification_rule: 'wallet_invoice_reminder',
+            bank: card?.issuer || card?.nickname || null },
+        });
+      }
+    } catch {
+      // Lembrete da Carteira é auxiliar: falha de leitura não interrompe os demais avisos.
     }
 
     // B) Jurídico: Vencidos sem assinatura (Notificação de Cobrança)

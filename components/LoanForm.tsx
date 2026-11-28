@@ -1,8 +1,9 @@
 
 import React from 'react';
 import { Modal } from './ui/Modal';
+import { AppIcon } from './icons/AppIcons';
 import { Loan, Client, CapitalSource, UserProfile } from '../types';
-import { X, Camera, History, AlertCircle, CheckCircle2, Info } from 'lucide-react';
+import { X, Camera, AlertCircle, CheckCircle2, Info } from 'lucide-react';
 import { formatBRDate } from '../utils/dateHelpers';
 import { useLoanForm } from '../features/loans/hooks/useLoanForm';
 import { LoanFormClientSection } from './forms/LoanFormClientSection';
@@ -45,11 +46,11 @@ export const LoanForm: React.FC<LoanFormProps> = (props) => {
     <>
       <Modal onClose={() => { if (showCamera.active) stopCamera(); props.onCancel(); }}
         title={props.initialData ? 'Ajustar Contrato' : 'Novo Contrato'} subtitle="Configuração de Empréstimo"
-        icon={<History size={22} />} size="xl" busy={isSubmitting || isUploading}
+        icon={<AppIcon name={props.initialData ? 'edit' : 'contracts'} size={26} className="cf-icon-header-in" />} size="xl" busy={isSubmitting || isUploading}
         footer={<LoanFormActions formId={formId} isSubmitting={isSubmitting || isUploading} isEditing={!!props.initialData} />}>
             {props.initialData && (
                 <div className="mb-8 bg-blue-600/5 p-4 rounded-lg border border-blue-500/10 flex items-center gap-4">
-                    <div className="p-2.5 bg-blue-600/10 rounded-lg text-blue-400"><History size={18}/></div>
+                    <div className="p-2.5 bg-blue-600/10 rounded-lg text-blue-400"><AppIcon name="details" size={22}/></div>
                     <div>
                         <p className="text-[10px] font-black uppercase text-blue-500/70 tracking-widest">Auditoria do Registro</p>
                         <p className="text-xs text-slate-300 font-bold">Iniciado em: {formatBRDate(props.initialData.createdAt || props.initialData.startDate)}</p>

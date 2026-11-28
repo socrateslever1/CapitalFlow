@@ -41,7 +41,9 @@ test('outros registros permanecem visíveis, incluindo ajustes e importações',
   });
   assert.equal(entries.length,3);
 });
-test('exclusão é estorno atômico apenas de lançamentos manuais, sem delete físico ou privilégios diretos',()=>{
+// 27/11/2026: por decisão do proprietário, lançamento manual errado é APAGADO (sem registro que gere dúvida).
+// A anulação antiga continua no banco sem delete físico; a tela usa a exclusão definitiva com as mesmas travas.
+test('exclusão apaga só lançamentos manuais elegíveis, devolve o saldo atomicamente e sem privilégios diretos',()=>{
   const sql=readFileSync('supabase/migrations/20261105190500_wallet_void_manual_operation.sql','utf8');
   const panel=readFileSync('components/wallet/AccountActivityPanel.tsx','utf8');
   const service=readFileSync('services/personalWallet.service.ts','utf8');
@@ -56,8 +58,20 @@ test('exclusão é estorno atômico apenas de lançamentos manuais, sem delete f
   assert.match(sql,/voids_operation_id=p_operation_id/);
   assert.doesNotMatch(sql,/delete from public\.personal_wallet_account_operations/i);
   assert.match(panel,/Excluir lançamento/);
-  assert.match(panel,/window\.confirm/);
-  assert.match(panel,/voidManualAccountOperation/);
+  assert.doesNotMatch(panel,/window\.confirm/);
+  assert.match(panel,/<Modal[\s\S]*variant="wallet"[\s\S]*title="Excluir lançamento"/);
+  assert.match(panel,/deleteWrongAccountOperation/);
+  const del=readFileSync('supabase/migrations/20261127120000_wallet_delete_wrong_entries.sql','utf8');
+  assert.match(del,/security definer/);
+  assert.match(del,/pg_advisory_xact_lock\(hashtextextended\(v_user::text, 18273\)\)/);
+  assert.match(del,/operation_type not in \('EXPENSE', 'INCOME', 'RECEIPT'\)/);
+  assert.match(del,/contract_id is not null or v_op\.installment_id is not null or v_op\.charge_id is not null/);
+  assert.match(del,/personal_wallet_recurring_receipts/);
+  assert.match(del,/capital_source_wallet_transfers/);
+  assert.match(del,/Saldo insuficiente para apagar esta entrada/);
+  assert.match(del,/revoke all on function public\.personal_wallet_delete_wrong_operation\(uuid, uuid\) from public, anon/);
+  assert.doesNotMatch(del,/grant (insert|update|delete)/i);
+  assert.match(service,/personal_wallet_delete_wrong_operation/);
   assert.match(panel,/<FinancialCalculatorInput required className=\{input\} value=\{amount\}/);
   assert.match(panel,/<FinancialCalculatorInput required className=\{input\} value=\{openingAmount\}/);
   assert.match(service,/personal_wallet_void_manual_operation/);

@@ -112,7 +112,7 @@ export function buildInstallmentReceiptModel(params: {
 
     const cycle = String(loan.billingCycle || '').toUpperCase();
     const modalityRule = cycle === 'MONTHLY' || cycle === 'GIRO' || cycle === 'REVOLVING'
-        ? { name: 'Mensal · 30 dias', rule: 'O sistema distribui o valor recebido entre juros, atraso e capital. Só pede uma decisão extra quando o valor não cobre nem os juros do ciclo.' }
+        ? { name: 'Mensal · 30 dias', rule: 'O sistema distribui o valor recebido entre juros, atraso e capital. Renova por 30 dias quando os juros do ciclo são quitados, preservando o atraso pendente. Só pede decisão extra quando faltam juros.' }
         : cycle === 'INSTALLMENT_FIXED'
             ? { name: 'Parcelado · datas fixas', rule: 'Cada parcela é tratada separadamente e os vencimentos futuros não mudam com o recebimento desta parcela.' }
             : cycle === 'DAILY_FREE' || cycle === 'DAILY_FIXED'
@@ -161,9 +161,9 @@ export function buildInstallmentReceiptModel(params: {
     ) {
         const latePaid = Math.max(0, displayedAmount - interest);
         const lateRemaining = Math.max(0, effectiveLateFee - latePaid);
-        receiptEffect = latePaid <= ZERO_BALANCE_THRESHOLD
-            ? `Quita os juros. O atraso de ${formatMoney(lateRemaining)} continua pendente no vencimento atual.`
-            : `Quita os juros e recebe ${formatMoney(latePaid)} do atraso. Ainda ficam ${formatMoney(lateRemaining)} de atraso no vencimento atual.`;
+        receiptEffect = automaticDecision.operationType === 'RENEW_KEEP_PENDING'
+            ? `Quita os juros e renova por 30 dias. O atraso de ${formatMoney(lateRemaining)} continua pendente, sem incorporar ao capital.`
+            : `Recebe os encargos cobertos. O atraso de ${formatMoney(lateRemaining)} continua pendente no vencimento atual.`;
     } else if (displayedAmount <= chargesAmount + ZERO_BALANCE_THRESHOLD && chargesAmount > ZERO_BALANCE_THRESHOLD) {
         receiptEffect = automaticDecision.operationType === 'RENEW_KEEP_PENDING'
             ? `Quita os encargos do ciclo e renova o vencimento. O capital de ${formatMoney(principal)} permanece em aberto.`

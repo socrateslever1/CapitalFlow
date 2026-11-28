@@ -45,33 +45,37 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
     );
 
     const getNextOpenDueDate = (loan: any) => {
-        const next = loan.installments?.find((inst: any) => {
+        const hasActiveAgreement = !!loan.activeAgreement && ['ACTIVE', 'ATIVO'].includes(String(loan.activeAgreement.status).toUpperCase());
+        const list = hasActiveAgreement && Array.isArray(loan.activeAgreement?.installments)
+            ? loan.activeAgreement.installments
+            : loan.installments;
+        const next = list?.find((inst: any) => {
             const status = String(inst?.status || '').toUpperCase();
-            if (status === 'RENEGOCIADO' || status === 'CANCELADO') return false;
-            const open =
-                Number(inst?.principalRemaining || 0) +
-                Number(inst?.interestRemaining || 0) +
-                Number(inst?.lateFeeAccrued || 0);
+            if (['PAID', 'PAGO', 'QUITADO', 'RENEGOCIADO', 'CANCELADO'].includes(status)) return false;
+            const open = hasActiveAgreement
+                ? Math.max(0, Number(inst?.amount || 0) - Number(inst?.paidAmount || 0))
+                : Number(inst?.principalRemaining || 0) +
+                  Number(inst?.interestRemaining || 0) +
+                  Number(inst?.lateFeeAccrued || 0);
             return open > 0.5;
         });
         return next?.dueDate ? parseDateOnlyUTC(next.dueDate) : null;
     };
 
     const today = todayDateOnlyUTC();
+    const activeLoans = group.loans.filter((loan) => !loan.isArchived);
 
-    const overdueLoans = group.loans.filter((loan) => {
+    const overdueLoans = activeLoans.filter((loan) => {
         const due = getNextOpenDueDate(loan);
         return !!due && due.getTime() < today.getTime();
     });
 
-    const dueSoonLoans = group.loans.filter((loan) => {
+    const dueSoonLoans = activeLoans.filter((loan) => {
         const due = getNextOpenDueDate(loan);
         if (!due) return false;
         const diffDays = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
         return diffDays >= 0 && diffDays <= 3;
     });
-
-    const activeLoans = group.loans.filter((loan) => !loan.isArchived);
     const getLoanOpenAmount = (loan: any) => {
         const installmentsTotal = (loan.installments || []).reduce((total: number, inst: any) => {
             const status = String(inst?.status || '').toUpperCase();
@@ -338,7 +342,7 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
                     ))}
 
                     <div className="pt-3 border-t border-slate-800/60 space-y-3">
-                        <div className="grid grid-cols-3 sm:grid-cols-4 xl:grid-cols-7 gap-1.5">
+                        <div className="grid grid-cols-[repeat(auto-fit,minmax(4rem,1fr))] gap-2">
                             <button
                                 onClick={(e) => {
                                     e.stopPropagation();
@@ -346,10 +350,10 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
                                     handleOpenClient(e);
                                     closeActionPanels();
                                 }}
-                                className="px-2 py-2 bg-slate-900 text-slate-400 border border-slate-800 rounded-lg hover:bg-slate-800 hover:text-white transition-all flex flex-col items-center justify-center gap-1"
+                                className="flex min-h-12 w-full min-w-0 flex-col items-center justify-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900 px-1.5 py-2 text-slate-400 transition-all hover:bg-slate-800 hover:text-white"
                             >
-                                <User size={13} />
-                                <span className="text-[7px] font-black uppercase text-center">Cliente</span>
+                                <User size={15} className="shrink-0" />
+                                <span className="text-center text-[9px] font-black uppercase leading-3">Cliente</span>
                             </button>
                             <button
                                 onClick={(e) => {
@@ -360,12 +364,14 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
                                     setShowArchiveChoices(false);
                                     setShowUnifyChoices(false);
                                 }}
-                                className="px-2 py-2 bg-blue-600/10 text-blue-400 border border-blue-500/20 rounded-lg hover:bg-blue-600 hover:text-white transition-all flex flex-col items-center justify-center gap-1"
+                                className="flex min-h-12 w-full min-w-0 flex-col items-center justify-center gap-1.5 rounded-lg border border-blue-500/20 bg-blue-600/10 px-1.5 py-2 text-blue-400 transition-all hover:bg-blue-600 hover:text-white"
                             >
-                                <LinkIcon size={13} />
-                                <span className="text-[7px] font-black uppercase text-center">Portal</span>
+                                <LinkIcon size={15} className="shrink-0" />
+                                <span className="text-center text-[9px] font-black uppercase leading-3">Portal</span>
                             </button>
                             <button
+                                type="button"
+                                aria-pressed={billFilter === 'ALL'}
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     keepGroupOpen();
@@ -374,12 +380,14 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
                                     setShowUnifyChoices(false);
                                     setShowPortalChoices(false);
                                 }}
-                                className="px-2 py-2 bg-emerald-600/10 text-emerald-400 border border-emerald-500/20 rounded-lg hover:bg-emerald-600 hover:text-white transition-all flex flex-col items-center justify-center gap-1"
+                                className={`flex min-h-12 w-full min-w-0 flex-col items-center justify-center gap-1.5 rounded-lg border px-1.5 py-2 transition-all ${billFilter === 'ALL' ? 'border-emerald-400 bg-emerald-600 text-white' : 'border-emerald-500/20 bg-emerald-600/10 text-emerald-400 hover:bg-emerald-600 hover:text-white'}`}
                             >
-                                <MessageSquare size={13} />
-                                <span className="text-[7px] font-black uppercase text-center">Cobrar</span>
+                                <MessageSquare size={15} className="shrink-0" />
+                                <span className="text-center text-[9px] font-black uppercase leading-3">Cobrar</span>
                             </button>
                             <button
+                                type="button"
+                                aria-pressed={billFilter === 'OVERDUE'}
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     keepGroupOpen();
@@ -388,13 +396,16 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
                                     setShowUnifyChoices(false);
                                     setShowPortalChoices(false);
                                 }}
-                                disabled={overdueLoans.length === 0}
-                                className="px-2 py-2 bg-rose-600/10 text-rose-400 border border-rose-500/20 rounded-lg hover:bg-rose-600 hover:text-white transition-all flex flex-col items-center justify-center gap-1 disabled:opacity-40 disabled:hover:bg-rose-600/10 disabled:hover:text-rose-400"
+                                className={`flex min-h-12 w-full min-w-0 flex-col items-center justify-center gap-1.5 rounded-lg border px-1.5 py-2 transition-all ${billFilter === 'OVERDUE' ? 'border-rose-400 bg-rose-600 text-white' : 'border-rose-500/20 bg-rose-600/10 text-rose-400 hover:bg-rose-600 hover:text-white'}`}
                             >
-                                <AlertCircle size={13} />
-                                <span className="text-[7px] font-black uppercase text-center">Venc.</span>
+                                <AlertCircle size={15} className="shrink-0" />
+                                <span className="text-center text-[9px] font-black uppercase leading-3">
+                                    Vencidas{overdueLoans.length > 0 ? ` (${overdueLoans.length})` : ''}
+                                </span>
                             </button>
                             <button
+                                type="button"
+                                aria-pressed={billFilter === 'DUE_SOON'}
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     keepGroupOpen();
@@ -403,11 +414,12 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
                                     setShowUnifyChoices(false);
                                     setShowPortalChoices(false);
                                 }}
-                                disabled={dueSoonLoans.length === 0}
-                                className="px-2 py-2 bg-amber-600/10 text-amber-400 border border-amber-500/20 rounded-lg hover:bg-amber-600 hover:text-white transition-all flex flex-col items-center justify-center gap-1 disabled:opacity-40 disabled:hover:bg-amber-600/10 disabled:hover:text-amber-400"
+                                className={`flex min-h-12 w-full min-w-0 flex-col items-center justify-center gap-1.5 rounded-lg border px-1.5 py-2 transition-all ${billFilter === 'DUE_SOON' ? 'border-amber-400 bg-amber-600 text-white' : 'border-amber-500/20 bg-amber-600/10 text-amber-400 hover:bg-amber-600 hover:text-white'}`}
                             >
-                                <Clock size={13} />
-                                <span className="text-[7px] font-black uppercase text-center">Prazo</span>
+                                <Clock size={15} className="shrink-0" />
+                                <span className="text-center text-[9px] font-black uppercase leading-3">
+                                    Prazo{dueSoonLoans.length > 0 ? ` (${dueSoonLoans.length})` : ''}
+                                </span>
                             </button>
                             <button
                                 onClick={(e) => {
@@ -418,10 +430,10 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
                                     setShowArchiveChoices(false);
                                     setShowPortalChoices(false);
                                 }}
-                                className="px-2 py-2 bg-indigo-600/10 text-indigo-400 border border-indigo-500/20 rounded-lg hover:bg-indigo-600 hover:text-white transition-all flex flex-col items-center justify-center gap-1"
+                                className="flex min-h-12 w-full min-w-0 flex-col items-center justify-center gap-1.5 rounded-lg border border-indigo-500/20 bg-indigo-600/10 px-1.5 py-2 text-indigo-400 transition-all hover:bg-indigo-600 hover:text-white"
                             >
-                                <RefreshCcw size={13} />
-                                <span className="text-[7px] font-black uppercase text-center">Unir</span>
+                                <RefreshCcw size={15} className="shrink-0" />
+                                <span className="text-center text-[9px] font-black uppercase leading-3">Unificar</span>
                             </button>
                             <button
                                 onClick={(e) => {
@@ -432,10 +444,10 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
                                     setShowUnifyChoices(false);
                                     setShowPortalChoices(false);
                                 }}
-                                className="px-2 py-2 bg-slate-900 text-slate-400 border border-slate-800 rounded-lg hover:bg-slate-800 hover:text-amber-400 transition-all flex flex-col items-center justify-center gap-1"
+                                className="flex min-h-12 w-full min-w-0 flex-col items-center justify-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900 px-1.5 py-2 text-slate-400 transition-all hover:bg-slate-800 hover:text-amber-400"
                             >
-                                <Archive size={13} />
-                                <span className="text-[7px] font-black uppercase text-center">Arq.</span>
+                                <Archive size={15} className="shrink-0" />
+                                <span className="text-center text-[9px] font-black uppercase leading-3">Arquivar</span>
                             </button>
                         </div>
 
@@ -466,18 +478,32 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
                             <div className="bg-slate-900/80 border border-slate-800 rounded-lg p-2 space-y-2">
                                 <p className="px-1 text-[8px] font-black uppercase text-slate-500">{billFilterLabel}</p>
                                 {billChoices.length === 0 ? (
-                                    <p className="px-3 py-2 text-[9px] font-bold text-slate-500">Nenhum contrato neste filtro.</p>
+                                    <p className="px-3 py-2 text-[10px] font-semibold text-slate-400">
+                                        {billFilter === 'DUE_SOON'
+                                            ? 'Nenhum contrato vencendo nos próximos 3 dias.'
+                                            : billFilter === 'OVERDUE'
+                                                ? 'Nenhum contrato vencido.'
+                                                : 'Nenhum contrato disponível para cobrança.'}
+                                    </p>
                                 ) : (
                                     <div className="grid gap-2">
-                                        {billChoices.map((loan) => (
-                                            <button
-                                                key={loan.id}
-                                                onClick={(e) => handleBillLoan(e, loan)}
-                                                className="w-full px-3 py-2 rounded-md bg-slate-950 text-slate-300 border border-slate-800 text-left text-[9px] font-black uppercase truncate hover:text-emerald-400"
-                                            >
-                                                Cobrar {formatShortName(loan.debtorName)} · #{loan.id.substring(0, 6)}
-                                            </button>
-                                        ))}
+                                        {billChoices.map((loan) => {
+                                            const nextDue = getNextOpenDueDate(loan);
+                                            const dueLabel = nextDue
+                                                ? nextDue.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'UTC' })
+                                                : null;
+                                            return (
+                                                <button
+                                                    key={loan.id}
+                                                    type="button"
+                                                    onClick={(e) => handleBillLoan(e, loan)}
+                                                    className="w-full px-3 py-2 rounded-md bg-slate-950 text-slate-300 border border-slate-800 text-left text-[9px] font-black uppercase truncate hover:text-emerald-400 flex items-center justify-between gap-2"
+                                                >
+                                                    <span className="truncate">Cobrar {formatShortName(loan.debtorName)} · #{loan.id.substring(0, 6)}</span>
+                                                    {dueLabel && <span className="shrink-0 text-[9px] font-bold text-slate-400">Vence {dueLabel}</span>}
+                                                </button>
+                                            );
+                                        })}
                                     </div>
                                 )}
                             </div>

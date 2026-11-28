@@ -1,11 +1,13 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { parseWalletMoney, parseWalletRate, parseWalletSignedMoney } from '../../features/wallet/utils/parseWalletMoney';
-import { formatLiveBrazilianMoney, formatLiveBrazilianCents, backspaceLiveBrazilianCents, formatPastedBrazilianMoney, formatLiveBrazilianSignedCents, backspaceLiveBrazilianSignedCents } from '../../features/wallet/utils/liveBrazilianMoneyInput';
+import { formatLiveBrazilianMoney, formatLiveBrazilianCents, backspaceLiveBrazilianCents, formatPastedBrazilianMoney, formatLiveBrazilianSignedCents, backspaceLiveBrazilianSignedCents, formatMoneyExpressionOperand, insertMoneyExpressionOperator, backspaceMoneyExpressionOperand, normalizePastedMoneyExpression, isAllowedFinancialInputDraft } from '../../features/wallet/utils/liveBrazilianMoneyInput';
 
 type Props = Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'onBlur' | 'type'> & {
   value: string | number | null | undefined;
   type?: 'text' | 'number';
   onCommit?: (value: string) => void;
+  /** Emite o rascunho normalizado para prévias, sem alterar o valor confirmado. */
+  onDraftChange?: (draft: string) => void;
   onChange?: (event: { target: { value: string } }) => void;
   onBlur?: () => void;
   rate?: boolean;
@@ -17,7 +19,7 @@ type Props = Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChan
 
 /** Mantém a expressão local enquanto o usuário digita, sem alimentar fórmulas com texto parcial. */
 export const FinancialCalculatorInput: React.FC<Props> = ({
-  value, onCommit, onChange, onBlur, type: _type, rate = false, signed = false, centsEntry = true, fieldLabel = 'valor', className = '',
+  value, onCommit, onDraftChange, onChange, onBlur, type: _type, rate = false, signed = false, centsEntry = true, fieldLabel = 'valor', className = '',
   onFocus, onKeyDown, onPaste, disabled, ...rest
 }) => {
   const [editing, setEditing] = useState(false);
@@ -25,6 +27,9 @@ export const FinancialCalculatorInput: React.FC<Props> = ({
   const [error, setError] = useState('');
   const [operatorsOpen, setOperatorsOpen] = useState(false);
   const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (editing) onDraftChange?.(draft);
+  }, [draft, editing, onDraftChange]);
   const displayValue = () => {
     const raw = String(value ?? '');
     if (!raw) return raw;
@@ -73,16 +78,23 @@ export const FinancialCalculatorInput: React.FC<Props> = ({
       // Não fecha nem registra um valor inválido.
     }
   };
+  // Percentuais usam digitação decimal explícita; centavos só se aplicam a dinheiro.
   const insert = (operator: string) => {
     const input = ref.current;
-    const start = input?.selectionStart ?? draft.length;
-    const end = input?.selectionEnd ?? start;
-    const next = draft.slice(0, start) + operator + draft.slice(end);
+    const selectionStart = input?.selectionStart ?? draft.length;
+    const selectionEnd = input?.selectionEnd ?? selectionStart;
+    const appendRateOperator = rate && selectionStart === 0 && selectionEnd === draft.length && /[+\-×÷*/%]/.test(operator);
+    const start = appendRateOperator ? draft.length : selectionStart;
+    const end = appendRateOperator ? draft.length : selectionEnd;
+    const inserted = !rate && /[+\-×÷*/]/.test(operator) ? insertMoneyExpressionOperator(draft, operator, start, end) : null;
+    if (!rate && /[+\-×÷*/]/.test(operator) && !inserted) return;
+    const next = inserted?.value ?? draft.slice(0, start) + operator + draft.slice(end);
+    const caret = inserted?.caret ?? start + operator.length;
     setDraft(next);
     setError('');
     requestAnimationFrame(() => {
       input?.focus();
-      input?.setSelectionRange(start + operator.length, start + operator.length);
+      input?.setSelectionRange(caret, caret);
     });
   };
   return (
@@ -98,24 +110,56 @@ export const FinancialCalculatorInput: React.FC<Props> = ({
           onChange={e => {
             const input = e.currentTarget;
             const raw = input.value;
+            // O Android dispara input sem keydown. Trate Backspace antes de
+            // distinguir número simples de expressão para preservar centavos.
+            const inputType = (e.nativeEvent as InputEvent).inputType;
+            if (!isAllowedFinancialInputDraft(raw)) {
+              return;
+            }
+            if (rate) {
+              setDraft(raw);
+              setError('');
+              input.setCustomValidity('');
+              return;
+            }
+            const caret = input.selectionStart ?? raw.length;
+            const operator = raw[caret - 1];
+            if (!signed && !rate && raw.length === draft.length + 1 && /[+\-×÷*/]/.test(operator ?? '')
+              && raw === draft.slice(0, caret - 1) + operator + draft.slice(caret - 1)) {
+              const next = insertMoneyExpressionOperator(draft, operator, caret - 1);
+              if (!next) return;
+              setDraft(next.value);
+              setError('');
+              input.setCustomValidity('');
+              requestAnimationFrame(() => {
+                if (document.activeElement === input) input.setSelectionRange(next.caret, next.caret);
+              });
+              return;
+            }
+            if (centsEntry && inputType === 'deleteContentBackward' && raw.length < draft.length
+              && input.selectionStart === raw.length && input.selectionEnd === raw.length) {
+              const next = raw === '' ? { value: '', caret: 0 } : signed ? backspaceLiveBrazilianSignedCents(draft)
+                : /[+\-×÷*/()%]/.test(draft) ? backspaceMoneyExpressionOperand(draft) : backspaceLiveBrazilianCents(draft);
+              setDraft(next.value);
+              setError('');
+              input.setCustomValidity('');
+              requestAnimationFrame(() => {
+                if (document.activeElement === input) input.setSelectionRange(next.caret, next.caret);
+              });
+              return;
+            }
             if ((centsEntry || (!signed && !rate)) &&
                 (signed ? /^-?[\d.,]*$/.test(raw) : /^[\d.,]*$/.test(raw))) {
-              // Teclados Android podem apagar sem disparar keydown.
-              const inputType = (e.nativeEvent as InputEvent).inputType;
-              if (centsEntry && inputType === 'deleteContentBackward' && raw.length < draft.length
-                && input.selectionStart === raw.length) {
-                const next = raw === '' ? { value: '', caret: 0 } : signed ? backspaceLiveBrazilianSignedCents(draft) : backspaceLiveBrazilianCents(draft);
-                setDraft(next.value);
-                setError('');
-                input.setCustomValidity('');
-                requestAnimationFrame(() => {
-                  if (document.activeElement === input) input.setSelectionRange(next.caret, next.caret);
-                });
-                return;
-              }
               const next = centsEntry
                 ? signed ? formatLiveBrazilianSignedCents(raw) : formatLiveBrazilianCents(raw)
                 : formatLiveBrazilianMoney(raw, input.selectionStart ?? raw.length);
+              if (!next) return;
+              setDraft(next.value);
+              requestAnimationFrame(() => {
+                if (document.activeElement === input) input.setSelectionRange(next.caret, next.caret);
+              });
+            } else if (!signed && !rate) {
+              const next = formatMoneyExpressionOperand(raw, input.selectionStart ?? raw.length, centsEntry);
               if (!next) return;
               setDraft(next.value);
               requestAnimationFrame(() => {
@@ -128,11 +172,20 @@ export const FinancialCalculatorInput: React.FC<Props> = ({
             input.setCustomValidity('');
           }}
           onPaste={e => {
-            if (!centsEntry) { onPaste?.(e); return; }
-            e.preventDefault();
             const pasted = e.clipboardData.getData('text');
+            const strippedCurrency = pasted.trim().replace(/^R\$\s*/i, '').trim();
+            if (!strippedCurrency || !/\d/.test(strippedCurrency) || !isAllowedFinancialInputDraft(strippedCurrency)) {
+              e.preventDefault();
+              setError('Valor colado inválido. Confira a quantia antes de continuar.');
+              e.currentTarget.setCustomValidity('Valor colado inválido.');
+              return;
+            }
+            if (!centsEntry && !rate) { onPaste?.(e); return; }
+            e.preventDefault();
             try {
-              const normalized = formatPastedBrazilianMoney(pasted, rate, signed);
+              const normalized = !rate && !signed && /[+×÷*/()%]/.test(pasted)
+                ? normalizePastedMoneyExpression(pasted)
+                : formatPastedBrazilianMoney(pasted, rate, signed);
               setDraft(normalized);
               setError('');
               e.currentTarget.setCustomValidity('');
@@ -161,7 +214,7 @@ export const FinancialCalculatorInput: React.FC<Props> = ({
           onBlur={commit}
           onKeyDown={e => {
             if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); }
-            if (centsEntry && e.key === 'Backspace') {
+            if (!rate && centsEntry && e.key === 'Backspace') {
               const input = e.currentTarget;
               const start = input.selectionStart ?? 0;
               const end = input.selectionEnd ?? 0;
@@ -169,7 +222,8 @@ export const FinancialCalculatorInput: React.FC<Props> = ({
               // limpa o campo para permitir um novo lançamento sem travar em ,00.
               if (start === end && end === input.value.length && input.value) {
                 e.preventDefault();
-                const next = signed ? backspaceLiveBrazilianSignedCents(input.value) : backspaceLiveBrazilianCents(input.value);
+                const next = signed ? backspaceLiveBrazilianSignedCents(input.value)
+                  : /[+\-×÷*/()%]/.test(input.value) ? backspaceMoneyExpressionOperand(input.value) : backspaceLiveBrazilianCents(input.value);
                 if (next) {
                   setDraft(next.value);
                   setError('');
@@ -209,8 +263,9 @@ export const FinancialCalculatorInput: React.FC<Props> = ({
             onKeyDown?.(e);
           }}
           aria-invalid={!!error}
-          className={className + ' pr-12'}
+          className={className + (rate ? ' pr-20' : ' pr-12')}
         />
+        {rate && <span aria-hidden="true" className="pointer-events-none absolute right-11 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">%</span>}
         <button type="button" disabled={disabled} aria-label="Operadores de cálculo"
           onPointerDown={e => e.preventDefault()}
           onClick={() => { if (!editing) { setDraft(displayValue()); setEditing(true); } setOperatorsOpen(v => !v); ref.current?.focus(); }}

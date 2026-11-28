@@ -4,8 +4,8 @@ import { XCircle } from 'lucide-react';
 import { SystemBackButton } from './SystemBackButton';
 import { registerDialogBack } from '../../utils/dialogNavigation';
 
-export const modalPrimaryActionClass = 'flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-xs font-black uppercase text-white hover:bg-blue-500 focus-visible:outline-2 focus-visible:outline-blue-400 disabled:cursor-not-allowed disabled:opacity-50';
-export const modalSecondaryActionClass = 'flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-950 px-4 py-2 text-xs font-bold text-slate-300 hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-blue-400 disabled:opacity-50';
+export const modalPrimaryActionClass = 'cf-motion-press flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-xs font-black uppercase text-white hover:bg-blue-500 focus-visible:outline-2 focus-visible:outline-blue-400 disabled:cursor-not-allowed disabled:opacity-50';
+export const modalSecondaryActionClass = 'cf-motion-press flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-950 px-4 py-2 text-xs font-bold text-slate-300 hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-blue-400 disabled:opacity-50';
 
 interface ModalProps {
   onClose: () => void;
@@ -23,15 +23,19 @@ interface ModalProps {
   footerMode?: 'default' | 'custom';
   /** Narrow visual override for a specific modal without changing the shared shell. */
   panelClassName?: string;
+  /** Floating wallet dialog variant with mobile margins, safe-area padding, and internal scroll. */
+  variant?: 'default' | 'wallet';
   /** Delays onClose briefly so the dialog can leave without interrupting focus/scroll handling. */
   animateClose?: boolean;
 }
 const widths = { sm: 'max-w-sm', md: 'max-w-md', lg: 'max-w-2xl', xl: 'max-w-5xl' };
+// No celular o painel padrão ocupa a tela toda; a largura máxima só vale a partir de sm.
+const sheetWidths = { sm: 'sm:max-w-sm', md: 'sm:max-w-md', lg: 'sm:max-w-2xl', xl: 'sm:max-w-5xl' };
 let openDialogs = 0;
 let previousOverflow = '';
 let previousOverscroll = '';
 
-export const Modal: React.FC<ModalProps> = ({ onClose, onBack, title, subtitle, icon, children, footer, compact = false, size = compact ? 'md' : 'lg', busy = false, cancelLabel = 'Cancelar', footerMode = 'default', panelClassName = '', animateClose = false }) => {
+export const Modal: React.FC<ModalProps> = ({ onClose, onBack, title, subtitle, icon, children, footer, compact = false, size = compact ? 'md' : 'lg', busy = false, cancelLabel = 'Cancelar', footerMode = 'default', panelClassName = '', variant = 'default', animateClose = false }) => {
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
   const closeTimer = useRef<number | null>(null);
@@ -114,6 +118,7 @@ export const Modal: React.FC<ModalProps> = ({ onClose, onBack, title, subtitle, 
     };
   }, []);
 
+  const isWalletVariant = variant === 'wallet';
   const dialog = (
     <div
       role="dialog"
@@ -121,15 +126,16 @@ export const Modal: React.FC<ModalProps> = ({ onClose, onBack, title, subtitle, 
       aria-labelledby={titleId}
       aria-busy={busy}
       data-modal-open="true"
+      data-modal-variant={variant}
       data-modal-state={isClosing ? 'closing' : 'open'}
-      className={`fixed inset-0 z-[2000] flex min-h-0 flex-col justify-end overflow-hidden bg-slate-950/85 backdrop-blur-sm sm:items-center sm:justify-center sm:p-4 motion-safe:transition-opacity motion-safe:duration-200 motion-safe:ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none ${isClosing && animateClose ? 'opacity-0' : 'opacity-100'}`}
+      className={`cf-motion-dialog fixed inset-0 z-[2000] flex min-h-0 flex-col overflow-hidden bg-slate-950/85 backdrop-blur-sm ${isWalletVariant ? 'items-center justify-center p-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] sm:p-4' : 'justify-end sm:items-center sm:justify-center sm:p-4'} motion-safe:transition-opacity motion-safe:duration-200 motion-safe:ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none ${isClosing && animateClose ? 'opacity-0' : 'opacity-100'}`}
       style={viewport ? { top: viewport.top, height: viewport.height, bottom: 'auto' } : undefined}
       onClick={event => event.stopPropagation()}
     >
       <div
         ref={panelRef}
         data-dialog-panel
-        className={`group flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden border-0 border-slate-800 bg-slate-900 shadow-2xl sm:h-auto sm:max-h-[min(90dvh,960px)] sm:rounded-2xl sm:border motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-[0.98] motion-safe:duration-220 motion-safe:ease-[cubic-bezier(0.23,1,0.32,1)] motion-safe:transition-[transform,opacity] motion-safe:duration-200 motion-safe:ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:animate-none motion-reduce:transition-none ${isClosing && animateClose ? 'translate-y-2 scale-[0.98] opacity-0' : 'translate-y-0 scale-100 opacity-100'} ${widths[size]} ${panelClassName}`}
+        className={`cf-motion-dialog-panel group flex min-h-0 w-full min-w-0 flex-col overflow-hidden bg-slate-900 shadow-2xl ${isWalletVariant ? 'h-auto max-h-full rounded-2xl border border-slate-700/80 sm:max-h-[min(90dvh,960px)]' : 'h-full border-0 border-slate-800 sm:h-auto sm:max-h-[min(90dvh,960px)] sm:rounded-2xl sm:border'} motion-safe:transition-[transform,opacity] motion-safe:duration-200 motion-safe:ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:animate-none motion-reduce:transition-none ${isClosing && animateClose ? 'translate-y-2 scale-[0.98] opacity-0' : 'translate-y-0 scale-100 opacity-100'} ${isWalletVariant ? widths[size] : sheetWidths[size]} ${panelClassName}`}
       >
         <header className="relative flex shrink-0 flex-col items-start gap-2 overflow-hidden border-b border-slate-800/80 bg-gradient-to-r from-blue-950/50 via-slate-900 to-emerald-950/30 px-4 sm:px-6 py-3.5 sm:py-4">
           <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-blue-500 via-cyan-400 to-emerald-400" />
@@ -147,7 +153,7 @@ export const Modal: React.FC<ModalProps> = ({ onClose, onBack, title, subtitle, 
               onClick={close}
               disabled={busy}
               aria-label="Fechar"
-              className="grid min-h-11 min-w-11 shrink-0 place-items-center rounded-full bg-slate-800/80 text-slate-400 transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-blue-400"
+              className="cf-motion-press grid min-h-11 min-w-11 shrink-0 place-items-center rounded-full bg-slate-800/80 text-slate-400 transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-blue-400"
             >
               <XCircle size={18} />
             </button>
@@ -160,7 +166,7 @@ export const Modal: React.FC<ModalProps> = ({ onClose, onBack, title, subtitle, 
           data-dialog-body
           className="flex-1 min-h-0 min-w-0 overflow-y-auto overscroll-contain px-4 sm:px-6 py-4 space-y-4 touch-pan-y [-webkit-overflow-scrolling:touch]"
         >
-          <fieldset disabled={busy} className="min-w-0 border-0 p-0 m-0 pb-16 sm:pb-6">{children}</fieldset>
+          <fieldset disabled={busy} className={`min-w-0 border-0 p-0 m-0 ${isWalletVariant ? 'pb-3 sm:pb-6' : 'pb-16 sm:pb-6'}`}>{children}</fieldset>
         </div>
 
         <footer className={`grid min-w-0 shrink-0 grid-cols-1 gap-2 border-t border-slate-800/80 bg-slate-950/95 px-4 py-3 shadow-2xl backdrop-blur-md sm:px-6 sm:py-4 [padding-bottom:max(0.875rem,env(safe-area-inset-bottom))] ${footer && footerMode === 'default' ? 'sm:grid-cols-2' : ''}`}>
@@ -174,7 +180,7 @@ export const Modal: React.FC<ModalProps> = ({ onClose, onBack, title, subtitle, 
           )}
           {footerMode === 'default' && <button
             type="button" onClick={close} disabled={busy}
-            className={`flex min-h-11 min-w-0 w-full items-center justify-center gap-1 rounded-lg border border-slate-800 bg-slate-900/60 px-4 py-2 text-[11px] font-bold uppercase text-slate-300 transition-colors hover:border-slate-700 hover:bg-slate-800/60 focus-visible:outline-2 focus-visible:outline-blue-400 disabled:opacity-50 ${footer ? 'sm:col-start-1 sm:row-start-1' : 'sm:w-auto sm:justify-self-center sm:px-8'}`}
+            className={`cf-motion-press flex min-h-11 min-w-0 w-full items-center justify-center gap-1 rounded-lg border border-slate-800 bg-slate-900/60 px-4 py-2 text-[11px] font-bold uppercase text-slate-300 transition-colors hover:border-slate-700 hover:bg-slate-800/60 focus-visible:outline-2 focus-visible:outline-blue-400 disabled:opacity-50 ${footer ? 'sm:col-start-1 sm:row-start-1' : 'sm:w-auto sm:justify-self-center sm:px-8'}`}
           >
             <XCircle size={13} /> {cancelLabel}
           </button>}

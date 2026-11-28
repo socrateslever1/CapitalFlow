@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { localDiagnostics } from '../../services/localDiagnostics';
 import { createPortal } from 'react-dom';
-import { AlertTriangle, Calendar, CheckCircle2, ChevronLeft, ChevronRight, CreditCard, Landmark, Loader2, Receipt, Tag, X } from 'lucide-react';
+import { AlertTriangle, Calendar, CheckCircle2, ChevronLeft, ChevronRight, CreditCard, Landmark, Loader2, Receipt, Tag, Wallet, X } from 'lucide-react';
 import {
   PersonalWalletAccount,
   PersonalWalletCard,
@@ -11,7 +12,19 @@ import { businessDateInManaus } from '../../utils/businessDate';
 import { generateUUID } from '../../utils/generators';
 import { parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
 import { FinancialCalculatorInput } from '../forms/FinancialCalculatorInput';
-import { getInvoiceCycleDates, getPurchaseInvoiceMonth } from './invoiceStatementDomain';
+import { SelectOptionList } from '../ui/SelectOptionList';
+import { BankLogo } from './BankLogo';
+import { notifyFinancialDataChanged } from '../../utils/appSyncEvents';
+import { useModal } from '../../contexts/ModalContext';
+import {
+  DEFAULT_EXPENSE_CATEGORIES,
+  loadCustomExpenseCategories,
+  mergeCategories,
+  normalizeCategoryName,
+  saveCustomExpenseCategory,
+} from '../../features/wallet/utils/walletCustomCategories';
+import { CategoryIconPicker } from './CategoryIconPicker';
+import { getInvoiceCycleDates, getPurchaseInvoiceMonth, resolvePurchaseInvoiceMonth, type CardCycleSource } from './invoiceStatementDomain';
 import {
   buildCardExpenseNotes,
   resolveCardInstallmentPlan,
@@ -23,6 +36,7 @@ import {
   resolveQuickDateShortcuts,
   stepInvoiceMonth,
 } from '../../features/wallet/utils/minhasFinancasWalletTools';
+import { suggestWalletAccountCategory } from '../../features/wallet/domain/suggestWalletAccountCategory';
 
 export interface QuickExpenseModalProps {
   accounts: PersonalWalletAccount[];
@@ -31,6 +45,7 @@ export interface QuickExpenseModalProps {
   defaultMethod?: 'CARD' | 'ACCOUNT';
   initialCardId?: string | null;
   defaultCardId?: string | null;
+  lockCardSelection?: boolean;
   initialAccountId?: string | null;
   defaultAccountId?: string | null;
   initialDueMonth?: string | null;
@@ -52,6 +67,7 @@ const EXPENSE_CATEGORIES = [
   'Serviços',
   'Compras',
   'Saúde',
+  'Educação',
   'Lazer',
   'Outros',
 ] as const;
@@ -72,17 +88,40 @@ const formatMonthLabel = (dueDateIso: string): string => {
     .replace('.', '');
 };
 
-const resolveFirstInstallmentMonthLabel = (
+export const resolveFirstInstallmentMonthLabel = (
   expenseDate: string,
   closingDay?: number | null,
   dueDay?: number | null,
   explicitMonth?: string | null,
+  referenceToday: string = todayIso(),
+  card?: CardCycleSource | null,
 ): { dueDateIso: string; monthInputValue: string; label: string } => {
+  // Mesma regra da RPC: fatura pela data da compra; fatura vencida volta para a aberta.
   const dueDateIso = explicitMonth && /^\d{4}-(0[1-9]|1[0-2])/.test(explicitMonth)
     ? explicitMonth.slice(0, 7) + '-01'
-    : getPurchaseInvoiceMonth(expenseDate || todayIso(), closingDay ?? null, dueDay ?? null);
+    : resolvePurchaseInvoiceMonth({
+      purchaseDate: expenseDate, today: referenceToday,
+      closingDay: closingDay ?? null, dueDay: dueDay ?? null, card,
+    });
   return { dueDateIso, monthInputValue: dueDateIso.slice(0, 7), label: formatMonthLabel(dueDateIso) };
 };
+
+/** Logotipo bancário cadastrado; não mostra fotografia do cartão. */
+const QuickCardLogo: React.FC<{ card: PersonalWalletCard; accounts: PersonalWalletAccount[] }> = ({ card, accounts }) => {
+  const linkedAccount = accounts.find(account => account.id === card.account_id);
+  return <BankLogo name={card.institution_key || linkedAccount?.bank_name || card.issuer || card.nickname}
+    alternateName={card.issuer || card.nickname} variant="card" size="sm" />;
+};
+
+const QuickAccountLogo: React.FC<{ account: PersonalWalletAccount }> = ({ account }) =>
+  account.account_type === 'CASH' ? (
+    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-700 bg-slate-800">
+      <Wallet size={17} className="text-amber-300" />
+    </span>
+  ) : (
+    <BankLogo name={account.institution_key || account.bank_name} alternateName={account.nickname}
+      customImage={account.image_url} size="sm" />
+  );
 
 export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
   accounts,
@@ -91,6 +130,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
   defaultMethod,
   initialCardId,
   defaultCardId,
+  lockCardSelection = false,
   initialAccountId,
   defaultAccountId,
   initialDueMonth,
@@ -99,6 +139,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
   onClose,
   onSaved,
 }) => {
+  const profileId = useModal().activeUser?.id;
   const activeCards = useMemo(() => cards.filter((c) => c.status === 'ACTIVE'), [cards]);
   const resolvedCardId = initialCardId ?? defaultCardId ?? null;
   const resolvedAccountId = initialAccountId ?? defaultAccountId ?? null;
@@ -114,7 +155,43 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
   const [amountMode, setAmountMode] = useState<CardExpenseAmountMode>('INSTALLMENT');
   const [description, setDescription] = useState<string>(notificationPrefill?.description || '');
   const [expenseDate, setExpenseDate] = useState<string>(notificationPrefill?.date || todayIso);
-  const [category, setCategory] = useState<string>('Alimentação');
+  const [category, setCategory] = useState<string>('Outros');
+  const [categoryManuallySelected, setCategoryManuallySelected] = useState<boolean>(false);
+  const suggestedCategory = useMemo(
+    () => suggestWalletAccountCategory(description, categoryManuallySelected),
+    [description, categoryManuallySelected],
+  );
+  const effectiveCategory = suggestedCategory ?? category;
+  const [customCategoryState, setCustomCategoryState] = useState(() => ({
+    profileId, categories: loadCustomExpenseCategories(profileId),
+  }));
+  const customCategories = customCategoryState.profileId === profileId
+    ? customCategoryState.categories : loadCustomExpenseCategories(profileId);
+  useEffect(() => {
+    setCustomCategoryState({ profileId, categories: loadCustomExpenseCategories(profileId) });
+    setCategory('Outros');
+    setCategoryManuallySelected(false);
+  }, [profileId]);
+  const [creatingCategory, setCreatingCategory] = useState(false);
+  const [newCategoryDraft, setNewCategoryDraft] = useState('');
+  const allCategories = useMemo(
+    () => mergeCategories(
+      [...EXPENSE_CATEGORIES, ...DEFAULT_EXPENSE_CATEGORIES, ...(suggestedCategory ? [suggestedCategory] : [])],
+      customCategories,
+    ),
+    [customCategories, suggestedCategory],
+  );
+  const handleAddCustomCategory = () => {
+    const clean = normalizeCategoryName(newCategoryDraft);
+    if (!clean) return;
+    const next = saveCustomExpenseCategory(clean, profileId);
+    setCustomCategoryState({ profileId, categories: next });
+    resetIdempotencyKey();
+    setCategory(clean);
+    setCategoryManuallySelected(true);
+    setNewCategoryDraft('');
+    setCreatingCategory(false);
+  };
   const [selectedCardId, setSelectedCardId] = useState<string>(
     requireExplicitDestination ? '' : resolvedCardId || activeCards[0]?.id || '',
   );
@@ -151,19 +228,42 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
   );
 
   const resolvedCycle = useMemo(() => {
+    const today = todayIso();
+    const currentOpenMonth = getPurchaseInvoiceMonth(
+      today,
+      selectedCard?.closing_day ?? null,
+      selectedCard?.due_day ?? null,
+      selectedCard,
+    );
+    const effectiveCycleDate =
+      expenseDate && /^\d{4}-\d{2}-\d{2}$/.test(expenseDate) && expenseDate > today
+        ? expenseDate
+        : today;
     let inheritedMonth: string | null = null;
-    if (initialDueMonth && selectedCard?.closing_day && selectedCard?.due_day) {
+    if (
+      initialDueMonth &&
+      /^\d{4}-(0[1-9]|1[0-2])/.test(initialDueMonth) &&
+      (!resolvedCardId || selectedCardId === resolvedCardId)
+    ) {
       const candidate = initialDueMonth.slice(0, 7) + '-01';
-      const dates = getInvoiceCycleDates(candidate, selectedCard.closing_day, selectedCard.due_day);
-      if (expenseDate <= dates.closingDate) inheritedMonth = candidate;
+      if (candidate >= currentOpenMonth) {
+        if (selectedCard?.closing_day && selectedCard?.due_day) {
+          const dates = getInvoiceCycleDates(candidate, selectedCard.closing_day, selectedCard.due_day, null, selectedCard);
+          if (effectiveCycleDate < dates.closingDate) inheritedMonth = candidate;
+        } else {
+          inheritedMonth = candidate;
+        }
+      }
     }
     return resolveFirstInstallmentMonthLabel(
-      expenseDate,
+      expenseDate || today,
       selectedCard?.closing_day,
       selectedCard?.due_day,
       firstInvoiceMonth || inheritedMonth,
+      today,
+      selectedCard,
     );
-  }, [expenseDate, selectedCard?.closing_day, selectedCard?.due_day, firstInvoiceMonth, initialDueMonth]);
+  }, [expenseDate, selectedCard, selectedCard?.closing_day, selectedCard?.due_day, firstInvoiceMonth, initialDueMonth, resolvedCardId, selectedCardId]);
 
   const closedInvoiceWarning = useMemo(() => {
     if (paymentMode !== 'CARD' || !selectedCard) return null;
@@ -171,9 +271,11 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
       dueMonth: resolvedCycle.dueDateIso,
       closingDay: selectedCard.closing_day,
       dueDay: selectedCard.due_day,
+      expenseDate,
       outstanding: Number(selectedCard.current_bill || 0) || 1,
+      card: selectedCard,
     });
-  }, [paymentMode, selectedCard, resolvedCycle.dueDateIso]);
+  }, [paymentMode, selectedCard, resolvedCycle.dueDateIso, expenseDate]);
 
   const installmentPlan = useMemo(() => {
     const total = paymentMode === 'CARD' && conditionMode === 'INSTALLMENTS'
@@ -206,6 +308,11 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
       setError('Informe um valor válido maior que R$ 0,00.');
       return;
     }
+    if (paymentMode === 'CARD' && closedInvoiceWarning?.shouldWarn && closedInvoiceWarning.isDateAfterClosing) {
+      const closingBr = `${closedInvoiceWarning.lastPurchaseDate.slice(8, 10)}/${closedInvoiceWarning.lastPurchaseDate.slice(5, 7)}/${closedInvoiceWarning.lastPurchaseDate.slice(0, 4)}`;
+      setError(`Data fora desta fatura. Ajuste a data até ${closingBr} ou selecione a próxima fatura.`);
+      return;
+    }
 
     setSaving(true);
     setError('');
@@ -221,7 +328,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
           toAccountId: null,
           amount: amountValue,
           description: cleanDescription,
-          category,
+          category: effectiveCategory,
           date: expenseDate || todayIso(),
           requestId: requestIdRef.current,
         });
@@ -232,7 +339,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
         await personalWalletService.createExpense({
           description: cleanDescription,
           amount: installmentPlan.remainingTotalAmount,
-          category,
+          category: effectiveCategory,
           expense_date: expenseDate || todayIso(),
           due_date: resolvedCycle.dueDateIso,
           account_id: null,
@@ -245,7 +352,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
       }
 
       setPersisted(true);
-      window.dispatchEvent(new Event('capitalflow:wallet-updated'));
+      notifyFinancialDataChanged({ wallet: true, capital: paymentMode === 'ACCOUNT' });
       try {
         await onSaved();
       } catch {
@@ -257,12 +364,15 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
         resetIdempotencyKey();
         setAmountFormatted('');
         setDescription('');
+        setCategory('Outros');
+        setCategoryManuallySelected(false);
         setNotes('');
         setBatchFeedback(`"${cleanDescription}" registrado! Preencha o próximo lançamento.`);
       } else {
         onClose();
       }
     } catch (cause) {
+      localDiagnostics.record('interface', cause);
       setError(cause instanceof Error ? cause.message : 'Não foi possível registrar a despesa.');
     } finally {
       setSaving(false);
@@ -300,9 +410,15 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
         {/* Header */}
         <header className="flex shrink-0 items-center justify-between border-b border-slate-800 p-4 sm:px-5">
           <div className="flex items-center gap-2.5">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500/15 text-blue-400">
-              <Receipt size={18} />
-            </span>
+            {paymentMode === 'CARD' && selectedCard ? (
+              <QuickCardLogo card={selectedCard} accounts={accounts} />
+            ) : paymentMode === 'ACCOUNT' && selectedAccount ? (
+              <QuickAccountLogo account={selectedAccount} />
+            ) : (
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-500/15 text-blue-400">
+                <Receipt size={18} />
+              </span>
+            )}
             <div>
               <h2 id="quick-expense-modal-title" className="text-sm font-black uppercase tracking-wider text-white">
                 Lançamento Rápido de Despesa
@@ -449,111 +565,114 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
             </label>
 
             {/* Categoria */}
-            <label>
-              <span className={labelClass}>
-                <Tag size={11} className="mr-1 inline text-blue-400" />
-                Categoria
-              </span>
-              <select
-                value={category}
-                onChange={(e) => {
-                  resetIdempotencyKey();
-                  setCategory(e.target.value);
-                }}
-                className={fieldClass}
-              >
-                {EXPENSE_CATEGORIES.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            {/* Data */}
-            <div>
-              <div className="flex items-center justify-between gap-1.5">
-                <span className={labelClass}>
-                  <Calendar size={11} className="mr-1 inline text-emerald-400" />
-                  Data da Compra
+            <div className="min-w-0 sm:col-span-2">
+              <div className="flex min-h-6 items-center justify-between gap-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  <Tag size={11} className="mr-1 inline text-blue-400" />
+                  Categoria
                 </span>
-                <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setCreatingCategory((current) => !current)}
+                  className={`rounded-md border px-2 py-0.5 text-[10px] font-bold transition ${
+                    creatingCategory
+                      ? 'border-blue-500/60 bg-blue-500/20 text-blue-200'
+                      : 'border-slate-700 bg-slate-900 text-slate-400 hover:text-white'
+                  }`}
+                >
+                  {creatingCategory ? 'Fechar' : '+ Nova'}
+                </button>
+              </div>
+              <div className="mt-1.5">
+                {/* Categoria por ícones; '+ Nova' acima continua criando categorias próprias. */}
+                <CategoryIconPicker
+                  ariaLabel="Categoria"
+                  value={effectiveCategory}
+                  categories={allCategories}
+                  onChange={(next) => {
+                    resetIdempotencyKey();
+                    setCategory(next);
+                    setCategoryManuallySelected(true);
+                    setCreatingCategory(false);
+                  }}
+                />
+              </div>
+              {creatingCategory && (
+                <div className="mt-2 flex items-center gap-1.5">
+                  <input
+                    type="text"
+                    maxLength={48}
+                    value={newCategoryDraft}
+                    onChange={(e) => setNewCategoryDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddCustomCategory();
+                      }
+                    }}
+                    placeholder="Ex: Pet, Carro, Academia"
+                    className="min-h-10 min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-950 px-3 text-xs text-white outline-none focus:border-blue-500"
+                  />
                   <button
                     type="button"
-                    onClick={() => {
-                      resetIdempotencyKey();
-                      setExpenseDate(quickDates.today);
-                    }}
-                    className={`rounded-md border px-2 py-0.5 text-[10px] font-bold transition ${
-                      dateTag === 'TODAY'
-                        ? 'border-emerald-500/60 bg-emerald-500/20 text-emerald-200'
-                        : 'border-slate-700 bg-slate-900 text-slate-400 hover:text-white'
-                    }`}
+                    onClick={handleAddCustomCategory}
+                    disabled={!normalizeCategoryName(newCategoryDraft)}
+                    className="min-h-10 shrink-0 rounded-lg bg-blue-600 px-3 text-xs font-bold text-white transition hover:bg-blue-500 disabled:opacity-40"
                   >
-                    Hoje
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      resetIdempotencyKey();
-                      setExpenseDate(quickDates.yesterday);
-                    }}
-                    className={`rounded-md border px-2 py-0.5 text-[10px] font-bold transition ${
-                      dateTag === 'YESTERDAY'
-                        ? 'border-emerald-500/60 bg-emerald-500/20 text-emerald-200'
-                        : 'border-slate-700 bg-slate-900 text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    Ontem
+                    Salvar
                   </button>
                 </div>
-              </div>
-              <input
-                type="date"
-                required
-                aria-label="Data da Compra"
-                value={expenseDate}
-                onChange={(e) => {
-                  resetIdempotencyKey();
-                  setExpenseDate(e.target.value);
-                }}
-                className={fieldClass}
-              />
+              )}
             </div>
 
             {/* Fluxo Condicional: Cartão vs Conta */}
             {paymentMode === 'CARD' ? (
               <>
-                <label className="sm:col-span-2">
+                <div className="sm:col-span-2">
                   <span className={labelClass}>Cartão de Crédito</span>
-                  <select
-                    required
-                    value={selectedCardId}
-                    onChange={(e) => {
-                      resetIdempotencyKey();
-                      setSelectedCardId(e.target.value);
-                    }}
-                    className={fieldClass}
-                  >
-                    <option value="">Selecione o cartão ativo</option>
-                    {activeCards.map((card) => {
-                      const available = Math.max(
-                        0,
-                        Number(card.credit_limit || 0) - Number(card.used_limit || 0),
-                      );
-                      return (
-                        <option key={card.id} value={card.id}>
-                          💳 {card.nickname} {card.last_four ? `•••• ${card.last_four}` : ''} · Livre:{' '}
-                          {formatMoney(available)}
-                        </option>
-                      );
-                    })}
-                  </select>
-                </label>
+                  {lockCardSelection ? (
+                    <div className={`${fieldClass} flex min-w-0 items-center gap-2.5`} aria-label="Cartão selecionado">
+                      {selectedCard ? (
+                        <>
+                          <QuickCardLogo card={selectedCard} accounts={accounts} />
+                          <span className="min-w-0 flex-1 truncate">
+                            {selectedCard.nickname} {selectedCard.last_four ? `•••• ${selectedCard.last_four}` : ''} · Livre: {formatMoney(Math.max(0, Number(selectedCard.credit_limit || 0) - Number(selectedCard.used_limit || 0)))}
+                          </span>
+                        </>
+                      ) : 'Cartão selecionado indisponível'}
+                    </div>
+                  ) : (
+                    <div className="mt-1">
+                      <SelectOptionList
+                        ariaLabel="Cartão de Crédito"
+                        value={selectedCardId}
+                        placeholder="Selecione o cartão ativo"
+                        triggerIcon={<CreditCard size={16} className="shrink-0 text-blue-300" />}
+                        options={activeCards.map((card) => {
+                          const available = Math.max(
+                            0,
+                            Number(card.credit_limit || 0) - Number(card.used_limit || 0),
+                          );
+                          return {
+                            value: card.id,
+                            label: `${card.nickname}${card.last_four ? ` •••• ${card.last_four}` : ''}`,
+                            subtitle: 'Limite disponível',
+                            rightValue: formatMoney(available),
+                            icon: <QuickCardLogo card={card} accounts={accounts} />,
+                          };
+                        })}
+                        onChange={(next) => {
+                          resetIdempotencyKey();
+                          setSelectedCardId(next);
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
 
                 <div className="sm:col-span-2 space-y-3 rounded-2xl border border-slate-800 bg-slate-950/70 p-3.5">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className={labelClass}>Condição e Fatura do Cartão</span>
+                    <span className={labelClass}>Fatura do cartão</span>
                     {/* Seletor rápido de fatura < Mês/Ano > (inspirado no InvoiceMonthField do Minhas Finanças) */}
                     <div className="flex max-w-full items-center gap-1 rounded-xl border border-slate-800 bg-slate-900 px-1 py-1">
                       <button type="button" aria-label="Fatura anterior" onClick={() => {
@@ -583,29 +702,104 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                   </div>
                   {selectedCard && (
                     <p className="text-[11px] text-slate-400">
-                      Fecha {getInvoiceCycleDates(resolvedCycle.dueDateIso, selectedCard.closing_day, selectedCard.due_day).closingDate.split('-').reverse().join('/')}
-                      {' · '}Vence {getInvoiceCycleDates(resolvedCycle.dueDateIso, selectedCard.closing_day, selectedCard.due_day).dueDate.split('-').reverse().join('/')}
+                      Fecha {getInvoiceCycleDates(resolvedCycle.dueDateIso, selectedCard.closing_day, selectedCard.due_day, null, selectedCard).closingDate.slice(8, 10)}/{getInvoiceCycleDates(resolvedCycle.dueDateIso, selectedCard.closing_day, selectedCard.due_day, null, selectedCard).closingDate.slice(5, 7)}
+                      {' · '}Vence {getInvoiceCycleDates(resolvedCycle.dueDateIso, selectedCard.closing_day, selectedCard.due_day, null, selectedCard).dueDate.slice(8, 10)}/{getInvoiceCycleDates(resolvedCycle.dueDateIso, selectedCard.closing_day, selectedCard.due_day, null, selectedCard).dueDate.slice(5, 7)}
                     </p>
                   )}
 
                   {closedInvoiceWarning?.shouldWarn && (
-                    <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-500/30 bg-amber-950/30 px-3 py-2 text-xs text-amber-200">
-                      <div className="flex items-start gap-2 min-w-0 flex-1">
-                        <AlertTriangle size={15} className="mt-0.5 shrink-0 text-amber-400" />
-                        <span>{closedInvoiceWarning.message}</span>
+                    <div
+                      role={closedInvoiceWarning.isDateAfterClosing ? 'alert' : 'status'}
+                      className={`flex flex-wrap items-center justify-between gap-2 rounded-xl border px-3 py-2 text-xs ${
+                        closedInvoiceWarning.isDateAfterClosing
+                          ? 'border-rose-500/40 bg-rose-950/35 text-rose-200'
+                          : 'border-amber-500/30 bg-amber-950/30 text-amber-200'
+                      }`}
+                    >
+                      <div className="flex min-w-0 flex-1 items-center gap-2">
+                        <AlertTriangle
+                          size={14}
+                          className={`shrink-0 ${
+                            closedInvoiceWarning.isDateAfterClosing ? 'text-rose-400' : 'text-amber-400'
+                          }`}
+                        />
+                        <span className="font-medium">{closedInvoiceWarning.shortMessage}</span>
                       </div>
                       <button
                         type="button"
                         onClick={() => {
                           resetIdempotencyKey();
                           setFirstInvoiceMonth(closedInvoiceWarning.nextOpenMonthInput);
+                          setError('');
                         }}
-                        className="shrink-0 rounded-lg border border-amber-400/50 bg-amber-500/20 px-2.5 py-1 text-[11px] font-bold text-amber-100 hover:bg-amber-500/30"
+                        className={`shrink-0 rounded-lg border px-2.5 py-1 text-[11px] font-bold transition ${
+                          closedInvoiceWarning.isDateAfterClosing
+                            ? 'border-rose-400/50 bg-rose-500/20 text-rose-100 hover:bg-rose-500/30'
+                            : 'border-amber-400/50 bg-amber-500/20 text-amber-100 hover:bg-amber-500/30'
+                        }`}
                       >
-                        Mover para {closedInvoiceWarning.nextOpenLabel}
+                        Selecionar próxima fatura
                       </button>
                     </div>
                   )}
+
+                  <div className="min-w-0 pt-0.5">
+                    <div className="flex min-h-6 items-center justify-between gap-1.5">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        <Calendar size={11} className="mr-1 inline text-emerald-400" />
+                        Data da Compra
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          disabled={Boolean(closedInvoiceWarning?.shouldWarn && quickDates.today > closedInvoiceWarning.lastPurchaseDate)}
+                          onClick={() => {
+                            resetIdempotencyKey();
+                            setExpenseDate(quickDates.today);
+                            setError('');
+                          }}
+                          className={`rounded-md border px-2 py-0.5 text-[10px] font-bold transition disabled:cursor-not-allowed disabled:opacity-35 ${
+                            dateTag === 'TODAY'
+                              ? 'border-emerald-500/60 bg-emerald-500/20 text-emerald-200'
+                              : 'border-slate-700 bg-slate-900 text-slate-400 hover:text-white'
+                          }`}
+                        >
+                          Hoje
+                        </button>
+                        <button
+                          type="button"
+                          disabled={Boolean(closedInvoiceWarning?.shouldWarn && quickDates.yesterday > closedInvoiceWarning.lastPurchaseDate)}
+                          onClick={() => {
+                            resetIdempotencyKey();
+                            setExpenseDate(quickDates.yesterday);
+                            setError('');
+                          }}
+                          className={`rounded-md border px-2 py-0.5 text-[10px] font-bold transition disabled:cursor-not-allowed disabled:opacity-35 ${
+                            dateTag === 'YESTERDAY'
+                              ? 'border-emerald-500/60 bg-emerald-500/20 text-emerald-200'
+                              : 'border-slate-700 bg-slate-900 text-slate-400 hover:text-white'
+                          }`}
+                        >
+                          Ontem
+                        </button>
+                      </div>
+                    </div>
+                    <input
+                      type="date"
+                      required
+                      aria-label="Data da Compra"
+                      max={closedInvoiceWarning?.shouldWarn ? closedInvoiceWarning.lastPurchaseDate : undefined}
+                      value={expenseDate}
+                      onChange={(e) => {
+                        resetIdempotencyKey();
+                        setExpenseDate(e.target.value);
+                        setError('');
+                      }}
+                      className={`mt-1.5 min-h-11 w-full rounded-lg border bg-slate-900 px-3 py-2 text-sm font-semibold text-white outline-none focus:border-blue-500 ${
+                        closedInvoiceWarning?.isDateAfterClosing ? 'border-rose-500/70' : 'border-slate-700'
+                      }`}
+                    />
+                  </div>
 
                   <div className="grid grid-cols-2 gap-2">
                     <button
@@ -640,9 +834,9 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                   </div>
 
                   {conditionMode === 'INSTALLMENTS' && (
-                    <div className="grid grid-cols-1 gap-3 pt-1 sm:grid-cols-2">
-                      <label className="block">
-                        <span className="text-[11px] font-bold text-slate-300">
+                    <div className="grid grid-cols-2 gap-2.5 pt-1">
+                      <label className="block min-w-0">
+                        <span className="block truncate text-[11px] font-bold text-slate-300">
                           Iniciar na parcela
                         </span>
                         <input
@@ -668,8 +862,8 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                         </span>
                       </label>
 
-                      <label className="block">
-                        <span className="text-[11px] font-bold text-slate-300">
+                      <label className="block min-w-0">
+                        <span className="block truncate text-[11px] font-bold text-slate-300">
                           De (Total de parcelas)
                         </span>
                         <input
@@ -726,40 +920,100 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                 </div>
               </>
             ) : (
-              <label className="sm:col-span-2">
-                <span className={labelClass}>Conta Bancária / Carteira de Origem</span>
-                <select
-                  required
-                  value={selectedAccountId}
-                  onChange={(e) => {
-                    resetIdempotencyKey();
-                    setSelectedAccountId(e.target.value);
-                  }}
-                  className={fieldClass}
-                >
-                  <option value="">Selecione a conta para débito</option>
-                  {accounts.map((acc) => (
-                    <option key={acc.id} value={acc.id}>
-                      🏦 {acc.nickname} · Saldo: {formatMoney(Number(acc.balance || 0))}
-                    </option>
-                  ))}
-                </select>
+              <div className="grid grid-cols-[minmax(0,9.5rem)_minmax(0,1fr)] gap-2.5 sm:col-span-2 sm:grid-cols-[minmax(0,11.5rem)_minmax(0,1fr)] sm:gap-3">
+                <div className="min-w-0">
+                  <div className="flex min-h-6 items-center justify-between gap-1">
+                    <span className="truncate text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      <Calendar size={11} className="mr-1 inline text-emerald-400" />
+                      Data
+                    </span>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          resetIdempotencyKey();
+                          setExpenseDate(quickDates.today);
+                          setError('');
+                        }}
+                        className={`rounded-md border px-1.5 py-0.5 text-[10px] font-bold transition ${
+                          dateTag === 'TODAY'
+                            ? 'border-emerald-500/60 bg-emerald-500/20 text-emerald-200'
+                            : 'border-slate-700 bg-slate-900 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        Hoje
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          resetIdempotencyKey();
+                          setExpenseDate(quickDates.yesterday);
+                          setError('');
+                        }}
+                        className={`rounded-md border px-1.5 py-0.5 text-[10px] font-bold transition ${
+                          dateTag === 'YESTERDAY'
+                            ? 'border-emerald-500/60 bg-emerald-500/20 text-emerald-200'
+                            : 'border-slate-700 bg-slate-900 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        Ontem
+                      </button>
+                    </div>
+                  </div>
+                  <input
+                    type="date"
+                    required
+                    aria-label="Data da Compra"
+                    value={expenseDate}
+                    onChange={(e) => {
+                      resetIdempotencyKey();
+                      setExpenseDate(e.target.value);
+                      setError('');
+                    }}
+                    className="mt-1.5 min-h-12 w-full rounded-lg border border-slate-700 bg-slate-950 px-2.5 py-2 text-xs sm:text-sm font-semibold text-white outline-none focus:border-blue-500"
+                  />
+                </div>
+
+                <div className="min-w-0">
+                  <div className="flex min-h-6 items-center">
+                    <span className={`${labelClass} truncate`}>Conta de Origem</span>
+                  </div>
+                  <div className="mt-1.5">
+                    <SelectOptionList
+                      ariaLabel="Conta Bancária / Carteira de Origem"
+                      value={selectedAccountId}
+                      placeholder="Selecione a conta"
+                      triggerIcon={<Landmark size={16} className="shrink-0 text-blue-300" />}
+                      options={accounts.map((acc) => ({
+                        value: acc.id,
+                        label: acc.nickname,
+                        subtitle: 'Saldo disponível',
+                        rightValue: formatMoney(Number(acc.balance || 0)),
+                        icon: <QuickAccountLogo account={acc} />,
+                      }))}
+                      onChange={(next) => {
+                        resetIdempotencyKey();
+                        setSelectedAccountId(next);
+                      }}
+                    />
+                  </div>
+                </div>
                 {selectedAccount && amountValue > Number(selectedAccount.balance || 0) && (
-                  <span className="mt-1.5 block text-[11px] font-semibold text-amber-300">
+                  <span className="col-span-2 -mt-1 block text-[11px] font-semibold text-amber-300">
                     Atenção: o valor excede o saldo disponível na conta ({formatMoney(Number(selectedAccount.balance || 0))}).
                   </span>
                 )}
-              </label>
+              </div>
             )}
 
             <label className="sm:col-span-2">
-              <span className={labelClass}>Observações (opcional)</span>
+              <span className={labelClass}>Detalhe da despesa (opcional)</span>
               <input
                 type="text"
                 maxLength={240}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="Detalhes adicionais do lançamento"
+                placeholder="Ex.: material escolar ou motivo da compra"
                 className={fieldClass}
               />
             </label>

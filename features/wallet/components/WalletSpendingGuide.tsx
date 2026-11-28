@@ -1,8 +1,11 @@
 import React from 'react';
-import { ArrowRight, BarChart3, CalendarClock, CreditCard, Lightbulb, TrendingDown, TrendingUp, AlertTriangle } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
+import { AppIcon } from '../../../components/icons/AppIcons';
 import { formatMoney } from '../../../utils/formatters';
 import { useFinancialPrivacy } from '../../../contexts/FinancialPrivacyContext';
 import type { SpendingOverview } from '../domain/walletSpendingInsights';
+import { CategoryGaugeIcon } from '../../../components/wallet/CategoryGaugeIcon';
+import { getWalletCategoryVisual } from '../domain/walletCategoryVisual';
 
 /** Banking-style, read-only spending guidance. No RPCs or financial writes. */
 export const WalletSpendingGuide: React.FC<{
@@ -25,11 +28,11 @@ export const WalletSpendingGuide: React.FC<{
     className="rounded-xl border border-slate-800 bg-slate-900 p-4 sm:p-5">
     <div className="flex flex-wrap items-center justify-between gap-2">
       <h3 className="flex items-center gap-2 text-base font-semibold text-white">
-        <Lightbulb size={18} className="text-cyan-300"/>Saúde financeira
+        <AppIcon name="bulb" size={20} />Saúde financeira
       </h3>
       <button type="button" onClick={() => onNavigate('relatorio')}
-        className="min-h-10 rounded-lg border border-slate-700 px-3 text-xs font-semibold text-blue-300">
-        <BarChart3 size={15} className="mr-1 inline"/> Relatório
+        className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-slate-700 px-3 text-xs font-semibold text-blue-300">
+        <AppIcon name="dashboard" size={16} /> Relatório
       </button>
     </div>
     <p className="mt-3 text-sm text-slate-300">
@@ -45,7 +48,7 @@ export const WalletSpendingGuide: React.FC<{
   const plural = (count: number, singular: string, pluralWord: string) => `${count} ${count === 1 ? singular : pluralWord}`;
   return <section aria-label="Ajuda para controlar gastos" className="min-w-0 rounded-xl border border-slate-800 bg-slate-900 p-4 sm:p-5">
     <header className="flex flex-wrap items-center justify-between gap-2">
-      <h3 className="flex items-center gap-2 text-base font-semibold text-white"><Lightbulb size={18} className="text-cyan-300"/>Saúde financeira</h3>
+      <h3 className="flex items-center gap-2 text-base font-semibold text-white"><AppIcon name="bulb" size={20} />Saúde financeira</h3>
       <div className="flex items-center gap-2">
       <span className={`inline-flex h-7 items-center rounded-md px-2.5 text-[11px] font-semibold ${urgent
         ? 'bg-amber-950/50 text-amber-200'
@@ -55,7 +58,7 @@ export const WalletSpendingGuide: React.FC<{
       <button type="button" onClick={() => onNavigate('relatorio')}
         className="inline-flex h-7 items-center gap-1.5 rounded-md border border-slate-700 px-2.5 text-[11px] font-semibold text-blue-300 transition-colors hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
         aria-label="Abrir relatório da Carteira">
-        <BarChart3 size={13}/> Relatório
+        <AppIcon name="dashboard" size={15} /> Relatório
       </button>
       </div>
     </header>
@@ -77,8 +80,11 @@ export const WalletSpendingGuide: React.FC<{
         )}
         {spending.categories.length ? (
           <ol className="mt-4 space-y-3" aria-label="Categorias de despesas do mês">
-            {spending.categories.map((category, index) => (
-              <li key={category.name} className="min-w-0">
+            {spending.categories.map((category) => (
+              <li key={category.name} className="flex min-w-0 items-center gap-3">
+                {/* Ícone da categoria com anel da fatia no total do mês. */}
+                <CategoryGaugeIcon category={category.name} percentage={category.percentage} size={40} />
+                <div className="min-w-0 flex-1">
                 <div className="mb-1 flex items-center justify-between gap-2 text-xs">
                   <span className="min-w-0 truncate font-medium text-slate-200">{category.name}</span>
                   <span className="shrink-0 text-right tabular-nums text-slate-100">{formatMoney(category.amount)} <span className="text-slate-400">· {category.percentage}%</span></span>
@@ -86,8 +92,9 @@ export const WalletSpendingGuide: React.FC<{
                 <div role="progressbar" aria-label={category.name} aria-valuemin={0} aria-valuemax={100}
                   aria-valuenow={Math.min(100, category.percentage)}
                   className="h-1.5 overflow-hidden rounded-full bg-slate-800">
-                  <div className={`h-full rounded-full ${index === 0 ? 'bg-cyan-400' : 'bg-blue-500/80'}`}
-                    style={{width: `${Math.min(100,Math.max(0,category.percentage))}%`}}/>
+                  <div className="h-full rounded-full"
+                    style={{width: `${Math.min(100,Math.max(0,category.percentage))}%`, backgroundColor: getWalletCategoryVisual(category.name).color}}/>
+                </div>
                 </div>
               </li>
             ))}
@@ -97,6 +104,23 @@ export const WalletSpendingGuide: React.FC<{
             Ainda não há despesas cadastradas neste mês para distribuir por categoria.
           </p>
         )}
+        {spending.count > 0 && spending.byMethod && (
+          <div className="mt-4 grid grid-cols-2 gap-2 rounded-lg border border-slate-800 bg-slate-950/60 p-2.5 text-[11px]">
+            <div>
+              <span className="block text-slate-400">Como gastou</span>
+              <span className="mt-0.5 block font-semibold tabular-nums text-slate-100">
+                Cartão {spending.byMethod.cardPercentage}% · Conta {spending.byMethod.accountPercentage}%
+              </span>
+            </div>
+            <div className="text-right">
+              <span className="block text-slate-400">Forma de compra</span>
+              <span className="mt-0.5 block font-semibold tabular-nums text-slate-100">
+                À vista {formatMoney(spending.byMethod.singleAmount)}
+                {spending.byMethod.installmentCount > 0 ? ` · Compras parceladas ${formatMoney(spending.byMethod.installmentAmount)} (valor original)` : ''}
+              </span>
+            </div>
+          </div>
+        )}
         <p className="mt-3 text-[11px] text-slate-500">
           Valores originais lançados no mês · não equivale à fatura nem ao valor pago.
         </p>
@@ -105,7 +129,7 @@ export const WalletSpendingGuide: React.FC<{
         <h4 className="text-sm font-semibold text-white">O que merece atenção</h4>
         <div className="mt-3 space-y-3">
           {(overdueCount > 0 || overdueInvoiceCount > 0 || dueSoonCount > 0) && <div className="flex gap-2.5">
-            <AlertTriangle size={16} className={`mt-0.5 shrink-0 ${overdueCount ? 'text-rose-300' : 'text-amber-300'}`}/>
+            <AppIcon name={overdueCount ? 'critical' : 'late'} size={18} className="mt-0.5 shrink-0" />
             <p className="text-xs leading-relaxed text-slate-200">
               {overdueCount ? `${overdueCount} conta(s) a pagar vencida(s). ` : ''}
               {overdueInvoiceCount ? `${overdueInvoiceCount} fatura(s) com data de vencimento ultrapassada sem quitação. ` : ''}
@@ -113,7 +137,7 @@ export const WalletSpendingGuide: React.FC<{
             </p>
           </div>}
           <div className="flex gap-2.5">
-            <TrendingDown size={16} className={projectedBalance < 0 ? 'mt-0.5 shrink-0 text-amber-300' : 'mt-0.5 shrink-0 text-emerald-300'}/>
+            <AppIcon name={projectedBalance < 0 ? 'exposure' : 'trend'} size={18} className="mt-0.5 shrink-0" />
             <p className="text-xs leading-relaxed text-slate-200">
               {projectedBalance < 0
                 ? `Projeção do mês negativa em ${formatMoney(Math.abs(projectedBalance))}.`
@@ -121,7 +145,7 @@ export const WalletSpendingGuide: React.FC<{
             </p>
           </div>
           <div className="flex gap-2.5">
-            <CreditCard size={16} className={usage >= 80 ? 'mt-0.5 shrink-0 text-amber-300' : 'mt-0.5 shrink-0 text-cyan-300'}/>
+            <AppIcon name="wallet" size={18} className="mt-0.5 shrink-0" />
             <p className="text-xs leading-relaxed text-slate-200">
               {!hasCredit
                 ? 'Nenhum cartão de crédito ativo cadastrado.'
@@ -131,7 +155,7 @@ export const WalletSpendingGuide: React.FC<{
             </p>
           </div>
           <div className="flex gap-2.5">
-            <CalendarClock size={16} className="mt-0.5 shrink-0 text-cyan-300"/>
+            <AppIcon name="calendar" size={18} className="mt-0.5 shrink-0" />
             <p className="text-xs leading-relaxed text-slate-200">
               {pendingCount
                 ? `${pendingCount >= 8 ? 'Pelo menos 8 compromissos' : plural(pendingCount, 'compromisso próximo', 'compromissos próximos')} nos próximos 45 dias.`
@@ -139,12 +163,12 @@ export const WalletSpendingGuide: React.FC<{
             </p>
           </div>
           {pendingIncome > 0 && <div className="flex gap-2.5">
-            <TrendingUp size={16} className="mt-0.5 shrink-0 text-emerald-300"/>
+            <AppIcon name="growth" size={18} className="mt-0.5 shrink-0" />
             <div className="min-w-0">
               <p className="text-xs leading-relaxed text-slate-200">
                 {formatMoney(pendingIncome)} em receitas recorrentes previstas ainda não recebidas.
               </p>
-              <button type="button" onClick={() => onNavigate('receitas')}
+              <button type="button" onClick={() => onNavigate('contas')}
                 className="mt-1 text-xs font-semibold text-blue-300 hover:text-blue-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
                 Conferir receitas <ArrowRight size={13} className="inline"/>
               </button>

@@ -203,7 +203,7 @@ export function buildWalletTimeline(input: {
         const explicit = exactDates.get(card.id + ':' + cycle.dueMonth.slice(0, 7));
         if (!card.due_day && !explicit) continue;
         const { dueDate } = getInvoiceCycleDates(
-          cycle.dueMonth, card.closing_day, card.due_day, explicit,
+          cycle.dueMonth, card.closing_day, card.due_day, explicit, card as never,
         );
         events.push({
           id: 'invoice:' + card.id + ':' + cycle.dueMonth,

@@ -6,7 +6,7 @@ import { ProfitCard } from '../cards/ProfitCard';
 import { AIBalanceInsight } from '../../features/dashboard/AIBalanceInsight';
 import { formatMoney } from '../../utils/formatters';
 
-export const DashboardSidebar: React.FC<any> = ({ stats, activeUser, isStealthMode, setWithdrawModal, loans, sources }) => {
+export const DashboardSidebar: React.FC<any> = ({ stats, activeUser, isStealthMode, setWithdrawModal, loans, sources, profileId }) => {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-3">
         <StatCard
@@ -47,7 +47,7 @@ export const DashboardSidebar: React.FC<any> = ({ stats, activeUser, isStealthMo
             <NativeDonutChart data={stats.pieData} height={150} />
             <h3 className="text-[9px] font-black uppercase mb-2 mt-4 tracking-widest text-slate-500 flex items-center gap-2 w-full pt-3 border-t border-slate-800"><TrendingUp className="w-3 h-3 text-emerald-500" /> Evolução</h3>
             <NativeTrendChart data={stats.lineChartData} height={150} />
-            <AIBalanceInsight loans={loans} sources={sources} activeUser={activeUser} />
+            <AIBalanceInsight loans={loans} sources={sources} activeUser={activeUser} stats={stats} profileId={profileId} />
         </div>
     </div>
   );

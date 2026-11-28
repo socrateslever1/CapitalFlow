@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { CalendarClock, ClipboardList, Plus, Repeat } from 'lucide-react';
+import { ClipboardList, Plus, Repeat } from 'lucide-react';
+import { AppIcon } from '../../../components/icons/AppIcons';
 import { useSearchParams } from 'react-router-dom';
 import type { UserProfile } from '../../../types';
 import { WalletPayablesPanel } from '../../../components/wallet/WalletPayablesPanel';
 import { RecurringObligationsPanel } from '../../../components/wallet/RecurringObligationsPanel';
+import { CategoryPickerField } from '../../../components/wallet/CategoryIconPicker';
 import { personalWalletService } from '../../../services/personalWallet.service';
 import { useWalletSnapshot } from '../hooks/useWalletSnapshot';
 import { WalletPageFrame } from '../components/WalletPageFrame';
@@ -104,7 +106,7 @@ export const WalletPayablesPage: React.FC<{ activeUser?: UserProfile | null; onN
         <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 sm:p-5">
           <div className="mb-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <CalendarClock size={18} className="text-blue-400" />
+              <AppIcon name="calendar" size={20} />
               <h3 className="text-sm font-semibold text-white">Linha do Tempo de Compromissos e Eventos</h3>
             </div>
             <span className="text-xs text-slate-400">{timelineEvents.length} eventos cronológicos</span>
@@ -200,17 +202,17 @@ export const WalletPayablesPage: React.FC<{ activeUser?: UserProfile | null; onN
               className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white">
               <option value="COMPANY">Pessoa jurídica</option><option value="PERSON">Pessoa física</option>
             </select></label>
-          <label className="space-y-1 text-xs text-slate-300">Categoria
-            <input required value={form.category} onChange={e => setForm(v => ({ ...v, category: e.target.value }))}
-              className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white" /></label>
-          <label className="space-y-1 text-xs text-slate-300">Valor (R$)
-            <FinancialCalculatorInput required placeholder="0,00" value={form.total_amount}
-              onCommit={value => setForm(v => ({ ...v, total_amount: value }))}
-              fieldLabel="valor do compromisso"
-              className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white" /></label>
-          <label className="space-y-1 text-xs text-slate-300">Vencimento
-            <input type="date" value={form.due_date} onChange={e => setForm(v => ({ ...v, due_date: e.target.value }))}
-              className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white" /></label>
+          <CategoryPickerField value={form.category} onChange={category => setForm(v => ({ ...v, category }))} className="sm:col-span-2" />
+          <div className="grid grid-cols-2 gap-3 sm:col-span-2">
+            <label className="min-w-0 space-y-1 text-xs text-slate-300">Valor (R$)
+              <FinancialCalculatorInput required placeholder="0,00" value={form.total_amount}
+                onCommit={value => setForm(v => ({ ...v, total_amount: value }))}
+                fieldLabel="valor do compromisso"
+                className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white" /></label>
+            <label className="min-w-0 space-y-1 text-xs text-slate-300">Vencimento
+              <input type="date" value={form.due_date} onChange={e => setForm(v => ({ ...v, due_date: e.target.value }))}
+                className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white" /></label>
+          </div>
           <label className="space-y-1 text-xs text-slate-300">Origem do pagamento
             <select value={form.origin} onChange={e => setForm(v => ({ ...v, origin: e.target.value }))}
               className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white">

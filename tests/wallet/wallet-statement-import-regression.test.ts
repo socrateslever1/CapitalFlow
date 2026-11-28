@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { parseStatementOfx, parseSmartFinancialDocument } from '../../utils/statementSmartReader';
-import { parseStatementLines } from '../../utils/walletStatementPdf';
+import { isCardInvoicePaymentDescription, parseStatementLines } from '../../utils/walletStatementPdf';
 import { readFileSync } from 'node:fs';
+import { getCardCreditPosition, getEffectiveInvoiceCycles } from '../../components/wallet/invoiceStatementDomain';
 
 const makeFile = (body: string, name = 'extrato.ofx', encoding: BufferEncoding = 'utf8'): File => {
   const bytes = Buffer.from(body, encoding);
@@ -56,16 +57,30 @@ test('PDF local detects split transaction rows, Brazilian months and prevents im
   assert(result.rows.every(r => r.selected === false), 'PDF review must be explicit');
 });
 
-test('PDF cloud reading is never automatic and requires visible user consent', () => {
+test('Bradesco Eucatur refund keeps -R$ 86,00 while prior invoice payment stays excluded', () => {
+  const { rows } = parseStatementLines([
+    { key: 'refund', text: '14/08/2026 PAG EUCATUR*Eucat -86,00' },
+    { key: 'payment', text: '30/10/2026 PAGTO ANTECIPADO PIX -2.517,55' },
+  ], 'CARD');
+  assert.deepEqual(rows.map(row => row.amount), [-86, -2517.55]);
+  assert.equal(isCardInvoicePaymentDescription(rows[0].description), false);
+  assert.equal(isCardInvoicePaymentDescription(rows[1].description), true);
+  const selectedNetCents = rows.filter(row => !isCardInvoicePaymentDescription(row.description))
+    .reduce((total, row) => total + Math.round(row.amount * 100), 0);
+  assert.equal(selectedNetCents, -8600);
+  assert.equal(301688 + selectedNetCents, 293088);
+});
+
+test('cloud AI statement reading is disabled across dispatcher and statement readers', () => {
   const dispatch = readFileSync('utils/statementSmartReader.ts','utf8');
   const flat = readFileSync('components/wallet/FlatSmartStatementReader.tsx','utf8');
   const modal = readFileSync('components/wallet/WalletStatementImport.tsx','utf8');
-  assert(dispatch.includes('if (options?.forceAi)'));
-  assert(dispatch.includes('sourceType: \'PDF_AI\''));
-  for (const ui of [flat,modal]) {
-    assert(ui.includes('window.confirm('));
-    assert(ui.includes('forceAi') || ui.includes('parse(true)'));
-    assert(ui.includes('Ler PDF com IA'));
+  assert(dispatch.includes('A leitura de faturas por IA foi desativada'));
+  assert(dispatch.includes('A leitura de faturas por imagem/IA foi desativada'));
+  for (const ui of [flat, modal]) {
+    assert(!ui.includes('window.confirm('), 'must not use browser confirm popup');
+    assert(!ui.includes('Ler PDF com IA'), 'cloud AI PDF button must not be exposed');
+    assert(!ui.includes('Ler imagem com IA'), 'cloud AI image button must not be exposed');
   }
 });
 
@@ -97,4 +112,40 @@ test('encrypted PDF requires local password and never persists document secrets'
   assert(panels.every(panel => panel.includes('type="password"')));
   assert(panels.every(panel => panel.includes("setPdfPassword('')")));
   assert(panels.every(panel => panel.includes('onSave={saveSummary}')));
+});
+
+test('invoice credits subtract from cycle total without blocking future installment commitments', () => {
+  const expenses = [
+    {
+      id: 'exp-1', description: 'COMPRA A VISTA', amount: 3016.88, category: 'Compras',
+      expense_date: '2026-11-10', due_date: '2026-12-01', status: 'PENDING', installment_count: 1,
+      card_id: 'card-1', entry_type: 'PURCHASE' as const, is_invoice_credit: false,
+    },
+    {
+      id: 'exp-credit', description: 'PAG EUCATUR*Eucat', amount: 86.00, category: 'Ajuste de fatura',
+      expense_date: '2026-08-14', due_date: '2026-12-01', status: 'PENDING', installment_count: 1,
+      card_id: 'card-1', entry_type: 'PURCHASE' as const, is_invoice_credit: true,
+    },
+    {
+      id: 'exp-parcel', description: 'PARC.FACIL', amount: 400.00, category: 'Compras',
+      expense_date: '2026-06-10', due_date: '2026-12-01', status: 'PENDING', installment_count: 3,
+      card_id: 'card-1', entry_type: 'PURCHASE' as const, is_invoice_credit: false,
+    },
+  ];
+  const installments = [
+    { id: 'i-1', expense_id: 'exp-1', installment_number: 1, due_month: '2026-12-01', amount: 3016.88, paid_amount: 0, status: 'PENDING' as const },
+    { id: 'i-c', expense_id: 'exp-credit', installment_number: 1, due_month: '2026-12-01', amount: 86.00, paid_amount: 0, status: 'PENDING' as const },
+    { id: 'i-p1', expense_id: 'exp-parcel', installment_number: 1, due_month: '2026-12-01', amount: 200.00, paid_amount: 0, status: 'PENDING' as const },
+    { id: 'i-p2', expense_id: 'exp-parcel', installment_number: 2, due_month: '2027-01-01', amount: 200.00, paid_amount: 0, status: 'PENDING' as const },
+  ];
+  const cycles = getEffectiveInvoiceCycles('card-1', expenses, installments);
+  assert.deepEqual(cycles, [
+    { dueMonth: '2026-12-01', amount: 3130.88, hasOverride: false },
+    { dueMonth: '2027-01-01', amount: 200.00, hasOverride: false },
+  ]);
+  const pos = getCardCreditPosition({ id: 'card-1', credit_limit: 10000, initial_future_installments_balance: 0 }, expenses, installments);
+  assert.equal(pos.currentInvoice, 3130.88);
+  assert.equal(pos.futureCommitments, 200.00);
+  assert.equal(pos.committedLimit, 3330.88);
+  assert.equal(pos.freeLimit, 6669.12);
 });

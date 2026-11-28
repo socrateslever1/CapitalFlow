@@ -23,6 +23,8 @@ export const WALLET_ROUTES: ReadonlyArray<{ key: WalletRouteKey; label: string }
 
 export const getWalletRoute = (pathname: string): WalletRouteKey => {
   const segment = pathname.match(/^\/carteira\/([^/]+)/)?.[1] as WalletRouteKey | undefined;
+  // Compatibilidade com links antigos: recebimentos fixos agora vivem dentro da conta.
+  if (segment === 'receitas') return 'contas';
   if (segment === 'relatorio' || segment === 'notificacoes') return segment;
   return segment && WALLET_ROUTES.some(route => route.key === segment) ? segment : 'visao-geral';
 };

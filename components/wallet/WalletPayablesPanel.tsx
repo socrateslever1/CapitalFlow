@@ -1,5 +1,6 @@
 import { PrivateMoney, useFinancialPrivacy } from '../../contexts/FinancialPrivacyContext';
 import React,{useEffect,useMemo,useState,useRef} from 'react';
+import { createPortal } from 'react-dom';
 import {Building2,CheckCircle2,FileUp,HandCoins,Plus,UserRound,X} from 'lucide-react';
 import {PersonalWalletAccount,PersonalWalletCard,PersonalWalletPayable} from '../../services/personalWallet.service';
 import {formatMoney} from '../../utils/formatters';
@@ -126,7 +127,7 @@ export const WalletPayablesPanel:React.FC<Props>=({payables,accounts,cards,savin
     {listMode==='open'&&!['PAID','CANCELED'].includes(status)&&<button type="button" onClick={()=>start(p)} className="mt-3 w-full rounded-lg bg-emerald-600 py-2.5 text-xs font-bold text-white">Pagar dívida</button>}
    </article>;
   })}</div>}
-  {selected&&<div role="dialog" aria-modal="true" aria-label="Pagar dívida" className="fixed inset-0 z-[2400] flex items-end justify-center bg-slate-950/85 sm:items-center sm:p-4">
+  {selected&&createPortal(<div role="dialog" aria-modal="true" aria-label="Pagar dívida" className="fixed inset-0 z-[2400] flex items-end justify-center bg-slate-950/85 sm:items-center sm:p-4">
    <form onSubmit={submit} className="max-h-[calc(100dvh-1rem)] w-full max-w-md space-y-3 overflow-y-auto overscroll-contain rounded-t-3xl border border-slate-700 bg-slate-900 p-5 pb-8 text-white sm:max-h-[calc(100dvh-2rem)] sm:rounded-3xl">
     <header className="flex items-center justify-between"><div><span className="text-xs text-emerald-400">Registrar pagamento</span><h3 className="text-lg font-bold">{selected.creditor_name}</h3></div><button type="button" aria-label="Fechar" onClick={reset}><X size={18}/></button></header>
     <p className="text-xs text-slate-400">Saldo devedor: <PrivateMoney value={formatMoney(selected.outstanding_balance)} /></p>
@@ -140,7 +141,7 @@ export const WalletPayablesPanel:React.FC<Props>=({payables,accounts,cards,savin
       <div className="space-y-2">
       {splitSources.map((line,index)=>{ const base=parseWalletMoney(line.amount||'0'); const rate=Number(String(line.interestRate||'0').replace(',','.')); const charge=line.kind==='CARD'&&Number.isFinite(rate)?base+base*rate/100:base; return <div key={index} className="min-w-0 rounded-xl border border-slate-800 bg-slate-950/60 p-3">
         <div className="flex items-center gap-2"><select aria-label={`Tipo da fonte ${index+1}`} value={line.kind} onChange={e=>setSplitSources(rows=>rows.map((row,i)=>i===index?{...row,kind:e.target.value as 'ACCOUNT'|'CARD',id:'',interestRate:e.target.value==='CARD'?row.interestRate:''}:row))} className="w-28 shrink-0 rounded-lg border border-slate-700 bg-slate-950 p-2 text-xs text-white"><option value="ACCOUNT">Conta</option><option value="CARD">Cartão</option></select><select aria-label={`Fonte ${index+1}`} value={line.id} onChange={e=>setSplitSources(rows=>rows.map((row,i)=>i===index?{...row,id:e.target.value}:row))} className="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-950 p-2 text-xs text-white"><option value="">Escolha a fonte</option>{(line.kind==='ACCOUNT'?accounts:cards.filter(c=>c.status==='ACTIVE')).map(item=><option key={item.id} value={item.id}>{item.nickname}</option>)}</select>{splitSources.length>1&&<button type="button" onClick={()=>setSplitSources(rows=>rows.filter((_,i)=>i!==index))} className="flex min-h-8 min-w-8 shrink-0 items-center justify-center rounded-md p-1.5 text-xs font-semibold text-rose-300 hover:bg-rose-950/30" aria-label={`Remover fonte ${index+1}`}>×</button>}</div>
-        <div className="mt-2 grid min-w-0 gap-2 sm:grid-cols-2"><label className="min-w-0 text-[11px] text-slate-400">Valor<FinancialCalculatorInput value={line.amount} onCommit={next=>setSplitSources(rows=>rows.map((row,i)=>i===index?{...row,amount:next}:row))} fieldLabel="parte do pagamento" placeholder="0,00" className="mt-1 w-full min-w-0 rounded-lg border border-slate-700 bg-slate-950 p-2 text-white"/></label>{line.kind==='CARD'?<label className="min-w-0 text-[11px] text-slate-400">Juros (%)<input value={line.interestRate} onChange={e=>setSplitSources(rows=>rows.map((row,i)=>i===index?{...row,interestRate:e.target.value}:row))} placeholder="0,00" className="mt-1 w-full min-w-0 rounded-lg border border-slate-700 bg-slate-950 p-2 text-xs text-white"/></label>:<div className="self-end rounded-lg border border-slate-800 bg-slate-900 p-2 text-xs text-slate-400">Sem juros</div>}</div>
+        <div className="mt-2 grid min-w-0 grid-cols-[minmax(0,1fr)_6.5rem] gap-2 sm:grid-cols-2"><label className="min-w-0 text-[11px] text-slate-400">Valor<FinancialCalculatorInput value={line.amount} onCommit={next=>setSplitSources(rows=>rows.map((row,i)=>i===index?{...row,amount:next}:row))} fieldLabel="parte do pagamento" placeholder="0,00" className="mt-1 w-full min-w-0 rounded-lg border border-slate-700 bg-slate-950 p-2 text-white"/></label>{line.kind==='CARD'?<label className="min-w-0 text-[11px] text-slate-400">Juros (%)<FinancialCalculatorInput rate value={line.interestRate} onCommit={next=>setSplitSources(rows=>rows.map((row,i)=>i===index?{...row,interestRate:next}:row))} fieldLabel="juros do cartão" placeholder="0,00" className="mt-1 w-full min-w-0 rounded-lg border border-slate-700 bg-slate-950 p-2 text-xs text-white"/></label>:<div className="self-end rounded-lg border border-slate-800 bg-slate-900 p-2 text-xs text-slate-400">Sem juros</div>}</div>
         {line.kind==='CARD'&&<div className="mt-2 flex items-center justify-between rounded-lg bg-amber-950/30 px-2 py-1.5 text-xs text-amber-200"><span>Total na fatura</span><strong><PrivateMoney value={formatMoney(charge)} /></strong></div>}
       </div>; })}
       </div>
@@ -158,6 +159,6 @@ export const WalletPayablesPanel:React.FC<Props>=({payables,accounts,cards,savin
     {error&&<p role="alert" className="text-xs text-rose-300">{error}</p>}
     <button type="submit" disabled={busy||saving} className="w-full rounded-lg bg-emerald-600 p-3 text-sm font-bold text-white disabled:opacity-40">{busy||saving?'Registrando...':'Confirmar pagamento'}</button>
    </form>
-  </div>}
+  </div>,document.body)}
  </div>;
 };

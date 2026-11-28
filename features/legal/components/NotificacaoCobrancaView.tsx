@@ -95,19 +95,19 @@ export const NotificacaoCobrancaView: React.FC<NotificacaoCobrancaViewProps> = (
                             <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto justify-end">
                                 <button
                                     onClick={() => handleWhatsApp(loan, 'AMIGAVEL')}
-                                    className="flex-1 lg:flex-none px-4 py-3 bg-slate-800 text-amber-400 hover:text-white hover:bg-amber-600 rounded-lg text-[10px] font-black uppercase transition-all flex items-center justify-center gap-2"
+                                    className="flex-1 lg:flex-none px-4 py-3 bg-slate-800 text-amber-400 hover:text-white hover:bg-amber-600 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2"
                                 >
                                     <MessageCircle size={14}/> Aviso Amigável
                                 </button>
                                 <button
                                     onClick={() => handlePrintNotification(loan)}
-                                    className="flex-1 lg:flex-none px-4 py-3 bg-slate-800 text-blue-400 border border-blue-500/20 hover:bg-blue-600 hover:text-white rounded-lg text-[10px] font-black uppercase transition-all flex items-center justify-center gap-2"
+                                    className="flex-1 lg:flex-none px-4 py-3 bg-slate-800 text-blue-400 border border-blue-500/20 hover:bg-blue-600 hover:text-white rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2"
                                 >
                                     <FileText size={14}/> Gerar PDF Formal
                                 </button>
                                 <button
                                     onClick={() => handleWhatsApp(loan, 'EXTRA')}
-                                    className="flex-1 lg:flex-none px-4 py-3 bg-rose-950/30 text-rose-500 border border-rose-500/30 hover:bg-rose-600 hover:text-white rounded-lg text-[10px] font-black uppercase transition-all flex items-center justify-center gap-2"
+                                    className="flex-1 lg:flex-none px-4 py-3 bg-rose-950/30 text-rose-500 border border-rose-500/30 hover:bg-rose-600 hover:text-white rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2"
                                 >
                                     <AlertTriangle size={14}/> Extrajudicial (Zap)
                                 </button>

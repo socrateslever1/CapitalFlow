@@ -60,15 +60,16 @@ export function resolveReceiptDecision(input: ReceiptDecisionInput): ReceiptDeci
     return { action: input.businessAction, operationType: 'DISCOUNT_RENEWAL', isRecurring, needsBusinessChoice: false };
   }
 
-  if (amount < interest - EPSILON) {
+  const isMonthlyRenewal = ['MONTHLY', 'GIRO', 'REVOLVING'].includes(String(input.billingCycle || '').toUpperCase());
+  if (isMonthlyRenewal && interest <= 0) {
+    return { action: 'AUTOMATIC', operationType: 'KEEP_PENDING', isRecurring, needsBusinessChoice: false };
+  }
+  if (amount < interest - (isMonthlyRenewal ? 0.005 : EPSILON)) {
     return { action: 'CAPITALIZE_REMAINDER', operationType: 'CAPITALIZE_RENEWAL', isRecurring, needsBusinessChoice: true };
   }
 
-  // Cobrir os juros não significa que o atraso foi regularizado.
-  // Enquanto houver multa/mora não paga, o recebimento fica no vencimento atual.
-  // Se o operador dispensar o atraso, a UI chama esta função com lateFee = 0
-  // e a renovação volta a ser automática.
-  if (lateFee > EPSILON && amount < interest + lateFee - EPSILON) {
+  // Juros mensais quitados renovam o ciclo; encargos remanescentes permanecem pendentes.
+  if (!isMonthlyRenewal && lateFee > EPSILON && amount < interest + lateFee - EPSILON) {
     return { action: 'AUTOMATIC', operationType: 'KEEP_PENDING', isRecurring, needsBusinessChoice: false };
   }
 

@@ -5,6 +5,7 @@ import {
   Edit2, AlertCircle, Sparkles, CheckCircle2, Loader2,
   RefreshCw, Zap, ShieldCheck, ArrowRight, ExternalLink
 } from 'lucide-react';
+import { AppIcon } from '../../components/icons/AppIcons';
 import { Loan, Installment, UserProfile, CapitalSource } from '../../types';
 import { Modal } from '../ui/Modal';
 import { formatMoney } from '../../utils/formatters';
@@ -356,18 +357,14 @@ _CapitalFlow • Pagamento seguro via InfinitePay_`;
     >
       <div className="space-y-4">
         {/* Abas de Escolha: Pix Direto vs InfinitePay */}
-        <div className="flex items-center rounded-xl bg-slate-900 p-1 border border-slate-800">
+        <div className="cf-seg">
           <button
             type="button"
             onClick={() => setMode('DIRECT')}
-            className={`flex-1 py-2 px-3 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-              mode === 'DIRECT'
-                ? 'bg-cyan-600 text-white shadow-md shadow-cyan-950/50'
-                : 'text-slate-400 hover:text-white'
-            }`}
+            data-active={mode === 'DIRECT'} className="cf-seg-tab"
           >
-            <Zap size={13} className={mode === 'DIRECT' ? 'text-cyan-200' : 'text-slate-500'} />
-            <span>Pix Direto (Sem Taxa)</span>
+            <AppIcon name="pix" size={20} muted={!(mode === 'DIRECT')} />
+            <span>Pix direto (sem taxa)</span>
           </button>
           <button
             type="button"
@@ -377,13 +374,9 @@ _CapitalFlow • Pagamento seguro via InfinitePay_`;
                 void handleGenerateInfinitePay();
               }
             }}
-            className={`flex-1 py-2 px-3 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-              mode === 'INFINITEPAY'
-                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-950/50'
-                : 'text-slate-400 hover:text-white'
-            }`}
+            data-active={mode === 'INFINITEPAY'} className="cf-seg-tab"
           >
-            <Sparkles size={13} className={mode === 'INFINITEPAY' ? 'text-emerald-200' : 'text-slate-500'} />
+            <AppIcon name="payments" size={20} muted={!(mode === 'INFINITEPAY')} />
             <span>InfinitePay (Checkout / Pix)</span>
           </button>
         </div>

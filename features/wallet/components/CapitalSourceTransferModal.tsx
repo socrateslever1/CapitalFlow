@@ -2,13 +2,14 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowRightLeft, Loader2 } from 'lucide-react';
 import type { CapitalSource } from '../../../types';
 import { personalWalletService, type PersonalWalletAccount } from '../../../services/personalWallet.service';
-import { platformAdminService } from '../../../services/platformAdmin.service';
 import { formatMoney } from '../../../utils/formatters';
 import { generateUUID } from '../../../utils/generators';
 import { parseWalletMoney } from '../utils/parseWalletMoney';
 import { FinancialCalculatorInput } from '../../../components/forms/FinancialCalculatorInput';
 import { Modal } from '../../../components/ui/Modal';
+import { SelectOptionList } from '../../../components/ui/SelectOptionList';
 import { canMoveCapitalSource, getMovableCapitalTotal, validateCapitalMovement } from '../domain/capitalSourceTransfer';
+import { notifyFinancialDataChanged } from '../../../utils/appSyncEvents';
 
 type Props = {
   profileId: string;
@@ -32,6 +33,7 @@ export const CapitalSourceTransferModal: React.FC<Props> = ({
   const [amountText, setAmountText] = useState('');
   const [working, setWorking] = useState(false);
   const [error, setError] = useState('');
+  const [confirmingAmount, setConfirmingAmount] = useState<number | null>(null);
   const requestId = useRef(generateUUID());
   const busyRef = useRef(false);
 
@@ -39,8 +41,6 @@ export const CapitalSourceTransferModal: React.FC<Props> = ({
     let mounted = true;
     const initialize = async () => {
       try {
-        const permitted = await platformAdminService.isSuperAdmin();
-        if (!permitted) throw new Error('A movimentação de capital exige autorização Master.');
         const snapshot = await personalWalletService.loadOverview();
         if (!mounted) return;
         // Sempre utilizar contas efetivamente visíveis após reinício lógico.
@@ -56,11 +56,29 @@ export const CapitalSourceTransferModal: React.FC<Props> = ({
 
   const eligible = useMemo(() => sources.filter(source =>
     canMoveCapitalSource(source, destinationAccounts)), [sources, destinationAccounts]);
+  useEffect(() => {
+    if (!ready) return;
+    if (!sourceId && eligible.length === 1) setSourceId(eligible[0].id);
+    if (!accountId && destinationAccounts.length === 1) setAccountId(destinationAccounts[0].id);
+  }, [ready, sourceId, accountId, eligible, destinationAccounts]);
   const source = sources.find(item => item.id === sourceId);
   const account = destinationAccounts.find(item => item.id === accountId);
   const linkedSource = account?.capital_source_id
     ? sources.find(item => item.id === account.capital_source_id) : null;
-  const clearRequest = () => { requestId.current = generateUUID(); setError(''); };
+  const clearRequest = () => { requestId.current = generateUUID(); setError(''); setConfirmingAmount(null); };
+  const formatCentsInput = (value: number) =>
+    Math.max(0, Math.round(value * 100) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const applyQuickRatio = (ratio: number) => {
+    const balance = Number(source?.balance || 0);
+    if (balance <= 0) return;
+    const target = ratio >= 1 ? balance : Math.round(balance * ratio * 100) / 100;
+    setAmountText(formatCentsInput(target));
+    clearRequest();
+  };
+  const previewAmount = useMemo(() => {
+    if (!amountText.trim()) return 0;
+    try { return parseWalletMoney(amountText, 'valor da transferência'); } catch { return 0; }
+  }, [amountText]);
   const confirm = async () => {
     if (busyRef.current || !ready) return;
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
@@ -73,14 +91,18 @@ export const CapitalSourceTransferModal: React.FC<Props> = ({
     }
     const issue = validateCapitalMovement(amount, source, account, destinationAccounts);
     if (issue) { setError(issue); return; }
-    if (!window.confirm(`Mover ${formatMoney(amount)} de ${source!.name} para ${account!.nickname} no CapitalFlow? Esta operação registra somente a movimentação contábil, não envia Pix nem transfere dinheiro no banco.`)) return;
+    if (confirmingAmount !== amount) {
+      setError('');
+      setConfirmingAmount(amount);
+      return;
+    }
+    setConfirmingAmount(null);
     busyRef.current = true; setWorking(true); setError('');
     try {
       await personalWalletService.transferCapitalSourceToAccount({
         profileId, sourceId, accountId, amount, requestId: requestId.current,
       });
-      window.dispatchEvent(new Event('capitalflow:wallet-updated'));
-      window.dispatchEvent(new Event('capitalflow:source-origins-updated'));
+      notifyFinancialDataChanged({ wallet: true, capital: true, sourceOrigins: true });
       await onSaved();
       onClose();
     } catch (cause) {
@@ -90,11 +112,28 @@ export const CapitalSourceTransferModal: React.FC<Props> = ({
   };
 
   return <Modal title="Transferir capital para conta" subtitle="Movimentação contábil interna — não é Pix ou transferência bancária" onClose={working ? () => {} : onClose} busy={working}
-    footer={<button type="button" disabled={!ready || working || !sourceId || !accountId || !amountText.trim()}
-      onClick={() => void confirm()} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:cursor-not-allowed disabled:opacity-50">
-      {working ? <Loader2 size={17} className="animate-spin" /> : <ArrowRightLeft size={17}/>}
-      {working ? 'Confirmando...' : 'Confirmar movimentação'}
-    </button>}>
+    footer={confirmingAmount !== null && source && account ? (
+      <div role="alertdialog" aria-label="Confirmar transferência contábil" className="w-full space-y-2.5 rounded-xl border border-blue-500/40 bg-slate-950 p-3 text-xs text-slate-200">
+        <p className="leading-relaxed">
+          Mover <strong>{formatMoney(confirmingAmount)}</strong> de <strong>{source.name}</strong> para <strong>{account.nickname}</strong> no CapitalFlow? Esta operação registra somente a movimentação contábil, não envia Pix nem transfere dinheiro no banco.
+        </p>
+        <div className="flex items-center justify-end gap-2">
+          <button type="button" disabled={working} onClick={() => setConfirmingAmount(null)} className="min-h-10 rounded-lg border border-slate-700 px-3 py-2 font-semibold text-slate-300 hover:bg-slate-800">
+            Cancelar
+          </button>
+          <button type="button" disabled={working} onClick={() => void confirm()} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 font-bold text-white hover:bg-blue-500">
+            {working ? <Loader2 size={15} className="animate-spin" /> : <ArrowRightLeft size={15} />}
+            {working ? 'Confirmando...' : 'Confirmar transferência'}
+          </button>
+        </div>
+      </div>
+    ) : (
+      <button type="button" disabled={!ready || working || !sourceId || !accountId || !amountText.trim()}
+        onClick={() => void confirm()} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:cursor-not-allowed disabled:opacity-50">
+        {working ? <Loader2 size={17} className="animate-spin" /> : <ArrowRightLeft size={17}/>}
+        {working ? 'Confirmando...' : 'Confirmar movimentação'}
+      </button>
+    )}>
     <div className="space-y-4">
       {loading && <p role="status" className="text-sm text-slate-300">Verificando autorização e saldos...</p>}
       {error && <p role="alert" className="rounded-lg border border-rose-500/30 bg-rose-950/30 p-3 text-sm text-rose-200">{error}</p>}
@@ -103,30 +142,82 @@ export const CapitalSourceTransferModal: React.FC<Props> = ({
           <p className="text-xs text-slate-400">Capital operacional transferível, sem cartões ou contas espelho</p>
           <strong className="mt-1 block text-xl font-bold tabular-nums text-emerald-300">{formatMoney(getMovableCapitalTotal(sources,destinationAccounts))}</strong>
         </div>
-        <label className="block space-y-1.5 text-sm font-medium text-slate-200">
-          Fonte de origem
-          <select value={sourceId} onChange={event => { setSourceId(event.target.value); clearRequest(); }}
-            className="min-h-12 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
-            <option value="">Selecione a fonte</option>
-            {eligible.map(item => <option key={item.id} value={item.id}>{item.name} · {formatMoney(Number(item.balance))}</option>)}
-          </select>
-        </label>
-        <label className="block space-y-1.5 text-sm font-medium text-slate-200">
-          Conta de destino
-          <select value={accountId} onChange={event => { setAccountId(event.target.value); clearRequest(); }}
-            className="min-h-12 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
-            <option value="">Selecione a conta</option>
-            {destinationAccounts.map(item => <option key={item.id} value={item.id}>{item.nickname} · {formatMoney(Number(item.balance))}</option>)}
-          </select>
-        </label>
+        <div className="block space-y-1.5 text-sm font-medium text-slate-200">
+          <span className="block">Fonte de origem</span>
+          <SelectOptionList
+            ariaLabel="Fonte de origem"
+            value={sourceId}
+            placeholder="Selecione a fonte"
+            options={eligible.map((item) => ({
+              value: item.id,
+              label: item.name,
+              subtitle: 'Saldo operacional',
+              rightValue: formatMoney(Number(item.balance)),
+            }))}
+            onChange={(next) => { setSourceId(next); clearRequest(); }}
+          />
+        </div>
+        <div className="block space-y-1.5 text-sm font-medium text-slate-200">
+          <span className="block">Conta de destino</span>
+          <SelectOptionList
+            ariaLabel="Conta de destino"
+            value={accountId}
+            placeholder="Selecione a conta"
+            options={destinationAccounts.map((item) => ({
+              value: item.id,
+              label: item.nickname,
+              subtitle: 'Saldo da conta',
+              rightValue: formatMoney(Number(item.balance)),
+            }))}
+            onChange={(next) => { setAccountId(next); clearRequest(); }}
+          />
+        </div>
         {linkedSource && <p className="text-xs text-blue-200">Esta conta espelha a fonte {linkedSource.name}; o saldo vinculado será sincronizado. Não conte as duas posições como dinheiro diferente.</p>}
-        <label className="block space-y-1.5 text-sm font-medium text-slate-200">
-          Valor em reais
-          <FinancialCalculatorInput value={amountText}
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between gap-2">
+            <label htmlFor="capital-transfer-amount" className="text-sm font-medium text-slate-200">
+              Valor em reais
+            </label>
+            {source && Number(source.balance) > 0 && (
+              <div className="flex items-center gap-1.5">
+                {[
+                  { label: '25%', ratio: 0.25 },
+                  { label: '50%', ratio: 0.5 },
+                  { label: 'Tudo', ratio: 1 },
+                ].map(preset => (
+                  <button
+                    key={preset.label}
+                    type="button"
+                    onClick={() => applyQuickRatio(preset.ratio)}
+                    className="rounded-md border border-slate-700 bg-slate-900 px-2 py-0.5 text-[11px] font-bold text-slate-300 transition-colors hover:border-blue-500/60 hover:text-white"
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <FinancialCalculatorInput id="capital-transfer-amount" value={amountText}
             onChange={event => { setAmountText(event.target.value); clearRequest(); }}
             placeholder="0,00" centsEntry
             className="min-h-12 w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-base text-white focus:border-blue-400" />
-        </label>
+        </div>
+        {source && account && previewAmount > 0 && (
+          <div className="rounded-lg border border-slate-800 bg-slate-900/70 p-3 text-xs space-y-1">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-slate-400 truncate">Fonte {source.name}</span>
+              <span className="font-bold tabular-nums text-slate-200">
+                {formatMoney(Number(source.balance))} → {formatMoney(Number(source.balance) - previewAmount)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-slate-400 truncate">Conta {account.nickname}</span>
+              <span className="font-bold tabular-nums text-emerald-300">
+                {formatMoney(Number(account.balance))} → {formatMoney(Number(account.balance) + previewAmount)}
+              </span>
+            </div>
+          </div>
+        )}
         <p className="text-xs leading-relaxed text-slate-400">A fonte será debitada e a conta creditada, com registro no extrato e auditoria. Não altera contratos, faturas nem movimenta dinheiro na instituição bancária.</p>
       </>}
     </div>

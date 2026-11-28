@@ -70,6 +70,7 @@ shutil.copyfile(root / "native/android/CapitalFlowInstallStatusReceiver.java", t
 shutil.copyfile(root / "native/android/WalletBankNotificationStore.java", target.with_name("WalletBankNotificationStore.java"))
 shutil.copyfile(root / "native/android/WalletBankNotificationListenerService.java", target.with_name("WalletBankNotificationListenerService.java"))
 shutil.copyfile(root / "native/android/WalletBankNotificationsPlugin.java", target.with_name("WalletBankNotificationsPlugin.java"))
+shutil.copyfile(root / "native/android/WalletQuickAccessPlugin.java", target.with_name("WalletQuickAccessPlugin.java"))
 
 # Retain the old constrained FileProvider for compatibility with previous
 # native shells. The updater now stages through PackageInstaller.Session.
@@ -116,6 +117,9 @@ if 'android:name=".WalletBankNotificationListenerService"' not in text:
 if 'android.permission.REQUEST_INSTALL_PACKAGES' not in text:
     text = text.replace('<application',
         '<uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>\n    <application', 1)
+if 'android.permission.POST_NOTIFICATIONS' not in text:
+    text = text.replace('<application',
+        '<uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>\n    <application', 1)
 if 'android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION' not in text:
     text = text.replace('<application',
         '<uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION"/>\n    <application', 1)

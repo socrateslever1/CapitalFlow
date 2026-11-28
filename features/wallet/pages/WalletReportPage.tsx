@@ -1,11 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, CalendarClock, BarChart3, CreditCard, Landmark, TrendingDown, TrendingUp } from 'lucide-react';
+import { ArrowLeft, CalendarClock, CreditCard, Landmark, TrendingDown, TrendingUp, ChevronDown } from 'lucide-react';
+import { AppIcon } from '../../../components/icons/AppIcons';
 import { PrivateMoney, useFinancialPrivacy } from '../../../contexts/FinancialPrivacyContext';
 import { formatMoney } from '../../../utils/formatters';
 import { walletRepository, type WalletOverviewSnapshot } from '../services/walletRepository';
 import { WalletPageFrame } from '../components/WalletPageFrame';
 import { deriveOverview } from './WalletOverviewPage';
 import { businessDateInManaus } from '../../../utils/businessDate';
+import { CategoryGaugeIcon } from '../../../components/wallet/CategoryGaugeIcon';
+import { CategoryDonut } from '../../../components/wallet/CategoryDonut';
+import { getWalletCategoryVisual } from '../domain/walletCategoryVisual';
 
 const localDate = (): string => businessDateInManaus();
 
@@ -21,6 +25,7 @@ export const WalletReportPage: React.FC<{ onNavigate: (path: string) => void }> 
   const [today, setToday] = useState(localDate);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [showProjectionDetails, setShowProjectionDetails] = useState(false);
   const refresh = useCallback(async (force = false) => {
     const result = await walletRepository.loadOverview({ force });
     setSnapshot(result);
@@ -83,7 +88,7 @@ export const WalletReportPage: React.FC<{ onNavigate: (path: string) => void }> 
     </section>}
     {report && !privacyHidden && <>
       <section aria-label="Resumo financeiro do mês" className="rounded-xl border border-slate-800 bg-slate-900 p-4 sm:p-5">
-        <h3 className="flex items-center gap-2 text-sm font-bold text-white"><BarChart3 size={17} className="text-blue-400" /> Visão do mês</h3>
+        <h3 className="flex items-center gap-2 text-sm font-bold text-white"><AppIcon name="dashboard" size={20} /> Visão do mês</h3>
         <div className="mt-3 grid grid-cols-2 gap-2">
           {cards.map(({ label, value, color, Icon }) => <div key={label}
             className="min-w-0 rounded-lg border border-slate-800 bg-slate-950/60 p-3">
@@ -96,7 +101,7 @@ export const WalletReportPage: React.FC<{ onNavigate: (path: string) => void }> 
           </div>)}
         </div>
         <div className="mt-3 rounded-lg border border-slate-700/80 bg-slate-950/60 p-3">
-          <p className="text-xs text-slate-300">Projeção após compromissos cadastrados</p>
+          <p className="text-xs text-slate-300">Sobra prevista após os compromissos cadastrados</p>
           <p className={'mt-1 break-words text-xl font-bold tabular-nums ' +
             (report.balance.projectedBalance < 0 ? 'text-rose-300' : 'text-emerald-300')}>
             <PrivateMoney value={formatMoney(report.balance.projectedBalance)} />
@@ -107,7 +112,18 @@ export const WalletReportPage: React.FC<{ onNavigate: (path: string) => void }> 
           Não equivale ao saldo bancário nem ao lucro de empréstimos.
         </p>
       </section>
-      <section aria-label="Despesas por categoria" className="rounded-xl border border-slate-800 bg-slate-900 p-4 sm:p-5">
+      <section aria-label="Entenda a sobra prevista" className="rounded-xl border border-slate-800 bg-slate-900">
+        <button type="button" aria-expanded={showProjectionDetails}
+          onClick={() => setShowProjectionDetails(value => !value)}
+          className="flex min-h-12 w-full items-center justify-between gap-3 p-4 text-left text-sm font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
+          <span>Como calculamos a sobra prevista</span>
+          <ChevronDown size={16} className={'shrink-0 text-slate-400 transition-transform ' + (showProjectionDetails ? 'rotate-180' : '')} />
+        </button>
+        {showProjectionDetails && <div className="space-y-3 border-t border-slate-800 p-4 text-xs leading-relaxed text-slate-300">
+          <p>Começamos pelo saldo que existe nas contas hoje. Somamos receitas recorrentes que ainda estão previstas e subtraímos faturas e contas a pagar deste mês.</p>
+          <p>Receitas previstas ainda não foram recebidas. O resultado é uma estimativa depois dos compromissos cadastrados; não representa lucro de contratos nem limite disponível dos cartões. Compras já incluídas nas faturas não são descontadas duas vezes.</p>
+        </div>}
+      </section>      <section aria-label="Despesas por categoria" className="rounded-xl border border-slate-800 bg-slate-900 p-4 sm:p-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-sm font-bold text-white">Despesas por categoria</h3>
           <strong className="text-base font-bold tabular-nums text-white"><PrivateMoney value={formatMoney(report.spending.total)} /></strong>
@@ -115,8 +131,14 @@ export const WalletReportPage: React.FC<{ onNavigate: (path: string) => void }> 
         <p className="mt-1 text-xs text-slate-400">
           {report.spending.count} {report.spending.count === 1 ? 'lançamento no mês' : 'lançamentos no mês'}
         </p>
+        {report.spending.categories.length > 0 && <div className="mt-4">
+          <CategoryDonut slices={report.spending.categories}
+            center={<><span className="text-[10px] uppercase tracking-wide text-slate-400">Total</span><strong className="text-sm font-bold tabular-nums text-white"><PrivateMoney value={formatMoney(report.spending.total)} /></strong></>} />
+        </div>}
         {report.spending.categories.length ? <ul className="mt-4 space-y-3">
-          {report.spending.categories.map(category => <li key={category.name}>
+          {report.spending.categories.map(category => <li key={category.name} className="flex items-center gap-3">
+            <CategoryGaugeIcon category={category.name} percentage={category.percentage} size={40} />
+            <div className="min-w-0 flex-1">
             <div className="mb-1 flex justify-between gap-3 text-xs">
               <span className="min-w-0 truncate text-slate-200">{category.name}</span>
               <span className="shrink-0 tabular-nums text-slate-300">
@@ -124,7 +146,8 @@ export const WalletReportPage: React.FC<{ onNavigate: (path: string) => void }> 
               </span>
             </div>
             <div className="h-1.5 overflow-hidden rounded-full bg-slate-800">
-              <div className="h-full rounded-full bg-blue-500" style={{ width: Math.min(100, category.percentage) + '%' }} />
+              <div className="h-full rounded-full" style={{ width: Math.min(100, category.percentage) + '%', backgroundColor: getWalletCategoryVisual(category.name).color }} />
+            </div>
             </div>
           </li>)}
         </ul> : <p className="mt-4 text-sm text-slate-400">Nenhuma despesa registrada neste mês.</p>}

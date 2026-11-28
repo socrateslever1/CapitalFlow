@@ -4,9 +4,9 @@
  */
 
 export const SYSTEM_VERSION = {
-  version: "3.2.1",
-  build: "2026.04.18.1245",
-  environment: "Production",
-  logicalMotor: "v2.0.4 (Daily Renewal Patch)",
-  lastDeploy: "2026-04-18T12:45:11Z",
+  version: '3.5.0',
+  build: '2026.11.19.1930',
+  environment: 'Production',
+  logicalMotor: 'v4.0 (Carteira Geral + Leitor Local)',
+  lastDeploy: '2026-11-19T22:30:00Z',
 };

@@ -6,7 +6,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { WalletSpendingGuide } from '../../features/wallet/components/WalletSpendingGuide';
 import { getWalletSpendingOverview } from '../../features/wallet/domain/walletSpendingInsights';
 
-test('overview fetches nine lightweight sources including exact invoice due dates', () => {
+test('overview fetches twelve lightweight sources including exact invoice dates, cycle rules and pending operations', () => {
   const service = readFileSync('services/personalWallet.service.ts','utf8');
   const repository = readFileSync('features/wallet/services/walletRepository.ts','utf8');
   const overview = readFileSync('features/wallet/pages/WalletOverviewPage.tsx','utf8');
@@ -21,17 +21,24 @@ test('overview fetches nine lightweight sources including exact invoice due date
     'personal_wallet_card_invoice_facts',
   ];
   for (const table of expected) assert(query.includes("from('" + table + "')"), table);
-  assert.equal((query.match(/supabase\.from\('/g) ?? []).length, 9);
+  assert.equal((query.match(/supabase\.from\('/g) ?? []).length, 12);
+  // Lançamentos pendentes: só os ainda pendentes, para o saldo previsto.
+  assert.match(query, /from\('personal_wallet_pending_operations'\)[\s\S]*?\.eq\('status', 'PENDING'\)/);
+  // Operações de conta só entram filtradas: despesas desde o mês anterior, poucas colunas.
+  assert(query.includes("from('personal_wallet_account_operations')"));
+  assert.match(query, /\.select\('id,operation_type,from_account_id,amount,category,operation_date,voided_at,voids_operation_id'\)\s*\.eq\('operation_type', 'EXPENSE'\)\.gte\('operation_date', spendingSince\)/);
   for (const excluded of [
-    'personal_wallet_statement_rows','personal_wallet_account_operations',
+    'personal_wallet_statement_rows',
     'personal_wallet_payable_payments','personal_wallet_recurring_obligations',
   ]) assert(!query.includes("from('" + excluded + "')"));
   assert(!query.includes('createSignedUrl'), 'overview should not sign optional images on first paint');
   assert(!query.includes('.limit(') || query.includes('.limit(500)'), 'do not truncate purchases or installments');
   assert(query.includes('getCardCreditPosition'), 'credit must use the canonical calculation');
+  assert(query.includes("select('card_id,due_month,due_date,closing_date,available_limit,updated_at')"));
+  assert(query.includes('bankAvailableReferences:'));
   assert(repository.includes('overviewCache'));
   assert(repository.includes('overviewCache.invalidate()'));
-  assert(overview.includes('walletRepository.loadOverview()'));
+  assert(overview.includes('walletRepository.loadOverview({ force: true })'), 'overview revalidates values when reopened');
   assert(overview.includes('walletRepository.loadOverview({ force: true })'));
 });
 

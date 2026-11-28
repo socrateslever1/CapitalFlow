@@ -310,7 +310,7 @@ const walletAccountMigration = read('supabase', 'migrations', '20261025073621_pe
 for (const required of ["INCOME", "RECEIPT", "EXPENSE", "PAYMENT", "TRANSFER", "Extrato da conta", "Importar PDF"]) {
   if (!walletActivity.includes(required)) failures.push(`Minha Carteira -> operacao ou extrato ausente: ${required}`);
 }
-for (const required of ["parseStatementPdf", "Confirmar itens selecionados", "recordStatementRow"]) {
+for (const required of ["parseStatementPdf", "'Confirmar'", "recordStatementRow"]) {
   if (!walletStatementImporter.includes(required)) failures.push(`Minha Carteira -> importacao do PDF ausente: ${required}`);
 }
 for (const required of ["personal_wallet_record_account_operation", "personal_wallet_record_statement_row", "pg_advisory_xact_lock", "enable row level security"]) {
@@ -386,26 +386,26 @@ if (personalWalletPage.includes('personalWalletService.payInvoice(')) {
   failures.push('Minha Carteira -> atalho de quitacao total ignora formulario parcial');
 }
 if (!bottomNav.includes("navOrder.includes('MY_WALLET')")) {
-  failures.push('BottomNav.tsx -> Minha Carteira nÃ£o estÃ¡ condicionada ao acesso de superadministrador');
+  failures.push('BottomNav.tsx -> Minha Carteira não está integrada ao navOrder');
 }
 if (!app.includes('navOrder={visibleHubOrder}')) {
-  failures.push('App.tsx -> acesso exclusivo da carteira nÃ£o foi propagado ao menu responsivo');
+  failures.push('App.tsx -> visibleHubOrder não foi propagado ao menu responsivo');
 }
-if (!app.includes("activeTab === 'MY_WALLET' && isPlatformSuperAdmin")) {
-  failures.push('App.tsx -> renderizacao da Minha Carteira nao esta condicionada a isPlatformSuperAdmin');
+if (!app.includes("activeTab === 'MY_WALLET'")) {
+  failures.push('App.tsx -> renderizacao da Minha Carteira ausente');
 }
-if (!app.includes("['MY_WALLET', 'PLATFORM_ADMIN'].includes(activeTab)")) {
-  failures.push('App.tsx -> redirecionamento de seguranca nao bloqueia MY_WALLET para usuarios comuns');
+if (!app.includes("activeTab === 'PLATFORM_ADMIN' && isPlatformSuperAdmin")) {
+  failures.push('App.tsx -> PLATFORM_ADMIN deve permanecer exclusivo do superadministrador');
 }
 if (!app.includes("const visibleHubOrder = isPlatformSuperAdmin")) {
-  failures.push('App.tsx -> visibleHubOrder nao condiciona MY_WALLET ao superadministrador');
+  failures.push('App.tsx -> visibleHubOrder nao condiciona PLATFORM_ADMIN ao superadministrador');
 }
 const walletRepoSource = read('features', 'wallet', 'services', 'walletRepository.ts');
-if (!walletRepoSource.includes("supabase.rpc('is_platform_super_admin')")) {
-  failures.push('walletRepository.ts -> getAccess nao exige verificacao de superadministrador');
+if (!walletRepoSource.includes("from('user_modulos')")) {
+  failures.push('walletRepository.ts -> getAccess nao consulta user_modulos para o usuario autenticado');
 }
-if (!paymentManagerModal.includes('platformAdminService.isSuperAdmin()') || !paymentManagerModal.includes('isWalletReceiptAdmin')) {
-  failures.push('PaymentManagerModal.tsx -> Destino na Carteira deve ser exclusivo do superadministrador e nao pode bloquear outros usuarios');
+if (!paymentManagerModal.includes('walletRepository.loadOverview()') || !paymentManagerModal.includes('isWalletReceiptAdmin')) {
+  failures.push('PaymentManagerModal.tsx -> Destino na Carteira deve permanecer opcional e nao pode bloquear usuarios sem conta');
 }
 const appNotificationsHook = read('hooks', 'useAppNotifications.ts');
 if (appNotificationsHook.includes('Carteira com saldo cr')) {

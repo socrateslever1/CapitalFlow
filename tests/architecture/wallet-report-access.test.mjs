@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 const read = path => readFileSync(path, 'utf8');
 
-test('relatório da Carteira é acessível sem ampliar as cinco abas ou duplicar o FAB', () => {
+test('relatório da Carteira é acessível sem ampliar as abas ou duplicar o FAB', () => {
   const routes = read('features/wallet/routes.tsx');
   const wallet = read('features/wallet/WalletModule.tsx');
   const report = read('features/wallet/pages/WalletReportPage.tsx');
@@ -15,21 +15,23 @@ test('relatório da Carteira é acessível sem ampliar as cinco abas ou duplicar
   assert.match(report, /walletRepository\.loadOverview/);
   assert.match(report, /deriveOverview\(snapshot, today\)/);
   assert.match(report, /Despesas por categoria/);
-  assert.match(report, /Projeção após compromissos cadastrados/);
+  assert.match(report, /Sobra prevista após os compromissos cadastrados/);
   assert.match(report, /<PrivateMoney /);
   assert.match(wallet, /<WalletExpenseFab \/>/);
-  assert.match(wallet, /grid-cols-5/);
+  assert.match(wallet, /grid-cols-4/);
   assert.doesNotMatch(report, /supabase\.(from|rpc)\(/);
 });
 
 test('a interface permite consultar todas as fontes e traduz os códigos internos', () => {
   const links=read('features/wallet/components/WalletCapitalLinks.tsx');
   const accounts=read('features/wallet/pages/WalletAccountsPage.tsx');
+  const dock=read('features/wallet/components/WalletBalanceDock.tsx');
   const detail=read('components/wallet/AccountDetailsPage.tsx');
   assert.match(links, /getAccountCapitalSourceChoices/);
   assert.match(links, /disabled=\{!selectable\}/);
   assert.match(links, /!choice\?\.selectable/);
-  assert.match(accounts, /describeWalletBalanceFact\(balanceFacts\.effective\)/);
+  assert.match(dock, /aria-label="Saldo em contas"/);
+  assert.match(accounts, /showTotal=\{false\}/);
   assert.match(detail, /describeWalletBalanceFact\(accountBalanceFacts\.effective\)/);
   assert.doesNotMatch(accounts, /\{balanceFacts\.effective\.state\}/);
 });

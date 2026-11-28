@@ -1,4 +1,4 @@
-import type { PersonalWalletAccount, PersonalWalletPayable, WalletRecurringIncome } from '../../services/personalWallet.service';
+import type { PersonalWalletAccount, PersonalWalletPayable, WalletPendingOperation, WalletRecurringIncome } from '../../services/personalWallet.service';
 
 export type WalletBalanceSummary = {
   accountBalance: number;
@@ -108,17 +108,26 @@ export const calculateWalletBalance = (input: {
   openCardInvoices: number;
   payables: PersonalWalletPayable[];
   month: string;
+  /** Lançamentos pendentes previstos até o fim do mês (entradas somam, saídas subtraem). */
+  pendingOperations?: WalletPendingOperation[];
+  /** Data limite (YYYY-MM-DD) dos compromissos; sem ela vale o fim do mês. */
+  horizonDate?: string;
 }): WalletBalanceSummary => {
+  const due = (date: unknown) => dueWithin(date, input.month, input.horizonDate);
   const accountBalance = input.accounts.reduce((sum, account) => sum + Number(account.balance || 0), 0);
   const pendingRecurringIncome = input.recurringIncomes
     .filter(income => income.active && !input.receivedIncomeIds.has(income.id))
     .reduce((sum, income) => sum + Number(income.amount || 0), 0);
   const monthPayables = input.payables
-    .filter(payable => !['PAID', 'CANCELED'].includes(payable.status) && String(payable.due_date || '').slice(0, 7) === input.month)
+    // Contas do mês e contas vencidas ainda não pagas entram na projeção.
+    .filter(payable => !['PAID', 'CANCELED'].includes(payable.status) && Boolean(payable.due_date)
+      && due(payable.due_date))
     .reduce((sum, payable) => sum + Number(payable.outstanding_balance || 0), 0);
   const openCardInvoices = Math.max(0, Number(input.openCardInvoices || 0));
-  const totalResources = accountBalance + pendingRecurringIncome;
-  const totalLiabilities = openCardInvoices + monthPayables;
+  const pendingIn = pendingRemaining(input.pendingOperations, 'IN', input.month, undefined, input.horizonDate);
+  const pendingOut = pendingRemaining(input.pendingOperations, 'OUT', input.month, undefined, input.horizonDate);
+  const totalResources = accountBalance + pendingRecurringIncome + pendingIn;
+  const totalLiabilities = openCardInvoices + monthPayables + pendingOut;
   const projectedBalance = totalResources - totalLiabilities;
   return {
     accountBalance,
@@ -131,7 +140,75 @@ export const calculateWalletBalance = (input: {
     facts: buildWalletBalanceFacts({
       effectiveBalance: accountBalance,
       projectedBalance,
-      pendingBalance: pendingRecurringIncome,
+      pendingBalance: pendingRecurringIncome + pendingIn,
     }),
   };
 };
+
+const cents = (value: number) => Math.round(value * 100) / 100;
+
+/** Vence até a data limite (quando informada) ou até o fim do mês; vencidos sempre entram. */
+const dueWithin = (date: unknown, month: string, horizonDate?: string) =>
+  horizonDate ? String(date).slice(0, 10) <= horizonDate : String(date).slice(0, 7) <= month;
+
+const pendingRemaining = (rows: WalletPendingOperation[] | undefined, direction: 'IN' | 'OUT', month: string, accountId?: string, horizonDate?: string) =>
+  (rows || [])
+    .filter(row => row.status === 'PENDING' && row.direction === direction
+      && dueWithin(row.expected_date, month, horizonDate) && (!accountId || row.account_id === accountId))
+    .reduce((sum, row) => sum + Math.max(0, Number(row.amount) - Number(row.posted_amount || 0)), 0);
+
+export type AccountProjectionLine = { label: string; amount: number };
+export type AccountProjection = {
+  accountId: string | null;
+  name: string;
+  balance: number;
+  lines: AccountProjectionLine[];
+  projected: number;
+};
+
+/**
+ * Saldo previsto por conta no mês (somente leitura): saldo atual + receitas fixas a receber
+ * + entradas pendentes − saídas pendentes − contas a pagar − faturas que vencem até o fim do mês.
+ * Itens sem conta definida ficam em "Sem conta definida" para a soma bater com o total.
+ */
+export function calculateAccountProjections(input: {
+  accounts: PersonalWalletAccount[];
+  recurringIncomes: WalletRecurringIncome[];
+  receivedIncomeIds: Set<string>;
+  payables: PersonalWalletPayable[];
+  invoices: Array<{ accountId: string | null; amount: number }>;
+  pendingOperations?: WalletPendingOperation[];
+  month: string;
+  horizonDate?: string;
+}): AccountProjection[] {
+  const ids = new Set(input.accounts.map(account => account.id));
+  const owner = (id: string | null | undefined) => (id && ids.has(id) ? id : null);
+  const incomes = (accountId: string | null) => input.recurringIncomes
+    .filter(income => income.active && !input.receivedIncomeIds.has(income.id) && owner(income.destination_account_id) === accountId)
+    .reduce((sum, income) => sum + Number(income.amount || 0), 0);
+  const payables = (accountId: string | null) => input.payables
+    .filter(payable => !['PAID', 'CANCELED'].includes(payable.status) && Boolean(payable.due_date)
+      && dueWithin(payable.due_date, input.month, input.horizonDate) && owner(payable.origin_account_id) === accountId)
+    .reduce((sum, payable) => sum + Number(payable.outstanding_balance || 0), 0);
+  const invoices = (accountId: string | null) => input.invoices
+    .filter(invoice => owner(invoice.accountId) === accountId)
+    .reduce((sum, invoice) => sum + Math.max(0, Number(invoice.amount || 0)), 0);
+  // Pendente de conta fora da lista (arquivada/oculta) vai para "Sem conta definida": as somas batem com o total.
+  const orphanPending = (input.pendingOperations || []).filter(row => !ids.has(row.account_id));
+  const build = (accountId: string | null, name: string, balance: number): AccountProjection => {
+    const pendingIn = accountId ? pendingRemaining(input.pendingOperations, 'IN', input.month, accountId, input.horizonDate) : pendingRemaining(orphanPending, 'IN', input.month, undefined, input.horizonDate);
+    const pendingOut = accountId ? pendingRemaining(input.pendingOperations, 'OUT', input.month, accountId, input.horizonDate) : pendingRemaining(orphanPending, 'OUT', input.month, undefined, input.horizonDate);
+    const lines: AccountProjectionLine[] = [
+      { label: 'Receitas fixas a receber', amount: cents(incomes(accountId)) },
+      { label: 'Entradas pendentes', amount: cents(pendingIn) },
+      { label: 'Saídas pendentes', amount: -cents(pendingOut) },
+      { label: 'Contas a pagar', amount: -cents(payables(accountId)) },
+      { label: 'Faturas de cartão', amount: -cents(invoices(accountId)) },
+    ].filter(line => Math.abs(line.amount) >= 0.005);
+    return { accountId, name, balance: cents(balance), lines, projected: cents(balance + lines.reduce((sum, line) => sum + line.amount, 0)) };
+  };
+  const result = input.accounts.map(account => build(account.id, account.nickname, Number(account.balance || 0)));
+  const unassigned = build(null, 'Sem conta definida', 0);
+  if (unassigned.lines.length) result.push(unassigned);
+  return result;
+}

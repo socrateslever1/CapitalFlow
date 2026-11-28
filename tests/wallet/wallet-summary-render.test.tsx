@@ -52,3 +52,18 @@ test('empty and negative balances render useful states without requiring a linke
   const links=renderToStaticMarkup(<WalletCapitalLinks accounts={accounts} sources={[]}/>);
   assert.ok(links.includes('Sem vínculo com Capital')); assert.ok(!links.includes('<form'));
 });
+
+test('limite do banco na visão geral coincide com a referência exibida em Cartões',()=>{
+  const second={...cards[0],id:'bank',nickname:'Outro cartão',last_four:'6543',
+    credit_limit:1000,used_limit:200};
+  const page=renderToStaticMarkup(<WalletOverviewSummary
+    accounts={accounts} cards={[cards[0],second]}
+    bankAvailableReferences={[{card_id:'bank',available_limit:420.51,
+      updated_at:'2026-11-19T16:40:00Z',due_month:'2026-12-01'}]}
+    accountBalance={123.45} currentInvoiceTotal={100}
+    credit={getCreditSummary([cards[0],second])} onNavigate={()=>{}}/>);
+  assert.ok(page.includes('420,51'));
+  assert.ok(page.includes('Disponível · banco 19/11'));
+  assert.ok(page.includes('Disponível · banco e estimado'));
+  assert.ok(page.includes('1.320,51'));
+});

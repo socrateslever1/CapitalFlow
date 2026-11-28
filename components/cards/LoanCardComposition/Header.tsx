@@ -1,3 +1,4 @@
+import { AppIcon } from '../../../components/icons/AppIcons';
 import React from 'react';
 import {
   CheckCircle2,
@@ -86,7 +87,7 @@ export const Header: React.FC<HeaderProps> = ({
     if (now - lastClickedRef.current > 3000) {
       setIsLocked(checkIsLocked(effectiveLastBilledAt));
     }
-    
+
     if (!effectiveLastBilledAt) {
       setIsLocked(false);
       setTimeLeft(null);
@@ -117,7 +118,7 @@ export const Header: React.FC<HeaderProps> = ({
 
     return () => clearInterval(timer);
   }, [effectiveLastBilledAt, checkIsLocked]);
-  
+
   const scheduleTotal = React.useMemo(
     () => getInstallmentScheduleTotal(loan.installments),
     [loan.installments]
@@ -221,9 +222,9 @@ export const Header: React.FC<HeaderProps> = ({
   let RiskBadge = null;
   if (riskProfile && !isFullyFinalized && !isCapitalOnlyRecovery) {
     const { level, flags, isPotentialDefaulter, category, label } = riskProfile;
-    
+
     let config = { icon: ShieldCheck, color: 'text-slate-500', bg: 'bg-slate-500/10', border: 'border-slate-500/20', label: 'Risco Baixo' };
-    
+
     if (isPotentialDefaulter) {
        config = { icon: ShieldX, color: 'text-rose-600', bg: 'bg-rose-600/20', border: 'border-rose-600/40', label };
     } else if (category === 'DOCUMENTAL') {
@@ -242,7 +243,7 @@ export const Header: React.FC<HeaderProps> = ({
 
     if (level !== 'BAIXO' || category !== 'REGULAR' || isPotentialDefaulter) {
       RiskBadge = (
-        <div 
+        <div
           className={`flex min-w-0 max-w-full items-center gap-1 rounded-md border px-1.5 py-0.5 ${config.bg} ${config.color} ${config.border}`}
           title={flags.join('\n')}
         >
@@ -283,12 +284,12 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
         <div className="flex items-center gap-3 min-w-0 flex-1">
           <div className="relative shrink-0">
-            <button 
+            <button
               onClick={(e) => {
                 e.stopPropagation();
                 onNavigate?.(loan.id);
               }}
-              className={`w-11 h-11 rounded-lg flex items-center justify-center shrink-0 shadow-sm transition-all hover:scale-105 active:scale-95 border border-slate-700/50 ${iconStyle}`}
+              className={`w-11 h-11 rounded-lg flex items-center justify-center shrink-0 shadow-sm transition-all hover:scale-105 active:scale-95 border border-slate-700/50 ${clientAvatarUrl ? iconStyle : 'bg-slate-900'}`}
               title="Abrir Contrato"
             >
               {clientAvatarUrl ? (
@@ -298,10 +299,10 @@ export const Header: React.FC<HeaderProps> = ({
                   className="w-full h-full rounded-lg object-cover"
                 />
               ) : (
-                isFullyFinalized ? <CheckCircle2 size={18} /> : isCapitalOnlyRecovery ? <ShieldAlert size={18} /> : (isOverdueByDays || isLate) ? <AlertTriangle size={18} /> : <Calendar size={18} />
+                isFullyFinalized ? <AppIcon name="contractDone" size={26} /> : isCapitalOnlyRecovery ? <AppIcon name="contractCapital" size={26} /> : (isOverdueByDays || isLate) ? <AppIcon name="contractLate" size={26} /> : <AppIcon name="calendar" size={26} />
               )}
             </button>
-            <button 
+            <button
               onClick={(e) => {
                 e.stopPropagation();
                 onToggleExpand?.();
@@ -316,7 +317,7 @@ export const Header: React.FC<HeaderProps> = ({
             <h3 className="client-name font-black text-white uppercase leading-tight w-full truncate">
               {formatShortName(debtorNameSafe)}
             </h3>
-            
+
             <div className="mt-1 flex min-w-0 max-w-full flex-nowrap items-center gap-1.5 overflow-hidden pr-1">
               <div className="min-w-0 overflow-hidden">{primaryBadge?.node}</div>
               {hiddenBadges.length > 0 && (
@@ -347,7 +348,7 @@ export const Header: React.FC<HeaderProps> = ({
                     </div>
                   </div>
                 ) : (
-                  <button 
+                  <button
                     onClick={async (e) => {
                       e.stopPropagation();
                       lastClickedRef.current = Date.now();
@@ -371,55 +372,73 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-end gap-2 border-t border-slate-800/30 pt-2">
-        <div className="min-w-0">
-          <div className="flex min-w-0 items-center gap-2">
-            <div className="flex shrink-0 items-center gap-0.5 rounded-sm border border-slate-800/50 bg-slate-950/30 px-1.5 py-0.5 text-[7px] font-bold uppercase text-slate-500">
-              <Hash size={7} />
-              <span>{loan.id.substring(0, 6)}</span>
-            </div>
-            <div className="flex min-w-0 items-center gap-1 text-slate-400">
-              <Wallet size={10} className="shrink-0 opacity-60" />
-              <span className="truncate text-[8px] font-black uppercase">{amountSummaryLabel}</span>
-            </div>
-          </div>
-        </div>
-        
-        <div className="flex shrink-0 flex-col items-end justify-end">
-          {!isFullyFinalized && (
-            <span className={`mb-0.5 whitespace-nowrap text-[8px] font-black uppercase leading-none sm:text-[9px] ${
-              isOverdueByDays
-                ? 'text-rose-500/80'
-                : isDueSoon
-                  ? 'text-amber-400'
-                  : 'text-slate-400'
-            }`}>
-              {dueHeadline}
-            </span>
-          )}
-          <span className={`whitespace-nowrap text-lg sm:text-xl font-black leading-none text-right transition-all ${
-            (isOverdueByDays || (isLate && !hasActiveAgreement)) 
-              ? 'text-rose-500 drop-shadow-[0_0_8px_rgba(244,63,94,0.3)]' 
-              : isFullyFinalized 
-                ? 'text-emerald-400' 
-                : 'text-white'
-          }`}>
-            {formatMoney(displayAmount, isStealthMode)}
-          </span>
-          {isExpanded && amountBreakdown.shouldShow && (
-            <div className="mt-1 flex flex-wrap items-center justify-end gap-x-1.5 gap-y-0 text-[8px] font-black uppercase leading-tight text-slate-500 max-w-[190px]">
-              <span>Cap <b className="text-slate-300">{formatMoney(amountBreakdown.capital, isStealthMode)}</b></span>
-              <span className="text-slate-700">•</span>
-              <span>Encargos <b className={amountBreakdown.juros > ZERO_BALANCE_THRESHOLD ? 'text-rose-400' : 'text-slate-400'}>{formatMoney(amountBreakdown.juros, isStealthMode)}</b></span>
-              {originalContractTotal > ZERO_BALANCE_THRESHOLD && (
-                <>
-                  <span className="text-slate-700">•</span>
-                  <span>Original <b className="text-slate-400">{formatMoney(originalContractTotal, isStealthMode)}</b></span>
-                </>
+      <div className="border-t border-slate-800/30 pt-2 space-y-2">
+        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-end gap-2">
+          <div className="min-w-0">
+            <div className="flex min-w-0 flex-col items-start gap-1">
+              <div className="flex shrink-0 items-center gap-0.5 rounded-sm border border-slate-800/50 bg-slate-950/30 px-1.5 py-0.5 text-[8px] font-bold uppercase text-slate-400">
+                <Hash size={8} />
+                <span>{loan.id.substring(0, 6)}</span>
+              </div>
+              {!(isExpanded && amountBreakdown.shouldShow) && (
+                <div className="flex min-w-0 items-center gap-1 text-slate-400">
+                  <Wallet size={10} className="shrink-0 opacity-60" />
+                  <span className="text-[8px] font-black uppercase leading-tight">{amountSummaryLabel}</span>
+                </div>
               )}
             </div>
-          )}
+          </div>
+
+          <div className="flex shrink-0 flex-col items-end justify-end">
+            {!isFullyFinalized && (
+              <span className={`mb-0.5 whitespace-nowrap text-[8px] font-black uppercase leading-none sm:text-[9px] ${
+                isOverdueByDays
+                  ? 'text-rose-500/80'
+                  : isDueSoon
+                    ? daysUntilDue <= 1
+                      ? 'font-black text-amber-300 drop-shadow-[0_0_5px_rgba(251,191,36,0.35)]'
+                      : 'text-amber-400'
+                    : 'text-slate-400'
+              }`}>
+                {dueHeadline}
+              </span>
+            )}
+            <span className={`whitespace-nowrap text-lg sm:text-xl font-black leading-none text-right tabular-nums transition-all ${
+              (isOverdueByDays || (isLate && !hasActiveAgreement))
+                ? 'text-rose-500 drop-shadow-[0_0_8px_rgba(244,63,94,0.3)]'
+                : isFullyFinalized
+                  ? 'text-emerald-400'
+                  : 'text-white'
+            }`}>
+              {formatMoney(displayAmount, isStealthMode)}
+            </span>
+          </div>
         </div>
+
+        {isExpanded && amountBreakdown.shouldShow && (
+          <div className={`grid gap-2 rounded-lg border border-slate-800/70 bg-slate-950/60 px-2.5 py-2 ${originalContractTotal > ZERO_BALANCE_THRESHOLD ? 'grid-cols-3' : 'grid-cols-2'}`}>
+            <div className="min-w-0">
+              <span className="block text-[9px] font-semibold uppercase tracking-wide text-slate-500">Capital</span>
+              <strong className="mt-0.5 block whitespace-nowrap text-[11px] font-bold tabular-nums text-slate-200 sm:text-xs">
+                {formatMoney(amountBreakdown.capital, isStealthMode)}
+              </strong>
+            </div>
+            <div className="min-w-0 text-center">
+              <span className="block text-[9px] font-semibold uppercase tracking-wide text-slate-500">Encargos</span>
+              <strong className={`mt-0.5 block whitespace-nowrap text-[11px] font-bold tabular-nums sm:text-xs ${amountBreakdown.juros > ZERO_BALANCE_THRESHOLD ? 'text-rose-400' : 'text-slate-300'}`}>
+                {formatMoney(amountBreakdown.juros, isStealthMode)}
+              </strong>
+            </div>
+            {originalContractTotal > ZERO_BALANCE_THRESHOLD && (
+              <div className="min-w-0 text-right">
+                <span className="block text-[9px] font-semibold uppercase tracking-wide text-slate-500">Valor original</span>
+                <strong className="mt-0.5 block whitespace-nowrap text-[11px] font-bold tabular-nums text-slate-300 sm:text-xs">
+                  {formatMoney(originalContractTotal, isStealthMode)}
+                </strong>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

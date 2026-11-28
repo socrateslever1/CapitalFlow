@@ -43,113 +43,132 @@ export const Footer: React.FC<FooterProps> = ({
         onToggleCapitalOnly?.(loan);
     };
 
+    const showActivate = isFullyFinalized;
+    const showNewAporte = !loan.isArchived && !isFullyFinalized && !hasActiveAgreement && !isCapitalOnlyRecovery && Boolean(onNewAporte);
+    const showEdit = !loan.isArchived && !isFullyFinalized && !hasActiveAgreement;
+    const showRenegotiate = !loan.isArchived && !isFullyFinalized && !hasActiveAgreement && isLate;
+    const showCapitalOnly = !loan.isArchived && !isFullyFinalized && !hasActiveAgreement && Boolean(onToggleCapitalOnly);
+    const hasPrimaryActions = showActivate || showNewAporte || showEdit || showRenegotiate || showCapitalOnly;
+
+    const actionBtn =
+        'inline-flex min-h-9 flex-1 sm:flex-none items-center justify-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900/90 px-3 py-1.5 text-xs font-medium text-slate-200 transition-colors hover:border-slate-700 hover:bg-slate-800 hover:text-white active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/70';
+
     return (
-        <div className="pt-4 border-t border-slate-800/50">
-            <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 mb-3">
-                {/* Botão ATIVAR CONTRATO (Se finalizado) */}
-                {isFullyFinalized && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onActivate(loan); }}
-                    className="col-span-2 sm:col-span-1 px-4 py-3 bg-emerald-950/30 text-emerald-400 border border-emerald-500/20 rounded-lg hover:bg-gradient-to-br hover:from-emerald-600 hover:to-emerald-700 hover:text-white transition-all flex flex-col sm:flex-row items-center justify-center gap-2"
-                  >
-                    <RotateCcw size={14} />
-                    <span className="text-[9px] font-black uppercase tracking-tight">Ativar Contrato</span>
-                  </button>
+        <div className="border-t border-slate-800/60 pt-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+                {hasPrimaryActions && (
+                    <div className="flex flex-wrap items-center gap-1.5">
+                        {showActivate && (
+                            <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); onActivate(loan); }}
+                                className={actionBtn}
+                            >
+                                <RotateCcw size={14} className="shrink-0 text-emerald-400" />
+                                <span>Ativar contrato</span>
+                            </button>
+                        )}
+
+                        {showNewAporte && onNewAporte && (
+                            <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); onNewAporte(loan); }}
+                                className={actionBtn}
+                            >
+                                <Upload size={14} className="shrink-0 text-blue-400" />
+                                <span>Novo aporte</span>
+                            </button>
+                        )}
+
+                        {showEdit && (
+                            <button
+                                type="button"
+                                onClick={onEdit}
+                                className={actionBtn}
+                            >
+                                <FileEdit size={14} className="shrink-0 text-slate-400" />
+                                <span>Editar</span>
+                            </button>
+                        )}
+
+                        {showRenegotiate && (
+                            <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); onRenegotiate(loan); }}
+                                className={actionBtn}
+                            >
+                                <Handshake size={14} className="shrink-0 text-indigo-400" />
+                                <span>Renegociar</span>
+                            </button>
+                        )}
+
+                        {showCapitalOnly && (
+                            <button
+                                type="button"
+                                onClick={handleCapitalOnlyToggle}
+                                title={isCapitalOnlyRecovery ? 'Restaurar juros e encargos preservados' : 'Receber somente o capital'}
+                                className={
+                                    isCapitalOnlyRecovery
+                                        ? 'inline-flex min-h-9 flex-1 sm:flex-none items-center justify-center gap-1.5 rounded-lg border border-rose-500/60 bg-rose-600/90 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-rose-500 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300'
+                                        : actionBtn
+                                }
+                            >
+                                <ShieldAlert size={14} className={`shrink-0 ${isCapitalOnlyRecovery ? 'text-white' : 'text-rose-400'}`} />
+                                <span>{isCapitalOnlyRecovery ? 'Restaurar juros' : 'Só capital'}</span>
+                            </button>
+                        )}
+                    </div>
                 )}
 
-                {/* Botão NOVO APORTE (Seguro) */}
-                {!loan.isArchived && !isFullyFinalized && !hasActiveAgreement && !isCapitalOnlyRecovery && onNewAporte && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onNewAporte(loan); }}
-                    className="col-span-1 px-4 py-3 bg-blue-950/30 text-blue-400 border border-blue-500/20 rounded-lg hover:bg-gradient-to-br hover:from-blue-600 hover:to-blue-700 hover:text-white transition-all flex flex-col sm:flex-row items-center justify-center gap-2"
-                  >
-                    <Upload size={14} />
-                    <span className="text-[9px] font-black uppercase tracking-tight">Novo Aporte</span>
-                  </button>
-                )}
+                <div className="flex flex-wrap items-center gap-1.5 sm:ml-auto">
+                    {!loan.isArchived ? (
+                        <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); onArchive(); }}
+                            aria-label="Arquivar contrato"
+                            title="Arquivar contrato sem apagar o histórico."
+                            className="inline-flex min-h-9 w-full sm:w-auto items-center justify-center gap-1.5 rounded-lg border border-amber-400/25 bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-100 transition-colors hover:border-amber-400/50 hover:bg-amber-500/20 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
+                        >
+                            <Archive size={14} aria-hidden="true" className="shrink-0 text-amber-400" />
+                            <span>Arquivar</span>
+                        </button>
+                    ) : (
+                        <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); onRestore(); }}
+                            aria-label="Restaurar contrato arquivado"
+                            title="Restaurar contrato arquivado"
+                            className="inline-flex min-h-9 w-full sm:w-auto items-center justify-center gap-1.5 rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-100 transition-colors hover:bg-emerald-500/20 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+                        >
+                            <RotateCcw size={14} aria-hidden="true" className="shrink-0 text-emerald-400" />
+                            <span>Restaurar</span>
+                        </button>
+                    )}
 
-                {/* Botão EDITAR CONTRATO */}
-                {!loan.isArchived && !isFullyFinalized && !hasActiveAgreement && (
-                  <button
-                    onClick={onEdit}
-                    className="col-span-1 px-4 py-3 bg-slate-800 text-slate-400 rounded-lg hover:bg-slate-700 hover:text-white transition-all flex flex-col sm:flex-row items-center justify-center gap-2"
-                  >
-                    <FileEdit size={14} />
-                    <span className="text-[9px] font-black uppercase tracking-tight">Editar</span>
-                  </button>
-                )}
+                    {loan.isArchived && (
+                        <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); onArchive(); }}
+                            className={actionBtn}
+                        >
+                            <FileEdit size={14} aria-hidden="true" className="shrink-0 text-slate-400" />
+                            <span>Classificar</span>
+                        </button>
+                    )}
 
-                {/* Botão RENEGOCIAR (Apenas se atrasado) */}
-                {!loan.isArchived && !isFullyFinalized && !hasActiveAgreement && isLate && (
-                   <button
-                    onClick={(e) => { e.stopPropagation(); onRenegotiate(loan); }}
-                    className="col-span-2 sm:col-span-1 px-4 py-3 bg-indigo-950/30 text-indigo-400 border border-indigo-500/20 rounded-lg hover:bg-gradient-to-br hover:from-indigo-600 hover:to-indigo-700 hover:text-white transition-all flex flex-col sm:flex-row items-center justify-center gap-2"
-                   >
-                      <Handshake size={14}/>
-                      <span className="text-[9px] font-black uppercase tracking-tight">Renegociar</span>
-                   </button>
-                )}
-                {!loan.isArchived && !isFullyFinalized && !hasActiveAgreement && onToggleCapitalOnly && (
-                   <button
-                    onClick={handleCapitalOnlyToggle}
-                    className={`col-span-2 sm:col-span-1 px-4 py-3 rounded-lg transition-all flex flex-col sm:flex-row items-center justify-center gap-2 ${isCapitalOnlyRecovery ? 'bg-rose-600 text-white border border-rose-500' : 'bg-rose-950/30 text-rose-400 border border-rose-500/20 hover:bg-rose-600 hover:text-white'}`}
-                    title={isCapitalOnlyRecovery ? 'Restaurar juros e encargos preservados' : 'Receber somente o capital'}
-                   >
-                      <ShieldAlert size={14}/>
-                      <span className="text-[9px] font-black uppercase tracking-tight">{isCapitalOnlyRecovery ? 'Restaurar juros' : 'Receber só capital'}</span>
-                   </button>
-                )}
-            </div>
-
-            {/* Arquivamento reversível; exclusão definitiva só quando não existe histórico. */}
-            <div className="flex flex-col gap-3 border-t border-slate-800/40 pt-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
-                {!loan.isArchived ? (
-                    <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); onArchive(); }}
-                        aria-label="Arquivar contrato (recuperável)"
-                        title="Arquivar contrato sem apagar o histórico. É possível restaurá-lo depois."
-                        className="inline-flex min-h-12 w-full sm:w-auto items-center justify-center gap-2.5 rounded-xl border border-amber-400/60 bg-amber-500/20 px-5 py-3 text-amber-100 shadow-sm shadow-amber-950/30 transition-all hover:border-amber-300 hover:bg-amber-500/30 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
-                    >
-                        <Archive size={18} aria-hidden="true" className="shrink-0" />
-                        <span className="text-sm font-bold">Arquivar (recuperável)</span>
-                    </button>
-                ) : (
-                    <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); onRestore(); }}
-                        aria-label="Restaurar contrato arquivado"
-                        title="Restaurar contrato arquivado"
-                        className="inline-flex min-h-12 w-full sm:w-auto items-center justify-center gap-2.5 rounded-xl border border-emerald-400/50 bg-emerald-500/15 px-5 py-3 text-sm font-bold text-emerald-100 transition-all hover:bg-emerald-500/25 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
-                    >
-                        <RotateCcw size={18} aria-hidden="true" className="shrink-0" />
-                        Restaurar contrato
-                    </button>
-                )}
-                {loan.isArchived && (
-                    <button type="button"
-                        onClick={(e) => { e.stopPropagation(); onArchive(); }}
-                        className="inline-flex min-h-12 w-full sm:w-auto items-center justify-center gap-2 rounded-xl border border-slate-600 bg-slate-900 px-4 py-3 text-sm font-semibold text-slate-200 hover:border-blue-400 hover:text-white">
-                        <FileEdit size={16} aria-hidden="true" />
-                        Classificar arquivamento
-                    </button>
-                )}
-                {!hasFinancialHistory ? (
-                    <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); onDelete(); }}
-                        aria-label="Excluir contrato sem histórico"
-                        title="Excluir definitivamente contrato sem movimentações"
-                        className="inline-flex min-h-12 w-full sm:w-auto items-center justify-center gap-2 rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-xs font-bold text-rose-200 transition-all hover:bg-rose-500/20 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
-                    >
-                        <Trash2 size={16} aria-hidden="true" className="shrink-0" />
-                        Excluir sem histórico
-                    </button>
-                ) : (
-                    <p className="min-w-0 self-center rounded-lg border border-slate-700/40 bg-slate-900/50 px-3 py-2 text-center text-xs leading-relaxed text-slate-400 sm:max-w-52 sm:text-left" title="O histórico financeiro deve ser preservado. O contrato pode ser restaurado após o arquivamento.">
-                        Exclusão definitiva bloqueada: contrato com histórico. Use Arquivar.
-                    </p>
-                )}
+                    {!hasFinancialHistory && (
+                        <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); onDelete(); }}
+                            aria-label="Excluir contrato sem histórico"
+                            title="Excluir definitivamente contrato sem movimentações"
+                            className="inline-flex min-h-9 w-full sm:w-auto items-center justify-center gap-1.5 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 text-xs font-medium text-rose-200 transition-colors hover:bg-rose-500/20 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300"
+                        >
+                            <Trash2 size={14} aria-hidden="true" className="shrink-0 text-rose-400" />
+                            <span>Excluir</span>
+                        </button>
+                    )}
+                </div>
             </div>
         </div>
     );

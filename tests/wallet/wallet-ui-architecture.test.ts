@@ -7,6 +7,8 @@ const stack = readFileSync('components/wallet/BankStack.tsx', 'utf8');
 const accountStack = readFileSync('components/wallet/AccountCardStack.tsx', 'utf8');
 const overview = readFileSync('features/wallet/pages/WalletOverviewPage.tsx', 'utf8');
 const virtualCard = readFileSync('components/wallet/VirtualCreditCard.tsx', 'utf8');
+const accountActivity = readFileSync('components/wallet/AccountActivityPanel.tsx', 'utf8');
+const selectOption = readFileSync('components/ui/SelectOptionList.tsx', 'utf8');
 
 test('a página não mantém aba ou lista redundante de cartões', () => {
   assert.doesNotMatch(page, /activeTab === ['"]CARDS['"]/);
@@ -38,7 +40,8 @@ test('o verso usa elementos físicos de cartão em vez de uma grade técnica', (
   assert.doesNotMatch(stack, /grid flex-1 grid-cols-2/);
 });
 
-test('a frente reserva linhas próprias para número, titular e validade', () => {
+// A frente mostra número, limite e medidor; titular e validade ficam no verso, com botões de copiar.
+test('número na frente; titular e validade no verso, com cópia', () => {
   assert.match(stack, /data-card-section="number"/);
   assert.match(stack, /data-card-section="holder"/);
   assert.match(stack, /data-card-section="expiry"/);
@@ -81,4 +84,89 @@ test('a página da carteira possui somente pilha, balanço e base operacional po
   assert.doesNotMatch(page, /Cartão selecionado/);
   assert.doesNotMatch(page, /Contas e passivos/);
   assert.doesNotMatch(page, />Em contas</);
+});
+
+test('a transferência mostra ícones das contas na origem, destino e após seleção', () => {
+  assert.match(accountActivity, /const AccountOptionIcon:/);
+  assert.match(accountActivity, /<BankLogo name=\{account\.bank_name \|\| account\.institution_key\}/);
+  assert.match(accountActivity, /customImage=\{account\.image_url\}/);
+  assert.match(accountActivity, /account\.account_type === 'CASH'/);
+  assert.match(accountActivity, /<AccountOptionIcon account=\{account\}/);
+  assert.match(accountActivity, /icon: <AccountOptionIcon account=\{item\}/);
+  assert.match(selectOption, /selectedOption\?\.icon \?\? triggerIcon/);
+  assert.match(selectOption, /option\.icon &&/);
+});
+
+test('modais da conta exibem contexto unificado, ícone e prévia em todos os fluxos',()=>{
+  assert.match(accountActivity,/icon=\{<AccountOptionIcon account=\{account\} \/>\}/);
+  assert.match(accountActivity,/Saldo disponível na conta/);
+  assert.match(accountActivity,/Registrado no CapitalFlow/);
+  assert.match(accountActivity,/Saldo após \{labels\[action\]/);
+  assert.match(accountActivity,/onDraftChange=\{setOperationDraft\}/);
+  assert.match(accountActivity,/isDebit && \(balancePreview\.balanceCents===null/);
+});
+
+test('lançamento rápido exibe a instituição vinculada ao cartão selecionado', () => {
+  const quick = readFileSync('components/wallet/QuickExpenseModal.tsx', 'utf8');
+  assert.ok(quick.includes('const QuickCardLogo:'));
+  assert.ok(quick.includes('card.institution_key || linkedAccount?.bank_name || card.issuer'));
+  assert.ok(quick.includes('paymentMode === \'CARD\' && selectedCard'));
+  assert.ok(quick.includes('<QuickCardLogo card={selectedCard} accounts={accounts} />'));
+  assert.ok(quick.includes('icon: <QuickCardLogo card={card} accounts={accounts} />'));
+  assert.ok(quick.includes('<QuickAccountLogo account={selectedAccount} />'));
+  assert.ok(quick.includes('icon: <QuickAccountLogo account={acc} />'));
+  assert.ok(!quick.includes('customImage={card.image_url}'), 'não expor imagem sensível do cartão');
+});
+
+test('fonte de capital do contrato mostra logotipo correspondente ao vínculo e atualização no seletor',()=>{
+  const src = readFileSync('components/forms/LoanFormFinancialSection.tsx', 'utf8');
+  assert.match(src, /import \{ BankLogo \} from '\.\.\/wallet\/BankLogo'/);
+  assert.match(src, /sourceLinks\.length === 1 && sourceLinks\[0\]\.target_kind === 'CARD'/);
+  assert.match(src, /linkedCard\.institution_key \|\| linkedCard\.issuer \|\| linkedCard\.nickname/);
+  assert.match(src, /name=\{linkedIdentity\?\.institution \|\| source\.name\}/);
+  assert.match(src, /customImage=\{source\.logo_url \|\| null\}/);
+  assert.match(src, /icon: source\.type === 'CASH'/);
+  const select = readFileSync('components/ui/SelectOptionList.tsx','utf8');
+  assert.match(select, /selectedOption\?\.icon \?\? triggerIcon/);
+});
+
+test('cartão mantém resumo enxuto, explicações opcionais e alertas somente quando necessários',()=>{
+  const statement = readFileSync('components/wallet/CardInvoiceStatement.tsx', 'utf8');
+  const cards = readFileSync('features/wallet/pages/WalletCardsPage.tsx', 'utf8');
+  assert.doesNotMatch(statement, /Demais gastos da carga inicial/);
+  assert.doesNotMatch(statement, /O valor da abertura é histórico e não muda/);
+  assert.doesNotMatch(cards, /em gastos iniciais ainda sem detalhamento/);
+  assert.doesNotMatch(cards, /Saldo de fatura registrado/);
+  assert.doesNotMatch(cards, /<WalletMetricStrip/);
+  assert.match(statement, /aria-expanded=\{showInitialDetails\}/);
+  assert.match(statement, /showInitialDetails && \(openingBreakdown \|\| openingBalance > 0\)/);
+  assert.match(statement, /getInvoiceOpeningBreakdown/);
+  assert.match(cards, /aria-label="Outros valores do cartão"/);
+  assert.match(cards, /<details className="rounded-lg border border-slate-800/);
+  assert.match(cards, /sem contar compras lançadas depois/);
+  assert.match(cards, /invoiceTotalDifferenceCents !== 0/);
+  assert.match(cards, /Math\.max\(Number\(selected\.initial_future_installments_balance/);
+  assert.match(cards, /onCancelConsolidation=/);
+});
+
+test('cartão não apresenta cálculo como limite real e separa referência bancária autenticada',()=>{
+  const cards = readFileSync('features/wallet/pages/WalletCardsPage.tsx','utf8');
+  const bank = readFileSync('components/wallet/BankStack.tsx','utf8');
+  assert.match(bank, /bankLimitReference\?: \{ cardId: string; amount: number; updatedAt: string; usageSinceReference\?: number \}/);
+  assert.match(bank, /const hasBankLimit = Boolean/);
+  assert.match(bank, /formatCardAvailableOrigin/);
+  const presentation = readFileSync('features/wallet/domain/cardAvailablePresentation.ts','utf8');
+  assert.match(presentation, /Limite estimado/);
+  assert.match(presentation, /Disponível · banco /);
+  assert.match(cards, /const registeredInvoiceTotalCents = Math\.round\(Number\(selectedCycle\?\.amount \|\| 0\) \* 100\)/);
+  assert.match(cards, /saveObservedBankAvailable/);
+  assert.match(cards, /personalWalletService\.saveCardInvoiceFacts/);
+  assert.match(cards, /sourceType: 'MANUAL'/);
+  assert.match(cards, /canCorrectBankReference && editingBankAvailable/);
+  assert.match(cards, /bankFactLastUpdate/);
+  assert.match(cards, /bankAvailableRequest\.current\.signature !== signature/);
+  // "Limite disponível" só para valor informado pelo banco; estimativa continua identificada como tal.
+  assert.doesNotMatch(bank, />Limite disponível<\/small>/);
+  assert.match(bank, /CardLimitValues limit=\{Number\(selected\.credit_limit\)\}.*origin=\{availableLabel\}/);
+  assert.match(bank, /CardLimitValues limit=\{Number\(card\.credit_limit\)\}.*origin=\{availability\.label\}/);
 });

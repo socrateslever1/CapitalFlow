@@ -1,9 +1,18 @@
 # CapitalFlow — instruções de continuidade para agentes (Codex, Claude, ChatGPT)
 
+## Contrato operacional obrigatório
+- Para qualquer tarefa, usar a skill `.agents/skills/capitalflow-execution-safety/SKILL.md` e seguir `docs/AGENT_EXECUTION_CONTRACT.md`.
+- Antes da implementação: preservar o pedido original, delimitar escopo/finalidade e transformar o resultado desejado em critérios de aceite testáveis.
+- Depois: revisar diffs por agente/revisor independente, registrar evidências de testes reais e riscos de rollback no PR ou, em commit direto, na mensagem do commit e em `docs/CARTEIRA_CONTINUIDADE.md`. Não inventar aprovação.
+- Destino do commit: seguir o proprietário. O padrão atual é commit direto na `main` (produção), sem branch nem preview, depois dos gates locais; branch/PR só quando ele pedir. Todo PR deve passar pelo gate `agent-execution-contract`; este gate não substitui branch protection e revisão externa.
+- Operação financeira com várias escritas é sempre uma única RPC transacional e idempotente; nunca uma sequência de chamadas no cliente.
+- Repositório público: nunca colocar dados reais (valores, nomes, faturas, identificadores) em código, testes, docs ou commits.
+- Alterações contábeis e históricas só mediante autorização expressa, com isolamento por perfil e idempotência.
+
 ## Antes de modificar
 1. Consulte `PRODUCT.md`, `DESIGN.md`, `docs/CARTEIRA_CONTINUIDADE.md` e o código atual na `main`. Não trabalhe a partir da memória do chat.
 2. Determine o escopo exato, os testes relacionados e os contratos afetados. Reutilize componentes compartilhados; preserve recursos existentes.
-3. Para interface da Carteira, consulte `.agents/skills/impeccable/SKILL.md` e `.agents/skills/capitalflow-wallet-ux/SKILL.md`.
+3. Para interface da Carteira, consulte `.agents/skills/impeccable/SKILL.md` e `.agents/skills/capitalflow-wallet-ux/SKILL.md`. Para ciclo de fatura, limite e novas ferramentas da Carteira, siga `docs/PLANO_CARTEIRA_PARIDADE.md`.
 
 ## Proteção financeira
 - Não modifique RPCs, Supabase migrations, ledger, regras de fatura, liquidação, pagamento, estorno ou RLS sem pedido explícito.
@@ -16,6 +25,13 @@
 - Não remova testes, workflows ou funcionalidades para obter compilação verde.
 - Verifique mudanças anteriores com `git diff` e testes de arquitetura/financeiros/UX pertinentes.
 - Qualquer painel financeiro assistivo deve ser READ_ONLY, com legenda clara sobre origem, intervalo e precisão dos valores.
+
+## Registro obrigatório de mudanças
+- Toda alteração integrada que afete comportamento, interface, API, Android, Supabase ou regras de domínio deve atualizar **os dois registros no mesmo commit**: `CHANGELOG.md` (técnico, com referências e estados verificados) e `src/constants/changelog.ts` (resumo legível em Perfil → Atualizações).
+- Entradas novas no topo, por data, classificadas como novidade, melhoria ou correção. Não expor dados financeiros, nomes ou identificadores de clientes.
+- Não tratar commit, build debug ou CI verde como nova versão numerada ou APK assinado; versão só muda quando o processo de versionamento/publicação correspondente for executado.
+- `docs/CARTEIRA_CONTINUIDADE.md` é histórico técnico complementar: **não substitui** os dois logs. Atualizações apenas de testes/documentação podem ser agrupadas ao registro funcional associado.
+- Se uma alteração ficar sem registro, regularizar retrospectivamente indicando os commits comprovados, sem inventar evidência de testes.
 
 ## Entrega
 - Antes do merge, executar `npm run test:quality`, `npm run test:wallet-visual-next` e testes relevantes.

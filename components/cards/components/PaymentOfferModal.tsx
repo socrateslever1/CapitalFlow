@@ -281,7 +281,7 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
 
           <section>
             <p className="mb-2 text-[11px] font-black uppercase tracking-wider text-slate-400">3. Período da condição</p>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <div className="grid grid-cols-2 gap-2">
             <label>
               <span className="mb-1 block text-[11px] font-bold text-slate-400">Data combinada</span>
               <span className="relative block">

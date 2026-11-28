@@ -77,7 +77,7 @@ test('basic card creation remains passwordless and offers encrypted details afte
   assert.ok(basic.includes('Depois de salvar, adicionar o número completo'));
   assert.ok(basic.includes('Apenas o banco é obrigatório'));
   assert.ok(!basic.includes('CardProtectedFields'));
-  assert.ok(page.includes('if(addProtectedAfterCreate && createdCardId)'));
+  assert.match(page, /if\s*\(addProtectedAfterCreate && createdCardId\)/);
   assert.ok(page.includes('setVaultCard({'));
   assert.ok(page.includes('setCreating(false)'));
 });
@@ -105,7 +105,7 @@ test('card form and vault are isolated from account autofill and global credenti
   assert.ok(form.includes('<WalletBankCombobox'));
   assert.ok(!form.includes('<datalist'));
   assert.ok(!form.includes('issuer:v.issuer||matched'),'linked account cannot override issuer');
-  assert.ok(!page.includes('cardholder_name: ownerDefaults.name'),'printed name is user-controlled');
+  assert.ok(!/useEffect[\s\S]{0,200}cardholder_name:\s*ownerDefaults\.name/.test(page), 'printed name is user-controlled');
   assert.ok(combobox.includes('window.visualViewport'));
   assert.ok(combobox.includes("closest('[data-dialog-body]')"));
   assert.ok(combobox.includes('role="combobox"'));

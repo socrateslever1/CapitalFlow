@@ -1,5 +1,6 @@
+import { AppIcon } from '../components/icons/AppIcons';
 import React from 'react';
-import { Plus, Search, Edit, Trash2, CheckSquare, Square, XCircle, MapPin, Phone, Users, ShieldAlert, ShieldCheck, Link2, Copy, Check, X, FileSearch, FileSignature, Send, ExternalLink, Loader2, Clock, AlertCircle, MessageCircle } from 'lucide-react';
+import { Search, Edit, Trash2, CheckSquare, Square, XCircle, MapPin, Phone, Users, ShieldAlert, ShieldCheck, Link2, Copy, Check, X, FileSearch, FileSignature, Send, ExternalLink, Loader2, Clock, AlertCircle, MessageCircle } from 'lucide-react';
 import { Client, Loan, UserProfile } from '../types';
 import { formatMoney, formatShortName, maskPhone, maskDocument, parseCurrency } from '../utils/formatters';
 import { parseDateOnlyUTC, todayDateOnlyUTC } from '../utils/dateHelpers';
@@ -383,9 +384,12 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
     });
   };
 
+  const RISK_LEVEL_LABEL: Record<string, string> = { CRITICO: 'CRÍTICO', ALTO: 'ALTO', MODERADO: 'MODERADO', BAIXO: 'BAIXO' };
   const getClientRiskProfile = (client: Client) => {
+    // Mesmo critério da etiqueta de contratos: só contratos não arquivados com saldo em aberto.
+    // Sem contrato em aberto, o card mostra "Sem histórico" em vez de um risco herdado.
     const clientLoans = loans.filter((loan) =>
-      !loan.isArchived && Boolean(loan.clientId) && loan.clientId === client.id,
+      Boolean(loan.clientId) && loan.clientId === client.id && !loan.isArchived && getLoanOpenAmount(loan) > 0.5,
     );
     if (clientLoans.length === 0) return null;
     return clientLoans
@@ -395,33 +399,34 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
 
   return (
     <div className="space-y-4 animate-in fade-in">
-        <PageHeader
+        <PageHeader iconClassName="border-slate-700/70 bg-slate-900 shadow-black/30"
           className="pb-3"
           stackActionsUntilLg
-          icon={<Users size={22} />}
-          iconClassName="border-violet-500/30 bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-indigo-950/30"
+          icon={<AppIcon name="clients" size={28} />}
           title={<>Carteira de <span className="text-blue-500">Clientes</span></>}
           subtitle="Gestão de base ativa"
-          actions={<div className="flex flex-wrap gap-2 w-full lg:w-auto">
-                <button type="button" onClick={createRegistrationLink} disabled={creatingLink} className="px-4 py-2 bg-slate-800 border border-slate-700 text-blue-300 rounded-lg text-[10px] font-black uppercase hover:border-blue-500 transition-all flex items-center justify-center gap-2 disabled:opacity-50" title="Criar link público de inscrição">
-                    <Link2 size={16}/> Novo Link de Inscrição
+          actions={<div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+                <button type="button" onClick={createRegistrationLink} disabled={creatingLink} className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-slate-700 bg-slate-800 px-3 text-[10px] font-black uppercase tracking-wide text-blue-300 transition-all hover:border-blue-500 disabled:opacity-50" title="Criar link público de inscrição">
+                    <AppIcon name="portal" size={16} />
+                    <span className="sm:hidden">Link Inscrição</span>
+                    <span className="hidden sm:inline">Novo Link de Inscrição</span>
                 </button>
                 {isBulkDeleteMode ? (
-                    <div className="flex gap-2 w-full lg:w-auto animate-in fade-in slide-in-from-right">
-                        <button onClick={executeBulkDelete} disabled={selectedClientsToDelete.length === 0} className="flex-1 lg:flex-none px-4 py-2 bg-rose-600 text-white rounded-lg text-[10px] font-black uppercase hover:bg-rose-500 transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50">
-                            <Trash2 size={16}/> Confirmar ({selectedClientsToDelete.length})
+                    <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right">
+                        <button onClick={executeBulkDelete} disabled={selectedClientsToDelete.length === 0} className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-rose-600 px-3 text-[10px] font-black uppercase tracking-wide text-white shadow-lg transition-all hover:bg-rose-500 disabled:opacity-50">
+                            <AppIcon name="trash" size={15} onColor /> Confirmar ({selectedClientsToDelete.length})
                         </button>
-                        <button onClick={toggleBulkDeleteMode} className="flex-1 lg:flex-none px-4 py-2 bg-slate-800 text-white rounded-lg text-[10px] font-black uppercase hover:bg-slate-700 transition-all flex items-center justify-center gap-2">
-                            <XCircle size={16}/> Cancelar
+                        <button onClick={toggleBulkDeleteMode} className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-slate-800 px-3 text-[10px] font-black uppercase tracking-wide text-white transition-all hover:bg-slate-700">
+                            <XCircle size={15}/> Cancelar
                         </button>
                     </div>
                 ) : (
                     <>
-                        <button onClick={toggleBulkDeleteMode} className="flex-1 lg:flex-none px-4 py-2 bg-slate-800 border border-slate-700 text-rose-400 rounded-lg text-[10px] font-black uppercase hover:bg-rose-900/20 hover:border-rose-500 transition-all flex items-center justify-center gap-2">
-                            <Trash2 size={16}/> Excluir Vários
+                        <button onClick={toggleBulkDeleteMode} className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-slate-700 bg-slate-800 px-3 text-[10px] font-black uppercase tracking-wide text-rose-400 transition-all hover:border-rose-500 hover:bg-rose-900/20">
+                            <AppIcon name="trash" size={15} /> Excluir Vários
                         </button>
-                        <button onClick={() => openClientModal()} className="flex-1 lg:flex-none px-4 py-2 bg-blue-600 text-white rounded-lg text-[10px] font-black uppercase hover:bg-blue-500 transition-all shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2">
-                            <Plus size={16}/> Novo Cliente
+                        <button onClick={() => openClientModal()} className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-blue-600 px-3 text-[10px] font-black uppercase tracking-wide text-white shadow-lg shadow-blue-600/20 transition-all hover:bg-blue-500">
+                            <AppIcon name="userPlus" size={16} onColor /> Novo Cliente
                         </button>
                     </>
                 )}
@@ -490,10 +495,12 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
                             )}
                             <div className="min-w-0 flex-1 pr-1">
                                 <h3 className="font-bold text-white text-xs uppercase leading-snug break-words">{client.name}</h3>
-                                <span className={`mt-1 inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide ${riskTone}`} title="Score de risco consolidado do cliente, considerando o pior contrato ativo ou histórico">
-                                    {clientRiskProfile ? <ShieldCheck size={9} /> : <ShieldAlert size={9} />}
-                                    {clientRiskProfile ? `Score ${clientRiskProfile.score}/100 · ${clientRiskProfile.level}` : 'Score sem histórico'}
-                                </span>
+                                <div className={`mt-2 flex w-fit max-w-full items-center gap-1.5 rounded-md border px-2 py-1 text-[10px] font-black uppercase tracking-wide ${riskTone}`} title="Score de risco consolidado do cliente, considerando os contratos vinculados">
+                                    {clientRiskProfile ? <ShieldCheck size={12} /> : <ShieldAlert size={12} />}
+                                    <span className="text-slate-300">Risco</span>
+                                    <strong className="tabular-nums text-white">{clientRiskProfile ? `${clientRiskProfile.score}/100` : '—'}</strong>
+                                    <span className="text-current">{clientRiskProfile ? (RISK_LEVEL_LABEL[clientRiskProfile.level] || clientRiskProfile.level) : 'Sem histórico'}</span>
+                                </div>
                             </div>
                         </div>
 

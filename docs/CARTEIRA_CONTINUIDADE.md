@@ -1,3 +1,13 @@
+## 28/11/2026 — Cartão: gastos por categoria em lista e composição das próximas faturas
+
+- **Pedido:** melhorar a apresentação dos gastos do cartão e investigar por que um cartão não bate com a fatura do banco.
+- **Causa da divergência visível (leitura de código e banco, só SELECT):** o limite utilizado soma fatura atual + faturas futuras lançadas + parcelas futuras informadas na abertura (`invoiceStatementDomain.ts`), mas o quadro "Próximas faturas" mostrava só as faturas lançadas. Na tela, fatura + próximas faturas não fechava com o gasto do limite.
+- **Causa da divergência com o banco:** a fatura do emissor tinha lançamentos que o app não tinha (compras em cartões adicionais, parcelas antigas, tarifas e duas compras do mesmo estabelecimento de financiamento). A diferença foi explicada centavo a centavo; nenhum dado foi alterado. Não havia total do banco salvo em `personal_wallet_card_invoice_facts`, então o aviso de diferença não podia aparecer.
+- **Mudança (só interface, `WalletCardsPage.tsx`):** categorias da fatura em lista; "Próximas faturas" inclui a abertura na fatura atual, com legenda. Sem alterar cálculo, RPC, ledger, migration ou RLS.
+- **Testes:** novo caso em `wallet-ui-architecture.test.ts`; `test:wallet-visual-next` (63), `test:wallet-pages` (13), `test:wallet-overview` (8), `test:wallet-invoice-cycle` (10) sem falhas.
+- **Limitações:** sem validação visual em celular físico nem no navegador; revisão independente não realizada. O limite informado pelo banco continua diferente do estimado pelo app, por motivo não provado; importar o extrato do emissor e salvar os valores do banco permite o app mostrar a diferença.
+- **Rollback:** reverter o commit.
+
 ## 28/11/2026 — Fonte de capital vinculada a conta, mas cadastrada como cartão
 
 - **Pedido:** corrigir o vínculo entre uma fonte de capital e a Carteira que exibia "Sem cartão" no seletor do novo contrato.

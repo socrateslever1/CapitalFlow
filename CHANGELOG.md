@@ -1,5 +1,12 @@
 # Changelog
 
+## 28/11/2026 — Fatura do cartão: categorias legíveis e "Próximas faturas" que fecha com o limite
+
+**Melhoria (só interface).** `features/wallet/pages/WalletCardsPage.tsx`: "Gastos da fatura por categoria" passa a usar a lista (`layout="list"` de `CategoryBreakdownPanel`) no lugar do carrossel de anéis, que cortava nomes e valores no celular. O quadro "Próximas faturas" passa a somar também as parcelas futuras informadas na abertura do cartão (`initial_future_installments_balance`), só na fatura atual, com a legenda do que está incluído. Antes ele mostrava só as faturas lançadas, e a soma fatura + próximas faturas não fechava com o limite utilizado, que já incluía essa abertura (`invoiceStatementDomain.ts`, `futureCommitments`).
+- **Sem mudança** em cálculo de limite, fatura, ledger, RPC, migration ou RLS; leitura apenas.
+- **Testes:** `tests/wallet/wallet-ui-architecture.test.ts` (novo caso); `test:wallet-visual-next`, `test:wallet-pages`, `test:wallet-overview`, `test:wallet-invoice-cycle` sem falhas. Não validado em celular físico nem no navegador com dados reais.
+- **Rollback:** reverter o commit; sem efeito em banco.
+
 ## 27/11/2026 — Fluidez da interface e taxas fracionárias
 
 **Melhoria:** tokens de movimento compartilhados para botões, seletores e modais, com desaceleração e suporte a movimento reduzido. Cabeçalho e auditoria do contrato passam a usar os SVGs próprios. **Correção:** digitação decimal explícita de taxas (25,5%, 2,75%, 0,5%) sem máscara de centavos; quantias monetárias preservam o comportamento anterior. Colagem e expressões continuam disponíveis. Sem mudanças no Supabase, rotas, dependências ou contratos existentes.

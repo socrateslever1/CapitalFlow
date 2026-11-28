@@ -495,9 +495,16 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
       setApplyingIssuerFacts(false);
     }
   };
-  const selectedFutureCommitments = statementMonth
+  const knownFutureCommitments = statementMonth
     ? invoiceCycles.filter(cycle => cycle.dueMonth > statementMonth).reduce((sum, cycle) => sum + cycle.amount, 0)
     : 0;
+  // Na fatura atual, o limite utilizado já soma as parcelas futuras informadas na abertura do cartão.
+  // Exibir só as faturas lançadas fazia a conta da tela não fechar com o gasto do limite.
+  const openingFutureInstallments = selected && statementMonth && creditPosition?.dueMonth
+    && statementMonth.slice(0, 7) === creditPosition.dueMonth.slice(0, 7)
+    ? Math.max(0, Number(selected.initial_future_installments_balance || 0))
+    : 0;
+  const selectedFutureCommitments = Math.round((knownFutureCommitments + openingFutureInstallments) * 100) / 100;
   const selectedIsOpeningCycle = Boolean(selected && statementMonth && selectedCycle?.hasOverride && (
     selected.opening_invoice_month
       ? selected.opening_invoice_month.slice(0, 7) === statementMonth.slice(0, 7)
@@ -764,6 +771,9 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
             <div className="min-w-0 pr-2">
               <span className="block truncate text-[11px] text-slate-400">Próximas faturas</span>
               <strong className="mt-1 block truncate text-sm font-bold tabular-nums text-slate-100"><PrivateMoney value={formatMoney(selectedFutureCommitments)} /></strong>
+              {openingFutureInstallments > 0 && <span className="mt-0.5 block text-[10px] leading-tight text-slate-500">
+                Inclui <PrivateMoney value={formatMoney(openingFutureInstallments)} /> de parcelas futuras informadas na abertura do cartão.
+              </span>}
             </div>
             <div className="min-w-0 pl-2">
               <span className="block truncate text-[11px] text-slate-400">{bankLimitStatus === 'LOADING'
@@ -1030,8 +1040,8 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
             {selected && data && statementMonth && (() => {
               // Fatia de cada categoria nas compras da fatura selecionada (anel = participação, não orçamento).
               const breakdown = getCardInvoiceCategoryBreakdown(selected.id, statementMonth, data.expenses, data.installments);
-              return breakdown.slices.length ? <div className="mb-3"><CategoryBreakdownPanel title="Gastos da fatura por categoria" breakdown={breakdown}
-                note="O anel mostra a fatia de cada categoria nas compras desta fatura. Créditos e saldo consolidado de abertura não entram." /></div> : null;
+              return breakdown.slices.length ? <div className="mb-3"><CategoryBreakdownPanel title="Gastos da fatura por categoria" breakdown={breakdown} layout="list"
+                note="Mostra a fatia de cada categoria nas compras desta fatura. Créditos e saldo consolidado de abertura não entram." /></div> : null;
             })()}
             {selected ? <CardInvoiceStatement cardId={selected.id} dueMonth={statementMonth}
               openingBalance={selectedIsOpeningCycle ? Math.max(Number(selected.initial_future_installments_balance || 0), Number(selected.opening_unallocated_amount || 0)) : 0}

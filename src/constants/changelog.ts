@@ -28,6 +28,8 @@ export const SYSTEM_CHANGELOG: ChangelogRelease[] = [
     title: 'Carteira completa e visual novo',
     summary: 'Pendentes, previsto por conta, aviso de fatura no celular, exclusão definitiva, unificação com juros e ícones novos no app.',
     items: [
+      { kind: 'MELHORIA', text: 'Na fatura do cartão, os gastos por categoria aparecem em lista legível, sem texto cortado no celular.' },
+      { kind: 'CORRECAO', text: 'Em Cartões, Próximas faturas passa a incluir as parcelas futuras informadas na abertura do cartão, fechando com o limite utilizado.' },
       { kind: 'CORRECAO', text: 'Juros, multa e demais taxas aceitam decimais como 25,5% sem deslocar a vírgula como nos valores em reais.' },
       { kind: 'MELHORIA', text: 'Botões e janelas com resposta mais suave ao toque e ícones próprios no formulário de contrato, respeitando a opção de reduzir movimento.' },
       { kind: 'MELHORIA', text: 'Em Suas contas, a conta com mais dinheiro aparece primeiro.' },

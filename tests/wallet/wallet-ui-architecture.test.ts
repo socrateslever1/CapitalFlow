@@ -170,3 +170,14 @@ test('cartão não apresenta cálculo como limite real e separa referência banc
   assert.match(bank, /CardLimitValues limit=\{Number\(selected\.credit_limit\)\}.*origin=\{availableLabel\}/);
   assert.match(bank, /CardLimitValues limit=\{Number\(card\.credit_limit\)\}.*origin=\{availability\.label\}/);
 });
+
+test('fatura do cartão: gastos por categoria em lista e Próximas faturas fecha com o limite utilizado', () => {
+  const page = readFileSync('features/wallet/pages/WalletCardsPage.tsx', 'utf8');
+  assert.match(page, /title="Gastos da fatura por categoria" breakdown=\{breakdown\} layout="list"/);
+  // O limite utilizado soma as parcelas futuras da abertura; o quadro precisa exibi-las, só na fatura atual.
+  assert.match(page, /initial_future_installments_balance/);
+  assert.match(page, /knownFutureCommitments \+ openingFutureInstallments/);
+  assert.match(page, /parcelas futuras informadas na abertura do cartão/);
+  const domain = readFileSync('components/wallet/invoiceStatementDomain.ts', 'utf8');
+  assert.match(domain, /futureCommitments = money\(knownFutureCommitments \+ initialFuture\)/);
+});

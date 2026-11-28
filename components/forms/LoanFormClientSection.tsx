@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Users, Phone, FileText, ChevronDown, UserPlus, User } from 'lucide-react';
+import { Users, Phone, FileText, Search, ChevronDown, UserPlus, User } from 'lucide-react';
 import { Client } from '../../types';
 import { maskPhone, maskDocument, capitalizeName } from '../../utils/formatters';
 
@@ -49,7 +49,7 @@ export const LoanFormClientSection: React.FC<LoanFormClientSectionProps> = ({
                 onChange={e => handleClientSelect(e.target.value)}
                 className={`${inputClass} appearance-none pr-11 cursor-pointer hover:bg-slate-900/50`}
             >
-                <option value="">-- Selecionar Cliente --</option>
+                <option value="">-- Selecionar ou Criar --</option>
                 {clients.sort((a, b) => a.name.localeCompare(b.name)).map(c => <option key={c.id} value={c.id}>{capitalizeName(c.name)}</option>)}
             </select>
             <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none group-hover:text-blue-500 transition-colors" size={18} />
@@ -106,7 +106,7 @@ export const LoanFormClientSection: React.FC<LoanFormClientSectionProps> = ({
             <Phone className={iconPosition} size={16} />
             <input required type="tel" value={formData.debtorPhone || ''} onChange={e => setFormData({...formData, debtorPhone: maskPhone(e.target.value)})} className={inputClass} placeholder="WhatsApp" />
           </div>
-          <button type="button" onClick={handlePickContact} className="h-14 w-14 bg-slate-950/50 border border-slate-800/80 rounded-lg text-slate-400 hover:text-emerald-500 hover:bg-emerald-500/10 transition-all flex items-center justify-center"><Phone className="w-5 h-5" /></button>
+          <button type="button" onClick={handlePickContact} className="h-14 w-14 bg-slate-950/50 border border-slate-800/80 rounded-lg text-slate-400 hover:text-emerald-500 hover:bg-emerald-500/10 transition-all flex items-center justify-center"><Search className="w-5 h-5" /></button>
         </div>
         <div className="relative group">
           <FileText className={iconPosition} size={16} />
